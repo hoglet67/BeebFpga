@@ -277,6 +277,8 @@ signal  FL_DQ       :   std_logic_vector(7 downto 0);
 
 signal sdclk_int : std_logic;
 
+signal RAMWRn_int : std_logic;
+
 begin
     -------------------------
     -- COMPONENT INSTANCES
@@ -670,7 +672,7 @@ begin
         ram_write := ram_enable and not cpu_r_nw;
 
         if reset_n = '0' then
-            RAMWRn <= '1';
+            RAMWRn_int <= '1';
             SRAM_DATA(7 downto 0) <= (others => 'Z');
         elsif rising_edge(clock) then
             -- Default to inputs
@@ -679,18 +681,19 @@ begin
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
             if vid_clken = '1' then
                 -- Fetch data from previous CPU cycle
-                RAMWRn <= not ram_write;
+                RAMWRn_int <= not ram_write;
                 SRAM_ADDR <= "00000" & cpu_a(15 downto 0);
                 if ram_write = '1' then
                     SRAM_DATA(7 downto 0) <= cpu_do;
                 end if;
             else
                 -- Fetch data from previous display cycle
-                RAMWRn <= '1';
+                RAMWRn_int <= '1';
                 SRAM_ADDR <= "000000" & display_a;
             end if;
         end if;
     end process;
+    RAMWRn <= RAMWRn_int or (not clock);
 
     -- Address translation logic for calculation of display address
     process(crtc_ma,crtc_ra,disp_addr_offs)

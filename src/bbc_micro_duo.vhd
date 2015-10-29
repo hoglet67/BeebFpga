@@ -19,7 +19,7 @@
 --   specific prior written agreement from the author.
 --
 -- * License is granted for non-commercial use only.  A fee may not be charged
---   for redistributions as source code or in synthesized/hardware form without 
+--   for redistributions as source code or in synthesized/hardware form without
 --   specific prior written agreement from the author.
 --
 -- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -80,14 +80,13 @@ entity bbc_micro_duo is
            SW1            : in    std_logic;
            JOYSTICK1      : in    std_logic_vector (7 downto 0);
            JOYSTICK2      : in    std_logic_vector (7 downto 0)
-        
-    
-        
+
+
+
     );
 end entity;
 
 architecture rtl of bbc_micro_duo is
-
 
 -------------
 -- Signals
@@ -97,6 +96,7 @@ architecture rtl of bbc_micro_duo is
 signal clock        :   std_logic;
 signal hard_reset_n :   std_logic;
 signal reset_n      :   std_logic;
+signal CLOCK_24     :   std_logic;
 
 -- Clock enable counter
 -- CPU and video cycles are interleaved.  The CPU runs at 2 MHz (every 16th
@@ -105,11 +105,13 @@ signal clken_counter    :   unsigned(4 downto 0);
 signal cpu_cycle        :   std_logic; -- Qualifies all 2 MHz cycles
 signal cpu_cycle_mask   :   std_logic; -- Set to mask CPU cycles until 1 MHz cycle is complete
 signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabled
+
 -- IO cycles are out of phase with the CPU
 signal vid_clken        :   std_logic; -- 16 MHz video cycles
 signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
+
 -- SAA5050 needs a 6 MHz clock enable relative to a 24 MHz clock
 signal ttxt_clken_counter   :   unsigned(1 downto 0);
 signal ttxt_clken       :   std_logic;
@@ -240,10 +242,12 @@ signal pcm_inr          :   std_logic_vector(15 downto 0);
 signal ram_enable       :   std_logic;      -- 0x0000
 signal rom_enable       :   std_logic;      -- 0x8000 (BASIC/sideways ROMs)
 signal mos_enable       :   std_logic;      -- 0xC000
+
 -- IO region enables
 signal io_fred          :   std_logic;      -- 0xFC00 (1 MHz bus)
 signal io_jim           :   std_logic;      -- 0xFD00 (1 MHz bus)
 signal io_sheila        :   std_logic;      -- 0xFE00 (System peripherals)
+
 -- SHIELA
 signal crtc_enable      :   std_logic;      -- 0xFE00-FE07
 signal acia_enable      :   std_logic;      -- 0xFE08-FE0F
@@ -263,10 +267,10 @@ signal romsel           :   std_logic_vector(3 downto 0);
 signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz peripheral
 
 -- Flash
-signal  FL_ADDR     :   std_logic_vector(14 downto 0);
+signal  FL_ADDR     :   std_logic_vector(15 downto 0);
 signal  FL_DQ       :   std_logic_vector(7 downto 0);
 
-signal CLOCK_24 : std_logic;
+signal sdclk_int : std_logic;
 
 begin
     -------------------------
@@ -279,15 +283,15 @@ begin
         CLKIN_IN => clk_32M00,
         CLK0_OUT => CLOCK_24,
         CLK0_OUT1 => open,
-        CLK2X_OUT => open 
+        CLK2X_OUT => open
     );
 
-    rom : entity work.rom_basic2_os12 port map(
+    rom : entity work.rom_image port map(
         clk_i               => clock,
         addr_i              => FL_ADDR,
         data_o              => FL_DQ
     );
-    
+
     -- 6502 CPU
     cpu : entity work.T65 port map (
         cpu_mode,
@@ -311,7 +315,7 @@ begin
         cpu_a,
         cpu_di,
         cpu_do );
-        
+
     crtc : entity work.mc6845 port map (
         clock,
         crtc_clken,
@@ -328,7 +332,7 @@ begin
         crtc_lpstb,
         crtc_ma,
         crtc_ra );
-        
+
     video_ula : entity work.vidproc port map (
         clock,
         vid_clken,
@@ -344,7 +348,7 @@ begin
         r_in, g_in, b_in,
         r_out, g_out, b_out
         );
-        
+
     teletext : entity work.saa5050 port map (
         CLOCK_24, -- This runs at 6 MHz, which we can't derive from the 32 MHz clock
         ttxt_clken,
@@ -358,7 +362,7 @@ begin
         ttxt_lose,
         ttxt_r, ttxt_g, ttxt_b, ttxt_y
         );
-        
+
     -- System VIA
     system_via : entity work.m6522 port map (
         cpu_a(3 downto 0),
@@ -390,7 +394,7 @@ begin
         mhz4_clken,
         clock
         );
-    
+        
     -- User VIA
     user_via : entity work.m6522 port map (
         cpu_a(3 downto 0),
@@ -422,7 +426,7 @@ begin
         mhz4_clken,
         clock
         );
-        
+
     -- Keyboard
     keyb : entity work.keyboard port map (
         clock, hard_reset_n, mhz1_clken,
@@ -436,7 +440,7 @@ begin
         -- TODO: Add DIP Switches
         "00000000"
         );
-        
+
     -- Sound generator (and drive logic for I2S codec)
     sound : entity work.sn76489_top port map (
         clock, mhz4_clken,
@@ -451,28 +455,28 @@ begin
 		dac_i => std_logic_vector(sound_ao),
 		dac_o => audio
 	);
-    
+
     -- TODO: Add DAC
     audioL <= audio;
     audioR <= audio;
-    
-       
+
+
     -- Keyboard and System VIA are reset by external reset switch or PLL being out of lock
     hard_reset_n <= not ERST;
     -- Rest of system is reset by all of the above plus the keyboard BREAK key
     reset_n <= hard_reset_n and not keyb_break;
-        
+
     -- Clock enable generation - 32 MHz clock split into 32 cycles
     -- CPU is on 0 and 16 (but can be masked by 1 MHz bus accesses)
     -- Video is on all odd cycles (16 MHz)
-    -- 1 MHz cycles are on cycle 31 (1 MHz) 
+    -- 1 MHz cycles are on cycle 31 (1 MHz)
     vid_clken <= clken_counter(0); -- 1,3,5...
     mhz4_clken <= clken_counter(0) and clken_counter(1) and clken_counter(2); -- 7/15/23/31
     mhz2_clken <= mhz4_clken and clken_counter(3); -- 15/31
     mhz1_clken <= mhz2_clken and clken_counter(4); -- 31
     cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3)); -- 0/16
     cpu_clken <= cpu_cycle and not cpu_cycle_mask;
-    
+
     clk_gen: process(clock,reset_n)
     begin
         if reset_n = '0' then
@@ -481,7 +485,7 @@ begin
             clken_counter <= clken_counter + 1;
         end if;
     end process;
-    
+
     cycle_stretch: process(clock,reset_n,mhz2_clken)
     begin
         if reset_n = '0' then
@@ -499,7 +503,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     ttxt_clk_gen: process(CLOCK_24,reset_n)
     begin
         if reset_n = '0' then
@@ -508,7 +512,7 @@ begin
             ttxt_clken_counter <= ttxt_clken_counter + 1;
         end if;
     end process;
-    
+
     -- 6 MHz clock enable for SAA5050
     ttxt_clken <= '1' when ttxt_clken_counter = 0 else '0';
 
@@ -518,7 +522,7 @@ begin
     cpu_abort_n <= '1';
     cpu_nmi_n <= '1';
     cpu_so_n <= '1';
-    
+
     -- Address decoding
     -- 0x0000 = 32 KB SRAM
     -- 0x8000 = 16 KB BASIC/Sideways ROMs
@@ -539,7 +543,7 @@ begin
     mhz1_enable <= io_fred or io_jim or
         adc_enable or sys_via_enable or user_via_enable or
         serproc_enable or acia_enable or crtc_enable;
-    
+
     -- SHEILA address demux
     -- All the system peripherals are mapped into this page as follows:
     -- 0xFE00 - 0xFE07 = MC6845 CRTC
@@ -567,7 +571,7 @@ begin
         adlc_enable <= '0';
         adc_enable <= '0';
         tube_enable <= '0';
-        
+
         if io_sheila = '1' then
             case cpu_a(7 downto 5) is
                 when "000" =>
@@ -604,7 +608,7 @@ begin
             end case;
         end if;
     end process;
-    
+
     -- CPU data bus mux and interrupts
     cpu_di <=
         SRAM_DATA(7 downto 0) when ram_enable = '1' else
@@ -616,32 +620,33 @@ begin
         user_via_do when user_via_enable = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
     cpu_irq_n <= sys_via_irq_n and user_via_irq_n;
-    
+
     -- ROMs are in external flash and split into 16K slots (since this also suits other
     -- computers that might be run on the same board).
     -- The first 8 slots are allocated for use here, and the first 4 are decoded as
     -- the sideways ROMs.  Slot 7 is used for the MOS.
 
-    FL_ADDR(14) <= mos_enable;
-    FL_ADDR(13 downto 0) <= cpu_a(13 downto 0);     
-        
+    FL_ADDR(15) <= mos_enable;
+    FL_ADDR(14) <= romsel(0);
+    FL_ADDR(13 downto 0) <= cpu_a(13 downto 0);
+
     -- SRAM bus
     RAMCEn <= '0';
     RamOEn <= '0';
-    
+
     -- Synchronous outputs to SRAM
     process(clock,reset_n)
     variable ram_write : std_logic;
-    begin       
+    begin
         ram_write := ram_enable and not cpu_r_nw;
-    
+
         if reset_n = '0' then
             RAMWRn <= '1';
             SRAM_DATA(7 downto 0) <= (others => 'Z');
         elsif rising_edge(clock) then
             -- Default to inputs
             SRAM_DATA(7 downto 0) <= (others => 'Z');
-            
+
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
             if vid_clken = '1' then
                 -- Fetch data from previous CPU cycle
@@ -657,7 +662,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Address translation logic for calculation of display address
     process(crtc_ma,crtc_ra,disp_addr_offs)
     variable aa : unsigned(3 downto 0);
@@ -685,7 +690,7 @@ begin
                 null;
             end case;
         end if;
-        
+
         if crtc_ma(13) = '0' then
             -- HI RES
             display_a <= std_logic_vector(aa(3 downto 0)) & crtc_ma(7 downto 0) & crtc_ra(2 downto 0);
@@ -694,27 +699,27 @@ begin
             display_a <= std_logic(aa(3)) & "1111" & crtc_ma(9 downto 0);
         end if;
     end process;
-    
+
     -- VIDPROC
     vidproc_invert_n <= '1';
     vidproc_disen <= crtc_de and not crtc_ra(3); -- DISEN is masked off by RA(3) for MODEs 3 and 6
     r_in <= ttxt_r;
     g_in <= ttxt_g;
     b_in <= ttxt_b;
-    
+
     -- SAA5050
     ttxt_glr <= not crtc_hsync;
     ttxt_dew <= crtc_vsync;
     ttxt_crs <= not crtc_ra(0);
     ttxt_lose <= crtc_de;
-    
+
     -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
     hsync <= not (crtc_hsync xor crtc_vsync);
     vsync <= '1';
     red <= r_out & r_out & r_out & r_out;
     green <= g_out & g_out & g_out & g_out;
     blue <= b_out & b_out & b_out & b_out;
-    
+
     -- Connections to System VIA
     -- ADC
     sys_via_cb1_in <= '1'; -- /EOC
@@ -731,18 +736,33 @@ begin
     sound_di <= sys_via_pa_out;
     -- Others (idle until missing bits implemented)
     sys_via_pb_in(7 downto 4) <= (others => '1');
-    
+
     -- Connections to User VIA (user port is output on green LEDs)
     user_via_ca1_in <= '1'; -- Pulled up
-    
+
     -- MMBEEB
-    user_via_cb1_in <= user_via_pb_out(1);
-    SDCLK <= user_via_pb_out(1); -- SCLK
-    SDMOSI <= user_via_pb_out(0); -- SDO
-    SDSS <= '0'; -- CS
-    user_via_cb2_in <= SDMISO; -- SDI
-    user_via_pb_in <= user_via_pb_out;
+
+    -- SDCLK is driven from either PB1 or CB1 depending on the SR Mode
+    sdclk_int     <= user_via_pb_out(1) when user_via_pb_oe_n(1) = '0' else
+                     user_via_cb1_out   when user_via_cb1_oe_n = '0' else                     
+                     '1';
     
+    SDCLK           <= sdclk_int;
+    user_via_cb1_in <= sdclk_int;
+    
+    -- SDMOSI is always driven from PB0
+    SDMOSI        <= user_via_pb_out(0) when user_via_pb_oe_n(0) = '0' else
+                     '1';
+    
+    -- SDMISO is always read from CB2
+    user_via_cb2_in <= SDMISO; -- SDI
+    
+    -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
+    SDSS          <= '0';         
+
+ 
+    user_via_pb_in <= user_via_pb_out;
+
     -- ROM select latch
     process(clock,reset_n)
     begin
@@ -754,7 +774,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- IC32 latch
     sound_enable_n <= ic32(0);
     speech_write_n <= ic32(1);
@@ -763,19 +783,19 @@ begin
     disp_addr_offs <= ic32(5 downto 4);
     caps_lock_led_n <= ic32(6);
     shift_lock_led_n <= ic32(7);
-    
+
     process(clock,reset_n)
     variable bit_num : integer;
     begin
         bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
-    
+
         if reset_n = '0' then
             ic32 <= (others => '0');
         elsif rising_edge(clock) then
             ic32(bit_num) <= sys_via_pb_out(3);
         end if;
     end process;
-    
+
     -- Keyboard LEDs
     LED1 <= not caps_lock_led_n;
     LED2 <= not shift_lock_led_n;
@@ -784,7 +804,5 @@ begin
     avr_TxD <= '1';
     uart_TxD <= '1';
     ARDUINO_RESET <= SW1;
-    
-    
-end architecture;
 
+end architecture;

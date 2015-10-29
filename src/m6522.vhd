@@ -769,7 +769,9 @@ begin
             -- input
             if (sr_cnt(3) = '1') or (cb1_ip = '1') then
               if sr_strobe_rising then
-                r_sr <= r_sr(6 downto 0) & I_CB2;
+                r_sr(0) <= I_CB2;
+              elsif sr_strobe_falling then
+                r_sr(7 downto 1) <= r_sr(6 downto 0);
               end if;
             end if;
             sr_out <= '1';
@@ -789,7 +791,7 @@ begin
 
         sr_count_ena := sr_strobe_rising;
 
-        if sr_write_ena or sr_read_ena then
+        if ena = '1' and (sr_write_ena or sr_read_ena) then
         -- some documentation says sr bit in IFR must be set as well ?
           sr_cnt <= "1000";
         elsif sr_count_ena and (sr_cnt(3) = '1') then

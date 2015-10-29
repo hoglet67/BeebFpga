@@ -3,9 +3,9 @@ use ieee.std_logic_1164.ALL;
 use ieee.numeric_std.ALL;
 use std.textio.all;
 
-entity rom_basic2_os12 is
+entity rom_image is
     generic (
-        ADDR_WIDTH       : integer := 15;
+        ADDR_WIDTH       : integer := 16;
         DATA_WIDTH       : integer := 8
     );
     port (
@@ -13,9 +13,9 @@ entity rom_basic2_os12 is
         addr_i    : in  std_logic_vector(ADDR_WIDTH-1 downto 0);
         data_o    : out std_logic_vector(DATA_WIDTH-1 downto 0)
     );
-end rom_basic2_os12;
+end rom_image;
 
-architecture rtl of rom_basic2_os12 is
+architecture rtl of rom_image is
 
 constant MEM_DEPTH : integer := 2**ADDR_WIDTH;
 type mem_type is array (0 to MEM_DEPTH-1) of signed(DATA_WIDTH-1 downto 0);
@@ -34,7 +34,7 @@ begin
     return temp_mem;
 end function;
 
-constant mem : mem_type := init_mem("rom_basic2_os12.mif");
+constant mem : mem_type := init_mem("rom_image.mif");
 
 begin
 

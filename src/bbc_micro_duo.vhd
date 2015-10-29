@@ -46,7 +46,10 @@ use IEEE.NUMERIC_STD.ALL;
 
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
-
+    generic (
+       UseT65Core    : boolean := true;
+       UseAlanDCore  : boolean := false
+       );
      port (clk_32M00      : in    std_logic;
            ps2_clk        : in    std_logic;
            ps2_data       : in    std_logic;
@@ -135,6 +138,8 @@ signal cpu_vpa          :   std_logic;
 signal cpu_a            :   std_logic_vector(23 downto 0);
 signal cpu_di           :   std_logic_vector(7 downto 0);
 signal cpu_do           :   std_logic_vector(7 downto 0);
+signal cpu_addr_us      :   unsigned (15 downto 0);
+signal cpu_dout_us      :   unsigned (7 downto 0);
 
 -- CRTC signals
 signal crtc_clken       :   std_logic;
@@ -293,6 +298,7 @@ begin
     );
 
     -- 6502 CPU
+    GenT65Core: if UseT65Core generate
     cpu : entity work.T65 port map (
         cpu_mode,
         reset_n,
@@ -315,6 +321,27 @@ begin
         cpu_a,
         cpu_di,
         cpu_do );
+    end generate;    
+    
+    GenAlanDCore: if UseAlanDCore generate
+        inst_r65c02: entity work.r65c02 port map (
+            reset    => reset_n,
+            clk      => clock,
+            enable   => cpu_clken,
+            nmi_n    => cpu_nmi_n,
+            irq_n    => cpu_irq_n,
+            di       => unsigned(cpu_di),
+            do       => cpu_dout_us,
+            addr     => cpu_addr_us,
+            nwe      => cpu_r_nw,
+            sync     => cpu_sync,
+            sync_irq => open,
+            Regs     => open            
+        );
+        cpu_do <= std_logic_vector(cpu_dout_us);
+        cpu_a(15 downto 0) <= std_logic_vector(cpu_addr_us);
+        cpu_a(23 downto 16) <= (others => '0');
+    end generate;
 
     crtc : entity work.mc6845 port map (
         clock,
@@ -618,6 +645,8 @@ begin
         "00000010"  when acia_enable = '1' else
         sys_via_do  when sys_via_enable = '1' else
         user_via_do when user_via_enable = '1' else
+        "11111110"  when io_sheila = '1' else
+        "11111111"  when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
     cpu_irq_n <= sys_via_irq_n and user_via_irq_n;
 

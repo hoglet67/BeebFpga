@@ -63,11 +63,11 @@ entity bbc_micro_duo is
            hsync          : out   std_logic;
            audioL         : out   std_logic;
            audioR         : out   std_logic;
-           RAMOEn         : out   std_logic;
-           RAMWRn         : out   std_logic;
-           RAMCEn         : out   std_logic;
-           SRAM_ADDR      : out   std_logic_vector (20 downto 0);
-           SRAM_DATA      : inout std_logic_vector (7 downto 0);
+           SRAM_nOE       : out   std_logic;
+           SRAM_nWE       : out   std_logic;
+           SRAM_nCS       : out   std_logic;
+           SRAM_A         : out   std_logic_vector (20 downto 0);
+           SRAM_D         : inout std_logic_vector (7 downto 0);
            SDMISO         : in    std_logic;
            SDSS           : out   std_logic;
            SDCLK          : out   std_logic;
@@ -82,10 +82,11 @@ entity bbc_micro_duo is
            ARDUINO_RESET  : out   std_logic;
            SW1            : in    std_logic;
            JOYSTICK1      : in    std_logic_vector (7 downto 0);
-           JOYSTICK2      : in    std_logic_vector (7 downto 0)
-
-
-
+           FLASH_CS       : out   std_logic;                     -- Active low FLASH chip select
+           FLASH_SI       : out   std_logic;                     -- Serial output to FLASH chip SI pin
+           FLASH_CK       : out   std_logic;                     -- FLASH clock
+           FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
+           TEST           : out   std_logic_vector (7 downto 0)
     );
 end entity;
 
@@ -271,15 +272,52 @@ signal romsel           :   std_logic_vector(3 downto 0);
 
 signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz peripheral
 
--- Flash
-signal  FL_ADDR     :   std_logic_vector(15 downto 0);
-signal  FL_DQ       :   std_logic_vector(7 downto 0);
-
 signal sdclk_int : std_logic;
 
-signal RAMWRn_int : std_logic;
+-----------------------------------------------
+-- Bootstrap ROM Image from SPI FLASH into SRAM
+-----------------------------------------------
 
+-- start address of user data in FLASH as obtained from bitmerge.py
+-- this is safely beyond the end of the bitstream
+constant user_address   : std_logic_vector(23 downto 0) := x"060000";
+
+-- user_length = 17x 16K ROM images
+constant user_length    : std_logic_vector(23 downto 0) := x"044000";
+
+--
+-- bootstrap signals
+--
+signal bootstrap_busy   : std_logic := '0';     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
+signal flash_init       : std_logic := '0';     -- when low places FLASH driver in init state
+signal flash_Done       : std_logic := '0';     -- FLASH init finished when high
+signal flash_data       : std_logic_vector(7 downto 0) := (others => '0');
+
+-- bootstrap control of SRAM, these signals connect to SRAM when boostrap_busy = '1'
+signal bs_A             : std_logic_vector(20 downto 0) := (others => '0');
+signal bs_Dout          : std_logic_vector(7 downto 0) := (others => '0');
+signal bs_nCS           : std_logic := '0';
+signal bs_nWE           : std_logic := '0';
+signal bs_nOE           : std_logic := '1';
+
+-- user control of SRAM, these signals connect to SRAM when boostrap_busy = '0'
+signal RAM_A            :   std_logic_vector (20 downto 0);
+signal RAM_Din          :   std_logic_vector (7 downto 0);
+signal RAM_Dout         :   std_logic_vector (7 downto 0);
+signal RAM_nCS          :   std_logic;
+signal RAM_nWE          :   std_logic;
+signal RAM_nOE          :   std_logic;
+
+-- for bootstrap state machine
+type    BS_STATE_TYPE is (
+            INIT, START_READ_FLASH, READ_FLASH, FLASH0, FLASH1, FLASH2, FLASH3, FLASH4, FLASH5, FLASH6, FLASH7,
+            WAIT0, WAIT1, WAIT2, WAIT3, WAIT4, WAIT5, WAIT6, WAIT7, WAIT8, WAIT9, WAIT10, WAIT11
+        );
+        
+signal bs_state, bs_state_next : BS_STATE_TYPE := INIT;
+        
 begin
+
     -------------------------
     -- COMPONENT INSTANCES
     -------------------------
@@ -291,12 +329,6 @@ begin
         CLK0_OUT => CLOCK_24,
         CLK0_OUT1 => open,
         CLK2X_OUT => open
-    );
-
-    rom : entity work.rom_image port map(
-        clk_i               => clock,
-        addr_i              => FL_ADDR,
-        data_o              => FL_DQ
     );
 
     -- 6502 CPU
@@ -370,7 +402,7 @@ begin
         vidproc_enable,
         cpu_a(0),
         cpu_do,
-        SRAM_DATA(7 downto 0),
+        RAM_Din,
         vidproc_invert_n,
         vidproc_disen,
         crtc_cursor,
@@ -384,7 +416,7 @@ begin
         reset_n,
         clock, -- Data input is synchronised from the bus clock domain
         vid_clken,
-        SRAM_DATA(6 downto 0),
+        RAM_Din(6 downto 0),
         ttxt_glr,
         ttxt_dew,
         ttxt_crs,
@@ -478,20 +510,128 @@ begin
         sound_ao
         );
 
-	dac : entity work.pwm_sddac PORT MAP(
+	dac : entity work.pwm_sddac port map(
 		clk_i => clock,
 		reset => '0',
 		dac_i => std_logic_vector(sound_ao),
 		dac_o => audio
 	);
-
-    -- TODO: Add DAC
     audioL <= audio;
     audioR <= audio;
 
+    -- FLASH chip SPI driver
+    u_flash : entity work.spi_flash port map (
+        U_FLASH_CK => FLASH_CK,
+        U_FLASH_CS => FLASH_CS,
+        U_FLASH_SI => FLASH_SI,
+        U_FLASH_SO => FLASH_SO,
+        flash_addr => user_address,
+        flash_data => flash_data,
+        flash_init => flash_init,
+        flash_Done => flash_Done,
+        flash_clk  => clock
+    );
 
-    -- Keyboard and System VIA are reset by external reset switch or PLL being out of lock
-    hard_reset_n <= not ERST;
+    -------------------------
+    -- BOOTSTRAP
+    -------------------------
+
+    -- SRAM muxer, allows access to physical SRAM by either bootstrap or user
+    SRAM_D          <= bs_Dout when bootstrap_busy = '1' and bs_nWE = '0' else RAM_Dout when bootstrap_busy = '0' and RAM_nWE = '0' else (others => 'Z');
+    SRAM_A          <= bs_A    when bootstrap_busy = '1' else RAM_A;
+    SRAM_nCS        <= bs_nCS  when bootstrap_busy = '1' else RAM_nCS;
+    SRAM_nOE        <= bs_nOE  when bootstrap_busy = '1' else RAM_nOE;
+    SRAM_nWE        <= bs_nWE  when bootstrap_busy = '1' else (RAM_nWE or not clock);
+
+    RAM_Din         <= SRAM_D; -- anyone can read SRAM_D without contention but his provides some logical separation
+
+    -- bootstrap state machine
+    state_bootstrap : process(clock, ERST, bs_state_next)
+        begin
+            bs_state <= bs_state_next;                            -- advance bootstrap state machine
+            if ERST = '1' then                                    -- external reset pin
+                bs_state_next <= INIT;                            -- move state machine to INIT state
+            elsif rising_edge(clock) then
+                case bs_state is
+                    when INIT =>
+                        bootstrap_busy <= '1';                    -- indicate bootstrap in progress (holds user in reset)
+                        flash_init <= '0';                        -- signal FLASH to begin init
+                        bs_A   <= (others => '1');                -- SRAM address all ones (becomes zero on first increment)
+                        bs_nCS <= '0';                            -- SRAM always selected during bootstrap
+                        bs_nOE <= '1';                            -- SRAM output disabled during bootstrap
+                        bs_nWE <= '1';                            -- SRAM write enable inactive default state
+                        bs_state_next <= START_READ_FLASH;
+                    when START_READ_FLASH =>
+                        flash_init <= '1';                        -- allow FLASH to exit init state
+                        if flash_Done = '0' then                  -- wait for FLASH init to begin
+                            bs_state_next <= READ_FLASH;
+                        end if;
+                    when READ_FLASH =>
+                        if flash_Done = '1' then                  -- wait for FLASH init to complete
+                            bs_state_next <= WAIT0;
+                        end if;
+                    when WAIT0 =>                                 -- wait for the first FLASH byte to be available
+                        bs_state_next <= WAIT1;
+                    when WAIT1 =>
+                        bs_state_next <= WAIT2;
+                    when WAIT2 =>
+                        bs_state_next <= WAIT3;
+                    when WAIT3 =>
+                        bs_state_next <= WAIT4;
+                    when WAIT4 =>
+                        bs_state_next <= WAIT5;
+                    when WAIT5 =>
+                        bs_state_next <= WAIT6;
+                    when WAIT6 =>
+                        bs_state_next <= WAIT7;
+                    when WAIT7 =>
+                        bs_state_next <= WAIT8;
+                    when WAIT8 =>
+                        bs_state_next <= FLASH0;
+                    when WAIT9 =>
+                        bs_state_next <= WAIT10;
+                    when WAIT10 =>
+                        bs_state_next <= WAIT11;
+                    when WAIT11 =>
+                        bs_state_next <= FLASH0;
+                    -- every 8 clock cycles (32M/8 = 2Mhz) we have a new byte from FLASH
+                    -- use this ample time to write it to SRAM, we just have to toggle nWE
+                    when FLASH0 =>
+                        bs_A <= std_logic_vector(unsigned(bs_A) + 1);  -- increment SRAM address
+                        bs_state_next <= FLASH1;                  -- idle
+                    when FLASH1 =>
+                        bs_Dout( 7 downto 0) <= flash_data;       -- place byte on SRAM data bus
+                        bs_state_next <= FLASH2;                  -- idle
+                    when FLASH2 =>
+                        bs_nWE <= '0';                            -- SRAM write enable
+                        bs_state_next <= FLASH3;
+                    when FLASH3 =>
+                        bs_state_next <= FLASH4;                  -- idle
+                    when FLASH4 =>
+                        bs_state_next <= FLASH5;                  -- idle
+                    when FLASH5 =>
+                        bs_state_next <= FLASH6;                  -- idle
+                    when FLASH6 =>
+                        bs_nWE <= '1';                            -- SRAM write disable
+                        bs_state_next <= FLASH7;
+                    when FLASH7 =>
+                        if "000" & bs_A = user_length then        -- when we've reached end address
+                            bootstrap_busy <= '0';                -- indicate bootsrap is done
+                            flash_init <= '0';                    -- place FLASH in init state
+                            bs_state_next <= FLASH7;              -- remain in this state until reset
+                        else
+                            bs_state_next <= FLASH0;              -- else loop back
+                        end if;
+                    when others =>                                -- catch all, never reached
+                        bs_state_next <= INIT;
+                end case;
+            end if;
+        end process;
+
+
+    -- Keyboard and System VIA are reset by external reset switch or during bootstrap
+    hard_reset_n <= not ERST and not bootstrap_busy;
+    
     -- Rest of system is reset by all of the above plus the keyboard BREAK key
     reset_n <= hard_reset_n and not keyb_break;
 
@@ -640,9 +780,7 @@ begin
 
     -- CPU data bus mux and interrupts
     cpu_di <=
-        SRAM_DATA(7 downto 0) when ram_enable = '1' else
-        FL_DQ       when rom_enable = '1' else
-        FL_DQ       when mos_enable = '1' else
+        RAM_Din     when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
         crtc_do     when crtc_enable = '1' else
         "00000010"  when acia_enable = '1' else
         sys_via_do  when sys_via_enable = '1' else
@@ -650,20 +788,12 @@ begin
         "11111110"  when io_sheila = '1' else
         "11111111"  when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
+        
     cpu_irq_n <= sys_via_irq_n and user_via_irq_n;
 
-    -- ROMs are in external flash and split into 16K slots (since this also suits other
-    -- computers that might be run on the same board).
-    -- The first 8 slots are allocated for use here, and the first 4 are decoded as
-    -- the sideways ROMs.  Slot 7 is used for the MOS.
-
-    FL_ADDR(15) <= mos_enable;
-    FL_ADDR(14) <= romsel(0);
-    FL_ADDR(13 downto 0) <= cpu_a(13 downto 0);
-
     -- SRAM bus
-    RAMCEn <= '0';
-    RamOEn <= '0';
+    RAM_nCS <= '0';
+    RAM_nOE <= '0';
 
     -- Synchronous outputs to SRAM
     process(clock,reset_n)
@@ -672,28 +802,35 @@ begin
         ram_write := ram_enable and not cpu_r_nw;
 
         if reset_n = '0' then
-            RAMWRn_int <= '1';
-            SRAM_DATA(7 downto 0) <= (others => 'Z');
+            RAM_nWE  <= '1';
+            RAM_Dout <= (others => 'Z');
         elsif rising_edge(clock) then
             -- Default to inputs
-            SRAM_DATA(7 downto 0) <= (others => 'Z');
+            RAM_Dout <= (others => 'Z');
 
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
             if vid_clken = '1' then
                 -- Fetch data from previous CPU cycle
-                RAMWRn_int <= not ram_write;
-                SRAM_ADDR <= "00000" & cpu_a(15 downto 0);
+                if (rom_enable = '1') then
+                    RAM_A   <= "000" & romsel & cpu_a(13 downto 0);
+                    RAM_nWE <= '1';
+                elsif (mos_enable = '1') then
+                    RAM_A   <= "0010000" & cpu_a(13 downto 0);
+                    RAM_nWE <= '1';
+                else
+                    RAM_A   <= "00110" & cpu_a(15 downto 0);
+                    RAM_nWE <= not ram_write;
+                end if;
                 if ram_write = '1' then
-                    SRAM_DATA(7 downto 0) <= cpu_do;
+                    RAM_Dout <= cpu_do;
                 end if;
             else
                 -- Fetch data from previous display cycle
-                RAMWRn_int <= '1';
-                SRAM_ADDR <= "000000" & display_a;
+                RAM_nWE <= '1';
+                RAM_A   <= "001100" & display_a;
             end if;
         end if;
     end process;
-    RAMWRn <= RAMWRn_int or (not clock);
 
     -- Address translation logic for calculation of display address
     process(crtc_ma,crtc_ra,disp_addr_offs)
@@ -836,5 +973,9 @@ begin
     avr_TxD <= '1';
     uart_TxD <= '1';
     ARDUINO_RESET <= SW1;
+
+    -- Test outputs
+    
+    TEST <= (others => '0');
 
 end architecture;

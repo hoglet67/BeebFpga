@@ -274,8 +274,12 @@ begin
           end case;
         end if;
 
-        if (r_acr(7) = '1') and (t1_toggle = '1') then
-          r_orb(7) <= not r_orb(7); -- toggle
+        if (r_acr(7) = '1') then
+          if t1_load_counter then
+            r_orb(7) <= '0'; -- writing T1C-H resets bit 7
+          elsif (t1_toggle = '1') then
+            r_orb(7) <= not r_orb(7); -- toggle
+          end if;
         end if;
       end if;
     end if;

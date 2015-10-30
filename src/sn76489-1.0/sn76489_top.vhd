@@ -198,7 +198,7 @@ begin
 
 
 	-- Register output
-	process(clock_i)
+	process(clock_i, res_n_i)
 	begin
 		if res_n_i = '0' then
 			aout_o <= (others => '0');

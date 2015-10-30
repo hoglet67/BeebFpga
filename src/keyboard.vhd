@@ -103,7 +103,7 @@ type key_matrix is array(0 to 15) of std_logic_vector(7 downto 0);
 signal keys			:	key_matrix;
 signal col			:	unsigned(3 downto 0);
 signal release		:	std_logic;
-signal extended		:	std_logic;
+--signal extended		:	std_logic;
 begin
 
 	ps2 : ps2_intf port map (
@@ -155,7 +155,7 @@ begin
 	begin
 		if nRESET = '0' then
 			release <= '0';
-			extended <= '0';
+			--extended <= '0';
 			
 			BREAK_OUT <= '0';
 			
@@ -191,14 +191,14 @@ begin
 				-- Decode keyboard input
 				if keyb_data = X"e0" then
 					-- Extended key code follows
-					extended <= '1';
+					--extended <= '1';
 				elsif keyb_data = X"f0" then
 					-- Release code follows
 					release <= '1';
 				else
 					-- Cancel extended/release flags for next time
 					release <= '0';
-					extended <= '0';
+					--extended <= '0';
 					
 					-- Decode scan codes
 					case keyb_data is

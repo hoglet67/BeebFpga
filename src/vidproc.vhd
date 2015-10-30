@@ -169,9 +169,11 @@ begin
 	begin
 		if nRESET = '0' then
 			clken_counter <= (others => '0');
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			-- Increment internal cycle counter during each video clock
-			clken_counter <= clken_counter + 1;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                -- Increment internal cycle counter during each video clock
+                clken_counter <= clken_counter + 1;
+            end if;
 		end if;
 	end process;
 	
@@ -180,15 +182,17 @@ begin
 	begin
 		if nRESET = '0' then
 			shiftreg <= (others => '0');
-		elsif rising_edge(CLOCK) and clken_pixel = '1' then
-			if clken_fetch = '1' then
-				-- Fetch next byte from RAM into shift register.  This always occurs in
-				-- cycle 0, and also in cycle 8 if the CRTC is clocked at double rate.
-				shiftreg <= DI_RAM;
-			else
-				-- Clock shift register and input '1' at LSB
-				shiftreg <= shiftreg(6 downto 0) & "1";
-			end if;
+		elsif rising_edge(CLOCK) then
+            if clken_pixel = '1' then
+                if clken_fetch = '1' then
+                    -- Fetch next byte from RAM into shift register.  This always occurs in
+                    -- cycle 0, and also in cycle 8 if the CRTC is clocked at double rate.
+                    shiftreg <= DI_RAM;
+                else
+                    -- Clock shift register and input '1' at LSB
+                    shiftreg <= shiftreg(6 downto 0) & "1";
+                end if;
+            end if;
 		end if;
 	end process;
 	
@@ -197,30 +201,33 @@ begin
 		((r0_cursor0 and not (cursor_counter(0) or cursor_counter(1))) or
 		(r0_cursor1 and cursor_counter(0) and not cursor_counter(1)) or
 		(r0_cursor2 and cursor_counter(1)));
+        
 	process(CLOCK,nRESET)
 	begin
 		if nRESET = '0' then
 			cursor_active <= '0';
 			cursor_counter <= (others => '0');
-		elsif rising_edge(CLOCK) and clken_fetch = '1' then
-			if CURSOR = '1' or cursor_active = '1' then
-				-- Latch cursor
-				cursor_active <= '1';
-		
-				-- Reset on counter wrap
-				if cursor_counter = "11" then
-					cursor_active <= '0';
-				end if;
-				
-				-- Increment counter
-				if cursor_active = '0' then
-					-- Reset
-					cursor_counter <= (others => '0');
-				else
-					-- Increment
-					cursor_counter <= cursor_counter + 1;
-				end if;
-			end if;
+		elsif rising_edge(CLOCK) then
+            if clken_fetch = '1' then
+                if CURSOR = '1' or cursor_active = '1' then
+                    -- Latch cursor
+                    cursor_active <= '1';
+            
+                    -- Reset on counter wrap
+                    if cursor_counter = "11" then
+                        cursor_active <= '0';
+                    end if;
+                    
+                    -- Increment counter
+                    if cursor_active = '0' then
+                        -- Reset
+                        cursor_counter <= (others => '0');
+                    else
+                        -- Increment
+                        cursor_counter <= cursor_counter + 1;
+                    end if;
+                end if;
+            end if;
 		end if;
 	end process;
 	
@@ -243,37 +250,39 @@ begin
 			G <= '0';
 			B <= '0';
 			delayed_disen <= '0';
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			-- Look up dot value in the palette.  Bits are as follows:
-			-- bit 3 - FLASH
-			-- bit 2 - Not BLUE
-			-- bit 1 - Not GREEN
-			-- bit 0 - Not RED
-			palette_a := shiftreg(7) & shiftreg(5) & shiftreg(3) & shiftreg(1);
-			dot_val := palette(to_integer(unsigned(palette_a)));
-		
-			-- Apply flash inversion if required
-			red_val := (dot_val(3) and r0_flash) xor not dot_val(0);
-			green_val := (dot_val(3) and r0_flash) xor not dot_val(1);
-			blue_val := (dot_val(3) and r0_flash) xor not dot_val(2);
-		
-			-- To output
-			-- FIXME: INVERT option
-			if r0_teletext = '0' then
-				-- Cursor can extend outside the bounds of the screen, so
-				-- it is not affected by DISEN
-				R <= (red_val and delayed_disen) xor cursor_invert;
-				G <= (green_val and delayed_disen) xor cursor_invert;
-				B <= (blue_val and delayed_disen) xor cursor_invert;
-			else
-				R <= R_IN xor cursor_invert;
-				G <= G_IN xor cursor_invert;
-				B <= B_IN xor cursor_invert;
-			end if;
-			
-			-- Display enable signal delayed by one clock
-			delayed_disen <= DISEN;
-		end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                -- Look up dot value in the palette.  Bits are as follows:
+                -- bit 3 - FLASH
+                -- bit 2 - Not BLUE
+                -- bit 1 - Not GREEN
+                -- bit 0 - Not RED
+                palette_a := shiftreg(7) & shiftreg(5) & shiftreg(3) & shiftreg(1);
+                dot_val := palette(to_integer(unsigned(palette_a)));
+            
+                -- Apply flash inversion if required
+                red_val := (dot_val(3) and r0_flash) xor not dot_val(0);
+                green_val := (dot_val(3) and r0_flash) xor not dot_val(1);
+                blue_val := (dot_val(3) and r0_flash) xor not dot_val(2);
+            
+                -- To output
+                -- FIXME: INVERT option
+                if r0_teletext = '0' then
+                    -- Cursor can extend outside the bounds of the screen, so
+                    -- it is not affected by DISEN
+                    R <= (red_val and delayed_disen) xor cursor_invert;
+                    G <= (green_val and delayed_disen) xor cursor_invert;
+                    B <= (blue_val and delayed_disen) xor cursor_invert;
+                else
+                    R <= R_IN xor cursor_invert;
+                    G <= G_IN xor cursor_invert;
+                    B <= B_IN xor cursor_invert;
+                end if;
+                
+                -- Display enable signal delayed by one clock
+                delayed_disen <= DISEN;
+            end if;
+        end if;
 	end process;
 end architecture;
 

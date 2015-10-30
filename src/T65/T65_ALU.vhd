@@ -180,7 +180,8 @@ begin
 
   process (Op, P_In, BusA, BusB,
       ADC_Z, ADC_C, ADC_V, ADC_N, ADC_Q,
-      SBC_Z, SBC_C, SBC_V, SBC_N, SBC_Q)
+      SBC_Z, SBC_C, SBC_V, SBC_N, SBC_Q,
+      SBX_Q)
     variable Q_t : std_logic_vector(7 downto 0);
     variable Q2_t : std_logic_vector(7 downto 0);
   begin
@@ -188,6 +189,7 @@ begin
     -- ASL, ROL, LSR, ROR, BIT, LD, DEC, INC
     P_Out <= P_In;
     Q_t := BusA;
+    Q2_t := BusA;
     case Op is
       when ALU_OP_OR=>
         Q_t := BusA or BusB;

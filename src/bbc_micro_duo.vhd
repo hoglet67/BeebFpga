@@ -147,7 +147,7 @@ signal crtc_vsync       :   std_logic;
 signal crtc_hsync       :   std_logic;
 signal crtc_de          :   std_logic;
 signal crtc_cursor      :   std_logic;
-signal crtc_lpstb       :   std_logic := '0';
+constant crtc_lpstb     :   std_logic := '0';
 signal crtc_ma          :   std_logic_vector(13 downto 0);
 signal crtc_ra          :   std_logic_vector(4 downto 0);
 
@@ -201,7 +201,7 @@ signal user_via_do      :   std_logic_vector(7 downto 0);
 signal user_via_do_oe_n :   std_logic;
 signal user_via_irq_n   :   std_logic;
 signal user_via_ca1_in  :   std_logic := '0';
-signal user_via_ca2_in  :   std_logic := '0';
+constant user_via_ca2_in  :   std_logic := '0';
 signal user_via_ca2_out :   std_logic;
 signal user_via_ca2_oe_n    :   std_logic;
 signal user_via_pa_in   :   std_logic_vector(7 downto 0);
@@ -220,8 +220,8 @@ signal user_via_pb_oe_n :   std_logic_vector(7 downto 0);
 -- IC32 latch on System VIA
 signal ic32             :   std_logic_vector(7 downto 0);
 signal sound_enable_n   :   std_logic;
-signal speech_read_n    :   std_logic;
-signal speech_write_n   :   std_logic;
+--signal speech_read_n    :   std_logic;
+--signal speech_write_n   :   std_logic;
 signal keyb_enable_n    :   std_logic;
 signal disp_addr_offs   :   std_logic_vector(1 downto 0);
 signal caps_lock_led_n  :   std_logic;
@@ -260,10 +260,10 @@ signal vidproc_enable   :   std_logic;      -- 0xFE20-FE2F
 signal romsel_enable    :   std_logic;      -- 0xFE30-FE3F
 signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
 signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F
-signal fddc_enable      :   std_logic;      -- 0xFE80-FE9F
-signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
+--signal fddc_enable      :   std_logic;      -- 0xFE80-FE9F
+--signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
 signal adc_enable       :   std_logic;      -- 0xFEC0-FEDF
-signal tube_enable      :   std_logic;      -- 0xFEE0-FEFF
+--signal tube_enable      :   std_logic;      -- 0xFEE0-FEFF
 
 -- ROM select latch
 signal romsel           :   std_logic_vector(3 downto 0);
@@ -323,10 +323,8 @@ begin
     clock <= clk_32M00;
 
     dcm: entity work.dcm1 PORT MAP(
-        CLKIN_IN => clk_32M00,
-        CLK0_OUT => CLOCK_24,
-        CLK0_OUT1 => open,
-        CLK2X_OUT => open
+        CLKIN_IN  => clk_32M00,
+        CLKFX_OUT => CLOCK_24
     );
 
     -- 6502 CPU
@@ -738,10 +736,10 @@ begin
         romsel_enable <= '0';
         sys_via_enable <= '0';
         user_via_enable <= '0';
-        fddc_enable <= '0';
-        adlc_enable <= '0';
+ --     fddc_enable <= '0';
+ --     adlc_enable <= '0';
         adc_enable <= '0';
-        tube_enable <= '0';
+--      tube_enable <= '0';
 
         if io_sheila = '1' then
             case cpu_a(7 downto 5) is
@@ -770,10 +768,10 @@ begin
                     end if;
                 when "010" => sys_via_enable <= '1';    -- 0xFE40
                 when "011" => user_via_enable <= '1';   -- 0xFE60
-                when "100" => fddc_enable <= '1';       -- 0xFE80
-                when "101" => adlc_enable <= '1';       -- 0xFEA0
+--              when "100" => fddc_enable <= '1';       -- 0xFE80
+--              when "101" => adlc_enable <= '1';       -- 0xFEA0
                 when "110" => adc_enable <= '1';        -- 0xFEC0
-                when "111" => tube_enable <= '1';       -- 0xFEE0
+--              when "111" => tube_enable <= '1';       -- 0xFEE0
                 when others =>
                     null;
             end case;
@@ -798,17 +796,17 @@ begin
 
     -- Synchronous outputs to SRAM
     process(clock,reset_n)
-    variable ram_write : std_logic;
     begin
-        ram_write := ram_enable and not cpu_r_nw;
 
         if reset_n = '0' then
             RAM_nOE  <= '1';
             RAM_nWE  <= '1';
-            RAM_Dout <= (others => 'Z');
+            RAM_Dout <= (others => '0');
+            RAM_A    <= (others => '0');
         elsif rising_edge(clock) then
-            -- Default to inputs
-            RAM_Dout <= (others => 'Z');
+            -- Tri-stating of RAM data has been pushed up a level
+            RAM_Dout <= cpu_do;
+            -- Default to reading RAM
             RAM_nWE  <= '1';
             RAM_nOE  <= '0';
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
@@ -826,8 +824,7 @@ begin
                     -- Unused at 0x68000-0x7FFFF
                     RAM_A <= "00110" & cpu_a(15 downto 0);
                 end if;
-                if ram_write = '1' then
-                    RAM_Dout <= cpu_do;
+                if ram_enable = '1' and cpu_r_nw = '0' then
                     RAM_nWE  <= '0';
                     RAM_nOE  <= '1';
                 end if;
@@ -911,6 +908,7 @@ begin
     sound_di <= sys_via_pa_out;
     -- Others (idle until missing bits implemented)
     sys_via_pb_in(7 downto 4) <= (others => '1');
+    sys_via_pb_in(3 downto 0) <= sys_via_pb_out(3 downto 0);
 
     -- Connections to User VIA (user port is output on green LEDs)
     user_via_ca1_in <= '1'; -- Pulled up
@@ -935,7 +933,7 @@ begin
     -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
     SDSS          <= '0';         
 
- 
+    user_via_pa_in <= user_via_pa_out; 
     user_via_pb_in <= user_via_pb_out;
 
     -- ROM select latch
@@ -952,8 +950,8 @@ begin
 
     -- IC32 latch
     sound_enable_n <= ic32(0);
-    speech_write_n <= ic32(1);
-    speech_read_n <= ic32(2);
+ -- speech_write_n <= ic32(1);
+ -- speech_read_n <= ic32(2);
     keyb_enable_n <= ic32(3);
     disp_addr_offs <= ic32(5 downto 4);
     caps_lock_led_n <= ic32(6);
@@ -962,11 +960,10 @@ begin
     process(clock,reset_n)
     variable bit_num : integer;
     begin
-        bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
-
         if reset_n = '0' then
             ic32 <= (others => '0');
         elsif rising_edge(clock) then
+            bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
             ic32(bit_num) <= sys_via_pb_out(3);
         end if;
     end process;

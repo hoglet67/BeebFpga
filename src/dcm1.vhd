@@ -6,23 +6,22 @@ use UNISIM.Vcomponents.all;
 
 entity dcm1 is
     port (CLKIN_IN  : in  std_logic;
-          CLK0_OUT  : out std_logic;
-          CLK0_OUT1 : out std_logic;
-          CLK2X_OUT : out std_logic); 
+          CLKFX_OUT : out std_logic);
 end dcm1;
 
 architecture BEHAVIORAL of dcm1 is
     signal CLKFX_BUF   : std_logic;
     signal CLKIN_IBUFG : std_logic;
     signal GND_BIT     : std_logic;
+    signal CLK0        : std_logic;
 begin
 
     GND_BIT <= '0';
     CLKFX_BUFG_INST : BUFG
-        port map (I => CLKFX_BUF, O => CLK0_OUT);
+        port map (I => CLKFX_BUF, O => CLKFX_OUT);
     
     DCM_INST : DCM
-        generic map(CLK_FEEDBACK          => "NONE",
+        generic map(CLK_FEEDBACK          => "1X",
                     CLKDV_DIVIDE          => 4.0,  -- 24 = 32 * 3/4
                     CLKFX_DIVIDE          => 4,
                     CLKFX_MULTIPLY        => 3,
@@ -36,7 +35,7 @@ begin
                     FACTORY_JF            => x"C080",
                     PHASE_SHIFT           => 0,
                     STARTUP_WAIT          => false)
-        port map (CLKFB    => GND_BIT,
+        port map (CLKFB    => CLK0,
                   CLKIN    => CLKIN_IN,
                   DSSEN    => GND_BIT,
                   PSCLK    => GND_BIT,
@@ -46,7 +45,7 @@ begin
                   CLKDV    => open,
                   CLKFX    => CLKFX_BUF,
                   CLKFX180 => open,
-                  CLK0     => open,
+                  CLK0     => CLK0,
                   CLK2X    => open,
                   CLK2X180 => open,
                   CLK90    => open,

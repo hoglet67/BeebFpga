@@ -161,10 +161,12 @@ begin
 			di_r <= (others => '0');
 			dew_r <= '0';
 			lose_r <= '0';
-		elsif rising_edge(DI_CLOCK) and DI_CLKEN = '1' then
-			di_r <= DI;
-			dew_r <= DEW;
-			lose_r <= LOSE;
+		elsif rising_edge(DI_CLOCK) then
+            if DI_CLKEN = '1' then
+                di_r <= DI;
+                dew_r <= DEW;
+                lose_r <= LOSE;
+            end if;
 		end if;
 	end process;
 	
@@ -173,8 +175,10 @@ begin
 	begin
 		if nRESET = '0' then
 			code <= (others => '0');
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			code <= di_r;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                code <= di_r;
+            end if;
 		end if;
 	end process;
 	
@@ -200,62 +204,64 @@ begin
 			line_counter <= (others => '0');
 			pixel_counter <= (others => '0');
 			flash_counter <= (others => '0');
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			-- Register syncs for edge detection
-			dew_latch <= dew_r;
-			lose_latch <= lose_r;
-			disp_enable_latch <= disp_enable;
-			
-			-- When first entering double-height mode start on top row
-			if double_high = '1' and double_high1 = '0' and double_high2 = '0' then
-				double_high1 <= '1';
-			end if;
-			
-			-- Count pixels between 0 and 5
-			if pixel_counter = 5 then
-				-- Start of next character and delayed display enable
-				pixel_counter <= (others => '0');
-				disp_enable <= lose_latch;
-			else
-				pixel_counter <= pixel_counter + 1;
-			end if;
-			
-			-- Rising edge of LOSE is the start of the active line
-			if lose_r = '1' and lose_latch = '0' then
-				-- Reset pixel counter - small offset to make the output
-				-- line up with the cursor from the video ULA
-				pixel_counter <= "011";
-			end if;
-						
-			-- Count frames on end of VSYNC (falling edge of DEW)
-			if dew_r = '0' and dew_latch = '1' then
-				flash_counter <= flash_counter + 1;
-			end if;
-			
-			if dew_r = '1' then
-				-- Reset line counter and double height state during VSYNC
-				line_counter <= (others => '0');
-				double_high1 <= '0';
-				double_high2 <= '0';
-			else
-				-- Count lines on end of active video (falling edge of disp_enable)
-				if disp_enable = '0' and disp_enable_latch = '1' then
-					if line_counter = 9 then
-						line_counter <= (others => '0');
-						
-						-- Keep track of which row we are on for double-height
-						-- The double_high flag can be cleared before the end of a row, but if
-						-- double height characters are used anywhere on a row then the double_high1
-						-- flag will be set and remain set until the next row.  This is used
-						-- to determine that the bottom half of the characters should be shown if
-						-- double_high is set once again on the row below.
-						double_high1 <= '0';
-						double_high2 <= double_high1;
-					else
-						line_counter <= line_counter + 1;
-					end if;
-				end if;
-			end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                -- Register syncs for edge detection
+                dew_latch <= dew_r;
+                lose_latch <= lose_r;
+                disp_enable_latch <= disp_enable;
+                
+                -- When first entering double-height mode start on top row
+                if double_high = '1' and double_high1 = '0' and double_high2 = '0' then
+                    double_high1 <= '1';
+                end if;
+                
+                -- Count pixels between 0 and 5
+                if pixel_counter = 5 then
+                    -- Start of next character and delayed display enable
+                    pixel_counter <= (others => '0');
+                    disp_enable <= lose_latch;
+                else
+                    pixel_counter <= pixel_counter + 1;
+                end if;
+                
+                -- Rising edge of LOSE is the start of the active line
+                if lose_r = '1' and lose_latch = '0' then
+                    -- Reset pixel counter - small offset to make the output
+                    -- line up with the cursor from the video ULA
+                    pixel_counter <= "011";
+                end if;
+                            
+                -- Count frames on end of VSYNC (falling edge of DEW)
+                if dew_r = '0' and dew_latch = '1' then
+                    flash_counter <= flash_counter + 1;
+                end if;
+                
+                if dew_r = '1' then
+                    -- Reset line counter and double height state during VSYNC
+                    line_counter <= (others => '0');
+                    double_high1 <= '0';
+                    double_high2 <= '0';
+                else
+                    -- Count lines on end of active video (falling edge of disp_enable)
+                    if disp_enable = '0' and disp_enable_latch = '1' then
+                        if line_counter = 9 then
+                            line_counter <= (others => '0');
+                            
+                            -- Keep track of which row we are on for double-height
+                            -- The double_high flag can be cleared before the end of a row, but if
+                            -- double height characters are used anywhere on a row then the double_high1
+                            -- flag will be set and remain set until the next row.  This is used
+                            -- to determine that the bottom half of the characters should be shown if
+                            -- double_high is set once again on the row below.
+                            double_high1 <= '0';
+                            double_high2 <= double_high1;
+                        else
+                            line_counter <= line_counter + 1;
+                        end if;
+                    end if;
+                end if;
+            end if;
 		end if;
 	end process;
 	
@@ -264,30 +270,32 @@ begin
 	begin
 		if nRESET = '0' then
 			shift_reg <= (others => '0');
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			if disp_enable = '1' and pixel_counter = 0 then
-				-- Load the shift register with the ROM bit pattern
-				-- at the start of each character while disp_enable is asserted.
-				shift_reg <= rom_data(5 downto 0);
-				
-				-- If bit 7 of the ROM data is set then this is a graphics
-				-- character and separated/hold graphics modes apply.
-				-- We don't just assume this to be the case if gfx=1 because
-				-- these modes don't apply to caps even in graphics mode
-				if rom_data(7) = '1' then
-					-- Apply a mask for separated graphics mode
-					if gfx_sep = '1' then
-						shift_reg(5) <= '0';
-						shift_reg(2) <= '0';
-						if line_counter = 2 or line_counter = 6 or line_counter = 9 then
-							shift_reg <= (others => '0');
-						end if;
-					end if;
-				end if;
-			else
-				-- Pump the shift register
-				shift_reg <= shift_reg(4 downto 0) & "0";
-			end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                if disp_enable = '1' and pixel_counter = 0 then
+                    -- Load the shift register with the ROM bit pattern
+                    -- at the start of each character while disp_enable is asserted.
+                    shift_reg <= rom_data(5 downto 0);
+                    
+                    -- If bit 7 of the ROM data is set then this is a graphics
+                    -- character and separated/hold graphics modes apply.
+                    -- We don't just assume this to be the case if gfx=1 because
+                    -- these modes don't apply to caps even in graphics mode
+                    if rom_data(7) = '1' then
+                        -- Apply a mask for separated graphics mode
+                        if gfx_sep = '1' then
+                            shift_reg(5) <= '0';
+                            shift_reg(2) <= '0';
+                            if line_counter = 2 or line_counter = 6 or line_counter = 9 then
+                                shift_reg <= (others => '0');
+                            end if;
+                        end if;
+                    end if;
+                else
+                    -- Pump the shift register
+                    shift_reg <= shift_reg(4 downto 0) & "0";
+                end if;
+            end if;
 		end if;
 	end process;
 	
@@ -303,61 +311,63 @@ begin
 			gfx_hold <= '0';
 			is_flash <= '0';
 			double_high <= '0';
-		elsif rising_edge(CLOCK) and CLKEN = '1' then			
-			if disp_enable = '0' then
-				-- Reset to start of line defaults
-				fg <= (others => '1');
-				bg <= (others => '0');
-				conceal <= '0';
-				gfx <= '0';
-				gfx_sep <= '0';
-				gfx_hold <= '0';
-				is_flash <= '0';
-				double_high <= '0';
-			elsif pixel_counter = 0 then
-				-- Latch new control codes at the start of each character
-				if code(6 downto 5) = "00" then
-					if code(3) = '0' then
-						-- Colour and graphics setting clears conceal mode
-						conceal <= '0';
-						
-						-- Select graphics or alpha mode
-						gfx <= code(4);
-						
-						-- 0 would be black but is not allowed so has no effect,
-						-- otherwise set the colour
-						if code(2 downto 0) /= "000" then
-							fg <= code(2 downto 0);
-						end if;
-					else
-						case code(4 downto 0) is
-						-- FLASH
-						when "01000" => is_flash <= '1';
-						-- STEADY
-						when "01001" => is_flash <= '0';
-						-- NORMAL HEIGHT
-						when "01100" => double_high <= '0';
-						-- DOUBLE HEIGHT
-						when "01101" => double_high <= '1';
-						-- CONCEAL
-						when "11000" => conceal <= '1';
-						-- CONTIGUOUS GFX
-						when "11001" => gfx_sep <= '0';
-						-- SEPARATED GFX
-						when "11010" => gfx_sep <= '1';
-						-- BLACK BACKGROUND
-						when "11100" => bg <= (others => '0');
-						-- NEW BACKGROUND
-						when "11101" => bg <= fg;
-						-- HOLD GFX
-						when "11110" => gfx_hold <= '1';
-						-- RELEASE GFX
-						when "11111" => gfx_hold <= '0';
-						
-						when others => null;
-						end case;
-					end if;
-				end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                if disp_enable = '0' then
+                    -- Reset to start of line defaults
+                    fg <= (others => '1');
+                    bg <= (others => '0');
+                    conceal <= '0';
+                    gfx <= '0';
+                    gfx_sep <= '0';
+                    gfx_hold <= '0';
+                    is_flash <= '0';
+                    double_high <= '0';
+                elsif pixel_counter = 0 then
+                    -- Latch new control codes at the start of each character
+                    if code(6 downto 5) = "00" then
+                        if code(3) = '0' then
+                            -- Colour and graphics setting clears conceal mode
+                            conceal <= '0';
+                            
+                            -- Select graphics or alpha mode
+                            gfx <= code(4);
+                            
+                            -- 0 would be black but is not allowed so has no effect,
+                            -- otherwise set the colour
+                            if code(2 downto 0) /= "000" then
+                                fg <= code(2 downto 0);
+                            end if;
+                        else
+                            case code(4 downto 0) is
+                            -- FLASH
+                            when "01000" => is_flash <= '1';
+                            -- STEADY
+                            when "01001" => is_flash <= '0';
+                            -- NORMAL HEIGHT
+                            when "01100" => double_high <= '0';
+                            -- DOUBLE HEIGHT
+                            when "01101" => double_high <= '1';
+                            -- CONCEAL
+                            when "11000" => conceal <= '1';
+                            -- CONTIGUOUS GFX
+                            when "11001" => gfx_sep <= '0';
+                            -- SEPARATED GFX
+                            when "11010" => gfx_sep <= '1';
+                            -- BLACK BACKGROUND
+                            when "11100" => bg <= (others => '0');
+                            -- NEW BACKGROUND
+                            when "11101" => bg <= fg;
+                            -- HOLD GFX
+                            when "11110" => gfx_hold <= '1';
+                            -- RELEASE GFX
+                            when "11111" => gfx_hold <= '0';
+                            
+                            when others => null;
+                            end case;
+                        end if;
+                    end if;
+                end if;
 			end if;
 		end if;
 	end process;
@@ -366,26 +376,29 @@ begin
 	process(CLOCK,nRESET)
 	variable pixel : std_logic;
 	begin	
-		pixel := shift_reg(5) and not ((flash and is_flash) or conceal);
 		
 		if nRESET = '0' then
 			R <= '0';
 			G <= '0';
 			B <= '0';
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			-- Generate mono output
-			Y <= pixel;
-			
-			-- Generate colour output
-			if pixel = '1' then
-				R <= fg(0);
-				G <= fg(1);
-				B <= fg(2);
-			else
-				R <= bg(0);
-				G <= bg(1);
-				B <= bg(2);
-			end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                pixel := shift_reg(5) and not ((flash and is_flash) or conceal);
+
+                -- Generate mono output
+                Y <= pixel;
+                
+                -- Generate colour output
+                if pixel = '1' then
+                    R <= fg(0);
+                    G <= fg(1);
+                    B <= fg(2);
+                else
+                    R <= bg(0);
+                    G <= bg(1);
+                    B <= bg(2);
+                end if;
+            end if;
 		end if;
 	end process;
 end architecture;

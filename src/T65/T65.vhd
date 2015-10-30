@@ -157,7 +157,7 @@ end T65;
 architecture rtl of T65 is
 
   -- Registers
-  signal ABC, X, Y, D       : std_logic_vector(15 downto 0);
+  signal ABC, X, Y          : std_logic_vector(15 downto 0);
   signal P, AD, DL          : std_logic_vector(7 downto 0) :=  x"00";
   signal PwithB             : std_logic_vector(7 downto 0);--ML:New way to push P with correct B state to stack
   signal BAH                : std_logic_vector(7 downto 0);
@@ -302,7 +302,7 @@ begin
 
   -- the 65xx design requires at least two clock cycles before
   -- starting its reset sequence (according to datasheet)
-  process (Res_n_i, Clk)
+  process (Res_n, Clk)
   begin
     if Res_n = '0' then
       Res_n_i <= '0';
@@ -319,7 +319,6 @@ begin
       PC <= (others => '0');  -- Program Counter
       IR <= "00000000";
       S <= (others => '0');       -- Dummy
-      D <= (others => '0');
       PBR <= (others => '0');
       DBR <= (others => '0');
 
@@ -338,7 +337,6 @@ begin
         if (really_rdy = '1') then
           WRn_i <= not Write or RstCycle;
 
-          D <= (others => '1');   -- Dummy
           PBR <= (others => '1'); -- Dummy
           DBR <= (others => '1'); -- Dummy
           EF_i <= '0';    -- Dummy

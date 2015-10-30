@@ -250,75 +250,77 @@ begin
 			-- Addressing
 			ma_row_start := (others => '0');
 			ma_i <= (others => '0');
-		elsif rising_edge(CLOCK) and CLKEN='1' then		
-			-- Horizontal counter increments on each clock, wrapping at
-			-- h_total
-			if h_counter = r00_h_total then
-				-- h_total reached
-				h_counter <= (others => '0');
-				
-				-- In interlace sync + video mode mask off the LSb of the
-				-- max scan line address
-				if r08_interlace = "11" then
-					max_scan_line := r09_max_scan_line_addr(4 downto 1) & "0";
-				else
-					max_scan_line := r09_max_scan_line_addr;
-				end if;
-				
-				-- Scan line counter increments, wrapping at max_scan_line_addr
-				if line_counter = max_scan_line then
-					-- Next character row
-					-- FIXME: No support for v_total_adj yet
-					line_counter <= (others => '0');
-					if row_counter = r04_v_total then
-						-- If in interlace mode we toggle to the opposite field.
-						-- Save on some logic by doing this here rather than at the
-						-- end of v_total_adj - it shouldn't make any difference to the
-						-- output
-						if r08_interlace(0) = '1' then
-							odd_field <= not odd_field;
-						else
-							odd_field <= '0';
-						end if;
-						
-						-- Address is loaded from start address register at the top of
-						-- each field and the row counter is reset
-						ma_row_start := r12_start_addr_h & r13_start_addr_l;
-						row_counter <= (others => '0');	
-						
-						-- Increment field counter
-						field_counter <= field_counter + 1;					
-					else
-						-- On all other character rows within the field the row start address is
-						-- increased by h_displayed and the row counter is incremented
-						ma_row_start := ma_row_start + r01_h_displayed;
-						row_counter <= row_counter + 1;
-					end if;
-				else
-					-- Next scan line.  Count in twos in interlaced sync+video mode
-					if r08_interlace = "11" then
-						line_counter <= line_counter + 2;
-						line_counter(0) <= '0'; -- Force to even
-					else
-						line_counter <= line_counter + 1;
-					end if;
-				end if;
-				
-				-- Memory address preset to row start at the beginning of each
-				-- scan line					
-				ma_i <= ma_row_start;
-			else
-				-- Increment horizontal counter
-				h_counter <= h_counter + 1;
-				-- Increment memory address
-				ma_i <= ma_i + 1;
-			end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                -- Horizontal counter increments on each clock, wrapping at
+                -- h_total
+                if h_counter = r00_h_total then
+                    -- h_total reached
+                    h_counter <= (others => '0');
+                    
+                    -- In interlace sync + video mode mask off the LSb of the
+                    -- max scan line address
+                    if r08_interlace = "11" then
+                        max_scan_line := r09_max_scan_line_addr(4 downto 1) & "0";
+                    else
+                        max_scan_line := r09_max_scan_line_addr;
+                    end if;
+                    
+                    -- Scan line counter increments, wrapping at max_scan_line_addr
+                    if line_counter = max_scan_line then
+                        -- Next character row
+                        -- FIXME: No support for v_total_adj yet
+                        line_counter <= (others => '0');
+                        if row_counter = r04_v_total then
+                            -- If in interlace mode we toggle to the opposite field.
+                            -- Save on some logic by doing this here rather than at the
+                            -- end of v_total_adj - it shouldn't make any difference to the
+                            -- output
+                            if r08_interlace(0) = '1' then
+                                odd_field <= not odd_field;
+                            else
+                                odd_field <= '0';
+                            end if;
+                            
+                            -- Address is loaded from start address register at the top of
+                            -- each field and the row counter is reset
+                            ma_row_start := r12_start_addr_h & r13_start_addr_l;
+                            row_counter <= (others => '0');	
+                            
+                            -- Increment field counter
+                            field_counter <= field_counter + 1;					
+                        else
+                            -- On all other character rows within the field the row start address is
+                            -- increased by h_displayed and the row counter is incremented
+                            ma_row_start := ma_row_start + r01_h_displayed;
+                            row_counter <= row_counter + 1;
+                        end if;
+                    else
+                        -- Next scan line.  Count in twos in interlaced sync+video mode
+                        if r08_interlace = "11" then
+                            line_counter <= line_counter + 2;
+                            line_counter(0) <= '0'; -- Force to even
+                        else
+                            line_counter <= line_counter + 1;
+                        end if;
+                    end if;
+                    
+                    -- Memory address preset to row start at the beginning of each
+                    -- scan line					
+                    ma_i <= ma_row_start;
+                else
+                    -- Increment horizontal counter
+                    h_counter <= h_counter + 1;
+                    -- Increment memory address
+                    ma_i <= ma_i + 1;
+                end if;
+            end if;
 		end if;
 	end process;
 	
 	-- Signals to mark hsync and half way points for generating
 	-- vsync in even and odd fields
-	process(h_counter)
+	process(h_counter, r02_h_sync_pos)
 	begin
 		h_sync_start <= '0';
 		h_half_way <= '0';
@@ -344,57 +346,59 @@ begin
 			v_display <= '0';
 			vs <= '0';
 			v_sync_counter <= (others => '0');
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			-- Horizontal active video
-			if h_counter = 0 then
-				-- Start of active video
-				h_display <= '1';
-			end if;
-			if h_counter = r01_h_displayed then
-				-- End of active video
-				h_display <= '0';
-			end if;
-			
-			-- Horizontal sync
-			if h_sync_start = '1' or hs = '1' then
-				-- In horizontal sync
-				hs <= '1';
-				h_sync_counter <= h_sync_counter + 1;
-			else
-				h_sync_counter <= (others => '0');
-			end if;
-			if h_sync_counter = r03_h_sync_width then
-				-- Terminate hsync after h_sync_width (0 means no hsync so this
-				-- can immediately override the setting above)
-				hs <= '0';
-			end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                -- Horizontal active video
+                if h_counter = 0 then
+                    -- Start of active video
+                    h_display <= '1';
+                end if;
+                if h_counter = r01_h_displayed then
+                    -- End of active video
+                    h_display <= '0';
+                end if;
+                
+                -- Horizontal sync
+                if h_sync_start = '1' or hs = '1' then
+                    -- In horizontal sync
+                    hs <= '1';
+                    h_sync_counter <= h_sync_counter + 1;
+                else
+                    h_sync_counter <= (others => '0');
+                end if;
+                if h_sync_counter = r03_h_sync_width then
+                    -- Terminate hsync after h_sync_width (0 means no hsync so this
+                    -- can immediately override the setting above)
+                    hs <= '0';
+                end if;
 
-			-- Vertical active video
-			if row_counter = 0 then
-				-- Start of active video
-				v_display <= '1';
-			end if;
-			if row_counter = r06_v_displayed then
-				-- End of active video
-				v_display <= '0';
-			end if;
-			
-			-- Vertical sync occurs either at the same time as the horizontal sync (even fields)
-			-- or half a line later (odd fields)
-			if (odd_field = '0' and h_sync_start = '1') or (odd_field = '1' and h_half_way = '1') then
-				if (row_counter = r07_v_sync_pos and line_counter = 0) or vs = '1' then
-					-- In vertical sync
-					vs <= '1';
-					v_sync_counter <= v_sync_counter + 1;
-				else
-					v_sync_counter <= (others => '0');
-				end if;
-				if v_sync_counter = r03_v_sync_width and vs = '1' then
-					-- Terminate vsync after v_sync_width (0 means 16 lines so this is
-					-- masked by 'vs' to ensure a full turn of the counter in this case)
-					vs <= '0';
-				end if;
-			end if;
+                -- Vertical active video
+                if row_counter = 0 then
+                    -- Start of active video
+                    v_display <= '1';
+                end if;
+                if row_counter = r06_v_displayed then
+                    -- End of active video
+                    v_display <= '0';
+                end if;
+                
+                -- Vertical sync occurs either at the same time as the horizontal sync (even fields)
+                -- or half a line later (odd fields)
+                if (odd_field = '0' and h_sync_start = '1') or (odd_field = '1' and h_half_way = '1') then
+                    if (row_counter = r07_v_sync_pos and line_counter = 0) or vs = '1' then
+                        -- In vertical sync
+                        vs <= '1';
+                        v_sync_counter <= v_sync_counter + 1;
+                    else
+                        v_sync_counter <= (others => '0');
+                    end if;
+                    if v_sync_counter = r03_v_sync_width and vs = '1' then
+                        -- Terminate vsync after v_sync_width (0 means 16 lines so this is
+                        -- masked by 'vs' to ensure a full turn of the counter in this case)
+                        vs <= '0';
+                    end if;
+                end if;
+            end if;
 		end if;
 	end process;
 	
@@ -405,20 +409,22 @@ begin
 		if nRESET = '0' then
 			RA <= (others => '0');
 			MA <= (others => '0');
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			slv_line := std_logic_vector(line_counter);
-		
-			-- Character row address is just the scan line counter delayed by
-			-- one clock to line up with the syncs.
-			if r08_interlace = "11" then
-				-- In interlace sync and video mode the LSb is determined by the
-				-- field number.  The line counter counts up in 2s in this case.
-				RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field);
-			else
-				RA <= slv_line;
-			end if;
-			-- Internal memory address delayed by one cycle as well
-			MA <= std_logic_vector(ma_i);
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                slv_line := std_logic_vector(line_counter);
+            
+                -- Character row address is just the scan line counter delayed by
+                -- one clock to line up with the syncs.
+                if r08_interlace = "11" then
+                    -- In interlace sync and video mode the LSb is determined by the
+                    -- field number.  The line counter counts up in 2s in this case.
+                    RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field);
+                else
+                    RA <= slv_line;
+                end if;
+                -- Internal memory address delayed by one cycle as well
+                MA <= std_logic_vector(ma_i);
+            end if;
 		end if;
 	end process;
 	
@@ -431,30 +437,32 @@ begin
 		if nRESET = '0' then
 			cursor_i <= '0';
 			cursor_line := '0';
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			if h_display = '1' and v_display = '1' and ma_i = r14_cursor_h & r15_cursor_l then
-				if line_counter = 0 then
-					-- Suppress wrap around if last line is > max scan line
-					cursor_line := '0';
-				end if;
-				if line_counter = r10_cursor_start then
-					-- First cursor scanline
-					cursor_line := '1';
-				end if;
-				
-				-- Cursor output is asserted within the current cursor character
-				-- on the selected lines only
-				cursor_i <= cursor_line;
-				
-				if line_counter = r11_cursor_end then
-					-- Last cursor scanline
-					cursor_line := '0';
-				end if;
-			else
-				-- Cursor is off in all character positions apart from the
-				-- selected one
-				cursor_i <= '0';
-			end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                if h_display = '1' and v_display = '1' and ma_i = r14_cursor_h & r15_cursor_l then
+                    if line_counter = 0 then
+                        -- Suppress wrap around if last line is > max scan line
+                        cursor_line := '0';
+                    end if;
+                    if line_counter = r10_cursor_start then
+                        -- First cursor scanline
+                        cursor_line := '1';
+                    end if;
+                    
+                    -- Cursor output is asserted within the current cursor character
+                    -- on the selected lines only
+                    cursor_i <= cursor_line;
+                    
+                    if line_counter = r11_cursor_end then
+                        -- Last cursor scanline
+                        cursor_line := '0';
+                    end if;
+                else
+                    -- Cursor is off in all character positions apart from the
+                    -- selected one
+                    cursor_i <= '0';
+                end if;
+            end if;
 		end if;
 	end process;
 	
@@ -465,15 +473,17 @@ begin
 			lpstb_i <= '0';
 			r16_light_pen_h <= (others => '0');
 			r17_light_pen_l <= (others => '0');
-		elsif rising_edge(CLOCK) and CLKEN = '1' then
-			-- Register light-pen strobe input
-			lpstb_i <= LPSTB;
-			
-			if LPSTB = '1' and lpstb_i = '0' then
-				-- Capture address on rising edge
-				r16_light_pen_h <= ma_i(13 downto 8);
-				r17_light_pen_l <= ma_i(7 downto 0);
-			end if;
+		elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                -- Register light-pen strobe input
+                lpstb_i <= LPSTB;
+                
+                if LPSTB = '1' and lpstb_i = '0' then
+                    -- Capture address on rising edge
+                    r16_light_pen_h <= ma_i(13 downto 8);
+                    r17_light_pen_l <= ma_i(7 downto 0);
+                end if;
+            end if;
 		end if;
 	end process;
 end architecture;

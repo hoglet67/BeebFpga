@@ -65,10 +65,12 @@ begin
     -- advance state machine from state to state
     run_sm : process (flash_clk, flash_init)
     begin
-        if (flash_init = '0') then
-            spi_state <= IDLE;                              -- Initial state
-        elsif rising_edge(flash_clk) then
-            spi_state <= next_spi_state;                    -- next state
+        if rising_edge(flash_clk) then
+            if (flash_init = '0') then
+                spi_state <= IDLE;                      -- Initial state
+            else
+                spi_state <= next_spi_state;            -- next state
+            end if;
         end if;
     end process;
 

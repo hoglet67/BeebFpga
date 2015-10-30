@@ -1,5 +1,9 @@
 -- BBC Micro for Papilio Duo
 --
+-- Coupright (c) 2015 David Banks
+--
+-- Based on previous work by Mike Stirling
+--
 -- Copyright (c) 2011 Mike Stirling
 --
 -- All rights reserved
@@ -38,7 +42,9 @@
 --
 -- Papilio Duo top-level
 --
+-- (c) 2015 David Banks
 -- (C) 2011 Mike Stirling
+
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -53,8 +59,6 @@ entity bbc_micro_duo is
      port (clk_32M00      : in    std_logic;
            ps2_clk        : in    std_logic;
            ps2_data       : in    std_logic;
-           ps2_mouse_clk  : inout std_logic;
-           ps2_mouse_data : inout std_logic;
            ERST           : in    std_logic;
            red            : out   std_logic_vector (3 downto 0);
            green          : out   std_logic_vector (3 downto 0);
@@ -72,16 +76,10 @@ entity bbc_micro_duo is
            SDSS           : out   std_logic;
            SDCLK          : out   std_logic;
            SDMOSI         : out   std_logic;
-           avr_RxD        : in    std_logic;
-           avr_TxD        : out   std_logic;
-           uart_RxD       : in    std_logic;
-           uart_TxD       : out   std_logic;
            LED1           : out   std_logic;
            LED2           : out   std_logic;
-           charSet        : in    std_logic;
            ARDUINO_RESET  : out   std_logic;
            SW1            : in    std_logic;
-           JOYSTICK1      : in    std_logic_vector (7 downto 0);
            FLASH_CS       : out   std_logic;                     -- Active low FLASH chip select
            FLASH_SI       : out   std_logic;                     -- Serial output to FLASH chip SI pin
            FLASH_CK       : out   std_logic;                     -- FLASH clock
@@ -288,25 +286,25 @@ constant user_length    : std_logic_vector(23 downto 0) := x"044000";
 --
 -- bootstrap signals
 --
-signal bootstrap_busy   : std_logic := '0';     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
-signal flash_init       : std_logic := '0';     -- when low places FLASH driver in init state
-signal flash_Done       : std_logic := '0';     -- FLASH init finished when high
-signal flash_data       : std_logic_vector(7 downto 0) := (others => '0');
+signal bootstrap_busy   : std_logic;     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
+signal flash_init       : std_logic;     -- when low places FLASH driver in init state
+signal flash_Done       : std_logic;     -- FLASH init finished when high
+signal flash_data       : std_logic_vector(7 downto 0);
 
 -- bootstrap control of SRAM, these signals connect to SRAM when boostrap_busy = '1'
-signal bs_A             : std_logic_vector(20 downto 0) := (others => '0');
-signal bs_Dout          : std_logic_vector(7 downto 0) := (others => '0');
-signal bs_nCS           : std_logic := '0';
-signal bs_nWE           : std_logic := '0';
-signal bs_nOE           : std_logic := '1';
+signal bs_A             : std_logic_vector(20 downto 0);
+signal bs_Dout          : std_logic_vector(7 downto 0);
+signal bs_nCS           : std_logic;
+signal bs_nWE           : std_logic;
+signal bs_nOE           : std_logic;
 
 -- user control of SRAM, these signals connect to SRAM when boostrap_busy = '0'
-signal RAM_A            :   std_logic_vector (20 downto 0);
-signal RAM_Din          :   std_logic_vector (7 downto 0);
-signal RAM_Dout         :   std_logic_vector (7 downto 0);
-signal RAM_nCS          :   std_logic;
-signal RAM_nWE          :   std_logic;
-signal RAM_nOE          :   std_logic;
+signal RAM_A            : std_logic_vector (20 downto 0);
+signal RAM_Din          : std_logic_vector (7 downto 0);
+signal RAM_Dout         : std_logic_vector (7 downto 0);
+signal RAM_nCS          : std_logic;
+signal RAM_nWE          : std_logic;
+signal RAM_nOE          : std_logic;
 
 -- for bootstrap state machine
 type    BS_STATE_TYPE is (
@@ -541,6 +539,11 @@ begin
     SRAM_A          <= bs_A    when bootstrap_busy = '1' else RAM_A;
     SRAM_nCS        <= bs_nCS  when bootstrap_busy = '1' else RAM_nCS;
     SRAM_nOE        <= bs_nOE  when bootstrap_busy = '1' else RAM_nOE;
+    
+    -- The RAM write is carefully gated to provide adequate data setup/hold time
+    -- Note: the Papilio Duo RAM is fast (10ns), here the WE pulse will be 16.25ns
+    -- Be wary of this if porting to another board!!!
+    
     SRAM_nWE        <= bs_nWE  when bootstrap_busy = '1' else (RAM_nWE or not clock);
 
     RAM_Din         <= SRAM_D; -- anyone can read SRAM_D without contention but his provides some logical separation
@@ -627,7 +630,6 @@ begin
                 end case;
             end if;
         end process;
-
 
     -- Keyboard and System VIA are reset by external reset switch or during bootstrap
     hard_reset_n <= not ERST and not bootstrap_busy;
@@ -793,7 +795,6 @@ begin
 
     -- SRAM bus
     RAM_nCS <= '0';
-    RAM_nOE <= '0';
 
     -- Synchronous outputs to SRAM
     process(clock,reset_n)
@@ -802,32 +803,37 @@ begin
         ram_write := ram_enable and not cpu_r_nw;
 
         if reset_n = '0' then
+            RAM_nOE  <= '1';
             RAM_nWE  <= '1';
             RAM_Dout <= (others => 'Z');
         elsif rising_edge(clock) then
             -- Default to inputs
             RAM_Dout <= (others => 'Z');
-
+            RAM_nWE  <= '1';
+            RAM_nOE  <= '0';
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
             if vid_clken = '1' then
                 -- Fetch data from previous CPU cycle
                 if (rom_enable = '1') then
-                    RAM_A   <= "000" & romsel & cpu_a(13 downto 0);
-                    RAM_nWE <= '1';
+                    -- Paged ROMs at 0x00000-0x3FFFF in the external SRAM
+                    RAM_A <= "000" & romsel & cpu_a(13 downto 0);
                 elsif (mos_enable = '1') then
-                    RAM_A   <= "0010000" & cpu_a(13 downto 0);
-                    RAM_nWE <= '1';
+                    -- MOS ROM at 0x40000-0x43FFF in the external SRAM
+                    RAM_A <= "0010000" & cpu_a(13 downto 0);
                 else
-                    RAM_A   <= "00110" & cpu_a(15 downto 0);
-                    RAM_nWE <= not ram_write;
+                    -- Unused at 0x44000-0x5FFFF
+                    -- Ordinary RAM at 0x60000-0x67FFF
+                    -- Unused at 0x68000-0x7FFFF
+                    RAM_A <= "00110" & cpu_a(15 downto 0);
                 end if;
                 if ram_write = '1' then
                     RAM_Dout <= cpu_do;
+                    RAM_nWE  <= '0';
+                    RAM_nOE  <= '1';
                 end if;
             else
                 -- Fetch data from previous display cycle
-                RAM_nWE <= '1';
-                RAM_A   <= "001100" & display_a;
+                RAM_A <= "001100" & display_a;
             end if;
         end if;
     end process;
@@ -969,9 +975,7 @@ begin
     LED1 <= not caps_lock_led_n;
     LED2 <= not shift_lock_led_n;
 
-        -- Unused Outputs
-    avr_TxD <= '1';
-    uart_TxD <= '1';
+    -- Follow convention for keeping Arduino reset
     ARDUINO_RESET <= SW1;
 
     -- Test outputs

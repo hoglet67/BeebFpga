@@ -46,9 +46,10 @@
 -- (C) 2011 Mike Stirling
 
 
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
@@ -271,6 +272,8 @@ signal romsel           :   std_logic_vector(3 downto 0);
 signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz peripheral
 
 signal sdclk_int : std_logic;
+
+signal reset_counter : std_logic_vector (8 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -528,9 +531,9 @@ begin
         flash_clk  => clock
     );
 
-    -------------------------
-    -- BOOTSTRAP
-    -------------------------
+--------------------------------------------------------
+-- BOOTSTRAP SPI FLASH to SRAM
+--------------------------------------------------------
 
     -- SRAM muxer, allows access to physical SRAM by either bootstrap or user
     SRAM_D          <= bs_Dout when bootstrap_busy = '1' and bs_nWE = '0' else RAM_Dout when bootstrap_busy = '0' and RAM_nWE = '0' else (others => 'Z');
@@ -547,10 +550,10 @@ begin
     RAM_Din         <= SRAM_D; -- anyone can read SRAM_D without contention but his provides some logical separation
 
     -- bootstrap state machine
-    state_bootstrap : process(clock, ERST, bs_state_next)
+    state_bootstrap : process(clock, hard_reset_n, bs_state_next)
         begin
             bs_state <= bs_state_next;                            -- advance bootstrap state machine
-            if ERST = '1' then                                    -- external reset pin
+            if hard_reset_n = '0' then                                    -- external reset pin
                 bs_state_next <= INIT;                            -- move state machine to INIT state
             elsif rising_edge(clock) then
                 case bs_state is
@@ -598,7 +601,7 @@ begin
                     -- every 8 clock cycles (32M/8 = 2Mhz) we have a new byte from FLASH
                     -- use this ample time to write it to SRAM, we just have to toggle nWE
                     when FLASH0 =>
-                        bs_A <= std_logic_vector(unsigned(bs_A) + 1);  -- increment SRAM address
+                        bs_A <= bs_A + 1;                         -- increment SRAM address
                         bs_state_next <= FLASH1;                  -- idle
                     when FLASH1 =>
                         bs_Dout( 7 downto 0) <= flash_data;       -- place byte on SRAM data bus
@@ -629,13 +632,30 @@ begin
             end if;
         end process;
 
-    -- Keyboard and System VIA are reset by external reset switch or during bootstrap
-    hard_reset_n <= not ERST and not bootstrap_busy;
-    
-    -- Rest of system is reset by all of the above plus the keyboard BREAK key
-    reset_n <= hard_reset_n and not keyb_break;
+--------------------------------------------------------
+-- Reset generation
+--------------------------------------------------------
 
-    -- Clock enable generation - 32 MHz clock split into 32 cycles
+    -- Keyboard and System VIA are reset by a power up reset counter and external reset switch
+    reset_gen : process(clock)
+    begin
+        if rising_edge(clock) then
+            if (reset_counter(reset_counter'high) = '0') then
+                reset_counter <= reset_counter + 1;
+            end if;
+            hard_reset_n <= not ERST and reset_counter(reset_counter'high);
+        end if;
+    end process;
+    
+    -- Rest of system is reset by all of the above plus keyboard BREAK key
+    -- In addition, the 6502 is held reset during bootstrap busy
+    reset_n <= hard_reset_n and not bootstrap_busy and not keyb_break;
+
+--------------------------------------------------------
+-- Clock enable generation
+--------------------------------------------------------
+
+    -- 32 MHz clock split into 32 cycles
     -- CPU is on 0 and 16 (but can be masked by 1 MHz bus accesses)
     -- Video is on all odd cycles (16 MHz)
     -- 1 MHz cycles are on cycle 31 (1 MHz)

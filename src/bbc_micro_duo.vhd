@@ -85,6 +85,8 @@ entity bbc_micro_duo is
            FLASH_SI       : out   std_logic;                     -- Serial output to FLASH chip SI pin
            FLASH_CK       : out   std_logic;                     -- FLASH clock
            FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
+           avr_RxD        : in    std_logic;
+           avr_TxD        : out   std_logic;
            TEST           : out   std_logic_vector (7 downto 0)
     );
 end entity;
@@ -99,7 +101,9 @@ architecture rtl of bbc_micro_duo is
 signal clock        :   std_logic;
 signal hard_reset_n :   std_logic;
 signal reset_n      :   std_logic;
+signal reset_n_out  :   std_logic;
 signal CLOCK_24     :   std_logic;
+signal clock_avr    :   std_logic;
 
 -- Clock enable counter
 -- CPU and video cycles are interleaved.  The CPU runs at 2 MHz (every 16th
@@ -108,6 +112,7 @@ signal clken_counter    :   unsigned(4 downto 0);
 signal cpu_cycle        :   std_logic; -- Qualifies all 2 MHz cycles
 signal cpu_cycle_mask   :   std_logic; -- Set to mask CPU cycles until 1 MHz cycle is complete
 signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabled
+signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
 -- IO cycles are out of phase with the CPU
 signal vid_clken        :   std_logic; -- 16 MHz video cycles
@@ -325,56 +330,93 @@ begin
 
     clock <= clk_32M00;
 
-    dcm: entity work.dcm1 PORT MAP(
+    dcm: entity work.dcm1 port map(
         CLKIN_IN  => clk_32M00,
         CLKFX_OUT => CLOCK_24
     );
 
-    -- 6502 CPU
-    GenT65Core: if UseT65Core generate
-    cpu : entity work.T65 port map (
-        cpu_mode,
-        reset_n,
-        cpu_clken,
-        clock,
-        cpu_ready,
-        cpu_abort_n,
-        cpu_irq_n,
-        cpu_nmi_n,
-        cpu_so_n,
-        cpu_r_nw,
-        cpu_sync,
-        cpu_ef,
-        cpu_mf,
-        cpu_xf,
-        cpu_ml_n,
-        cpu_vp_n,
-        cpu_vda,
-        cpu_vpa,
-        cpu_a,
-        cpu_di,
-        cpu_do );
-    end generate;    
-    
-    GenAlanDCore: if UseAlanDCore generate
-        inst_r65c02: entity work.r65c02 port map (
-            reset    => reset_n,
-            clk      => clock,
-            enable   => cpu_clken,
-            nmi_n    => cpu_nmi_n,
-            irq_n    => cpu_irq_n,
-            di       => unsigned(cpu_di),
-            do       => cpu_dout_us,
-            addr     => cpu_addr_us,
-            nwe      => cpu_r_nw,
-            sync     => cpu_sync,
-            sync_irq => open,
-            Regs     => open            
+    core : entity work.MOS6502CpuMonCore
+        generic map (
+            UseT65Core   => UseT65Core,
+            UseAlanDCore => UseAlanDCore
+        )
+        port map (
+            clock_avr    => clock_avr,
+            busmon_clk   => clock,
+            busmon_clken => cpu_clken1,
+            cpu_clk      => clock,
+            cpu_clken    => cpu_clken,
+            IRQ_n        => cpu_irq_n,
+            NMI_n        => cpu_nmi_n,
+            Sync         => cpu_sync,
+            Addr         => cpu_a(15 downto 0),
+            R_W_n        => cpu_r_nw,
+            Din          => cpu_di,
+            Dout         => cpu_do,
+            SO_n         => cpu_so_n,
+            Res_n_in     => reset_n,
+            Res_n_out    => reset_n_out,
+            Rdy          => cpu_ready,
+            trig         => "00",
+            avr_RxD      => avr_RxD,
+            avr_TxD      => avr_TxD,
+            sw1          => '0',
+            nsw2         => hard_reset_n,
+            led3         => open,
+            led6         => open,
+            led8         => open,
+            tmosi        => open,
+            tdin         => open,
+            tcclk        => open 
         );
-        cpu_do <= std_logic_vector(cpu_dout_us);
-        cpu_a(15 downto 0) <= std_logic_vector(cpu_addr_us);
-        cpu_a(23 downto 16) <= (others => '0');
-    end generate;
+    
+--    GenT65Core: if UseT65Core and not UseDebugCore generate
+--        core : entity work.T65
+--        port map (
+--            cpu_mode,
+--            reset_n,
+--            cpu_clken,
+--            clock,
+--            cpu_ready,
+--            cpu_abort_n,
+--            cpu_irq_n,
+--            cpu_nmi_n,
+--            cpu_so_n,
+--            cpu_r_nw,
+--            cpu_sync,
+--            cpu_ef,
+--            cpu_mf,
+--            cpu_xf,
+--            cpu_ml_n,
+--            cpu_vp_n,
+--            cpu_vda,
+--            cpu_vpa,
+--            cpu_a,
+--            cpu_di,
+--            cpu_do
+--        );
+--    end generate;    
+--    
+--    GenAlanDCore: if UseAlanDCore and not UseDebugCore generate
+--        core : entity work.r65c02
+--        port map (
+--            reset    => reset_n,
+--            clk      => clock,
+--            enable   => cpu_clken,
+--            nmi_n    => cpu_nmi_n,
+--            irq_n    => cpu_irq_n,
+--            di       => unsigned(cpu_di),
+--            do       => cpu_dout_us,
+--            addr     => cpu_addr_us,
+--            nwe      => cpu_r_nw,
+--            sync     => cpu_sync,
+--            sync_irq => open,
+--            Regs     => open            
+--        );
+--        cpu_do <= std_logic_vector(cpu_dout_us);
+--        cpu_a(15 downto 0) <= std_logic_vector(cpu_addr_us);
+--        cpu_a(23 downto 16) <= (others => '0');
+--    end generate;
 
     crtc : entity work.mc6845 port map (
         clock,
@@ -649,7 +691,7 @@ begin
     
     -- Rest of system is reset by all of the above plus keyboard BREAK key
     -- In addition, the 6502 is held reset during bootstrap busy
-    reset_n <= hard_reset_n and not bootstrap_busy and not keyb_break;
+    reset_n <= reset_n_out and hard_reset_n and not bootstrap_busy and not keyb_break;
 
 --------------------------------------------------------
 -- Clock enable generation
@@ -668,10 +710,10 @@ begin
 
     clk_gen: process(clock,reset_n)
     begin
-        if reset_n = '0' then
-            clken_counter <= (others => '0');
-        elsif rising_edge(clock) then
+        if rising_edge(clock) then
+            clock_avr <= not clock_avr;
             clken_counter <= clken_counter + 1;
+            cpu_clken1 <= cpu_clken;
         end if;
     end process;
 

@@ -83,8 +83,8 @@ NET FLASH_CK        LOC="P70"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # FLASH
 NET FLASH_SI        LOC="P64"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # FLASH_SI
 NET FLASH_SO        LOC="P65"  | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=FAST | PULLUP; # FLASH_SO
 
-#NET avr_RxD         LOC="P46"  | IOSTANDARD=LVTTL;                       # RX
-#NET avr_TxD         LOC="P141" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # TX
+NET avr_RxD         LOC="P46"  | IOSTANDARD=LVTTL;                       # RX
+NET avr_TxD         LOC="P141" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # TX
 #NET uart_RxD   	    LOC="P116" | IOSTANDARD=LVTTL;                       # A0
 #NET uart_TxD        LOC="P117" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # A1
 #NET charSet         LOC="P111" | IOSTANDARD=LVTTL;                       # B3

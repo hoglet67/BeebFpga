@@ -115,7 +115,7 @@ signal field_counter	:	unsigned(5 downto 0);
 
 -- Internal signals
 signal h_sync_start		:	std_logic;
-signal h_half_way		:	std_logic;
+signal v_sync_start		:	std_logic;
 signal h_display		:	std_logic;
 signal hs				:	std_logic;
 signal v_display		:	std_logic;
@@ -266,35 +266,43 @@ begin
                         max_scan_line := r09_max_scan_line_addr;
                     end if;
                     
-                    -- Scan line counter increments, wrapping at max_scan_line_addr
-                    if line_counter = max_scan_line then
-                        -- Next character row
-                        -- FIXME: No support for v_total_adj yet
+                    -- dmb: get the total number of lines correct in all cases
+                    if (odd_field = '0' and
+                        -- Implement v_total_adj
+                        ((line_counter = max_scan_line   and row_counter = r04_v_total and r05_v_total_adj = 0) or
+                         (line_counter = r05_v_total_adj and row_counter > r04_v_total))) or
+                       (odd_field = '1' and
+                         -- Add one extra line to the odd field
+                         (line_counter > r05_v_total_adj and row_counter > r04_v_total)) then
+                      
                         line_counter <= (others => '0');
-                        if row_counter = r04_v_total then
-                            -- If in interlace mode we toggle to the opposite field.
-                            -- Save on some logic by doing this here rather than at the
-                            -- end of v_total_adj - it shouldn't make any difference to the
-                            -- output
-                            if r08_interlace(0) = '1' then
-                                odd_field <= not odd_field;
-                            else
-                                odd_field <= '0';
-                            end if;
-                            
-                            -- Address is loaded from start address register at the top of
-                            -- each field and the row counter is reset
-                            ma_row_start := r12_start_addr_h & r13_start_addr_l;
-                            row_counter <= (others => '0');	
-                            
-                            -- Increment field counter
-                            field_counter <= field_counter + 1;					
+
+                        -- If in interlace mode we toggle to the opposite field.
+                        -- Save on some logic by doing this here rather than at the
+                        -- end of v_total_adj - it shouldn't make any difference to the
+                        -- output
+                        if r08_interlace(0) = '1' then
+                            odd_field <= not odd_field;
                         else
-                            -- On all other character rows within the field the row start address is
-                            -- increased by h_displayed and the row counter is incremented
-                            ma_row_start := ma_row_start + r01_h_displayed;
-                            row_counter <= row_counter + 1;
+                            odd_field <= '0';
                         end if;
+                            
+                        -- Address is loaded from start address register at the top of
+                        -- each field and the row counter is reset
+                        ma_row_start := r12_start_addr_h & r13_start_addr_l;
+                        row_counter <= (others => '0');	
+                            
+                        -- Increment field counter
+                        field_counter <= field_counter + 1;					                        
+
+                    elsif line_counter = max_scan_line then
+                        -- Scan line counter increments, wrapping at max_scan_line_addr                        
+                        -- Next character row
+                        line_counter <= (others => '0');
+                        -- On all other character rows within the field the row start address is
+                        -- increased by h_displayed and the row counter is incremented
+                        ma_row_start := ma_row_start + r01_h_displayed;
+                        row_counter <= row_counter + 1;
                     else
                         -- Next scan line.  Count in twos in interlaced sync+video mode
                         if r08_interlace = "11" then
@@ -318,18 +326,22 @@ begin
 		end if;
 	end process;
 	
-	-- Signals to mark hsync and half way points for generating
-	-- vsync in even and odd fields
+	-- Signals to mark hsync and and vsync in even and odd fields
 	process(h_counter, r02_h_sync_pos)
 	begin
 		h_sync_start <= '0';
-		h_half_way <= '0';
+		v_sync_start <= '0';
 		
 		if h_counter = r02_h_sync_pos then
 			h_sync_start <= '1';
 		end if;
-		if h_counter = "0" & r02_h_sync_pos(7 downto 1) then
-			h_half_way <= '1';
+
+        -- dmb: measurements on a real beeb confirm this is the actual
+        -- 6845 behaviour. i.e. in non-interlaced mode the start of vsync
+        -- coinscides with the start of the active display, and in intelaced
+        -- mode the vsync of the odd field is delayed by half a scan line
+        if (odd_field = '0' and h_counter = 0) or (odd_field = '1' and h_counter = "0" & r00_h_total(7 downto 1)) then 
+			v_sync_start <= '1';
 		end if;
 	end process;
 	
@@ -384,7 +396,7 @@ begin
                 
                 -- Vertical sync occurs either at the same time as the horizontal sync (even fields)
                 -- or half a line later (odd fields)
-                if (odd_field = '0' and h_sync_start = '1') or (odd_field = '1' and h_half_way = '1') then
+                if (v_sync_start = '1') then
                     if (row_counter = r07_v_sync_pos and line_counter = 0) or vs = '1' then
                         -- In vertical sync
                         vs <= '1';

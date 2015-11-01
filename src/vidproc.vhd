@@ -109,6 +109,10 @@ signal cursor_invert	:	std_logic;
 signal cursor_active	:	std_logic;
 signal cursor_counter	:	unsigned(1 downto 0);
 
+signal RR           	:	std_logic;
+signal GG           	:	std_logic;
+signal BB           	:	std_logic;
+
 begin
 	-- Synchronous register access, enabled on every clock
 	process(CLOCK,nRESET)
@@ -246,9 +250,9 @@ begin
 	variable blue_val : std_logic;
 	begin
 		if nRESET = '0' then
-			R <= '0';
-			G <= '0';
-			B <= '0';
+			RR <= '0';
+			GG <= '0';
+			BB <= '0';
 			delayed_disen <= '0';
 		elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
@@ -267,22 +271,20 @@ begin
             
                 -- To output
                 -- FIXME: INVERT option
-                if r0_teletext = '0' then
-                    -- Cursor can extend outside the bounds of the screen, so
-                    -- it is not affected by DISEN
-                    R <= (red_val and delayed_disen) xor cursor_invert;
-                    G <= (green_val and delayed_disen) xor cursor_invert;
-                    B <= (blue_val and delayed_disen) xor cursor_invert;
-                else
-                    R <= R_IN xor cursor_invert;
-                    G <= G_IN xor cursor_invert;
-                    B <= B_IN xor cursor_invert;
-                end if;
+                RR <= (red_val and delayed_disen) xor cursor_invert;
+                GG <= (green_val and delayed_disen) xor cursor_invert;
+                BB <= (blue_val and delayed_disen) xor cursor_invert;
                 
                 -- Display enable signal delayed by one clock
                 delayed_disen <= DISEN;
             end if;
         end if;
 	end process;
+    
+    -- Allow the 12MHz teletext signals to pass through without re-sampling
+    R <= RR when r0_teletext = '0' else R_IN xor cursor_invert; 
+    G <= GG when r0_teletext = '0' else G_IN xor cursor_invert; 
+    B <= BB when r0_teletext = '0' else B_IN xor cursor_invert; 
+        
 end architecture;
 

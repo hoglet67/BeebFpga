@@ -335,69 +335,71 @@ begin
         CLKFX_OUT => CLOCK_24
     );
 
-    core : entity work.MOS6502CpuMonCore
-        generic map (
-            UseT65Core   => UseT65Core,
-            UseAlanDCore => UseAlanDCore
-        )
-        port map (
-            clock_avr    => clock_avr,
-            busmon_clk   => clock,
-            busmon_clken => cpu_clken1,
-            cpu_clk      => clock,
-            cpu_clken    => cpu_clken,
-            IRQ_n        => cpu_irq_n,
-            NMI_n        => cpu_nmi_n,
-            Sync         => cpu_sync,
-            Addr         => cpu_a(15 downto 0),
-            R_W_n        => cpu_r_nw,
-            Din          => cpu_di,
-            Dout         => cpu_do,
-            SO_n         => cpu_so_n,
-            Res_n_in     => reset_n,
-            Res_n_out    => reset_n_out,
-            Rdy          => cpu_ready,
-            trig         => "00",
-            avr_RxD      => avr_RxD,
-            avr_TxD      => avr_TxD,
-            sw1          => '0',
-            nsw2         => hard_reset_n,
-            led3         => open,
-            led6         => open,
-            led8         => open,
-            tmosi        => open,
-            tdin         => open,
-            tcclk        => open 
-        );
-    
---    GenT65Core: if UseT65Core and not UseDebugCore generate
---        core : entity work.T65
+--    core : entity work.MOS6502CpuMonCore
+--        generic map (
+--            UseT65Core   => UseT65Core,
+--            UseAlanDCore => UseAlanDCore
+--        )
 --        port map (
---            cpu_mode,
---            reset_n,
---            cpu_clken,
---            clock,
---            cpu_ready,
---            cpu_abort_n,
---            cpu_irq_n,
---            cpu_nmi_n,
---            cpu_so_n,
---            cpu_r_nw,
---            cpu_sync,
---            cpu_ef,
---            cpu_mf,
---            cpu_xf,
---            cpu_ml_n,
---            cpu_vp_n,
---            cpu_vda,
---            cpu_vpa,
---            cpu_a,
---            cpu_di,
---            cpu_do
+--            clock_avr    => clock_avr,
+--            busmon_clk   => clock,
+--            busmon_clken => cpu_clken1,
+--            cpu_clk      => clock,
+--            cpu_clken    => cpu_clken,
+--            IRQ_n        => cpu_irq_n,
+--            NMI_n        => cpu_nmi_n,
+--            Sync         => cpu_sync,
+--            Addr         => cpu_a(15 downto 0),
+--            R_W_n        => cpu_r_nw,
+--            Din          => cpu_di,
+--            Dout         => cpu_do,
+--            SO_n         => cpu_so_n,
+--            Res_n_in     => reset_n,
+--            Res_n_out    => reset_n_out,
+--            Rdy          => cpu_ready,
+--            trig         => "00",
+--            avr_RxD      => avr_RxD,
+--            avr_TxD      => avr_TxD,
+--            sw1          => '0',
+--            nsw2         => hard_reset_n,
+--            led3         => open,
+--            led6         => open,
+--            led8         => open,
+--            tmosi        => open,
+--            tdin         => open,
+--            tcclk        => open 
 --        );
---    end generate;    
+
+    reset_n_out <= '1';
+    avr_TxD <= '1';    
+    GenT65Core: if UseT65Core generate
+        core : entity work.T65
+        port map (
+            cpu_mode,
+            reset_n,
+            cpu_clken,
+            clock,
+            cpu_ready,
+            cpu_abort_n,
+            cpu_irq_n,
+            cpu_nmi_n,
+            cpu_so_n,
+            cpu_r_nw,
+            cpu_sync,
+            cpu_ef,
+            cpu_mf,
+            cpu_xf,
+            cpu_ml_n,
+            cpu_vp_n,
+            cpu_vda,
+            cpu_vpa,
+            cpu_a,
+            cpu_di,
+            cpu_do
+        );
+    end generate;    
 --    
---    GenAlanDCore: if UseAlanDCore and not UseDebugCore generate
+--    GenAlanDCore: if UseAlanDCore generate
 --        core : entity work.r65c02
 --        port map (
 --            reset    => reset_n,
@@ -745,7 +747,10 @@ begin
     end process;
 
     -- 6 MHz clock enable for SAA5050
-    ttxt_clken <= '1' when ttxt_clken_counter = 0 else '0';
+    -- ttxt_clken <= '1' when ttxt_clken_counter = 0 else '0';
+
+    -- 12 MHz clock enable for SAA5050
+    ttxt_clken <= not ttxt_clken_counter(0);
 
     -- CPU configuration and fixed signals
     cpu_mode <= "00"; -- 6502
@@ -948,7 +953,7 @@ begin
     ttxt_lose <= crtc_de;
 
     -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
-    hsync <= not (crtc_hsync xor crtc_vsync);
+    hsync <= not (crtc_hsync or crtc_vsync);
     vsync <= '1';
     red <= r_out & r_out & r_out & r_out;
     green <= g_out & g_out & g_out & g_out;
@@ -1039,6 +1044,6 @@ begin
 
     -- Test outputs
     
-    TEST <= (others => '0');
+    TEST <= ttxt_clken & ttxt_crs & r_out & g_out & b_out & crtc_vsync & crtc_hsync & not (crtc_hsync or crtc_vsync);
 
 end architecture;

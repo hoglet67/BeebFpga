@@ -43,168 +43,172 @@
 -- No remote control features (/DATA, DLIM)
 -- No large character support
 -- No support for box overlay (BLAN, PO, DE)
--- No character rounding, although this may be added
 --
 -- FIXME: Hold graphics not supported - this needs to be added
 --
+--
 -- (C) 2011 Mike Stirling
 --
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+-- Character rounding added
+--
+-- (c) 2015 David Banks
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 
 entity saa5050 is
 port (
-	CLOCK		:	in	std_logic;	
-	-- 6 MHz dot clock enable
-	CLKEN		:	in	std_logic;
-	-- Async reset
-	nRESET		:	in	std_logic;
-	
-	-- Character data input (in the bus clock domain)
-	DI_CLOCK	:	in	std_logic;
-	DI_CLKEN	:	in	std_logic;
-	DI			:	in	std_logic_vector(6 downto 0);
-	
-	-- Timing inputs
-	-- General line reset (not used)
-	GLR			:	in	std_logic; -- /HSYNC
-	-- Data entry window - high during VSYNC.
-	-- Resets ROM row counter and drives 'flash' signal
-	DEW			:	in	std_logic; -- VSYNC
-	-- Character rounding select - high during even field
-	CRS			:	in	std_logic; -- FIELD
-	-- Load output shift register enable - high during active video
-	LOSE		:	in	std_logic; -- DE
-	
-	-- Video out
-	R			:	out	std_logic;
-	G			:	out	std_logic;
-	B			:	out	std_logic;
-	Y			:	out	std_logic
-	);
+    CLOCK       :   in  std_logic;  
+    -- 6 MHz dot clock enable
+    CLKEN       :   in  std_logic;
+    -- Async reset
+    nRESET      :   in  std_logic;
+    
+    -- Character data input (in the bus clock domain)
+    DI_CLOCK    :   in  std_logic;
+    DI_CLKEN    :   in  std_logic;
+    DI          :   in  std_logic_vector(6 downto 0);
+    
+    -- Timing inputs
+    -- General line reset (not used)
+    GLR         :   in  std_logic; -- /HSYNC
+    -- Data entry window - high during VSYNC.
+    -- Resets ROM row counter and drives 'flash' signal
+    DEW         :   in  std_logic; -- VSYNC
+    -- Character rounding select - high during even field
+    CRS         :   in  std_logic; -- FIELD
+    -- Load output shift register enable - high during active video
+    LOSE        :   in  std_logic; -- DE
+    
+    -- Video out
+    R           :   out std_logic;
+    G           :   out std_logic;
+    B           :   out std_logic;
+    Y           :   out std_logic
+    );
 end entity;
 
 architecture rtl of saa5050 is
 
-component saa5050_rom IS
-	PORT
-	(
-		address		: IN STD_LOGIC_VECTOR (11 DOWNTO 0);
-		clock		: IN STD_LOGIC ;
-		q		: OUT STD_LOGIC_VECTOR (7 DOWNTO 0)
-	);
-end component;
-
 -- Register inputs in the bus clock domain
-signal di_r			:	std_logic_vector(6 downto 0);
-signal dew_r		:	std_logic;
-signal lose_r		:	std_logic;
+signal di_r         :   std_logic_vector(6 downto 0);
+signal dew_r        :   std_logic;
+signal lose_r       :   std_logic;
 -- Data input registered in the pixel clock domain
-signal code			:	std_logic_vector(6 downto 0);
-signal line_addr	:	unsigned(3 downto 0);
-signal rom_address	:	std_logic_vector(11 downto 0);
-signal rom_data		:	std_logic_vector(7 downto 0);
+signal code         :   std_logic_vector(6 downto 0);
+signal line_addr    :   unsigned(3 downto 0);
+signal rom_address1 :   std_logic_vector(11 downto 0);
+signal rom_address2 :   std_logic_vector(11 downto 0);
+signal rom_data1    :   std_logic_vector(7 downto 0);
+signal rom_data2    :   std_logic_vector(7 downto 0);
 
 -- Delayed display enable derived from LOSE by delaying for one character
-signal disp_enable	:	std_logic;
+signal disp_enable  :   std_logic;
 -- Latched timing signals for detection of falling edges
-signal dew_latch	:	std_logic;
-signal lose_latch	:	std_logic;
-signal disp_enable_latch	:	std_logic;
+signal dew_latch    :   std_logic;
+signal lose_latch   :   std_logic;
+signal disp_enable_latch    :   std_logic;
 
 -- Row and column addressing is handled externally.  We just need to
 -- keep track of which of the 10 lines we are on within the character...
-signal line_counter	:	unsigned(3 downto 0);
--- ... and which of the 6 pixels we are on within each line
-signal pixel_counter :	unsigned(2 downto 0);
+signal line_counter :   unsigned(3 downto 0);
+-- ... and which of the 12 pixels we are on within each line
+signal pixel_counter :  unsigned(3 downto 0);
 -- We also need to count frames to implement the flash feature.
 -- The datasheet says this is 0.75 Hz with a 3:1 on/off ratio, so it
 -- is probably a /64 counter, which gives us 0.78 Hz
-signal flash_counter :	unsigned(5 downto 0);
+signal flash_counter :  unsigned(5 downto 0);
 -- Output shift register
-signal shift_reg	:	std_logic_vector(5 downto 0);
+signal shift_reg    :   std_logic_vector(11 downto 0);
 
 -- Flash mask
-signal flash		:	std_logic;
+signal flash        :   std_logic;
 
 -- Current display state
 -- Foreground colour (B2, G1, R0)
-signal fg			:	std_logic_vector(2 downto 0);
+signal fg           :   std_logic_vector(2 downto 0);
 -- Background colour (B2, G1, R0)
-signal bg			:	std_logic_vector(2 downto 0);
-signal conceal		:	std_logic;
-signal gfx			:	std_logic;
-signal gfx_sep		:	std_logic;
-signal gfx_hold		:	std_logic;
-signal is_flash		:	std_logic;
-signal double_high	:	std_logic;
+signal bg           :   std_logic_vector(2 downto 0);
+signal conceal      :   std_logic;
+signal gfx          :   std_logic;
+signal gfx_sep      :   std_logic;
+signal gfx_hold     :   std_logic;
+signal is_flash     :   std_logic;
+signal double_high  :   std_logic;
 -- Set in first row of double height
-signal double_high1	:	std_logic;
+signal double_high1 :   std_logic;
 -- Set in second row of double height
-signal double_high2	:	std_logic;
+signal double_high2 :   std_logic;
 
 begin
-	char_rom: saa5050_rom port map (
-		rom_address,
-		CLOCK,
-		rom_data
-		);
-		
-	-- Generate flash signal for 3:1 ratio
-	flash <= flash_counter(5) and flash_counter(4);
-		
-	-- Sync inputs
-	process(DI_CLOCK,nRESET)
-	begin
-		if nRESET = '0' then
-			di_r <= (others => '0');
-			dew_r <= '0';
-			lose_r <= '0';
-		elsif rising_edge(DI_CLOCK) then
+
+	char_rom : entity work.saa5050_rom_dual_port port map (
+		clock    => CLOCK,
+		addressA => rom_address1,
+		QA       => rom_data1,
+		addressB => rom_address2,
+		QB       => rom_data2 
+	);
+    -- Generate flash signal for 3:1 ratio
+    flash <= flash_counter(5) and flash_counter(4);
+        
+    -- Sync inputs
+    process(DI_CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            di_r <= (others => '0');
+            dew_r <= '0';
+            lose_r <= '0';
+        elsif rising_edge(DI_CLOCK) then
             if DI_CLKEN = '1' then
                 di_r <= DI;
                 dew_r <= DEW;
                 lose_r <= LOSE;
             end if;
-		end if;
-	end process;
-	
-	-- Register data into pixel clock domain
-	process(CLOCK,nRESET)
-	begin
-		if nRESET = '0' then
-			code <= (others => '0');
-		elsif rising_edge(CLOCK) then
+        end if;
+    end process;
+    
+    -- Register data into pixel clock domain
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            code <= (others => '0');
+        elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 code <= di_r;
             end if;
-		end if;
-	end process;
-	
-	-- Generate character rom address in pixel clock domain
-	-- This is done combinatorially since all the inputs are already
-	-- registered and the address is re-registered by the ROM
-	line_addr <= line_counter				 when double_high = '0' else
-			("0" & line_counter(3 downto 1)) when double_high2 = '0' else
-			("0" & line_counter(3 downto 1)) + 5;
-	rom_address <= (others => '0') when (double_high = '0' and double_high2 = '1') else
-			gfx & code & std_logic_vector(line_addr);
-	
-	-- Character row and pixel counters
-	process(CLOCK,nRESET)
-	begin	
-		if nRESET = '0' then
-			dew_latch <= '0';
-			lose_latch <= '0';
-			disp_enable <= '0';
-			disp_enable_latch <= '0';
-			double_high1 <= '0';
-			double_high2 <= '0';
-			line_counter <= (others => '0');
-			pixel_counter <= (others => '0');
-			flash_counter <= (others => '0');
-		elsif rising_edge(CLOCK) then
+        end if;
+    end process;
+    
+    -- Generate character rom address in pixel clock domain
+    -- This is done combinatorially since all the inputs are already
+    -- registered and the address is re-registered by the ROM
+    line_addr <= line_counter                when double_high = '0' else
+            ("0" & line_counter(3 downto 1)) when double_high2 = '0' else
+            ("0" & line_counter(3 downto 1)) + 5;
+            
+    rom_address1 <= (others => '0') when (double_high = '0' and double_high2 = '1') else
+            gfx & code & std_logic_vector(line_addr);
+
+    -- reference row for character rounding
+    rom_address2 <= rom_address1 + 1 when CRS = '1' else rom_address1 - 1; 
+
+    -- Character row and pixel counters
+    process(CLOCK,nRESET)
+    begin   
+        if nRESET = '0' then
+            dew_latch <= '0';
+            lose_latch <= '0';
+            disp_enable <= '0';
+            disp_enable_latch <= '0';
+            double_high1 <= '0';
+            double_high2 <= '0';
+            line_counter <= (others => '0');
+            pixel_counter <= (others => '0');
+            flash_counter <= (others => '0');
+        elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 -- Register syncs for edge detection
                 dew_latch <= dew_r;
@@ -216,8 +220,8 @@ begin
                     double_high1 <= '1';
                 end if;
                 
-                -- Count pixels between 0 and 5
-                if pixel_counter = 5 then
+                -- Count pixels between 0 and 11
+                if pixel_counter = 11 then
                     -- Start of next character and delayed display enable
                     pixel_counter <= (others => '0');
                     disp_enable <= lose_latch;
@@ -229,7 +233,7 @@ begin
                 if lose_r = '1' and lose_latch = '0' then
                     -- Reset pixel counter - small offset to make the output
                     -- line up with the cursor from the video ULA
-                    pixel_counter <= "011";
+                    pixel_counter <= "0110";
                 end if;
                             
                 -- Count frames on end of VSYNC (falling edge of DEW)
@@ -262,26 +266,50 @@ begin
                     end if;
                 end if;
             end if;
-		end if;
-	end process;
-	
-	-- Shift register
-	process(CLOCK,nRESET)
-	begin
-		if nRESET = '0' then
-			shift_reg <= (others => '0');
-		elsif rising_edge(CLOCK) then
+        end if;
+    end process;
+    
+    -- Shift register
+    process(CLOCK,nRESET)
+    variable a : std_logic_vector(11 downto 0);
+    variable b : std_logic_vector(11 downto 0);
+    begin
+        if nRESET = '0' then
+            shift_reg <= (others => '0');
+        elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 if disp_enable = '1' and pixel_counter = 0 then
+                    -- Character rounding
+                    
+                    -- a is the current row of pixels, doubled up
+                    a := rom_data1(5) & rom_data1(5) &
+                         rom_data1(4) & rom_data1(4) &
+                         rom_data1(3) & rom_data1(3) &
+                         rom_data1(2) & rom_data1(2) &
+                         rom_data1(1) & rom_data1(1) &
+                         rom_data1(0) & rom_data1(0);
+                            
+                    -- b is the adjacent row of pixels, doubled up
+                    b := rom_data2(5) & rom_data2(5) &
+                         rom_data2(4) & rom_data2(4) &
+                         rom_data2(3) & rom_data2(3) &
+                         rom_data2(2) & rom_data2(2) &
+                         rom_data2(1) & rom_data2(1) &
+                         rom_data2(0) & rom_data2(0);
+                            
+                    a := a or
+                         (('0' & a(11 downto 1)) and b and not('0' & b(11 downto 1))) or 
+                         ((a(10 downto 0) & '0') and b and not(b(10 downto 0) & '0'));       
+                           
                     -- Load the shift register with the ROM bit pattern
                     -- at the start of each character while disp_enable is asserted.
-                    shift_reg <= rom_data(5 downto 0);
+                    shift_reg <= a;
                     
                     -- If bit 7 of the ROM data is set then this is a graphics
                     -- character and separated/hold graphics modes apply.
                     -- We don't just assume this to be the case if gfx=1 because
                     -- these modes don't apply to caps even in graphics mode
-                    if rom_data(7) = '1' then
+                    if rom_data1(7) = '1' then
                         -- Apply a mask for separated graphics mode
                         if gfx_sep = '1' then
                             shift_reg(5) <= '0';
@@ -293,25 +321,25 @@ begin
                     end if;
                 else
                     -- Pump the shift register
-                    shift_reg <= shift_reg(4 downto 0) & "0";
+                    shift_reg <= shift_reg(10 downto 0) & "0";
                 end if;
             end if;
-		end if;
-	end process;
-	
-	-- Control character handling
-	process(CLOCK,nRESET)
-	begin	
-		if nRESET = '0' then
-			fg <= (others => '1');
-			bg <= (others => '0');
-			conceal <= '0';
-			gfx <= '0';
-			gfx_sep <= '0';
-			gfx_hold <= '0';
-			is_flash <= '0';
-			double_high <= '0';
-		elsif rising_edge(CLOCK) then
+        end if;
+    end process;
+    
+    -- Control character handling
+    process(CLOCK,nRESET)
+    begin   
+        if nRESET = '0' then
+            fg <= (others => '1');
+            bg <= (others => '0');
+            conceal <= '0';
+            gfx <= '0';
+            gfx_sep <= '0';
+            gfx_hold <= '0';
+            is_flash <= '0';
+            double_high <= '0';
+        elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 if disp_enable = '0' then
                     -- Reset to start of line defaults
@@ -368,22 +396,22 @@ begin
                         end if;
                     end if;
                 end if;
-			end if;
-		end if;
-	end process;
-	
-	-- Output
-	process(CLOCK,nRESET)
-	variable pixel : std_logic;
-	begin	
-		
-		if nRESET = '0' then
-			R <= '0';
-			G <= '0';
-			B <= '0';
-		elsif rising_edge(CLOCK) then
+            end if;
+        end if;
+    end process;
+    
+    -- Output
+    process(CLOCK,nRESET)
+    variable pixel : std_logic;
+    begin   
+        
+        if nRESET = '0' then
+            R <= '0';
+            G <= '0';
+            B <= '0';
+        elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                pixel := shift_reg(5) and not ((flash and is_flash) or conceal);
+                pixel := shift_reg(11) and not ((flash and is_flash) or conceal);
 
                 -- Generate mono output
                 Y <= pixel;
@@ -399,6 +427,6 @@ begin
                     B <= bg(2);
                 end if;
             end if;
-		end if;
-	end process;
+        end if;
+    end process;
 end architecture;

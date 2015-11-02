@@ -423,7 +423,7 @@ begin
     crtc : entity work.mc6845 port map (
         clock,
         crtc_clken,
-        reset_n,
+        hard_reset_n,
         crtc_enable,
         cpu_r_nw,
         cpu_a(0),
@@ -440,7 +440,7 @@ begin
     video_ula : entity work.vidproc port map (
         clock,
         vid_clken,
-        reset_n,
+        hard_reset_n,
         crtc_clken,
         vidproc_enable,
         cpu_a(0),
@@ -456,7 +456,7 @@ begin
     teletext : entity work.saa5050 port map (
         CLOCK_24, -- This runs at 6 MHz, which we can't derive from the 32 MHz clock
         ttxt_clken,
-        reset_n,
+        hard_reset_n,
         clock, -- Data input is synchronised from the bus clock domain
         vid_clken,
         RAM_Din(6 downto 0),
@@ -526,7 +526,7 @@ begin
         user_via_pb_out,
         user_via_pb_oe_n,
         mhz1_clken,
-        reset_n,
+        hard_reset_n,
         mhz4_clken,
         clock
         );
@@ -710,7 +710,7 @@ begin
     cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3)); -- 0/16
     cpu_clken <= cpu_cycle and not cpu_cycle_mask;
 
-    clk_gen: process(clock,reset_n)
+    clk_gen: process(clock)
     begin
         if rising_edge(clock) then
             clock_avr <= not clock_avr;
@@ -737,20 +737,13 @@ begin
         end if;
     end process;
 
-    ttxt_clk_gen: process(CLOCK_24,reset_n)
+    -- 12 MHz clock enable for SAA5050
+    ttxt_clk_gen: process(CLOCK_24)
     begin
-        if reset_n = '0' then
-            ttxt_clken_counter <= (others => '0');
-        elsif rising_edge(CLOCK_24) then
-            ttxt_clken_counter <= ttxt_clken_counter + 1;
+        if rising_edge(CLOCK_24) then
+            ttxt_clken <= not ttxt_clken;
         end if;
     end process;
-
-    -- 6 MHz clock enable for SAA5050
-    -- ttxt_clken <= '1' when ttxt_clken_counter = 0 else '0';
-
-    -- 12 MHz clock enable for SAA5050
-    ttxt_clken <= not ttxt_clken_counter(0);
 
     -- CPU configuration and fixed signals
     cpu_mode <= "00"; -- 6502
@@ -862,10 +855,10 @@ begin
     RAM_nCS <= '0';
 
     -- Synchronous outputs to SRAM
-    process(clock,reset_n)
+    process(clock,hard_reset_n)
     begin
 
-        if reset_n = '0' then
+        if hard_reset_n = '0' then
             RAM_nOE  <= '1';
             RAM_nWE  <= '1';
             RAM_Dout <= (others => '0');

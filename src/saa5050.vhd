@@ -49,9 +49,10 @@
 --
 -- (C) 2011 Mike Stirling
 --
+-- Updated to run at 12MHz rather than 6MHz
 -- Character rounding added
 --
--- (c) 2015 David Banks
+-- (C) 2015 David Banks
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -233,7 +234,7 @@ begin
                 if lose_r = '1' and lose_latch = '0' then
                     -- Reset pixel counter - small offset to make the output
                     -- line up with the cursor from the video ULA
-                    pixel_counter <= "0110";
+                    pixel_counter <= "0010";
                 end if;
                             
                 -- Count frames on end of VSYNC (falling edge of DEW)
@@ -295,15 +296,7 @@ begin
                          rom_data2(3) & rom_data2(3) &
                          rom_data2(2) & rom_data2(2) &
                          rom_data2(1) & rom_data2(1) &
-                         rom_data2(0) & rom_data2(0);
-                            
-                    a := a or
-                         (('0' & a(11 downto 1)) and b and not('0' & b(11 downto 1))) or 
-                         ((a(10 downto 0) & '0') and b and not(b(10 downto 0) & '0'));       
-                           
-                    -- Load the shift register with the ROM bit pattern
-                    -- at the start of each character while disp_enable is asserted.
-                    shift_reg <= a;
+                         rom_data2(0) & rom_data2(0);                            
                     
                     -- If bit 7 of the ROM data is set then this is a graphics
                     -- character and separated/hold graphics modes apply.
@@ -312,13 +305,25 @@ begin
                     if rom_data1(7) = '1' then
                         -- Apply a mask for separated graphics mode
                         if gfx_sep = '1' then
-                            shift_reg(5) <= '0';
-                            shift_reg(2) <= '0';
+                            a(10) := '0';
+                            a(11) := '0';
+                            a(4) := '0';
+                            a(5) := '0';
                             if line_counter = 2 or line_counter = 6 or line_counter = 9 then
-                                shift_reg <= (others => '0');
+                                a := (others => '0');
                             end if;
                         end if;
+                    else
+                        -- Perform character rounding on alpha-numeric characters
+                        a := a or
+                            (('0' & a(11 downto 1)) and b and not('0' & b(11 downto 1))) or 
+                            ((a(10 downto 0) & '0') and b and not(b(10 downto 0) & '0'));                           
                     end if;
+                    
+                    -- Load the shift register with the ROM bit pattern
+                    -- at the start of each character while disp_enable is asserted.
+                    shift_reg <= a;
+                    
                 else
                     -- Pump the shift register
                     shift_reg <= shift_reg(10 downto 0) & "0";

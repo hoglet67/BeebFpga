@@ -40,6 +40,12 @@
 --
 -- (C) 2011 Mike Stirling
 --
+-- Corrected cursor flash rate
+-- Fixed incorrect positioning of cursor when ovef left most character
+-- TODO: Implement delay parts of r08_interlace (see Hitacht HD6845SP
+--
+-- (C) 2015 David Banks
+--
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -111,14 +117,16 @@ signal line_counter		:	unsigned(4 downto 0);
 -- VSYNC counter counts duration of sync pulse
 signal v_sync_counter	:	unsigned(3 downto 0);
 -- Field counter counts number of complete fields for cursor flash
-signal field_counter	:	unsigned(5 downto 0);
+signal field_counter	:	unsigned(4 downto 0);
 
 -- Internal signals
 signal h_sync_start		:	std_logic;
 signal v_sync_start		:	std_logic;
 signal h_display		:	std_logic;
+signal h_display_early	:	std_logic;
 signal hs				:	std_logic;
 signal v_display		:	std_logic;
+signal v_display_early	:	std_logic;
 signal vs				:	std_logic;
 signal odd_field		:	std_logic;
 signal ma_i				:	unsigned(13 downto 0);
@@ -136,8 +144,8 @@ begin
 	-- accordance with the currently selected cursor mode
 	CURSOR <=	cursor_i 						when r10_cursor_mode = "00" else
 				'0' 							when r10_cursor_mode = "01" else
-				(cursor_i and field_counter(4))	when r10_cursor_mode = "10" else
-				(cursor_i and field_counter(5));
+				(cursor_i and field_counter(3))	when r10_cursor_mode = "10" else
+				(cursor_i and field_counter(4));
 
 	-- Synchronous register access.  Enabled on every clock.
 	process(CLOCK,nRESET)
@@ -327,7 +335,7 @@ begin
 	end process;
 	
 	-- Signals to mark hsync and and vsync in even and odd fields
-	process(h_counter, r02_h_sync_pos)
+	process(h_counter, r00_h_total, r02_h_sync_pos, odd_field)
 	begin
 		h_sync_start <= '0';
 		v_sync_start <= '0';
@@ -345,6 +353,9 @@ begin
 		end if;
 	end process;
 	
+    h_display_early <= '1' when h_counter   < r01_h_displayed else '0';
+    v_display_early <= '1' when row_counter < r06_v_displayed else '0';
+    
 	-- Video timing and sync counters
 	process(CLOCK,nRESET)
 	begin
@@ -361,14 +372,7 @@ begin
 		elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 -- Horizontal active video
-                if h_counter = 0 then
-                    -- Start of active video
-                    h_display <= '1';
-                end if;
-                if h_counter = r01_h_displayed then
-                    -- End of active video
-                    h_display <= '0';
-                end if;
+                h_display <= h_display_early;
                 
                 -- Horizontal sync
                 if h_sync_start = '1' or hs = '1' then
@@ -385,14 +389,7 @@ begin
                 end if;
 
                 -- Vertical active video
-                if row_counter = 0 then
-                    -- Start of active video
-                    v_display <= '1';
-                end if;
-                if row_counter = r06_v_displayed then
-                    -- End of active video
-                    v_display <= '0';
-                end if;
+                v_display <= v_display_early;
                 
                 -- Vertical sync occurs either at the same time as the horizontal sync (even fields)
                 -- or half a line later (odd fields)
@@ -451,7 +448,7 @@ begin
 			cursor_line := '0';
 		elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                if h_display = '1' and v_display = '1' and ma_i = r14_cursor_h & r15_cursor_l then
+                if h_display_early = '1' and v_display_early = '1' and ma_i = r14_cursor_h & r15_cursor_l then
                     if line_counter = 0 then
                         -- Suppress wrap around if last line is > max scan line
                         cursor_line := '0';

@@ -39,6 +39,7 @@
 --
 -- Revision list
 --
+-- version 004 fixes to PB7 T1 control and Mode 0 Shift Register operation
 -- version 003 fix reset of T1/T2 IFR flags if T1/T2 is reload via reg5/reg9 from wolfgang (WoS)
 --             Ported to numeric_std and simulation fix for signal initializations from arnim laeuger
 -- version 002 fix from Mark McDougall, untested
@@ -277,8 +278,13 @@ begin
           end case;
         end if;
 
-        if (r_acr(7) = '1') and (t1_toggle = '1') then
-          r_orb(7) <= not r_orb(7); -- toggle
+        if r_acr(7) = '1' then
+          -- DMB: Forgetting to clear B7 broke Acornsoft Planetoid
+          if t1_load_counter then
+            r_orb(7) <= '0'; -- writing T1C-H resets bit 7
+          elsif t1_toggle = '1' then
+            r_orb(7) <= not r_orb(7); -- toggle
+          end if;
         end if;
       end if;
     end if;
@@ -752,9 +758,14 @@ begin
         cb1_ip   := '0';
         use_t2   := '0';
         free_run := '0';
-
+        
+        -- DMB: SR still runs even in disabled mode (on rising edge of CB1).
+        -- It just doesn't generate any interrupts.
+        -- Ref BBC micro advanced user guide p409
+                    
         case r_acr(4 downto 2) is
-          when "000" => ena := '0';
+          -- DMB: in disabled mode, configure cb1 as an input
+          when "000" => ena := '0'; cb1_ip := '1';
           when "001" => ena := '1'; cb1_op := '1'; use_t2 := '1';
           when "010" => ena := '1'; cb1_op := '1';
           when "011" => ena := '1'; cb1_ip := '1';
@@ -766,19 +777,16 @@ begin
         end case;
 
         -- clock select
-        if (ena = '0') then
-          sr_strobe <= '1';
+        -- DMB: in disabled mode, strobe from cb1
+        if (cb1_ip = '1') then
+          sr_strobe <= I_CB1;
         else
-          if (cb1_ip = '1') then
-            sr_strobe <= I_CB1;
+          if (sr_cnt(3) = '0') and (free_run = '0') then
+            sr_strobe <= '1';
           else
-            if (sr_cnt(3) = '0') and (free_run = '0') then
-              sr_strobe <= '1';
-            else
-              if ((use_t2 = '1') and t2_sr_ena) or
-                 ((use_t2 = '0') and (phase = "00")) then
-                  sr_strobe <= not sr_strobe;
-              end if;
+            if ((use_t2 = '1') and t2_sr_ena) or
+               ((use_t2 = '0') and (phase = "00")) then
+                sr_strobe <= not sr_strobe;
             end if;
           end if;
         end if;
@@ -786,8 +794,9 @@ begin
         -- latch on rising edge, shift on falling edge
         if sr_write_ena then
           r_sr <= load_data;
-        elsif (ena = '1') then -- use shift reg
 
+        else
+          -- DMB: allow shifting in all modes
           if (dir_out = '0') then
             -- input
             if (sr_cnt(3) = '1') or (cb1_ip = '1') then
@@ -814,7 +823,10 @@ begin
 
         sr_count_ena := sr_strobe_rising;
 
-        if sr_write_ena or sr_read_ena then
+        -- DMB: reseting sr_count when not enabled cause the sr to
+        -- start running immediately it was enabled, which is incorrect
+        -- and broke the latest SmartSPI ROM on the BBC Micro
+        if ena = '1' and (sr_write_ena or sr_read_ena) then
         -- some documentation says sr bit in IFR must be set as well ?
           sr_cnt <= "1000";
         elsif sr_count_ena and (sr_cnt(3) = '1') then

@@ -201,6 +201,7 @@ signal sys_via_cb2_oe_n :   std_logic;
 signal sys_via_pb_in    :   std_logic_vector(7 downto 0);
 signal sys_via_pb_out   :   std_logic_vector(7 downto 0);
 signal sys_via_pb_oe_n  :   std_logic_vector(7 downto 0);
+signal sys_via_do_r     :   std_logic_vector (7 downto 0);
 
 -- User VIA signals
 signal user_via_do      :   std_logic_vector(7 downto 0);
@@ -222,6 +223,7 @@ signal user_via_cb2_oe_n    :   std_logic;
 signal user_via_pb_in   :   std_logic_vector(7 downto 0);
 signal user_via_pb_out  :   std_logic_vector(7 downto 0);
 signal user_via_pb_oe_n :   std_logic_vector(7 downto 0);
+signal user_via_do_r    :   std_logic_vector (7 downto 0);
 
 -- IC32 latch on System VIA
 signal ic32             :   std_logic_vector(7 downto 0);
@@ -839,15 +841,27 @@ begin
         end if;
     end process;
 
+    -- This is needed as in v003 of the 6522 data out is only valid while I_P2_H is asserted
+    -- I_P2_H is driven from mhz1_clken
+    data_latch: process(clock)
+    begin
+        if rising_edge(clock) then
+            if (mhz1_clken = '1') then
+                user_via_do_r <= user_via_do;
+                sys_via_do_r  <= sys_via_do;
+            end if;
+        end if;
+    end process;
+
     -- CPU data bus mux and interrupts
     cpu_di <=
-        RAM_Din     when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
-        crtc_do     when crtc_enable = '1' else
-        "00000010"  when acia_enable = '1' else
-        sys_via_do  when sys_via_enable = '1' else
-        user_via_do when user_via_enable = '1' else
-        "11111110"  when io_sheila = '1' else
-        "11111111"  when io_fred = '1' or io_jim = '1' else
+        RAM_Din       when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
+        crtc_do       when crtc_enable = '1' else
+        "00000010"    when acia_enable = '1' else
+        sys_via_do_r  when sys_via_enable = '1' else
+        user_via_do_r when user_via_enable = '1' else
+        "11111110"    when io_sheila = '1' else
+        "11111111"    when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
         
     cpu_irq_n <= sys_via_irq_n and user_via_irq_n;

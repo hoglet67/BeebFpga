@@ -110,7 +110,7 @@ signal clock_avr    :   std_logic;
 -- cycle) and the video subsystem is enabled on every odd cycle.
 signal clken_counter    :   unsigned(4 downto 0);
 signal cpu_cycle        :   std_logic; -- Qualifies all 2 MHz cycles
-signal cpu_cycle_mask   :   std_logic; -- Set to mask CPU cycles until 1 MHz cycle is complete
+signal cpu_cycle_mask   :   std_logic_vector(1 downto 0); -- Set to mask CPU cycles until 1 MHz cycle is complete
 signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabled
 signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
@@ -708,7 +708,7 @@ begin
     mhz2_clken <= mhz4_clken and clken_counter(3); -- 15/31
     mhz1_clken <= mhz2_clken and clken_counter(4); -- 31
     cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3)); -- 0/16
-    cpu_clken <= cpu_cycle and not cpu_cycle_mask;
+    cpu_clken <= cpu_cycle and not cpu_cycle_mask(1) and not cpu_cycle_mask(0);
 
     clk_gen: process(clock)
     begin
@@ -722,17 +722,18 @@ begin
     cycle_stretch: process(clock,reset_n,mhz2_clken)
     begin
         if reset_n = '0' then
-            cpu_cycle_mask <= '0';
+            cpu_cycle_mask <= "00";
         elsif rising_edge(clock) and mhz2_clken = '1' then
-            if mhz1_enable = '1' and cpu_cycle_mask = '0' then
+            if mhz1_enable = '1' and cpu_cycle_mask = "00" then
                 -- Block CPU cycles until 1 MHz cycle has completed
-                cpu_cycle_mask <= '1';
+                if mhz1_clken = '0' then
+                    cpu_cycle_mask <= "01";
+                else
+                    cpu_cycle_mask <= "10";
+                end if;
             end if;
-            if mhz1_clken = '1' then
-                -- CPU can run again
-                -- FIXME: This may not be correct in terms of CPU cycles, but it
-                -- should work
-                cpu_cycle_mask <= '0';
+            if cpu_cycle_mask /= "00" then
+                cpu_cycle_mask <= cpu_cycle_mask - 1;
             end if;
         end if;
     end process;

@@ -194,7 +194,9 @@ begin
             gfx & code & std_logic_vector(line_addr);
 
     -- reference row for character rounding
-    rom_address2 <= rom_address1 + 1 when CRS = '1' else rom_address1 - 1; 
+    rom_address2 <= rom_address1 + 1 when ((double_high = '0' and CRS = '1') or (double_high = '1' and line_counter(0) = '1')) else
+                    rom_address1 - 1;
+                     
 
     -- Character row and pixel counters
     process(CLOCK,nRESET)

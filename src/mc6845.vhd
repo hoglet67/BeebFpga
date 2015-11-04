@@ -41,8 +41,11 @@
 -- (C) 2011 Mike Stirling
 --
 -- Corrected cursor flash rate
--- Fixed incorrect positioning of cursor when ovef left most character
--- TODO: Implement delay parts of r08_interlace (see Hitacht HD6845SP
+-- Fixed incorrect positioning of cursor when over left most character
+-- Fixed timing of VSYNC
+-- Fixed interlaced timing (add an extra line)
+-- Implemented r05_v_total_adj
+-- Implemented delay parts of r08_interlace (see Hitacht HD6845SP datasheet)
 --
 -- (C) 2015 David Banks
 --
@@ -90,7 +93,7 @@ signal r04_v_total		:	unsigned(6 downto 0);	-- Vertical total, character rows
 signal r05_v_total_adj	:	unsigned(4 downto 0);	-- Vertical offset, scan lines
 signal r06_v_displayed	:	unsigned(6 downto 0);	-- Vertical active, character rows
 signal r07_v_sync_pos	:	unsigned(6 downto 0);	-- Vertical sync position, character rows
-signal r08_interlace	:	std_logic_vector(1 downto 0);
+signal r08_interlace	:	std_logic_vector(7 downto 0);
 signal r09_max_scan_line_addr		:	unsigned(4 downto 0);
 signal r10_cursor_mode	:	std_logic_vector(1 downto 0);
 signal r10_cursor_start	:	unsigned(4 downto 0);	-- Cursor start, scan lines
@@ -133,20 +136,37 @@ signal ma_i				:	unsigned(13 downto 0);
 signal ma_row_start 	: 	unsigned(13 downto 0); -- Start address of current character row
 signal cursor_i			:	std_logic;
 signal lpstb_i			:	std_logic;
+signal de0				:	std_logic;
+signal de1				:	std_logic;
+signal de2				:	std_logic;
+signal cursor0			:	std_logic;
+signal cursor1			:	std_logic;
+signal cursor2			:	std_logic;
 
 
 begin
 	HSYNC <= hs; -- External HSYNC driven directly from internal signal
 	VSYNC <= vs; -- External VSYNC driven directly from internal signal
-	DE <= h_display and v_display;
+    
+	de0 <= h_display and v_display;
+
+    DE <= de0 when r08_interlace(5 downto 4) /= "11" else
+--          de1 when r08_interlace(5 downto 4) = "01" else
+--          de2 when r08_interlace(5 downto 4) = "10" else
+          '0';
 	
 	-- Cursor output generated combinatorially from the internal signal in
 	-- accordance with the currently selected cursor mode
-	CURSOR <=	cursor_i 						when r10_cursor_mode = "00" else
+	cursor0 <=	cursor_i 						when r10_cursor_mode = "00" else
 				'0' 							when r10_cursor_mode = "01" else
 				(cursor_i and field_counter(3))	when r10_cursor_mode = "10" else
 				(cursor_i and field_counter(4));
 
+    CURSOR <= cursor0 when r08_interlace(7 downto 6) /= "11" else
+--              cursor1 when r08_interlace(7 downto 6) = "01" else
+--              cursor2 when r08_interlace(7 downto 6) = "10" else
+              '0';
+              
 	-- Synchronous register access.  Enabled on every clock.
 	process(CLOCK,nRESET)
 	begin
@@ -213,7 +233,7 @@ begin
 						when "00111" =>
 							r07_v_sync_pos <= unsigned(DI(6 downto 0));
 						when "01000" =>
-							r08_interlace <= DI(1 downto 0);
+							r08_interlace <= DI(7 downto 0);
 						when "01001" =>
 							r09_max_scan_line_addr <= unsigned(DI(4 downto 0));
 						when "01010" =>
@@ -266,22 +286,29 @@ begin
                     -- h_total reached
                     h_counter <= (others => '0');
                     
+                    -- Compute the max scan line for this row
+                    max_scan_line := r09_max_scan_line_addr;
+                    -- Test if we are at the bottom of the final row
+                    if line_counter >= max_scan_line and row_counter = r04_v_total then
+                        -- Add in extra lines from r05_v_total_adj
+                        max_scan_line := max_scan_line + r05_v_total_adj;
+                        -- If interlaced, the odd field contains an additional scan line
+                        if odd_field = '1' then
+                            if r08_interlace(1 downto 0) = "11" then
+                                max_scan_line := max_scan_line + 2;
+                            else
+                                max_scan_line := max_scan_line + 1;                            
+                            end if;
+                        end if;
+                    end if;
+
                     -- In interlace sync + video mode mask off the LSb of the
                     -- max scan line address
-                    if r08_interlace = "11" then
-                        max_scan_line := r09_max_scan_line_addr(4 downto 1) & "0";
-                    else
-                        max_scan_line := r09_max_scan_line_addr;
+                    if r08_interlace(1 downto 0) = "11" then
+                        max_scan_line(0) := '0';
                     end if;
                     
-                    -- dmb: get the total number of lines correct in all cases
-                    if (odd_field = '0' and
-                        -- Implement v_total_adj
-                        ((line_counter = max_scan_line   and row_counter = r04_v_total and r05_v_total_adj = 0) or
-                         (line_counter = r05_v_total_adj and row_counter > r04_v_total))) or
-                       (odd_field = '1' and
-                         -- Add one extra line to the odd field
-                         (line_counter > r05_v_total_adj and row_counter > r04_v_total)) then
+                    if line_counter = max_scan_line and row_counter = r04_v_total then
                       
                         line_counter <= (others => '0');
 
@@ -313,7 +340,7 @@ begin
                         row_counter <= row_counter + 1;
                     else
                         -- Next scan line.  Count in twos in interlaced sync+video mode
-                        if r08_interlace = "11" then
+                        if r08_interlace(1 downto 0) = "11" then
                             line_counter <= line_counter + 2;
                             line_counter(0) <= '0'; -- Force to even
                         else
@@ -424,7 +451,7 @@ begin
             
                 -- Character row address is just the scan line counter delayed by
                 -- one clock to line up with the syncs.
-                if r08_interlace = "11" then
+                if r08_interlace(1 downto 0) = "11" then
                     -- In interlace sync and video mode the LSb is determined by the
                     -- field number.  The line counter counts up in 2s in this case.
                     RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field);
@@ -495,6 +522,20 @@ begin
             end if;
 		end if;
 	end process;
+    
+    -- Delayed CURSOR and DE (selected by R08)
+    process(CLOCK,nRESET)
+    begin
+        if rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                de1     <= de0;
+                de2     <= de1;
+                cursor1 <= cursor0;
+                cursor2 <= cursor1;
+            end if;            
+        end if;
+    end process;
+
 end architecture;
 
 

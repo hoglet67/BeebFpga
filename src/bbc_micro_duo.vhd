@@ -120,7 +120,7 @@ signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
 
--- SAA5050 needs a 6 MHz clock enable relative to a 24 MHz clock
+-- SAA5050 needs a 12 MHz clock enable relative to a 24 MHz clock
 signal ttxt_clken_counter   :   unsigned(1 downto 0);
 signal ttxt_clken       :   std_logic;
 
@@ -456,7 +456,7 @@ begin
         );
 
     teletext : entity work.saa5050 port map (
-        CLOCK_24, -- This runs at 6 MHz, which we can't derive from the 32 MHz clock
+        CLOCK_24, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
         ttxt_clken,
         hard_reset_n,
         clock, -- Data input is synchronised from the bus clock domain

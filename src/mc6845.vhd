@@ -150,9 +150,11 @@ begin
 
 	de0 <= h_display and v_display;
 
-	DE <= de0 when r08_interlace(5 downto 4) /= "11" else
---			de1 when r08_interlace(5 downto 4) = "01" else
---			de2 when r08_interlace(5 downto 4) = "10" else
+    -- In Mode 7 DE Delay is set to 01, but in our implementation no delay is needed
+    -- TODO: Fix SAA5050
+	DE <= de0 when r08_interlace(5 downto 4) = "00" else
+		  de0 when r08_interlace(5 downto 4) = "01" else -- not accurate, should be de1
+		  de2 when r08_interlace(5 downto 4) = "10" else
 		  '0';
 
 	-- Cursor output generated combinatorially from the internal signal in
@@ -162,10 +164,12 @@ begin
 				(cursor_i and field_counter(3))	when r10_cursor_mode = "10" else
 				(cursor_i and field_counter(4));
 
-	CURSOR <= cursor0 when r08_interlace(7 downto 6) /= "11" else
---				cursor1 when r08_interlace(7 downto 6) = "01" else
---				cursor2 when r08_interlace(7 downto 6) = "10" else
-			  '0';
+    -- In Mode 7 Cursor Delay is set to 10, but in our implementation one one cycle is needed
+    -- TODO: Fix SAA5050
+	CURSOR <=   cursor0 when r08_interlace(7 downto 6) = "00" else
+				cursor1 when r08_interlace(7 downto 6) = "01" else
+				cursor1 when r08_interlace(7 downto 6) = "10" else -- not accurate, should be cursor2
+			    '0';
 
 	-- Synchronous register access.	 Enabled on every clock.
 	process(CLOCK,nRESET)

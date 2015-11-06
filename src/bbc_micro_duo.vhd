@@ -87,6 +87,7 @@ entity bbc_micro_duo is
            FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
            avr_RxD        : in    std_logic;
            avr_TxD        : out   std_logic;
+           DIP            : in    std_logic_vector(1 downto 0);
            TEST           : out   std_logic_vector (7 downto 0)
     );
 end entity;
@@ -170,6 +171,23 @@ signal b_in             :   std_logic;
 signal r_out            :   std_logic;
 signal g_out            :   std_logic;
 signal b_out            :   std_logic;
+
+-- Scandoubler signals (Mist)
+signal vga0_r           :   std_logic_vector(1 downto 0);
+signal vga0_g           :   std_logic_vector(1 downto 0);
+signal vga0_b           :   std_logic_vector(1 downto 0);
+signal vga0_hs          :   std_logic;
+signal vga0_vs          :   std_logic;
+signal vga0_mode        :   std_logic;
+-- Scandoubler signals (RGB2VGA)
+signal vga_clock        :   std_logic;
+signal vga1_r           :   std_logic_vector(1 downto 0);
+signal vga1_g           :   std_logic_vector(1 downto 0);
+signal vga1_b           :   std_logic_vector(1 downto 0);
+signal vga1_hs          :   std_logic;
+signal vga1_vs          :   std_logic;
+signal vga1_mode        :   std_logic;
+signal rgbi_out         :   std_logic_vector(3 downto 0);
 
 -- SAA5050 signals
 signal ttxt_glr         :   std_logic;
@@ -960,13 +978,6 @@ begin
     ttxt_crs <= not crtc_ra(0);
     ttxt_lose <= crtc_de;
 
-    -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
-    hsync <= not (crtc_hsync or crtc_vsync);
-    vsync <= '1';
-    red <= r_out & r_out & r_out & r_out;
-    green <= g_out & g_out & g_out & g_out;
-    blue <= b_out & b_out & b_out & b_out;
-
     -- Connections to System VIA
     -- ADC
     sys_via_cb1_in <= '1'; -- /EOC
@@ -1042,6 +1053,80 @@ begin
             ic32(bit_num) <= sys_via_pb_out(3);
         end if;
     end process;
+
+-----------------------------------------------
+-- Scan Doubler from the MIST project
+-----------------------------------------------
+
+	inst_mist_scandoubler: entity work.mist_scandoubler port map (
+		clk => clock,
+		clk_16 => clock,
+		clk_16_en => vid_clken,
+		scanlines => '0',
+		hs_in => not crtc_hsync,
+		vs_in => not crtc_vsync,
+		r_in => r_out,
+		g_in => g_out,
+		b_in => b_out,
+		hs_out => vga0_hs,
+		vs_out => vga0_vs,
+		r_out => vga0_r,
+		g_out => vga0_g,
+		b_out => vga0_b,
+		is15k => open 
+	);
+    vga0_mode <= DIP(0);
+
+-----------------------------------------------
+-- Scan Doubler from RGB2VGA project
+-----------------------------------------------
+
+	inst_rgb2vga_dcm: entity work.rgb2vga_dcm port map (
+		CLKIN_IN => clock,
+		CLKFX_OUT => vga_clock
+	);
+
+	inst_rgb2vga: entity work.rgb2vga port map (
+		clock => clock,
+		clken => vid_clken,
+		clk25 => vga_clock,
+		rgbi_in => r_out & g_out & b_out & '0',
+		hSync_in => crtc_hsync,
+		vSync_in => crtc_vsync,
+		rgbi_out => rgbi_out,
+		hSync_out => vga1_hs,
+		vSync_out => vga1_vs
+	);
+    vga1_r <= rgbi_out(3) & rgbi_out(3);
+    vga1_g <= rgbi_out(2) & rgbi_out(2);
+    vga1_b <= rgbi_out(1) & rgbi_out(1);
+    
+    vga1_mode <= DIP(1);
+
+-----------------------------------------------
+-- RGBHV Multiplexor
+-----------------------------------------------
+
+    -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
+    hsync <= vga0_hs when vga0_mode = '1' else
+             vga1_hs when vga1_mode = '1' else
+             not (crtc_hsync or crtc_vsync);
+
+    vsync <= vga0_vs when vga0_mode = '1' else
+             vga1_vs when vga1_mode = '1' else
+             '1';
+             
+    red   <= vga0_r(1) & vga0_r(0) & "00" when vga0_mode = '1' else
+             vga1_r(1) & vga1_r(0) & "00" when vga1_mode = '1' else
+             r_out & r_out & r_out & r_out;
+             
+    green <= vga0_g(1) & vga0_g(0) & "00" when vga0_mode = '1' else
+             vga1_g(1) & vga1_g(0) & "00" when vga1_mode = '1' else
+             g_out & g_out & g_out & g_out;
+             
+    blue  <= vga0_b(1) & vga0_b(0) & "00" when vga0_mode = '1' else
+             vga1_b(1) & vga1_b(0) & "00" when vga1_mode = '1' else
+             b_out & b_out & b_out & b_out;
 
     -- Keyboard LEDs
     LED1 <= not caps_lock_led_n;

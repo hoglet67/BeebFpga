@@ -45,6 +45,11 @@
 -- (c) 2015 David Banks
 -- (C) 2011 Mike Stirling
 
+-- Master 128 TODO List
+-- ACC_IFJ - direct FC00-FDFF to cartridge port
+-- ACC_ITU - internal / external tube
+-- INTON/INTOFF registers
+-- NVRAM (146818 off System VIA Port A)
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -54,8 +59,9 @@ use ieee.numeric_std.all;
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
     generic (
-       UseT65Core    : boolean := true;
-       UseAlanDCore  : boolean := false
+       ModeM128      : boolean := true; 
+       UseT65Core    : boolean := false;
+       UseAlanDCore  : boolean := true
        );
      port (clk_32M00      : in    std_logic;
            ps2_clk        : in    std_logic;
@@ -297,7 +303,7 @@ signal adc_enable       :   std_logic;      -- 0xFEC0-FEDF
 --signal tube_enable      :   std_logic;      -- 0xFEE0-FEFF
 
 -- ROM select latch
-signal romsel           :   std_logic_vector(3 downto 0);
+signal romsel           :   std_logic_vector(7 downto 0);
 
 signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz peripheral
 
@@ -346,7 +352,109 @@ type    BS_STATE_TYPE is (
         );
         
 signal bs_state, bs_state_next : BS_STATE_TYPE := INIT;
-        
+
+-- Additional Master 128 signals
+
+-- RTC/CMOS RAM (MX146818)
+
+type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
+
+signal rtc_ram         : rtc_ram_type := (
+    x"30", -- RTC Seconds
+    x"00", -- RTC Seconds Alarm
+    x"02", -- RTC Minutes
+    x"00", -- RTC Minutes Alarm
+    x"18", -- RTC Hours
+    x"00", -- RTC Hours Alarm
+    x"06", -- RTC Day of Week
+    x"07", -- RTC Date of Month
+    x"11", -- RTC Month
+    x"15", -- RTC Year
+    x"00", -- RTC Register A
+    x"00", -- RTC Register B 
+    x"00", -- RTC Register C
+    x"00", -- RTC Register D
+    x"00", -- CMOS  0 - Econet station number
+    x"FE", -- CMOS  1 - Econet file server identity (lo)
+    x"00", -- CMOS  2 - Econet file server identity (hi)
+    x"EB", -- CMOS  3 - Econet print server identity (lo)
+    x"00", -- CMOS  4 - Econet print server identity (hi)
+    x"CD", -- CMOS  5 - Default Filing System / Language
+    x"FF", -- CMOS  6 - ROM frugal bits (*INSERT/*UNPLUG)
+    x"FF", -- CMOS  7 - ROM frugal bits (*INSERT/*UNPLUG)
+    x"00", -- CMOS  8 - Edit startup settings
+    x"00", -- CMOS  9 - reserved for telecommunications applications
+    x"F7", -- CMOS 10 - VDU mode and *TV settings
+    x"E3", -- CMOS 11 - ADFS startup options, keyboard settings, floppy params
+    x"20", -- CMOS 12 - Keyboard auto-repeat delay
+    x"08", -- CMOS 13 - Keyboard auto-repeat rate
+    x"0A", -- CMOS 14 - Printer ignore character
+    x"2C", -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
+    x"80", -- CMOS 16 - Default serial data format, auto boot option, int/ext TUBE, bell amplitude
+    x"00", -- CMOS 17 - reserved for ANFS
+    x"00", -- CMOS 18 - reserved for ANFS
+    x"00", -- CMOS 19 - reserved for ANFS
+    x"00", -- CMOS 20 - reserved for future use by Acorn
+    x"00", -- CMOS 21 - reserved for future use by Acorn
+    x"00", -- CMOS 22 - reserved for future use by Acorn
+    x"00", -- CMOS 23 - reserved for future use by Acorn
+    x"00", -- CMOS 24 - reserved for future use by Acorn
+    x"00", -- CMOS 25 - reserved for future use by Acorn
+    x"00", -- CMOS 26 - reserved for future use by Acorn
+    x"00", -- CMOS 27 - reserved for future use by Acorn
+    x"00", -- CMOS 28 - reserved for future use by Acorn
+    x"00", -- CMOS 29 - reserved for future use by Acorn
+    x"00", -- CMOS 30 - reserved for future use by third parties
+    x"00", -- CMOS 31 - reserved for future use by third parties
+    x"00", -- CMOS 32 - reserved for future use by third parties
+    x"00", -- CMOS 33 - reserved for future use by third parties
+    x"00", -- CMOS 34 - reserved for future use by third parties
+    x"00", -- CMOS 35 - reserved for future use by third parties
+    x"00", -- CMOS 36 - reserved for future use by third parties
+    x"00", -- CMOS 37 - reserved for future use by third parties
+    x"00", -- CMOS 38 - reserved for future use by third parties
+    x"00", -- CMOS 39 - reserved for future use by third parties
+    x"00", -- CMOS 40 - reserved for future use by the user
+    x"00", -- CMOS 41 - reserved for future use by the user
+    x"00", -- CMOS 42 - reserved for future use by the user
+    x"00", -- CMOS 43 - reserved for future use by the user
+    x"00", -- CMOS 44 - reserved for future use by the user
+    x"00", -- CMOS 45 - reserved for future use by the user
+    x"00", -- CMOS 46 - reserved for future use by the user
+    x"00", -- CMOS 47 - reserved for future use by the user
+    x"00", -- CMOS 48 - reserved for future use by the user
+    x"00"  -- CMOS 49 - reserved for future use by the user
+    );
+    
+    
+    
+signal rtc_adi         : std_logic_vector(7 downto 0);
+signal rtc_a           : std_logic_vector(5 downto 0);
+signal rtc_do          : std_logic_vector(7 downto 0);
+signal rtc_ce          : std_logic;
+signal rtc_rd_n_w      : std_logic;
+signal rtc_as          : std_logic;
+signal rtc_as_r        : std_logic;
+signal rtc_ds          : std_logic;
+signal rtc_ds_r        : std_logic;
+
+-- 0xFE34 Access Control
+signal acccon          : std_logic_vector(7 downto 0);
+signal acc_irr         : std_logic;
+signal acc_tst         : std_logic;
+signal acc_ifj         : std_logic;
+signal acc_itu         : std_logic;
+signal acc_y           : std_logic;
+signal acc_x           : std_logic;
+signal acc_e           : std_logic;
+signal acc_d           : std_logic;
+
+signal acccon_enable   : std_logic;     -- 0xFE34-0xFE37
+signal intoff_enable   : std_logic;     -- 0xFE38-0xFE3B
+signal inton_enable    : std_logic;     -- 0xFE3C-0xFE3F
+
+signal vdu_op          : std_logic;     -- last opcode was 0xC000-0xDFFF
+
 begin
 
     -------------------------
@@ -360,69 +468,69 @@ begin
         CLKFX_OUT => CLOCK_24
     );
 
---    core : entity work.MOS6502CpuMonCore
---        generic map (
---            UseT65Core   => UseT65Core,
---            UseAlanDCore => UseAlanDCore
---        )
---        port map (
---            clock_avr    => clock_avr,
---            busmon_clk   => clock,
---            busmon_clken => cpu_clken1,
---            cpu_clk      => clock,
---            cpu_clken    => cpu_clken,
---            IRQ_n        => cpu_irq_n,
---            NMI_n        => cpu_nmi_n,
---            Sync         => cpu_sync,
---            Addr         => cpu_a(15 downto 0),
---            R_W_n        => cpu_r_nw,
---            Din          => cpu_di,
---            Dout         => cpu_do,
---            SO_n         => cpu_so_n,
---            Res_n_in     => reset_n,
---            Res_n_out    => reset_n_out,
---            Rdy          => cpu_ready,
---            trig         => "00",
---            avr_RxD      => avr_RxD,
---            avr_TxD      => avr_TxD,
---            sw1          => '0',
---            nsw2         => hard_reset_n,
---            led3         => open,
---            led6         => open,
---            led8         => open,
---            tmosi        => open,
---            tdin         => open,
---            tcclk        => open 
---        );
-
-    reset_n_out <= '1';
-    avr_TxD <= '1';    
-    GenT65Core: if UseT65Core generate
-        core : entity work.T65
+    core : entity work.MOS6502CpuMonCore
+        generic map (
+            UseT65Core   => UseT65Core,
+            UseAlanDCore => UseAlanDCore
+        )
         port map (
-            cpu_mode,
-            reset_n,
-            cpu_clken,
-            clock,
-            cpu_ready,
-            cpu_abort_n,
-            cpu_irq_n,
-            cpu_nmi_n,
-            cpu_so_n,
-            cpu_r_nw,
-            cpu_sync,
-            cpu_ef,
-            cpu_mf,
-            cpu_xf,
-            cpu_ml_n,
-            cpu_vp_n,
-            cpu_vda,
-            cpu_vpa,
-            cpu_a,
-            cpu_di,
-            cpu_do
+            clock_avr    => clock_avr,
+            busmon_clk   => clock,
+            busmon_clken => cpu_clken1,
+            cpu_clk      => clock,
+            cpu_clken    => cpu_clken,
+            IRQ_n        => cpu_irq_n,
+            NMI_n        => cpu_nmi_n,
+            Sync         => cpu_sync,
+            Addr         => cpu_a(15 downto 0),
+            R_W_n        => cpu_r_nw,
+            Din          => cpu_di,
+            Dout         => cpu_do,
+            SO_n         => cpu_so_n,
+            Res_n_in     => reset_n,
+            Res_n_out    => reset_n_out,
+            Rdy          => cpu_ready,
+            trig         => "00",
+            avr_RxD      => avr_RxD,
+            avr_TxD      => avr_TxD,
+            sw1          => '0',
+            nsw2         => hard_reset_n,
+            led3         => open,
+            led6         => open,
+            led8         => open,
+            tmosi        => open,
+            tdin         => open,
+            tcclk        => open 
         );
-    end generate;    
+
+--    reset_n_out <= '1';
+--    avr_TxD <= '1';    
+--    GenT65Core: if UseT65Core generate
+--        core : entity work.T65
+--        port map (
+--            cpu_mode,
+--            reset_n,
+--            cpu_clken,
+--            clock,
+--            cpu_ready,
+--            cpu_abort_n,
+--            cpu_irq_n,
+--            cpu_nmi_n,
+--            cpu_so_n,
+--            cpu_r_nw,
+--            cpu_sync,
+--            cpu_ef,
+--            cpu_mf,
+--            cpu_xf,
+--            cpu_ml_n,
+--            cpu_vp_n,
+--            cpu_vda,
+--            cpu_vpa,
+--            cpu_a,
+--            cpu_di,
+--            cpu_do
+--        );
+--    end generate;    
 --    
 --    GenAlanDCore: if UseAlanDCore generate
 --        core : entity work.r65c02
@@ -826,7 +934,9 @@ begin
  --     adlc_enable <= '0';
         adc_enable <= '0';
 --      tube_enable <= '0';
-
+        acccon_enable <= '0';
+        intoff_enable <= '0';
+        inton_enable  <= '0';
         if io_sheila = '1' then
             case cpu_a(7 downto 5) is
                 when "000" =>
@@ -848,6 +958,18 @@ begin
                     if cpu_a(4) = '0' then
                         -- 0xFE20
                         vidproc_enable <= '1';
+                    elsif ModeM128 then
+                        case cpu_a(3 downto 2) is
+                            -- 0xFE30
+                            when "00" => romsel_enable <= '1';
+                            -- 0xFE34
+                            when "01" => acccon_enable <= '1';
+                            -- 0xFE38
+                            when "10" => intoff_enable <= '1';
+                            -- 0xFE3C
+                            when "11" => inton_enable  <= '1';
+                            when others => null;
+                        end case;
                     else
                         -- 0xFE30
                         romsel_enable <= '1';
@@ -883,16 +1005,64 @@ begin
         "00000010"    when acia_enable = '1' else
         sys_via_do_r  when sys_via_enable = '1' else
         user_via_do_r when user_via_enable = '1' else
+        -- Master 128 additions
+        romsel when romsel_enable = '1' and ModeM128 else
+        acccon when acccon_enable = '1' and ModeM128 else
         "11111110"    when io_sheila = '1' else
         "11111111"    when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
         
-    cpu_irq_n <= sys_via_irq_n and user_via_irq_n;
-
+    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when ModeM128 else
+                 not ((not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
     RAM_nCS <= '0';
 
     -- Synchronous outputs to SRAM
+
+    -- RAM_A is 20..0, allowing access to 2MB
+    -- top two bits always 00, target is a 512KB Papilip
+    
+    -- Paged ROMs at 0x00000-0x3FFFF in the external SRAM
+    -- MOS ROM at 0x40000-0x43FFF in the external SRAM
+    -- Unused at 0x44000-0x5FFFF
+    -- Ordinary RAM at 0x60000-0x67FFF
+    -- Unused at 0x68000-0x7FFFF
+
+    -- SRAM Memory Map in 16KB pages
+    --
+    -- 000 00xx xxxx xxxx xxxx = Paged ROM 0
+    -- 000 01xx xxxx xxxx xxxx = Paged ROM 1
+    -- 000 10xx xxxx xxxx xxxx = Paged ROM 2
+    -- 000 11xx xxxx xxxx xxxx = Paged ROM 3
+    -- 001 00xx xxxx xxxx xxxx = Paged ROM 4
+    -- 001 01xx xxxx xxxx xxxx = Paged ROM 5
+    -- 001 10xx xxxx xxxx xxxx = Paged ROM 6
+    -- 001 11xx xxxx xxxx xxxx = Paged ROM 7
+    -- 010 00xx xxxx xxxx xxxx = Paged ROM 8
+    -- 010 01xx xxxx xxxx xxxx = Paged ROM 9
+    -- 010 10xx xxxx xxxx xxxx = Paged ROM A
+    -- 010 11xx xxxx xxxx xxxx = Paged ROM B
+    -- 011 00xx xxxx xxxx xxxx = Paged ROM C
+    -- 011 01xx xxxx xxxx xxxx = Paged ROM D
+    -- 011 10xx xxxx xxxx xxxx = Paged ROM E
+    -- 011 11xx xxxx xxxx xxxx = Paged ROM F
+    -- 100 00xx xxxx xxxx xxxx = MOS
+    -- 100 01xx xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF) (M128)
+    -- 100 10xx xxxx xxxx xxxx = Filing System RAM (8K, at C000-DFFF) (M128)
+    -- 100 11xx xxxx xxxx xxxx = 
+    -- 101 00xx xxxx xxxx xxxx =
+    -- 101 01xx xxxx xxxx xxxx = 
+    -- 101 10xx xxxx xxxx xxxx = 
+    -- 101 11xx xxxx xxxx xxxx = 
+    -- 110 00xx xxxx xxxx xxxx = Main memory
+    -- 110 01xx xxxx xxxx xxxx = Main memory
+    -- 110 10xx xxxx xxxx xxxx = Shadow memory (M128)
+    -- 110 11xx xxxx xxxx xxxx = Shadow memory (M128)
+    -- 111 00xx xxxx xxxx xxxx =
+    -- 111 01xx xxxx xxxx xxxx = 
+    -- 111 10xx xxxx xxxx xxxx = 
+    -- 111 11xx xxxx xxxx xxxx = 
+    
     process(clock,hard_reset_n)
     begin
 
@@ -910,25 +1080,51 @@ begin
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
             if vid_clken = '1' then
                 -- Fetch data from previous CPU cycle
-                if (rom_enable = '1') then
-                    -- Paged ROMs at 0x00000-0x3FFFF in the external SRAM
-                    RAM_A <= "000" & romsel & cpu_a(13 downto 0);
-                elsif (mos_enable = '1') then
-                    -- MOS ROM at 0x40000-0x43FFF in the external SRAM
-                    RAM_A <= "0010000" & cpu_a(13 downto 0);
-                else
-                    -- Unused at 0x44000-0x5FFFF
-                    -- Ordinary RAM at 0x60000-0x67FFF
-                    -- Unused at 0x68000-0x7FFFF
-                    RAM_A <= "00110" & cpu_a(15 downto 0);
-                end if;
-                if ram_enable = '1' and cpu_r_nw = '0' then
-                    RAM_nWE  <= '0';
-                    RAM_nOE  <= '1';
+                if rom_enable = '1' then
+                    if ModeM128 and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
+                        -- Master 128, RAM bit maps 8000-8FFF as private RAM
+                        RAM_A   <= "001000100" & cpu_a(11 downto 0);
+                        RAM_nWE <= cpu_r_nw;
+                        RAM_nOE <= not cpu_r_nw;
+                    else
+                        -- Paged ROMs at 0x00000-0x3FFFF in the external RAM
+                        RAM_A <= "000" & romsel(3 downto 0) & cpu_a(13 downto 0);
+                        -- ROM slots 4,5,6,7 are writeable
+                        if romsel(3 downto 2) = "01" then
+                            RAM_nWE <= cpu_r_nw;
+                            RAM_nOE <= not cpu_r_nw;
+                        end if;
+                    end if;
+                elsif mos_enable = '1' then
+                    if ModeM128 and cpu_a(15 downto 13) = "110" and acc_y = '1' then
+                        -- Master 128, Y bit maps C000-DFFF as filing system RAM
+                        RAM_A   <= "00100100" &  cpu_a(12 downto 0);
+                        RAM_nWE <= cpu_r_nw;
+                        RAM_nOE <= not cpu_r_nw;
+                    else
+                        -- Model B
+                        -- MOS ROM at 0x40000-0x43FFF in the external SRAM
+                        RAM_A <= "0010000" & cpu_a(13 downto 0);
+                    end if;
+                elsif ram_enable = '1' then
+                    if ModeM128 and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and (acc_x = '1' or (acc_e = '1' and vdu_op = '1' and cpu_sync = '0')) then
+                        RAM_A   <= "001101" & cpu_a(14 downto 0);
+                    else
+                        -- Ordinary RAM at 0x60000-0x67FFF
+                        RAM_A   <= "001100" & cpu_a(14 downto 0);
+                    end if;
+                    RAM_nWE <= cpu_r_nw;
+                    RAM_nOE <= not cpu_r_nw;
                 end if;
             else
                 -- Fetch data from previous display cycle
-                RAM_A <= "001100" & display_a;
+                if ModeM128 then
+                    -- Master 128
+                    RAM_A <= "00110" & acc_d & display_a;
+                else
+                    -- Model B
+                    RAM_A <= "001100" & display_a;
+                end if; 
             end if;
         end if;
     end process;
@@ -991,8 +1187,13 @@ begin
     sys_via_cb2_in <= crtc_lpstb;
     -- Keyboard
     sys_via_ca2_in <= keyb_int;
-    sys_via_pa_in(7) <= keyb_out;
-    sys_via_pa_in(6 downto 0) <= sys_via_pa_out(6 downto 0); -- Must loop back output pins or keyboard won't work
+
+
+    -- TODO more work needed here, but this might be enough
+    sys_via_pa_in <= rtc_do when ModeM128 and rtc_ce = '1' and rtc_ds = '1' and rtc_rd_n_w = '1' else            
+                     -- Must loop back output pins or keyboard won't work
+                     keyb_out & sys_via_pa_out(6 downto 0);
+        
     keyb_column <= sys_via_pa_out(3 downto 0);
     keyb_row <= sys_via_pa_out(6 downto 4);
     -- Sound
@@ -1034,7 +1235,8 @@ begin
             romsel <= (others => '0');
         elsif rising_edge(clock) then
             if romsel_enable = '1' and cpu_r_nw = '0' then
-                romsel <= cpu_do(3 downto 0);
+                romsel(7) <= cpu_do(7);
+                romsel(3 downto 0) <= cpu_do(3 downto 0);
             end if;
         end if;
     end process;
@@ -1137,6 +1339,69 @@ begin
              vga1_b(1) & vga1_b(0) & "00" when vga1_mode = '1' else
              b_out & b_out & b_out & b_out;
 
+-----------------------------------------------
+-- Master 128 additions
+-----------------------------------------------
+
+    m128additions: if ModeM128 generate
+        process(clock,reset_n)
+        begin
+            if reset_n = '0' then
+                acccon <= (others => '0');
+                vdu_op <= '0';
+            elsif rising_edge(clock) then
+                if (cpu_clken = '1') then
+                    -- Access Control Register 0xFE34
+                    if acccon_enable = '1' and cpu_r_nw = '0' then
+                        acccon <= cpu_do;
+                    end if;
+                    -- vdu op indicates the last opcode fetch in 0xC000-0xDFFF
+                    if cpu_sync = '1' then
+                        if cpu_a(15 downto 13) = "110" then
+                            vdu_op <= '1';
+                        else
+                            vdu_op <= '0';
+                        end if;
+                    end if;
+
+                    rtc_as_r <= rtc_as;
+                    rtc_ds_r <= rtc_ds;
+
+                    -- Latch the RTC Address of the falling edge of rtc_as
+                    if rtc_ce = '1' and rtc_as = '0' and rtc_as_r = '1' then
+                        rtc_a <= rtc_adi(5 downto 0);
+                    end if;
+
+                    -- Latch the RTC Data on the falling edge of rtc_ds
+                    if rtc_ce = '1' and rtc_ds = '0' and rtc_ds_r = '1' and rtc_rd_n_w = '0' then
+                        rtc_ram(to_integer(unsigned(rtc_a))) <= rtc_adi;
+                    end if;
+                end if;
+            end if;
+        end process;
+        -- RTC/CMOS is controlled from the system
+        -- PB7 -> address strobe (AS) active high
+        -- PB6 -> chip enable (CE) active high
+        -- PB3..0 drives IC32 (4-16 line decoder)
+        -- IC32(2) -> data strobe (active high)
+        -- IC32(1) -> read (1) / write (0)
+        rtc_adi    <= sys_via_pa_out;
+        rtc_as     <= sys_via_pb_out(7);
+        rtc_ce     <= sys_via_pb_out(6);
+        rtc_ds     <= ic32(2);
+        rtc_rd_n_w <= ic32(1);
+        rtc_do     <= rtc_ram(to_integer(unsigned(rtc_a)));
+        
+        acc_irr <= acccon(7);
+        acc_tst <= acccon(6);
+        acc_ifj <= acccon(5);
+        acc_itu <= acccon(4);
+        acc_y   <= acccon(3);
+        acc_x   <= acccon(2);
+        acc_e   <= acccon(1);
+        acc_d   <= acccon(0);
+    end generate;
+    
     -- Keyboard LEDs
     LED1 <= not caps_lock_led_n;
     LED2 <= not shift_lock_led_n;

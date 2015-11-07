@@ -63,11 +63,12 @@ architecture rtl of rgb2vga is
 
     -- Values for 720x576p (total 864x625) with 27MHz clock
     -- worked quite well on Belina and on LG
+    -- ModeLine "720x576" 27.00 720 732 796 864 576 581 586 625 -HSync -VSync
     constant width25       : integer := 10;
-	constant HORIZ_RT      : integer := 96;
-	constant HORIZ_BP      : integer := 80;
+	constant HORIZ_RT      : integer := 64;
+	constant HORIZ_BP      : integer := 68 + 32;
 	constant HORIZ_DISP    : integer := 656;
-	constant HORIZ_FP      : integer := 32;
+	constant HORIZ_FP      : integer := 12 + 32;
 
 --    -- Values for 800x600 (total 1056x625) with 33.032MHz clock
 --  constant width25       : integer := 11;
@@ -82,6 +83,14 @@ architecture rtl of rgb2vga is
 --	constant HORIZ_BP      : integer := 160;
 --	constant HORIZ_DISP    : integer := 656;
 --	constant HORIZ_FP      : integer := 80;
+
+--    -- Values for 800x600 (total 960x625) with 30.000MHz clock
+--    -- Modeline "800x600@50" 30 800 814 884 960 600 601 606 625 +hsync +vsync
+--  constant width25       : integer := 10;    
+--	constant HORIZ_RT      : integer := 70;
+--	constant HORIZ_BP      : integer := 76 + 72;
+--	constant HORIZ_DISP    : integer := 656;
+--	constant HORIZ_FP      : integer := 14 + 72;
     
 	-- VSYNC state-machine
 	type VType is (

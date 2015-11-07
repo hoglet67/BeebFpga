@@ -87,7 +87,7 @@ entity bbc_micro_duo is
            FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
            avr_RxD        : in    std_logic;
            avr_TxD        : out   std_logic;
-           DIP            : in    std_logic_vector(1 downto 0);
+           DIP            : in    std_logic_vector(3 downto 0);
            TEST           : out   std_logic_vector (7 downto 0)
     );
 end entity;
@@ -188,6 +188,11 @@ signal vga1_hs          :   std_logic;
 signal vga1_vs          :   std_logic;
 signal vga1_mode        :   std_logic;
 signal rgbi_out         :   std_logic_vector(3 downto 0);
+signal hsync_int1       :   std_logic;
+signal vsync_int1       :   std_logic;
+signal hsync_int2       :   std_logic;
+signal vsync_int2       :   std_logic;
+
 
 -- SAA5050 signals
 signal ttxt_glr         :   std_logic;
@@ -1075,7 +1080,7 @@ begin
 		b_out => vga0_b,
 		is15k => open 
 	);
-    vga0_mode <= DIP(0);
+    vga0_mode <= '1' when DIP(0) = '1' and DIP(1) = '0' else '0';
 
 -----------------------------------------------
 -- Scan Doubler from RGB2VGA project
@@ -1101,20 +1106,24 @@ begin
     vga1_g <= rgbi_out(2) & rgbi_out(2);
     vga1_b <= rgbi_out(1) & rgbi_out(1);
     
-    vga1_mode <= DIP(1);
+    vga1_mode <= '1' when DIP(0) = '1' and DIP(1) = '1' else '0';
 
 -----------------------------------------------
 -- RGBHV Multiplexor
 -----------------------------------------------
 
     -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
-    hsync <= vga0_hs when vga0_mode = '1' else
-             vga1_hs when vga1_mode = '1' else
-             not (crtc_hsync or crtc_vsync);
-
-    vsync <= vga0_vs when vga0_mode = '1' else
-             vga1_vs when vga1_mode = '1' else
-             '1';
+    hsync_int1 <= vga0_hs when vga0_mode = '1' else
+                  vga1_hs when vga1_mode = '1' else
+                  not (crtc_hsync or crtc_vsync);
+    hsync_int2 <= hsync_int1 xor DIP(2);
+    hsync      <= hsync_int2;
+    
+    vsync_int1 <= vga0_vs when vga0_mode = '1' else
+                  vga1_vs when vga1_mode = '1' else
+                  '1';
+    vsync_int2 <= vsync_int1 xor DIP(3);
+    vsync      <= vsync_int2;
              
     red   <= vga0_r(1) & vga0_r(0) & "00" when vga0_mode = '1' else
              vga1_r(1) & vga1_r(0) & "00" when vga1_mode = '1' else
@@ -1137,6 +1146,6 @@ begin
 
     -- Test outputs
     
-    TEST <= ttxt_clken & ttxt_crs & r_out & g_out & b_out & crtc_vsync & crtc_hsync & not (crtc_hsync or crtc_vsync);
+    TEST <= vsync_int2 & hsync_int2 & "000000";
 
 end architecture;

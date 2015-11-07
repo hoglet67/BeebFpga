@@ -88,6 +88,8 @@ NET avr_TxD         LOC="P141" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # TX
 
 NET DIP<0>          LOC="P111" | IOSTANDARD=LVTTL;                       #
 NET DIP<1>          LOC="P105" | IOSTANDARD=LVTTL;                       #
+NET DIP<2>          LOC="P101" | IOSTANDARD=LVTTL;                       #
+NET DIP<3>          LOC="P100" | IOSTANDARD=LVTTL;                       #
 
 #NET uart_RxD   	    LOC="P116" | IOSTANDARD=LVTTL;                       # A0
 #NET uart_TxD        LOC="P117" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # A1

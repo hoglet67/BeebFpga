@@ -7,7 +7,20 @@ CONFIG PROHIBIT=P144;
 CONFIG PROHIBIT=P69;
 CONFIG PROHIBIT=P60;
 
-NET clk_32M00       LOC="P94"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW | PERIOD=31.25ns; # CLK
+# 32MHz main clock domain
+NET "clk_32M00" TNM_NET = clk_period_grp1;
+TIMESPEC TS_clk_period1 = PERIOD "clk_period_grp1" 31.25ns HIGH;
+
+# 27MHz VGA clock domain
+NET "vga_clock" TNM_NET = clk_period_grp2;
+TIMESPEC TS_clk_period2 = PERIOD "clk_period_grp2" 37.04ns HIGH;
+
+# Avoid timing warnings for cross domain signals (which are synchronized anyway)
+NET "clk_32M00" TNM_NET = FFS "clk_domain_a";
+NET "vga_clock" TNM_NET = FFS "clk_domain_b";
+TIMESPEC "TS_CrossDomain" = FROM "clk_domain_a" TO "clk_domain_b" TIG;
+
+NET clk_32M00       LOC="P94"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # CLK
 NET SDMISO          LOC="P118" | IOSTANDARD=LVTTL;                       # A2
 NET ps2_data        LOC="P120" | IOSTANDARD=LVTTL | PULLUP ;             # A4
 NET ps2_clk         LOC="P121" | IOSTANDARD=LVTTL | PULLUP ;             # A5

@@ -11,6 +11,7 @@ set_blklen=&50
 read_single_block=&51
 write_block=&58
 
+cardsort%=&80
 
 	\\ **** Reset MMC Command Sequence ****
 	\\ A=cmd, token=&FF
@@ -55,19 +56,73 @@ attempts%=&C2
 	JSR MMC_DoCommand
 	AND #&81			; ignore errors
 	CMP #1
-	BNE ifail
+	BEQ il0
+	JMP ifail
+.il0
+	LDA #&01
+	STA cardsort%
+	LDA #&48
+	JSR MMC_SetCommand
+	LDA #&01
+	STA cmdseq%+4
+	LDA #&AA
+	STA cmdseq%+5
+	LDA #&87
+	STA cmdseq%+6
+	JSR MMC_DoCommand
+	CMP #1
+	BEQ isdhc
 
+	LDA #&02
+	STA cardsort%
+.il1
 	\\ CMD1
 	LDA #send_op_cond
 	JSR MMC_SetCommand
-.il1
-	BIT EscapeFlag			; may hang
-	BMI ifail
 	JSR MMC_DoCommand
 	CMP #2
-	BCS ifail			; error occurred?
+	BCC il11
+	JMP ifail
+.il11
+	BIT EscapeFlag			; may hang
+	BMI ifail
 	CMP #0
 	BNE il1
+	LDA #&02
+	STA cardsort%
+	JMP iok
+
+.isdhc
+	JSR UP_ReadByteX
+	JSR UP_ReadByteX
+	JSR UP_ReadByteX
+	JSR UP_ReadByteX
+.isdhc2
+	LDA #&77
+	JSR MMC_SetCommand
+	JSR MMC_DoCommand
+	LDA #&69
+	JSR MMC_SetCommand
+	LDA #&40
+	STA cmdseq%+2
+	JSR MMC_DoCommand
+	CMP #&00
+	BNE isdhc2
+	LDA #&7A
+	JSR MMC_SetCommand
+	JSR MMC_DoCommand
+	CMP #&00
+	BNE ifail
+	JSR UP_ReadByteX
+	AND #&40
+	PHA
+	JSR UP_ReadByteX
+	JSR UP_ReadByteX
+	JSR UP_ReadByteX
+	PLA
+	BNE iok
+	LDA #2
+	STA cardsort%
 
 	\\ Set blklen=512
 .iok
@@ -88,8 +143,10 @@ attempts%=&C2
 .ifail
 	\\ Try again?
 	DEC attempts%
-	BNE iloop
+	BEQ ifaildone
+	JMP iloop
 
+.ifaildone
 	\\ Give up!
 	JSR ResetLEDS
 	SEC
@@ -122,13 +179,7 @@ attempts%=&C2
 	LDA #read_single_block
 .setuprw
 	JSR MMC_SetCommand
-	LDA sec%			; Copy sec% to par%
-	STA par%+2
-	LDA sec%+1
-	STA par%+1
-	LDA sec%+2
-	STA par%
-	RTS
+	JMP setCommandAddress
 
 	\ **** Begin Read Transaction ****
 .MMC_StartRead
@@ -287,14 +338,8 @@ attempts%=&C2
 	JSR MMC_16Clocks		; ignore CRC
 
 	\\ increment MMC sector
-	INC par%+2			; sec always even
-	INC par%+2
-	BNE rb8
-	INC par%+1
-	BNE rb8
-	INC par%
+	JSR incCommandAddress
 
-.rb8
 	LDX seccount%			; X>=2
 	DEX
 	DEX
@@ -402,12 +447,7 @@ attempts%=&C2
 
 	\\ sector+=2
 .wb4
-	INC par%+2
-	INC par%+2
-	BNE wb2
-	INC par%+1
-	BNE wb2
-	INC par%
+	JSR incCommandAddress
 
 .wb2
 	LDX seccount%
@@ -597,3 +637,67 @@ read16str%=MA+&1000
 	BPL eloop0
 	RTS
 }
+
+\\ Translate the sector number into a SPI Command Address
+\\ Sector number is in 256 bytes sectors
+\\ For SDHC cards this is in blocks (which are also sectors)
+\\ For SD cards this needs converting to bytes by multiplying by 512
+
+.setCommandAddress
+{
+\\ Skip multiply for SDHC cards (cardsort = 01)
+	LDA cardsort%
+	CMP #2
+	BNE setCommandAddressSDHC
+\\ Convert to bytes by multiplying by 256
+	LDA sec%+2
+	STA cmdseq%+2
+	LDA sec%+1
+	STA cmdseq%+3
+	LDA sec%
+	STA cmdseq%+4
+	LDA #0
+	STA cmdseq%+5		
+	RTS
+
+		
+.setCommandAddressSDHC
+\\ Convert to 512b sectors by dividing by	
+	LDA #0
+	STA cmdseq%+2
+	LDA sec%+2
+	LSR A
+	STA cmdseq%+3
+	LDA sec%+1
+	ROR A
+	STA cmdseq%+4
+	LDA sec%
+	ROR A
+	STA cmdseq%+5
+	RTS
+}
+
+.incCommandAddress
+{
+	LDA cardsort%
+	CMP #2
+	BNE incCommandAddressSDHC
+\\ Add 512 to address (Sector always even)
+	INC cmdseq%+4
+.incMS
+	INC cmdseq%+4
+	BNE incDone
+	INC cmdseq%+3
+	BNE incDone
+	INC cmdseq%+2
+.incDone
+	RTS
+
+\\ Add one to address
+.incCommandAddressSDHC
+	INC cmdseq%+5
+	BEQ incMS
+	RTS
+}
+
+	

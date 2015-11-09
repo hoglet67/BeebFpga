@@ -26,7 +26,8 @@ cat blank.rom             >> rom_image.bin
 cat blank.rom             >> rom_image.bin
 cat blank.rom             >> rom_image.bin
 
-cat smartmmc.rom.20151002 >> rom_image.bin
+cat m128/mmfs-m.rom       >> rom_image.bin
+#cat smartmmc.rom.20151002 >> rom_image.bin
 cat m128/dfs.rom          >> rom_image.bin
 cat m128/viewsht.rom      >> rom_image.bin
 cat m128/edit.rom         >> rom_image.bin

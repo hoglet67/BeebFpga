@@ -509,7 +509,12 @@ ENDIF
 	EQUB &D6
 	EQUS "Not found",0		; Not Found error
 
-	\ *EX (<dir>)
+
+
+
+\ *EX (<dir>)
+.fscv9_starEX
+	JSR SetTextPointerYX 
 .CMD_EX
 {
 	JSR Set_CurDirDrv_ToDefaults
@@ -526,6 +531,8 @@ ENDIF
 }
 
 	\ *INFO <afsp>
+.fscv10_starINFO
+	JSR SetTextPointerYX 
 .CMD_INFO
 	JSR parameter_afsp
 	JSR Param_SyntaxErrorIfNull
@@ -1659,7 +1666,7 @@ cmdtab4= cmdtable4-cmdtable1
 	JSR ReadFileAttribsToB0_Yoffset
 	JMP SaveMemBlock
 
-.fscv2_4_starRUN
+.fscv2_4_11_starRUN
 	JSR SetTextPointerYX		; ** RUN
 .NotCmdTable4
 {
@@ -2982,7 +2989,7 @@ ENDIF	; End of MASTER ONLY service calls
 	RTS 
 
 .FSCV_ENTRY
-	CMP #&09
+	CMP #&0C
 	BCS filev_unknownop
 	STX &B5				; Save X
 	TAX 
@@ -3521,25 +3528,32 @@ ENDIF
 .fscv_table1
 	EQUB LO(fscv0_starOPT-1)
 	EQUB LO(fscv1_EOF_Yhndl-1)
-	EQUB LO(fscv2_4_starRUN-1)
+	EQUB LO(fscv2_4_11_starRUN-1)
 	EQUB LO(fscv3_unreccommand-1)
-	EQUB LO(fscv2_4_starRUN-1)
+	EQUB LO(fscv2_4_11_starRUN-1)
 	EQUB LO(fscv5_starCAT-1)
 	EQUB LO(fscv6_shutdownfilesys-1)
 	EQUB LO(fscv7_hndlrange-1)
 	EQUB LO(fscv_osabouttoproccmd-1)
+	EQUB LO(fscv9_starEX-1)
+	EQUB LO(fscv10_starINFO-1)
+	EQUB LO(fscv2_4_11_starRUN-1)
+
 
 	\ OSFSC table 2 high bytes
 .fscv_table2
 	EQUB HI(fscv0_starOPT-1)
 	EQUB HI(fscv1_EOF_Yhndl-1)
-	EQUB HI(fscv2_4_starRUN-1)
+	EQUB HI(fscv2_4_11_starRUN-1)
 	EQUB HI(fscv3_unreccommand-1)
-	EQUB HI(fscv2_4_starRUN-1)
+	EQUB HI(fscv2_4_11_starRUN-1)
 	EQUB HI(fscv5_starCAT-1)
 	EQUB HI(fscv6_shutdownfilesys-1)
 	EQUB HI(fscv7_hndlrange-1)
 	EQUB HI(fscv_osabouttoproccmd-1)
+	EQUB HI(fscv9_starEX-1)
+	EQUB HI(fscv10_starINFO-1)
+	EQUB HI(fscv2_4_11_starRUN-1)
 
 	\ OSFIND tables
 .finv_tablelo

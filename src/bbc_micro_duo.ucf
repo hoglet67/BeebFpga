@@ -7,19 +7,25 @@ CONFIG PROHIBIT=P144;
 CONFIG PROHIBIT=P69;
 CONFIG PROHIBIT=P60;
 
-# TODO: This should not be needed!!!
-NET "clk_32M00" CLOCK_DEDICATED_ROUTE = FALSE;
+# This is necessary because in two places we have a gated clock
+# The SRAM_nWE is gated with the clock (in bbc_micro_duo)
+# The U_FLASH_CK is gated with the clock(in spi_flash) 
+PIN "dcm/CLK0_BUFG_INST.O" CLOCK_DEDICATED_ROUTE = FALSE;
 
 # 32MHz main clock domain
-NET "clk_32M00" TNM_NET = clk_period_grp1;
+NET "clock" TNM_NET = clk_period_grp1;
 TIMESPEC TS_clk_period1 = PERIOD "clk_period_grp1" 31.25ns HIGH;
 
 # 27MHz VGA clock domain
 NET "vga_clock" TNM_NET = clk_period_grp2;
 TIMESPEC TS_clk_period2 = PERIOD "clk_period_grp2" 37.04ns HIGH;
 
+# 24MHz SAA5050 clock domain
+NET "CLOCK_24" TNM_NET = clk_period_grp3;
+TIMESPEC TS_clk_period3 = PERIOD "clk_period_grp3" 41.66ns HIGH;
+
 # Avoid timing warnings for cross domain signals (which are synchronized anyway)
-NET "clk_32M00" TNM_NET = FFS "clk_domain_a";
+NET "clock" TNM_NET = FFS "clk_domain_a";
 NET "vga_clock" TNM_NET = FFS "clk_domain_b";
 TIMESPEC "TS_CrossDomain" = FROM "clk_domain_a" TO "clk_domain_b" TIG;
 
@@ -102,19 +108,19 @@ NET JOYSTICK1<0>    LOC="P134" | IOSTANDARD=LVTTL;                       # A13
 NET JOYSTICK1<1>    LOC="P132" | IOSTANDARD=LVTTL;                       # A11
 NET JOYSTICK1<2>    LOC="P127" | IOSTANDARD=LVTTL;                       # A9
 NET JOYSTICK1<3>    LOC="P126" | IOSTANDARD=LVTTL;                       # A8
-NET JOYSTICK1<4>    LOC="P123" | IOSTANDARD=LVTTL;                       # A6
-NET JOYSTICK1<5>    LOC="P133" | IOSTANDARD=LVTTL;                       # A12
-NET JOYSTICK1<6>    LOC="P131" | IOSTANDARD=LVTTL;                       # A10
-NET JOYSTICK1<7>    LOC="P124" | IOSTANDARD=LVTTL;                       # A7
+#NET JOYSTICK1<4>    LOC="P123" | IOSTANDARD=LVTTL;                       # A6
+NET JOYSTICK1<4>    LOC="P133" | IOSTANDARD=LVTTL;                       # A12
+#NET JOYSTICK1<6>    LOC="P131" | IOSTANDARD=LVTTL;                       # A10
+#NET JOYSTICK1<7>    LOC="P124" | IOSTANDARD=LVTTL;                       # A7
 
 NET JOYSTICK2<0>    LOC="P84"  | IOSTANDARD=LVTTL | PULLUP ;             # D4
 NET JOYSTICK2<1>    LOC="P87"  | IOSTANDARD=LVTTL | PULLUP ;             # D3
 NET JOYSTICK2<2>    LOC="P92"  | IOSTANDARD=LVTTL | PULLUP ;             # D2
 NET JOYSTICK2<3>    LOC="P95"  | IOSTANDARD=LVTTL | PULLUP ;             # D1
-NET JOYSTICK2<4>    LOC="P98"  | IOSTANDARD=LVTTL | PULLUP ;             # D0
-NET JOYSTICK2<5>    LOC="P82"  | IOSTANDARD=LVTTL | PULLUP ;             # D5
-NET JOYSTICK2<6>    LOC="P80"  | IOSTANDARD=LVTTL | PULLUP ;             # D6
-NET JOYSTICK2<7>    LOC="P78"  | IOSTANDARD=LVTTL | PULLUP ;             # D7
+#NET JOYSTICK2<4>    LOC="P98"  | IOSTANDARD=LVTTL | PULLUP ;             # D0
+NET JOYSTICK2<4>    LOC="P82"  | IOSTANDARD=LVTTL | PULLUP ;             # D5
+#NET JOYSTICK2<6>    LOC="P80"  | IOSTANDARD=LVTTL | PULLUP ;             # D6
+#NET JOYSTICK2<7>    LOC="P78"  | IOSTANDARD=LVTTL | PULLUP ;             # D7
 
 #NET uart_RxD   	    LOC="P116" | IOSTANDARD=LVTTL;                       # A0
 #NET uart_TxD        LOC="P117" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # A1

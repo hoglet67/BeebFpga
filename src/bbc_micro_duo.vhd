@@ -94,8 +94,8 @@ entity bbc_micro_duo is
            avr_RxD        : in    std_logic;
            avr_TxD        : out   std_logic;
            DIP            : in    std_logic_vector(3 downto 0);
-           JOYSTICK1      : in    std_logic_vector(7 downto 0);
-           JOYSTICK2      : in    std_logic_vector(7 downto 0)
+           JOYSTICK1      : in    std_logic_vector(4 downto 0);
+           JOYSTICK2      : in    std_logic_vector(4 downto 0)
     );
 end entity;
 
@@ -317,7 +317,7 @@ signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz perip
 
 signal sdclk_int : std_logic;
 
-signal reset_counter : std_logic_vector (8 downto 0);
+signal reset_counter : std_logic_vector (9 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -469,10 +469,9 @@ begin
     -- COMPONENT INSTANCES
     -------------------------
 
-    clock <= clk_32M00;
-
     dcm: entity work.dcm1 port map(
         CLKIN_IN  => clk_32M00,
+        CLK0_OUT  => clock,
         CLKFX_OUT => CLOCK_24
     );
 
@@ -1240,8 +1239,8 @@ begin
     -- Connections to System VIA
     -- ADC
     sys_via_cb1_in <= adc_eoc_n;
-    sys_via_pb_in(5) <= JOYSTICK2(5); 
-    sys_via_pb_in(4) <= JOYSTICK1(5);     
+    sys_via_pb_in(5) <= JOYSTICK2(4); 
+    sys_via_pb_in(4) <= JOYSTICK1(4);     
 
     -- CRTC
     sys_via_ca1_in <= crtc_vsync;
@@ -1350,7 +1349,7 @@ begin
 -----------------------------------------------
 
 	inst_rgb2vga_dcm: entity work.rgb2vga_dcm port map (
-		CLKIN_IN => clock,
+		CLKIN_IN => clk_32M00,
 		CLKFX_OUT => vga_clock
 	);
 

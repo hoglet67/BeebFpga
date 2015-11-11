@@ -7,6 +7,9 @@ CONFIG PROHIBIT=P144;
 CONFIG PROHIBIT=P69;
 CONFIG PROHIBIT=P60;
 
+# TODO: This should not be needed!!!
+NET "clk_32M00" CLOCK_DEDICATED_ROUTE = FALSE;
+
 # 32MHz main clock domain
 NET "clk_32M00" TNM_NET = clk_period_grp1;
 TIMESPEC TS_clk_period1 = PERIOD "clk_period_grp1" 31.25ns HIGH;
@@ -82,15 +85,6 @@ NET SRAM_nOE        LOC="P26"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # SRAM_
 NET ARDUINO_RESET   LOC="P139" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # ARDUINO_RESET
 NET SW1             LOC="P104" | IOSTANDARD=LVTTL;                       # SW1
 
-NET TEST<0>         LOC="P98"  | IOSTANDARD=LVTTL;                       # D0
-NET TEST<1>         LOC="P95"  | IOSTANDARD=LVTTL;                       # D1
-NET TEST<2>         LOC="P92"  | IOSTANDARD=LVTTL;                       # D2
-NET TEST<3>         LOC="P87"  | IOSTANDARD=LVTTL;                       # D3
-NET TEST<4>         LOC="P84"  | IOSTANDARD=LVTTL;                       # D4
-NET TEST<5>         LOC="P82"  | IOSTANDARD=LVTTL;                       # D5
-NET TEST<6>         LOC="P80"  | IOSTANDARD=LVTTL;                       # D6
-NET TEST<7>         LOC="P78"  | IOSTANDARD=LVTTL;                       # D7
-
 NET FLASH_CS        LOC="P38"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # FLASH_CS
 NET FLASH_CK        LOC="P70"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # FLASH_CK
 NET FLASH_SI        LOC="P64"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # FLASH_SI
@@ -104,19 +98,29 @@ NET DIP<1>          LOC="P105" | IOSTANDARD=LVTTL;                       #
 NET DIP<2>          LOC="P101" | IOSTANDARD=LVTTL;                       #
 NET DIP<3>          LOC="P100" | IOSTANDARD=LVTTL;                       #
 
+NET JOYSTICK1<0>    LOC="P134" | IOSTANDARD=LVTTL;                       # A13
+NET JOYSTICK1<1>    LOC="P132" | IOSTANDARD=LVTTL;                       # A11
+NET JOYSTICK1<2>    LOC="P127" | IOSTANDARD=LVTTL;                       # A9
+NET JOYSTICK1<3>    LOC="P126" | IOSTANDARD=LVTTL;                       # A8
+NET JOYSTICK1<4>    LOC="P123" | IOSTANDARD=LVTTL;                       # A6
+NET JOYSTICK1<5>    LOC="P133" | IOSTANDARD=LVTTL;                       # A12
+NET JOYSTICK1<6>    LOC="P131" | IOSTANDARD=LVTTL;                       # A10
+NET JOYSTICK1<7>    LOC="P124" | IOSTANDARD=LVTTL;                       # A7
+
+NET JOYSTICK2<0>    LOC="P84"  | IOSTANDARD=LVTTL | PULLUP ;             # D4
+NET JOYSTICK2<1>    LOC="P87"  | IOSTANDARD=LVTTL | PULLUP ;             # D3
+NET JOYSTICK2<2>    LOC="P92"  | IOSTANDARD=LVTTL | PULLUP ;             # D2
+NET JOYSTICK2<3>    LOC="P95"  | IOSTANDARD=LVTTL | PULLUP ;             # D1
+NET JOYSTICK2<4>    LOC="P98"  | IOSTANDARD=LVTTL | PULLUP ;             # D0
+NET JOYSTICK2<5>    LOC="P82"  | IOSTANDARD=LVTTL | PULLUP ;             # D5
+NET JOYSTICK2<6>    LOC="P80"  | IOSTANDARD=LVTTL | PULLUP ;             # D6
+NET JOYSTICK2<7>    LOC="P78"  | IOSTANDARD=LVTTL | PULLUP ;             # D7
+
 #NET uart_RxD   	    LOC="P116" | IOSTANDARD=LVTTL;                       # A0
 #NET uart_TxD        LOC="P117" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # A1
 #NET charSet         LOC="P111" | IOSTANDARD=LVTTL;                       # B3
 #NET ps2_mouse_clk   LOC="P74"  | IOSTANDARD=LVTTL | PULLUP ;             # D8
 #NET ps2_mouse_data  LOC="P66"  | IOSTANDARD=LVTTL | PULLUP ;             # D9
-#NET JOYSTICK1<0>    LOC="P134" | IOSTANDARD=LVTTL;                       # A13
-#NET JOYSTICK1<1>    LOC="P132" | IOSTANDARD=LVTTL;                       # A11
-#NET JOYSTICK1<2>    LOC="P127" | IOSTANDARD=LVTTL;                       # A9
-#NET JOYSTICK1<3>    LOC="P126" | IOSTANDARD=LVTTL;                       # A8
-#NET JOYSTICK1<4>    LOC="P123" | IOSTANDARD=LVTTL;                       # A6
-#NET JOYSTICK1<5>    LOC="P133" | IOSTANDARD=LVTTL;                       # A12
-#NET JOYSTICK1<6>    LOC="P131" | IOSTANDARD=LVTTL;                       # A10
-#NET JOYSTICK1<7>    LOC="P124" | IOSTANDARD=LVTTL;                       # A7
 
 #NET SD_CD           LOC="P119" | IOSTANDARD=LVTTL;                       # A3
 #NET SW_LEFT         LOC="P111" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # B3

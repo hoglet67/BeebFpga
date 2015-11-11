@@ -94,7 +94,8 @@ entity bbc_micro_duo is
            avr_RxD        : in    std_logic;
            avr_TxD        : out   std_logic;
            DIP            : in    std_logic_vector(3 downto 0);
-           TEST           : out   std_logic_vector (7 downto 0)
+           JOYSTICK1      : in    std_logic_vector(7 downto 0);
+           JOYSTICK2      : in    std_logic_vector(7 downto 0)
     );
 end entity;
 
@@ -299,8 +300,15 @@ signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
 signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F
 --signal fddc_enable      :   std_logic;      -- 0xFE80-FE9F
 --signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
-signal adc_enable       :   std_logic;      -- 0xFEC0-FEDF
 --signal tube_enable      :   std_logic;      -- 0xFEE0-FEFF
+
+signal adc_enable       :   std_logic;      -- 0xFEC0-FEDF
+signal adc_eoc_n        :   std_logic;
+signal adc_do           :   std_logic_vector(7 downto 0);
+signal adc_ch0          :   std_logic_vector(11 downto 0);
+signal adc_ch1          :   std_logic_vector(11 downto 0);
+signal adc_ch2          :   std_logic_vector(11 downto 0);
+signal adc_ch3          :   std_logic_vector(11 downto 0);
 
 -- ROM select latch
 signal romsel           :   std_logic_vector(7 downto 0);
@@ -677,7 +685,45 @@ begin
         -- TODO: Add DIP Switches
         "00000000"
         );
+        
+    -- Analog to Digital Convertor
+	adc: entity work.upd7002 port map (
+		clk        => clock,
+		cpu_clken  => cpu_clken,
+		mhz1_clken => mhz1_clken,
+        cs         => adc_enable,
+		reset_n    => reset_n,
+		r_nw       => cpu_r_nw,
+		addr       => cpu_a(1 downto 0),
+		di         => cpu_do,
+		do         => adc_do,
+		eoc_n      => adc_eoc_n,
+		ch0        => adc_ch0,
+		ch1        => adc_ch1,
+		ch2        => adc_ch2,
+		ch3        => adc_ch3
+	);    
 
+    -- Master Joystick Left/Right (low value = right)
+    adc_ch0 <= "111111111111" when JOYSTICK1(2) = '0' else -- left
+               "000000000000" when JOYSTICK1(3) = '0' else -- right
+               "100000000000";
+
+    -- Master Joystick Up/Down (low value = down)
+    adc_ch1 <= "111111111111" when JOYSTICK1(0) = '0' else -- up
+               "000000000000" when JOYSTICK1(1) = '0' else -- down
+               "100000000000";
+
+    -- Secondary Joystick Left/Right (low value = right)
+    adc_ch2 <= "111111111111" when JOYSTICK2(2) = '0' else -- left
+               "000000000000" when JOYSTICK2(3) = '0' else -- right
+               "100000000000";
+
+    -- Secondary Joystick Up/Down (low value = down)
+    adc_ch3 <= "111111111111" when JOYSTICK2(0) = '0' else -- up
+               "000000000000" when JOYSTICK2(1) = '0' else -- down
+               "100000000000";
+    
     -- Sound generator (and drive logic for I2S codec)
     sound : entity work.sn76489_top port map (
         clock, mhz4_clken,
@@ -950,8 +996,15 @@ begin
                             acia_enable <= '1';
                         end if;
                     else
-                        -- 0xFE10
-                        serproc_enable <= '1';
+                        if cpu_a(3) = '0' then
+                            -- 0xFE10
+                            serproc_enable <= '1';
+                        else
+                            -- 0xFE18
+                            if ModeM128 then
+                                adc_enable <= '1';
+                            end if;
+                        end if;
                     end if;
                 when "001" =>
                     -- 0xFE20
@@ -978,7 +1031,11 @@ begin
                 when "011" => user_via_enable <= '1';   -- 0xFE60
 --              when "100" => fddc_enable <= '1';       -- 0xFE80
 --              when "101" => adlc_enable <= '1';       -- 0xFEA0
-                when "110" => adc_enable <= '1';        -- 0xFEC0
+                when "110" =>
+                    -- 0xFEC0
+                    if not ModeM128 then
+                        adc_enable <= '1';
+                    end if;
 --              when "111" => tube_enable <= '1';       -- 0xFEE0
                 when others =>
                     null;
@@ -1002,6 +1059,7 @@ begin
     cpu_di <=
         RAM_Din       when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
         crtc_do       when crtc_enable = '1' else
+        adc_do        when adc_enable = '1' else
         "00000010"    when acia_enable = '1' else
         sys_via_do_r  when sys_via_enable = '1' else
         user_via_do_r when user_via_enable = '1' else
@@ -1181,7 +1239,10 @@ begin
 
     -- Connections to System VIA
     -- ADC
-    sys_via_cb1_in <= '1'; -- /EOC
+    sys_via_cb1_in <= adc_eoc_n;
+    sys_via_pb_in(5) <= JOYSTICK2(5); 
+    sys_via_pb_in(4) <= JOYSTICK1(5);     
+
     -- CRTC
     sys_via_ca1_in <= crtc_vsync;
     sys_via_cb2_in <= crtc_lpstb;
@@ -1199,7 +1260,7 @@ begin
     -- Sound
     sound_di <= sys_via_pa_out;
     -- Others (idle until missing bits implemented)
-    sys_via_pb_in(7 downto 4) <= (others => '1');
+    sys_via_pb_in(7 downto 6) <= (others => '1');
     sys_via_pb_in(3 downto 0) <= sys_via_pb_out(3 downto 0);
 
     -- Connections to User VIA (user port is output on green LEDs)
@@ -1408,9 +1469,5 @@ begin
 
     -- Follow convention for keeping Arduino reset
     ARDUINO_RESET <= SW1;
-
-    -- Test outputs
-    
-    TEST <= vsync_int2 & hsync_int2 & "000000";
 
 end architecture;

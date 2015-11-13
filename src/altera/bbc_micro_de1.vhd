@@ -178,7 +178,7 @@ begin
 
 bbc_micro : entity work.bbc_micro_core
     generic map (
-        UseICEDebugger => false,
+        UseICEDebugger => true,
         UseT65Core     => false,
         UseAlanDCore   => true
     )

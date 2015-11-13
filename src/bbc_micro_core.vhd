@@ -54,11 +54,8 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
--- TODO: Add generic for ICE-T65
-
 entity bbc_micro_core is
     generic (
-        ModeM128       : boolean := true;
         UseICEDebugger : boolean := false;
         UseT65Core     : boolean := false;
         UseAlanDCore   : boolean := true
@@ -130,7 +127,10 @@ entity bbc_micro_core is
         avr_TxD        : out   std_logic;
 
         -- Current CPU address, e.g. to drive a hex display
-        cpu_addr       : out   std_logic_vector(15 downto 0)
+        cpu_addr       : out   std_logic_vector(15 downto 0);
+
+        -- Master Mode
+        ModeM128       : in    std_logic
     );
 end entity;
 
@@ -776,7 +776,7 @@ begin
                             serproc_enable <= '1';
                         else
                             -- 0xFE18
-                            if ModeM128 then
+                            if ModeM128 = '1' then
                                 adc_enable <= '1';
                             end if;
                         end if;
@@ -786,7 +786,7 @@ begin
                     if cpu_a(4) = '0' then
                         -- 0xFE20
                         vidproc_enable <= '1';
-                    elsif ModeM128 then
+                    elsif ModeM128 = '1' then
                         case cpu_a(3 downto 2) is
                             -- 0xFE30
                             when "00" => romsel_enable <= '1';
@@ -808,7 +808,7 @@ begin
 --              when "101" => adlc_enable <= '1';       -- 0xFEA0
                 when "110" =>
                     -- 0xFEC0
-                    if not ModeM128 then
+                    if ModeM128 = '0' then
                         adc_enable <= '1';
                     end if;
 --              when "111" => tube_enable <= '1';       -- 0xFEE0
@@ -839,13 +839,13 @@ begin
         sys_via_do_r  when sys_via_enable = '1' else
         user_via_do_r when user_via_enable = '1' else
         -- Master 128 additions
-        romsel when romsel_enable = '1' and ModeM128 else
-        acccon when acccon_enable = '1' and ModeM128 else
+        romsel when romsel_enable = '1' and ModeM128 = '1' else
+        acccon when acccon_enable = '1' and ModeM128 = '1' else
         "11111110"    when io_sheila = '1' else
         "11111111"    when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
 
-    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when ModeM128 else
+    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when ModeM128 = '1' else
                  not ((not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
     ext_nCS <= '0';
@@ -912,7 +912,7 @@ begin
             if vid_clken = '1' then
                 -- Fetch data from previous CPU cycle
                 if rom_enable = '1' then
-                    if ModeM128 and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
+                    if ModeM128 = '1' and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
                         -- Master 128, RAM bit maps 8000-8FFF as private RAM
                         ext_A   <= "1101010" & cpu_a(11 downto 0);
                         ext_nWE <= cpu_r_nw;
@@ -920,7 +920,7 @@ begin
                     else
                         case romsel(3 downto 2) is
                             when "00" =>
-                                if ModeM128 then
+                                if ModeM128 = '1' then
                                     ext_A <= "100" & romsel(1 downto 0) & cpu_a(13 downto 0);
                                 else
                                     ext_A <= "101" & romsel(1 downto 0) & cpu_a(13 downto 0);
@@ -932,7 +932,7 @@ begin
                                 ext_nOE <= not cpu_r_nw;
                             when others =>
                                 -- TODO: Exclude OS rom from appearing in Slot 8?
-                                if ModeM128 then
+                                if ModeM128 = '1' then
                                     ext_A <= "00" & romsel(2 downto 0) & cpu_a(13 downto 0);
                                 else
                                     ext_A <= "01" & romsel(2 downto 0) & cpu_a(13 downto 0);
@@ -940,7 +940,7 @@ begin
                         end case;                        
                     end if;
                 elsif mos_enable = '1' then
-                    if ModeM128 then
+                    if ModeM128 = '1' then
                         if cpu_a(15 downto 13) = "110" and acc_y = '1' then
                             -- Master 128, Y bit maps C000-DFFF as filing system RAM
                             ext_A   <= "110100" &  cpu_a(12 downto 0);
@@ -955,7 +955,7 @@ begin
                         ext_A <= "01000" & cpu_a(13 downto 0);
                     end if;
                 elsif ram_enable = '1' then
-                    if ModeM128 and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and (acc_x = '1' or (acc_e = '1' and vdu_op = '1' and cpu_sync = '0')) then
+                    if ModeM128 = '1' and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and (acc_x = '1' or (acc_e = '1' and vdu_op = '1' and cpu_sync = '0')) then
                         -- Shadow RAM
                         ext_A   <= "1101" & cpu_a(14 downto 0);
                     else
@@ -967,7 +967,7 @@ begin
                 end if;
             else
                 -- Fetch data from previous display cycle
-                if ModeM128 then
+                if ModeM128 = '1' then
                     -- Master 128
                     ext_A <= "110" & acc_d & display_a;
                 else
@@ -1042,7 +1042,7 @@ begin
 
 
     -- TODO more work needed here, but this might be enough
-    sys_via_pa_in <= rtc_do when ModeM128 and rtc_ce = '1' and rtc_ds = '1' and rtc_r_nw = '1' else
+    sys_via_pa_in <= rtc_do when ModeM128 = '1' and rtc_ce = '1' and rtc_ds = '1' and rtc_r_nw = '1' else
                      -- Must loop back output pins or keyboard won't work
                      keyb_out & sys_via_pa_out(6 downto 0);
 
@@ -1192,66 +1192,63 @@ begin
 -- Master 128 additions
 -----------------------------------------------
 
-    m128additions: if ModeM128 generate
-
-        -- RTC/CMOS
-        inst_rtc : entity work.rtc port map (
-            clk        => clock_32,
-            cpu_clken  => cpu_clken,
-            reset_n    => reset_n,
-            ce         => rtc_ce,
-            as         => rtc_as,
-            ds         => rtc_ds,
-            r_nw       => rtc_r_nw,
-            adi        => rtc_adi,
-            do         => rtc_do
-           );
-
-        -- RTC/CMOS is controlled from the system
-        -- PB7 -> address strobe (AS) active high
-        -- PB6 -> chip enable (CE) active high
-        -- PB3..0 drives IC32 (4-16 line decoder)
-        -- IC32(2) -> data strobe (active high)
-        -- IC32(1) -> read (1) / write (0)
-        rtc_adi    <= sys_via_pa_out;
-        rtc_as     <= sys_via_pb_out(7);
-        rtc_ce     <= sys_via_pb_out(6);
-        rtc_ds     <= ic32(2);
-        rtc_r_nw   <= ic32(1);
-        
-        process(clock_32,reset_n)
-        begin
-            if reset_n = '0' then
-                acccon <= (others => '0');
-                vdu_op <= '0';
-            elsif rising_edge(clock_32) then
-                if (cpu_clken = '1') then
-                    -- Access Control Register 0xFE34
-                    if acccon_enable = '1' and cpu_r_nw = '0' then
-                        acccon <= cpu_do;
-                    end if;
-                    -- vdu op indicates the last opcode fetch in 0xC000-0xDFFF
-                    if cpu_sync = '1' then
-                        if cpu_a(15 downto 13) = "110" then
-                            vdu_op <= '1';
-                        else
-                            vdu_op <= '0';
-                        end if;
+    -- RTC/CMOS
+    inst_rtc : entity work.rtc port map (
+        clk        => clock_32,
+        cpu_clken  => cpu_clken,
+        reset_n    => reset_n,
+        ce         => rtc_ce,
+        as         => rtc_as,
+        ds         => rtc_ds,
+        r_nw       => rtc_r_nw,
+        adi        => rtc_adi,
+        do         => rtc_do
+        );
+    
+    -- RTC/CMOS is controlled from the system
+    -- PB7 -> address strobe (AS) active high
+    -- PB6 -> chip enable (CE) active high
+    -- PB3..0 drives IC32 (4-16 line decoder)
+    -- IC32(2) -> data strobe (active high)
+    -- IC32(1) -> read (1) / write (0)
+    rtc_adi    <= sys_via_pa_out;
+    rtc_as     <= sys_via_pb_out(7);
+    rtc_ce     <= sys_via_pb_out(6);
+    rtc_ds     <= ic32(2);
+    rtc_r_nw   <= ic32(1);
+    
+    process(clock_32,reset_n)
+    begin
+        if reset_n = '0' then
+            acccon <= (others => '0');
+            vdu_op <= '0';
+        elsif rising_edge(clock_32) then
+            if (cpu_clken = '1') then
+                -- Access Control Register 0xFE34
+                if acccon_enable = '1' and cpu_r_nw = '0' then
+                    acccon <= cpu_do;
+                end if;
+                -- vdu op indicates the last opcode fetch in 0xC000-0xDFFF
+                if cpu_sync = '1' then
+                    if cpu_a(15 downto 13) = "110" then
+                        vdu_op <= '1';
+                    else
+                        vdu_op <= '0';
                     end if;
                 end if;
             end if;
-        end process;
-        acc_irr <= acccon(7);
-        acc_tst <= acccon(6);
-        acc_ifj <= acccon(5);
-        acc_itu <= acccon(4);
-        acc_y   <= acccon(3);
-        acc_x   <= acccon(2);
-        acc_e   <= acccon(1);
-        acc_d   <= acccon(0);
-    end generate;
-
+        end if;
+    end process;
+    acc_irr <= acccon(7);
+    acc_tst <= acccon(6);
+    acc_ifj <= acccon(5);
+    acc_itu <= acccon(4);
+    acc_y   <= acccon(3);
+    acc_x   <= acccon(2);
+    acc_e   <= acccon(1);
+    acc_d   <= acccon(0);
+    
     -- Debugging output
     cpu_addr <= cpu_a(15 downto 0);
-
+    
 end architecture;

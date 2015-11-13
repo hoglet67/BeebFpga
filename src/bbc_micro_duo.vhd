@@ -52,11 +52,6 @@ use ieee.numeric_std.all;
 
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
-    generic (
-       ModeM128      : boolean := true; 
-       UseT65Core    : boolean := false;
-       UseAlanDCore  : boolean := true
-       );
      port (clk_32M00      : in    std_logic;
            ps2_clk        : in    std_logic;
            ps2_data       : in    std_logic;
@@ -160,10 +155,9 @@ begin
 
 bbc_micro : entity work.bbc_micro_core
     generic map (
-        ModeM128       => ModeM128,
         UseICEDebugger => true,
-        UseT65Core     => UseT65Core,
-        UseAlanDCore   => UseAlanDCore
+        UseT65Core     => false,
+        UseAlanDCore   => true
     )
     port map (
         clock_32       => clock_32,
@@ -192,12 +186,13 @@ bbc_micro : entity work.bbc_micro_core
         caps_led       => LED1,
         shift_led      => LED2,
         keyb_dip       => (others => '0'),
-        vid_mode       => DIP(3 downto 0),
+        vid_mode       => "00" & DIP(1 downto 0),
         joystick1      => JOYSTICK1,
         joystick2      => JOYSTICK2,
         avr_RxD        => avr_RxD,
         avr_TxD        => avr_TxD,
-        cpu_addr       => open
+        cpu_addr       => open,
+        ModeM128       => DIP(2)
     );
     
 --------------------------------------------------------

@@ -209,7 +209,7 @@ bbc_micro : entity work.bbc_micro_core
         caps_led       => LEDR(0),
         shift_led      => LEDR(1),
         keyb_dip       => SW(7 downto 0),
-        vid_mode       => "000" & SW(8),
+        vid_mode       => "001" & SW(8),
         joystick1      => (others => '1'),
         joystick2      => (others => '1'),
         avr_RxD        => UART_RXD,

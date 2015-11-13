@@ -1,56 +1,45 @@
 #!/bin/bash
 
-XILINX=/opt/Xilinx/14.7
-DATA2MEM=${XILINX}/ISE_DS/ISE/bin/lin/data2mem
-PAPILIO_LOADER=/opt/GadgetFactory/papilio-loader/programmer
-PROG=${PAPILIO_LOADER}/linux32/papilio-prog
-BSCAN=${PAPILIO_LOADER}/bscan_spi_xc6slx9.bit
-
-# Create the 272K ROM image
+# Create the 384K ROM image
 #
-# This contains 17x 16K ROMS
-# 0..15 are 16K sideways ROMS
-# 16 is the MOS
+# This contains 24x 16K ROMS images from the Master 128 and Model B
 
-gcc -o bitmerge bitmerge.c 
+IMAGE=tmp/rom_image.bin
 
-rm -f rom_image.bin
+rm -f $IMAGE
 
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
+# 00000-1FFFF
+# Master OS then ROM 9,A,B,C,D,E,F
+cat m128/mos.rom               >> $IMAGE
+cat m128/dfs.rom               >> $IMAGE
+cat m128/viewsht.rom           >> $IMAGE
+cat m128/edit.rom              >> $IMAGE
+cat m128/basic4.rom            >> $IMAGE
+cat m128/adfs.rom              >> $IMAGE
+cat m128/view.rom              >> $IMAGE
+cat m128/terminal.rom          >> $IMAGE
 
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
+# 20000-3FFFF
+# Beeb OS then ROM 9,A,B,C,D,E,F
+cat bbcb/os12.rom              >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat bbcb/smartmmc.rom.20151002 >> $IMAGE
+cat bbcb/ram_master_v6.rom     >> $IMAGE
+cat bbcb/basic2.rom            >> $IMAGE
 
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
-cat blank.rom             >> rom_image.bin
+# 40000-4FFFF
+# Master ROM 0,1,2,3
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat m128/mmfs-m.rom            >> $IMAGE
 
-cat blank.rom             >> rom_image.bin
-cat smartmmc.rom.20151002 >> rom_image.bin
-cat ram_master_v6.rom     >> rom_image.bin
-cat basic2.rom            >> rom_image.bin
-
-cat os12.rom              >> rom_image.bin
-
-# Run bitmerge to merge in the ROM images
-./bitmerge ../working/bbc_micro_duo.bit 60000:rom_image.bin merged1.bit
-
-# Remove the old rom image
-rm -f rom_image.bin bitmerge
-
-# Run data2mem to merge in the AVR Firmware
-BMM_FILE=../src/CpuMon_bd.bmm
-${DATA2MEM} -bm ${BMM_FILE} -bd ../../AtomBusMon/firmware/avr_progmem.mem -bt merged1.bit -o b merged2.bit
-
-# Program the Papilo Duo
-${PROG} -v -f merged2.bit -b ${BSCAN}  -sa -r
-
-# Reset the Papilio Duo
-${PROG} -c
-
+# 50000-5FFFF
+# Beeb ROM 0,1,2,3
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE

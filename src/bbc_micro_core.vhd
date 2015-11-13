@@ -850,50 +850,49 @@ begin
     -- SRAM bus
     ext_nCS <= '0';
 
-    -- Synchronous outputs to SRAM
+    -- Synchronous outputs to External Memory
 
     -- ext_A is 18..0 providing a 512KB address space
 
-    -- Paged ROMs at 0x00000-0x3FFFF in the external SRAM
-    -- MOS ROM at 0x40000-0x43FFF in the external SRAM
-    -- Unused at 0x44000-0x5FFFF
-    -- Ordinary RAM at 0x60000-0x67FFF
-    -- Unused at 0x68000-0x7FFFF
+    -- External Memory Map in 16KB pages
+    -- 0x00000-0x5FFFF is ROM
+    -- 0x60000-0x7FFFF is RAM
 
-    -- SRAM Memory Map in 16KB pages
-    --
-    -- 000 00xx xxxx xxxx xxxx = Paged ROM 0
-    -- 000 01xx xxxx xxxx xxxx = Paged ROM 1
-    -- 000 10xx xxxx xxxx xxxx = Paged ROM 2
-    -- 000 11xx xxxx xxxx xxxx = Paged ROM 3
-    -- 001 00xx xxxx xxxx xxxx = Paged ROM 4
-    -- 001 01xx xxxx xxxx xxxx = Paged ROM 5
-    -- 001 10xx xxxx xxxx xxxx = Paged ROM 6
-    -- 001 11xx xxxx xxxx xxxx = Paged ROM 7
-    -- 010 00xx xxxx xxxx xxxx = Paged ROM 8
-    -- 010 01xx xxxx xxxx xxxx = Paged ROM 9
-    -- 010 10xx xxxx xxxx xxxx = Paged ROM A
-    -- 010 11xx xxxx xxxx xxxx = Paged ROM B
-    -- 011 00xx xxxx xxxx xxxx = Paged ROM C
-    -- 011 01xx xxxx xxxx xxxx = Paged ROM D
-    -- 011 10xx xxxx xxxx xxxx = Paged ROM E
-    -- 011 11xx xxxx xxxx xxxx = Paged ROM F
-    -- 100 00xx xxxx xxxx xxxx = MOS
-    -- 100 01xx xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF) (M128)
-    -- 100 10xx xxxx xxxx xxxx = Filing System RAM (8K, at C000-DFFF) (M128)
-    -- 100 11xx xxxx xxxx xxxx =
-    -- 101 00xx xxxx xxxx xxxx =
-    -- 101 01xx xxxx xxxx xxxx =
-    -- 101 10xx xxxx xxxx xxxx =
-    -- 101 11xx xxxx xxxx xxxx =
+    -- 000 00xx xxxx xxxx xxxx = Master MOS 3.20
+    -- 000 01xx xxxx xxxx xxxx = Master ROM 9
+    -- 000 10xx xxxx xxxx xxxx = Master ROM A
+    -- 000 11xx xxxx xxxx xxxx = Master ROM B
+    -- 001 00xx xxxx xxxx xxxx = Master ROM C
+    -- 001 01xx xxxx xxxx xxxx = Master ROM D
+    -- 001 10xx xxxx xxxx xxxx = Master ROM E
+    -- 001 11xx xxxx xxxx xxxx = Master ROM F
+    -- 010 00xx xxxx xxxx xxxx = Beeb OS 1.20
+    -- 010 01xx xxxx xxxx xxxx = Beeb ROM 9
+    -- 010 10xx xxxx xxxx xxxx = Beeb ROM A
+    -- 010 11xx xxxx xxxx xxxx = Beeb ROM B
+    -- 011 00xx xxxx xxxx xxxx = Beeb ROM C
+    -- 011 01xx xxxx xxxx xxxx = Beeb ROM D
+    -- 011 10xx xxxx xxxx xxxx = Beeb ROM E
+    -- 011 11xx xxxx xxxx xxxx = Beeb ROM F
+    -- 100 00xx xxxx xxxx xxxx = Master ROM 0
+    -- 100 01xx xxxx xxxx xxxx = Master ROM 1
+    -- 100 10xx xxxx xxxx xxxx = Master ROM 2
+    -- 100 11xx xxxx xxxx xxxx = Master ROM 3
+    -- 101 00xx xxxx xxxx xxxx = Beeb ROM 0
+    -- 101 01xx xxxx xxxx xxxx = Beeb ROM 1
+    -- 101 10xx xxxx xxxx xxxx = Beeb ROM 2
+    -- 101 11xx xxxx xxxx xxxx = Beeb ROM 3
     -- 110 00xx xxxx xxxx xxxx = Main memory
     -- 110 01xx xxxx xxxx xxxx = Main memory
-    -- 110 10xx xxxx xxxx xxxx = Shadow memory (M128)
-    -- 110 11xx xxxx xxxx xxxx = Shadow memory (M128)
-    -- 111 00xx xxxx xxxx xxxx =
-    -- 111 01xx xxxx xxxx xxxx =
-    -- 111 10xx xxxx xxxx xxxx =
-    -- 111 11xx xxxx xxxx xxxx =
+    -- 110 1000 xxxx xxxx xxxx = Filing System RAM (4K, at C000-CFFF) (M128)
+    -- 110 1001 xxxx xxxx xxxx = Filing System RAM (4K, at D000-DFFF) (M128)
+    -- 110 1010 xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF) (M128)
+    -- 110 1011 xxxx xxxx xxxx = Shadow memory (4K, at 3000-3FFF) (M128)
+    -- 110 11xx xxxx xxxx xxxx = Shadow memory (16K, at 4000-7FFF) (M128)
+    -- 111 00xx xxxx xxxx xxxx = RAM Slot 4
+    -- 111 01xx xxxx xxxx xxxx = RAM Slot 5
+    -- 111 10xx xxxx xxxx xxxx = RAM Slot 6
+    -- 111 11xx xxxx xxxx xxxx = RAM Slot 7
 
     process(clock_32,hard_reset_n)
     begin
@@ -915,34 +914,52 @@ begin
                 if rom_enable = '1' then
                     if ModeM128 and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
                         -- Master 128, RAM bit maps 8000-8FFF as private RAM
-                        ext_A   <= "1000100" & cpu_a(11 downto 0);
+                        ext_A   <= "1101010" & cpu_a(11 downto 0);
                         ext_nWE <= cpu_r_nw;
                         ext_nOE <= not cpu_r_nw;
                     else
-                        -- Paged ROMs at 0x00000-0x3FFFF in the external RAM
-                        ext_A <= "0" & romsel(3 downto 0) & cpu_a(13 downto 0);
-                        -- ROM slots 4,5,6,7 are writeable
-                        if romsel(3 downto 2) = "01" then
-                            ext_nWE <= cpu_r_nw;
-                            ext_nOE <= not cpu_r_nw;
-                        end if;
+                        case romsel(3 downto 2) is
+                            when "00" =>
+                                if ModeM128 then
+                                    ext_A <= "100" & romsel(1 downto 0) & cpu_a(13 downto 0);
+                                else
+                                    ext_A <= "101" & romsel(1 downto 0) & cpu_a(13 downto 0);
+                                end if;
+                            when "01" =>
+                                -- ROM slots 4,5,6,7 are writeable on the Beeb and Master
+                                ext_A <= "111" & romsel(1 downto 0) & cpu_a(13 downto 0);
+                                ext_nWE <= cpu_r_nw;
+                                ext_nOE <= not cpu_r_nw;
+                            when others =>
+                                -- TODO: Exclude OS rom from appearing in Slot 8?
+                                if ModeM128 then
+                                    ext_A <= "00" & romsel(2 downto 0) & cpu_a(13 downto 0);
+                                else
+                                    ext_A <= "01" & romsel(2 downto 0) & cpu_a(13 downto 0);
+                                end if;                            
+                        end case;                        
                     end if;
                 elsif mos_enable = '1' then
-                    if ModeM128 and cpu_a(15 downto 13) = "110" and acc_y = '1' then
-                        -- Master 128, Y bit maps C000-DFFF as filing system RAM
-                        ext_A   <= "100100" &  cpu_a(12 downto 0);
-                        ext_nWE <= cpu_r_nw;
-                        ext_nOE <= not cpu_r_nw;
+                    if ModeM128 then
+                        if cpu_a(15 downto 13) = "110" and acc_y = '1' then
+                            -- Master 128, Y bit maps C000-DFFF as filing system RAM
+                            ext_A   <= "110100" &  cpu_a(12 downto 0);
+                            ext_nWE <= cpu_r_nw;
+                            ext_nOE <= not cpu_r_nw;
+                        else
+                            -- Master OS 3.20
+                            ext_A <= "00000" & cpu_a(13 downto 0);
+                        end if;
                     else
-                        -- Model B
-                        -- MOS ROM at 0x40000-0x43FFF in the external SRAM
-                        ext_A <= "10000" & cpu_a(13 downto 0);
+                        -- Model B OS 1.20
+                        ext_A <= "01000" & cpu_a(13 downto 0);
                     end if;
                 elsif ram_enable = '1' then
                     if ModeM128 and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and (acc_x = '1' or (acc_e = '1' and vdu_op = '1' and cpu_sync = '0')) then
+                        -- Shadow RAM
                         ext_A   <= "1101" & cpu_a(14 downto 0);
                     else
-                        -- Ordinary RAM at 0x60000-0x67FFF
+                        -- Main RAM
                         ext_A   <= "1100" & cpu_a(14 downto 0);
                     end if;
                     ext_nWE <= cpu_r_nw;

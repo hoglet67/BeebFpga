@@ -118,8 +118,8 @@ signal reset_counter   : std_logic_vector (9 downto 0);
 -- this is safely beyond the end of the bitstream
 constant user_address   : std_logic_vector(23 downto 0) := x"060000";
 
--- user_length = 17x 16K ROM images
-constant user_length    : std_logic_vector(23 downto 0) := x"044000";
+-- user_length = 384KB (24x 16K ROM) images
+constant user_length    : std_logic_vector(23 downto 0) := x"060000";
 
 --
 -- bootstrap signals

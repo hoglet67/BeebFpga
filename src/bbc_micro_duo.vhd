@@ -144,7 +144,7 @@ type    BS_STATE_TYPE is (
             INIT, START_READ_FLASH, READ_FLASH, FLASH0, FLASH1, FLASH2, FLASH3, FLASH4, FLASH5, FLASH6, FLASH7,
             WAIT0, WAIT1, WAIT2, WAIT3, WAIT4, WAIT5, WAIT6, WAIT7, WAIT8, WAIT9, WAIT10, WAIT11
         );
-        
+
 signal bs_state, bs_state_next : BS_STATE_TYPE := INIT;
 
 begin
@@ -194,7 +194,7 @@ bbc_micro : entity work.bbc_micro_core
         cpu_addr       => open,
         ModeM128       => DIP(2)
     );
-    
+
 --------------------------------------------------------
 -- Clock Generation
 --------------------------------------------------------
@@ -205,10 +205,10 @@ bbc_micro : entity work.bbc_micro_core
         CLKFX_OUT => clock_24
     );
 
-  	inst_dcm2: entity work.dcm2 port map (
-		CLKIN_IN  => clk_32M00,
-		CLKFX_OUT => clock_27
-	);
+    inst_dcm2: entity work.dcm2 port map (
+        CLKIN_IN  => clk_32M00,
+        CLKFX_OUT => clock_27
+    );
 
 --------------------------------------------------------
 -- Power Up Reset Generation
@@ -232,19 +232,19 @@ bbc_micro : entity work.bbc_micro_core
 -- Audio DACs
 --------------------------------------------------------
 
-	dac_l : entity work.pwm_sddac port map(
-		clk_i => clock_32,
-		reset => '0',
-		dac_i => audio_l(15 downto 8),
-		dac_o => audioL
-	);
+    dac_l : entity work.pwm_sddac port map(
+        clk_i => clock_32,
+        reset => '0',
+        dac_i => audio_l(15 downto 8),
+        dac_o => audioL
+    );
 
     dac_r : entity work.pwm_sddac port map(
-		clk_i => clock_32,
-		reset => '0',
-		dac_i => audio_r(15 downto 8),
-		dac_o => audioR
-	);
+        clk_i => clock_32,
+        reset => '0',
+        dac_i => audio_r(15 downto 8),
+        dac_o => audioR
+    );
 
 --------------------------------------------------------
 -- Papilio Duo Misc
@@ -261,14 +261,14 @@ bbc_micro : entity work.bbc_micro_core
     SRAM_D              <= bs_Din when bootstrap_busy = '1' and bs_nWE = '0' else RAM_Din when bootstrap_busy = '0' and RAM_nWE = '0' else (others => 'Z');
     SRAM_A(18 downto 0) <= bs_A   when bootstrap_busy = '1' else RAM_A;
     SRAM_A(19)          <= '0';
-    SRAM_A(20)          <= '0';    
+    SRAM_A(20)          <= '0';
     SRAM_nCS            <= bs_nCS when bootstrap_busy = '1' else RAM_nCS;
     SRAM_nOE            <= bs_nOE when bootstrap_busy = '1' else RAM_nOE;
-    
+
     -- The RAM write is carefully gated to provide adequate data setup/hold time
     -- Note: the Papilio Duo RAM is fast (10ns), here the WE pulse will be 16.25ns
     -- Be wary of this if porting to another board!!!
-    
+
     SRAM_nWE        <= bs_nWE  when bootstrap_busy = '1' else (RAM_nWE or not clock_32);
     RAM_Dout        <= SRAM_D; -- anyone can read SRAM_D without contention but his provides some logical separation
 

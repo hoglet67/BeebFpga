@@ -936,8 +936,8 @@ begin
                                     ext_A <= "00" & romsel(2 downto 0) & cpu_a(13 downto 0);
                                 else
                                     ext_A <= "01" & romsel(2 downto 0) & cpu_a(13 downto 0);
-                                end if;                            
-                        end case;                        
+                                end if;
+                        end case;
                     end if;
                 elsif mos_enable = '1' then
                     if ModeM128 = '1' then
@@ -1204,7 +1204,7 @@ begin
         adi        => rtc_adi,
         do         => rtc_do
         );
-    
+
     -- RTC/CMOS is controlled from the system
     -- PB7 -> address strobe (AS) active high
     -- PB6 -> chip enable (CE) active high
@@ -1216,7 +1216,7 @@ begin
     rtc_ce     <= sys_via_pb_out(6);
     rtc_ds     <= ic32(2);
     rtc_r_nw   <= ic32(1);
-    
+
     process(clock_32,reset_n)
     begin
         if reset_n = '0' then
@@ -1247,8 +1247,8 @@ begin
     acc_x   <= acccon(2);
     acc_e   <= acccon(1);
     acc_d   <= acccon(0);
-    
+
     -- Debugging output
     cpu_addr <= cpu_a(15 downto 0);
-    
+
 end architecture;

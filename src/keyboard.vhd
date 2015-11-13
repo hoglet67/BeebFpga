@@ -177,6 +177,16 @@ begin
 			keys(14) <= (others => '0');
 			keys(15) <= (others => '0');
 		elsif rising_edge(CLOCK) then
+
+
+            -- To stop Quartus inferring latches
+			keys(10) <= (others => '0');
+			keys(11) <= (others => '0');
+			keys(12) <= (others => '0');
+			keys(13) <= (others => '0');
+			keys(14) <= (others => '0');
+			keys(15) <= (others => '0');
+            
 			-- Copy DIP switches through to row 0
 			keys(2)(0) <= DIP_SWITCH(7);
 			keys(3)(0) <= DIP_SWITCH(6);

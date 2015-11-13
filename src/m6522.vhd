@@ -51,9 +51,6 @@ library ieee ;
   use ieee.std_logic_unsigned.all;
   use ieee.numeric_std.all;
 
-library UNISIM;
-  use UNISIM.Vcomponents.all;
-
 entity M6522 is
   port (
 

@@ -4,12 +4,12 @@ use ieee.numeric_std.all;
 library UNISIM;
 use UNISIM.Vcomponents.all;
 
-entity rgb2vga_dcm is
+entity dcm2 is
     port (CLKIN_IN  : in  std_logic;
           CLKFX_OUT : out std_logic);
-end rgb2vga_dcm;
+end dcm2;
 
-architecture BEHAVIORAL of rgb2vga_dcm is
+architecture BEHAVIORAL of dcm2 is
     signal CLKFX_BUF   : std_logic;
     signal CLKIN_IBUFG : std_logic;
     signal GND_BIT     : std_logic;

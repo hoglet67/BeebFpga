@@ -4,9 +4,6 @@ library ieee;
     use ieee.std_logic_unsigned.all;
     use ieee.numeric_std.all;
 
-library unisim;
-    use unisim.vcomponents.all;
-
 -- FLASH SPI driver
 -- Inputs:
 --   U_FLASH_SO     FLASH chip serial output pin

@@ -74,7 +74,7 @@ begin
         end if;
     end process;
 
-    process(cs, r_nw, addr, completed_n, busy_n, value, mode, mux)
+    process(cs, r_nw, addr, completed_n, busy_n, value, flag, mode, mux)
     begin
         -- Read
         do <= (others => '0');
@@ -82,7 +82,7 @@ begin
             case addr is
                 when "00" =>
                     -- read status
-                    do <= completed_n & busy_n & value(11 downto 10) & mode & '0' & mux;
+                    do <= completed_n & busy_n & value(11 downto 10) & mode & flag & mux;
                 when "01" =>
                     -- read high byte of result
                     do <= value(11 downto 4);

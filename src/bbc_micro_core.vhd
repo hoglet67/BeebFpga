@@ -340,91 +340,13 @@ signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz perip
 
 signal sdclk_int : std_logic;
 
--- TODO: Refactor into seperate component
-
--- Additional Master 128 signals
--- RTC/CMOS RAM (MX146818)
-
-type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
-
-signal rtc_ram         : rtc_ram_type := (
-    x"30", -- RTC Seconds
-    x"00", -- RTC Seconds Alarm
-    x"02", -- RTC Minutes
-    x"00", -- RTC Minutes Alarm
-    x"18", -- RTC Hours
-    x"00", -- RTC Hours Alarm
-    x"06", -- RTC Day of Week
-    x"07", -- RTC Date of Month
-    x"11", -- RTC Month
-    x"15", -- RTC Year
-    x"00", -- RTC Register A
-    x"00", -- RTC Register B
-    x"00", -- RTC Register C
-    x"00", -- RTC Register D
-    x"00", -- CMOS  0 - Econet station number
-    x"FE", -- CMOS  1 - Econet file server identity (lo)
-    x"00", -- CMOS  2 - Econet file server identity (hi)
-    x"EB", -- CMOS  3 - Econet print server identity (lo)
-    x"00", -- CMOS  4 - Econet print server identity (hi)
-    x"C8", -- CMOS  5 - Default Filing System / Language (default file system MMFS)
-    x"FF", -- CMOS  6 - ROM frugal bits (*INSERT/*UNPLUG)
-    x"DD", -- CMOS  7 - ROM frugal bits (*INSERT/*UNPLUG) (disable DFS/ADFS)
-    x"00", -- CMOS  8 - Edit startup settings
-    x"00", -- CMOS  9 - reserved for telecommunications applications
-    x"F7", -- CMOS 10 - VDU mode and *TV settings
-    x"E3", -- CMOS 11 - ADFS startup options, keyboard settings, floppy params
-    x"20", -- CMOS 12 - Keyboard auto-repeat delay
-    x"08", -- CMOS 13 - Keyboard auto-repeat rate
-    x"0A", -- CMOS 14 - Printer ignore character
-    x"2C", -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
-    x"80", -- CMOS 16 - Default serial data format, auto boot option, int/ext TUBE, bell amplitude
-    x"00", -- CMOS 17 - reserved for ANFS
-    x"00", -- CMOS 18 - reserved for ANFS
-    x"00", -- CMOS 19 - reserved for ANFS
-    x"00", -- CMOS 20 - reserved for future use by Acorn
-    x"00", -- CMOS 21 - reserved for future use by Acorn
-    x"00", -- CMOS 22 - reserved for future use by Acorn
-    x"00", -- CMOS 23 - reserved for future use by Acorn
-    x"00", -- CMOS 24 - reserved for future use by Acorn
-    x"00", -- CMOS 25 - reserved for future use by Acorn
-    x"00", -- CMOS 26 - reserved for future use by Acorn
-    x"00", -- CMOS 27 - reserved for future use by Acorn
-    x"00", -- CMOS 28 - reserved for future use by Acorn
-    x"00", -- CMOS 29 - reserved for future use by Acorn
-    x"00", -- CMOS 30 - reserved for future use by third parties
-    x"00", -- CMOS 31 - reserved for future use by third parties
-    x"00", -- CMOS 32 - reserved for future use by third parties
-    x"00", -- CMOS 33 - reserved for future use by third parties
-    x"00", -- CMOS 34 - reserved for future use by third parties
-    x"00", -- CMOS 35 - reserved for future use by third parties
-    x"00", -- CMOS 36 - reserved for future use by third parties
-    x"00", -- CMOS 37 - reserved for future use by third parties
-    x"00", -- CMOS 38 - reserved for future use by third parties
-    x"00", -- CMOS 39 - reserved for future use by third parties
-    x"00", -- CMOS 40 - reserved for future use by the user
-    x"00", -- CMOS 41 - reserved for future use by the user
-    x"00", -- CMOS 42 - reserved for future use by the user
-    x"00", -- CMOS 43 - reserved for future use by the user
-    x"00", -- CMOS 44 - reserved for future use by the user
-    x"00", -- CMOS 45 - reserved for future use by the user
-    x"00", -- CMOS 46 - reserved for future use by the user
-    x"00", -- CMOS 47 - reserved for future use by the user
-    x"00", -- CMOS 48 - reserved for future use by the user
-    x"00"  -- CMOS 49 - reserved for future use by the user
-    );
-
-
-
+-- Master Real Time Clock / CMOS RAM
 signal rtc_adi         : std_logic_vector(7 downto 0);
-signal rtc_a           : std_logic_vector(5 downto 0);
 signal rtc_do          : std_logic_vector(7 downto 0);
 signal rtc_ce          : std_logic;
-signal rtc_rd_n_w      : std_logic;
+signal rtc_r_nw        : std_logic;
 signal rtc_as          : std_logic;
-signal rtc_as_r        : std_logic;
 signal rtc_ds          : std_logic;
-signal rtc_ds_r        : std_logic;
 
 -- 0xFE34 Access Control
 signal acccon          : std_logic_vector(7 downto 0);
@@ -1103,7 +1025,7 @@ begin
 
 
     -- TODO more work needed here, but this might be enough
-    sys_via_pa_in <= rtc_do when ModeM128 and rtc_ce = '1' and rtc_ds = '1' and rtc_rd_n_w = '1' else
+    sys_via_pa_in <= rtc_do when ModeM128 and rtc_ce = '1' and rtc_ds = '1' and rtc_r_nw = '1' else
                      -- Must loop back output pins or keyboard won't work
                      keyb_out & sys_via_pa_out(6 downto 0);
 
@@ -1254,6 +1176,32 @@ begin
 -----------------------------------------------
 
     m128additions: if ModeM128 generate
+
+        -- RTC/CMOS
+        inst_rtc : entity work.rtc port map (
+            clk        => clock_32,
+            cpu_clken  => cpu_clken,
+            reset_n    => reset_n,
+            ce         => rtc_ce,
+            as         => rtc_as,
+            ds         => rtc_ds,
+            r_nw       => rtc_r_nw,
+            adi        => rtc_adi,
+            do         => rtc_do
+           );
+
+        -- RTC/CMOS is controlled from the system
+        -- PB7 -> address strobe (AS) active high
+        -- PB6 -> chip enable (CE) active high
+        -- PB3..0 drives IC32 (4-16 line decoder)
+        -- IC32(2) -> data strobe (active high)
+        -- IC32(1) -> read (1) / write (0)
+        rtc_adi    <= sys_via_pa_out;
+        rtc_as     <= sys_via_pb_out(7);
+        rtc_ce     <= sys_via_pb_out(6);
+        rtc_ds     <= ic32(2);
+        rtc_r_nw   <= ic32(1);
+        
         process(clock_32,reset_n)
         begin
             if reset_n = '0' then
@@ -1273,35 +1221,9 @@ begin
                             vdu_op <= '0';
                         end if;
                     end if;
-
-                    rtc_as_r <= rtc_as;
-                    rtc_ds_r <= rtc_ds;
-
-                    -- Latch the RTC Address of the falling edge of rtc_as
-                    if rtc_ce = '1' and rtc_as = '0' and rtc_as_r = '1' then
-                        rtc_a <= rtc_adi(5 downto 0);
-                    end if;
-
-                    -- Latch the RTC Data on the falling edge of rtc_ds
-                    if rtc_ce = '1' and rtc_ds = '0' and rtc_ds_r = '1' and rtc_rd_n_w = '0' then
-                        rtc_ram(to_integer(unsigned(rtc_a))) <= rtc_adi;
-                    end if;
                 end if;
             end if;
         end process;
-        -- RTC/CMOS is controlled from the system
-        -- PB7 -> address strobe (AS) active high
-        -- PB6 -> chip enable (CE) active high
-        -- PB3..0 drives IC32 (4-16 line decoder)
-        -- IC32(2) -> data strobe (active high)
-        -- IC32(1) -> read (1) / write (0)
-        rtc_adi    <= sys_via_pa_out;
-        rtc_as     <= sys_via_pb_out(7);
-        rtc_ce     <= sys_via_pb_out(6);
-        rtc_ds     <= ic32(2);
-        rtc_rd_n_w <= ic32(1);
-        rtc_do     <= rtc_ram(to_integer(unsigned(rtc_a)));
-
         acc_irr <= acccon(7);
         acc_tst <= acccon(6);
         acc_ifj <= acccon(5);

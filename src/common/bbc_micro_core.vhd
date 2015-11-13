@@ -741,7 +741,7 @@ begin
     -- 0xFEA0 - 0xFEBF = 68B54 ADLC for Econet
     -- 0xFEC0 - 0xFEDF = uPD7002 ADC
     -- 0xFEE0 - 0xFEFF = Tube ULA
-    process(cpu_a,io_sheila)
+    process(cpu_a,io_sheila,ModeM128)
     begin
         -- All regions normally de-selected
         crtc_enable <= '0';
@@ -1087,8 +1087,7 @@ begin
             romsel <= (others => '0');
         elsif rising_edge(clock_32) then
             if romsel_enable = '1' and cpu_r_nw = '0' then
-                romsel(7) <= cpu_do(7);
-                romsel(3 downto 0) <= cpu_do(3 downto 0);
+                romsel <= cpu_do;
             end if;
         end if;
     end process;

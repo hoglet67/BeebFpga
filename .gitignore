@@ -1,6 +1,7 @@
 nohup.out
 *~
 #*
+*.bak
 
 not_in_git/
 
@@ -29,3 +30,9 @@ src/xilinx/ipcore_dir/coregen.log
 src/xilinx/ipcore_dir/gen_WatchEvents.tcl
 src/xilinx/ipcore_dir/tmp/
 src/xilinx/ipcore_dir/update_WatchEvents.tcl
+
+
+altera/db/
+altera/incremental_db/
+altera/output_files/
+altera/bbc_micro_de1.qws

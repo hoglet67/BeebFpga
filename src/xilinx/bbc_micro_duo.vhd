@@ -1,6 +1,6 @@
--- BBC Micro for Papilio Duo
+-- BBC Master / BBC B for the Papilio Duo
 --
--- Coupright (c) 2015 David Banks
+-- Copright (c) 2015 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -37,8 +37,6 @@
 -- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 -- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 -- POSSIBILITY OF SUCH DAMAGE.
---
--- BBC B Micro
 --
 -- Papilio Duo top-level
 --
@@ -94,14 +92,14 @@ architecture rtl of bbc_micro_duo is
 -- Signals
 -------------
 
-signal clock_24        :   std_logic;
-signal clock_27        :   std_logic;
-signal clock_32        :   std_logic;
-signal audio_l         :   std_logic_vector(15 downto 0);
-signal audio_r         :   std_logic_vector(15 downto 0);
-signal audio           :   std_logic;
-signal powerup_reset_n :   std_logic;
-signal hard_reset_n    :   std_logic;
+signal clock_24        : std_logic;
+signal clock_27        : std_logic;
+signal clock_32        : std_logic;
+signal audio_l         : std_logic_vector(15 downto 0);
+signal audio_r         : std_logic_vector(15 downto 0);
+signal audio           : std_logic;
+signal powerup_reset_n : std_logic;
+signal hard_reset_n    : std_logic;
 signal reset_counter   : std_logic_vector (9 downto 0);
 
 

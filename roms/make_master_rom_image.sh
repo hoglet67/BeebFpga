@@ -50,7 +50,7 @@ BMM_FILE=../src/CpuMon_bd.bmm
 ${DATA2MEM} -bm ${BMM_FILE} -bd ../../AtomBusMon/firmware/avr_progmem.mem -bt merged1.bit -o b merged2.bit
 
 # Program the Papilo Duo
-${PROG} -v -f merged2.bit -b ${BSCAN}  -sa -r
+${PROG} -v -f merged2.bit # -b ${BSCAN}  -sa -r
 
 # Reset the Papilio Duo
 ${PROG} -c

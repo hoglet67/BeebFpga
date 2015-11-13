@@ -160,9 +160,10 @@ begin
 
 bbc_micro : entity work.bbc_micro_core
     generic map (
-        ModeM128      => ModeM128,
-        UseT65Core    => UseT65Core,
-        UseAlanDCore  => UseAlanDCore
+        ModeM128       => ModeM128,
+        UseICEDebugger => true,
+        UseT65Core     => UseT65Core,
+        UseAlanDCore   => UseAlanDCore
     )
     port map (
         clock_32       => clock_32,

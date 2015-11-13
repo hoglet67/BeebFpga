@@ -19,7 +19,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-entity rgb2vga is
+entity rgb2vga_scandoubler is
 	port (
 		-- 32MHz pixel clock from BBC Micro
 		clock : in  std_logic;
@@ -42,7 +42,7 @@ entity rgb2vga is
 	);
 end entity;
 
-architecture rtl of rgb2vga is
+architecture rtl of rgb2vga_scandoubler is
 	-- Config parameters
 	constant SAMPLE_OFFSET : integer := 240;
 	constant SAMPLE_WIDTH  : integer := 656;

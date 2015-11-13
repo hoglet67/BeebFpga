@@ -58,7 +58,8 @@ use ieee.numeric_std.all;
 
 entity bbc_micro_core is
     generic (
-        ModeM128       : boolean := true; 
+        ModeM128       : boolean := true;
+        UseICEDebugger : boolean := false;
         UseT65Core     : boolean := false;
         UseAlanDCore   : boolean := true
     );
@@ -70,7 +71,7 @@ entity bbc_micro_core is
 
         -- Hard reset (active low)
         hard_reset_n   : in    std_logic;
-        
+
         -- Keboard
         ps2_clk        : in    std_logic;
         ps2_data       : in    std_logic;
@@ -358,7 +359,7 @@ signal rtc_ram         : rtc_ram_type := (
     x"11", -- RTC Month
     x"15", -- RTC Year
     x"00", -- RTC Register A
-    x"00", -- RTC Register B 
+    x"00", -- RTC Register B
     x"00", -- RTC Register C
     x"00", -- RTC Register D
     x"00", -- CMOS  0 - Econet station number
@@ -412,9 +413,9 @@ signal rtc_ram         : rtc_ram_type := (
     x"00", -- CMOS 48 - reserved for future use by the user
     x"00"  -- CMOS 49 - reserved for future use by the user
     );
-    
-    
-    
+
+
+
 signal rtc_adi         : std_logic_vector(7 downto 0);
 signal rtc_a           : std_logic_vector(5 downto 0);
 signal rtc_do          : std_logic_vector(7 downto 0);
@@ -448,98 +449,104 @@ begin
     -- COMPONENT INSTANCES
     -------------------------
 
-    core : entity work.MOS6502CpuMonCore
-        generic map (
-            UseT65Core   => UseT65Core,
-            UseAlanDCore => UseAlanDCore
-        )
-        port map (
-            clock_avr    => clock_avr,
-            busmon_clk   => clock_32,
-            busmon_clken => cpu_clken1,
-            cpu_clk      => clock_32,
-            cpu_clken    => cpu_clken,
-            IRQ_n        => cpu_irq_n,
-            NMI_n        => cpu_nmi_n,
-            Sync         => cpu_sync,
-            Addr         => cpu_a(15 downto 0),
-            R_W_n        => cpu_r_nw,
-            Din          => cpu_di,
-            Dout         => cpu_do,
-            SO_n         => cpu_so_n,
-            Res_n_in     => reset_n,
-            Res_n_out    => reset_n_out,
-            Rdy          => cpu_ready,
-            trig         => "00",
-            avr_RxD      => avr_RxD,
-            avr_TxD      => avr_TxD,
-            sw1          => '0',
-            nsw2         => hard_reset_n,
-            led3         => open,
-            led6         => open,
-            led8         => open,
-            tmosi        => open,
-            tdin         => open,
-            tcclk        => open 
-        );
-    avr_clk_gen: process(clock_32)
-    begin
-        if rising_edge(clock_32) then
-            clock_avr <= not clock_avr;
-            cpu_clken1 <= cpu_clken;
-        end if;
-    end process;
+    GenDebug: if UseICEDebugger generate
 
-    
---    reset_n_out <= '1';
---    avr_TxD <= '1';    
---    GenT65Core: if UseT65Core generate
---        core : entity work.T65
---        port map (
---            cpu_mode,
---            reset_n,
---            cpu_clken,
---            clock_32,
---            cpu_ready,
---            cpu_abort_n,
---            cpu_irq_n,
---            cpu_nmi_n,
---            cpu_so_n,
---            cpu_r_nw,
---            cpu_sync,
---            cpu_ef,
---            cpu_mf,
---            cpu_xf,
---            cpu_ml_n,
---            cpu_vp_n,
---            cpu_vda,
---            cpu_vpa,
---            cpu_a,
---            cpu_di,
---            cpu_do
---        );
---    end generate;    
---    
---    GenAlanDCore: if UseAlanDCore generate
---        core : entity work.r65c02
---        port map (
---            reset    => reset_n,
---            clk      => clock_32,
---            enable   => cpu_clken,
---            nmi_n    => cpu_nmi_n,
---            irq_n    => cpu_irq_n,
---            di       => unsigned(cpu_di),
---            do       => cpu_dout_us,
---            addr     => cpu_addr_us,
---            nwe      => cpu_r_nw,
---            sync     => cpu_sync,
---            sync_irq => open,
---            Regs     => open            
---        );
---        cpu_do <= std_logic_vector(cpu_dout_us);
---        cpu_a(15 downto 0) <= std_logic_vector(cpu_addr_us);
---        cpu_a(23 downto 16) <= (others => '0');
---    end generate;
+        core : entity work.MOS6502CpuMonCore
+            generic map (
+                UseT65Core   => UseT65Core,
+                UseAlanDCore => UseAlanDCore
+                )
+            port map (
+                clock_avr    => clock_avr,
+                busmon_clk   => clock_32,
+                busmon_clken => cpu_clken1,
+                cpu_clk      => clock_32,
+                cpu_clken    => cpu_clken,
+                IRQ_n        => cpu_irq_n,
+                NMI_n        => cpu_nmi_n,
+                Sync         => cpu_sync,
+                Addr         => cpu_a(15 downto 0),
+                R_W_n        => cpu_r_nw,
+                Din          => cpu_di,
+                Dout         => cpu_do,
+                SO_n         => cpu_so_n,
+                Res_n_in     => reset_n,
+                Res_n_out    => reset_n_out,
+                Rdy          => cpu_ready,
+                trig         => "00",
+                avr_RxD      => avr_RxD,
+                avr_TxD      => avr_TxD,
+                sw1          => '0',
+                nsw2         => hard_reset_n,
+                led3         => open,
+                led6         => open,
+                led8         => open,
+                tmosi        => open,
+                tdin         => open,
+                tcclk        => open
+                );
+
+        process(clock_32)
+        begin
+            if rising_edge(clock_32) then
+                clock_avr <= not clock_avr;
+                cpu_clken1 <= cpu_clken;
+            end if;
+        end process;
+
+    end generate;
+
+    GenT65Core: if UseT65Core and not UseICEDebugger generate
+        core : entity work.T65
+        port map (
+            cpu_mode,
+            reset_n,
+            cpu_clken,
+            clock_32,
+            cpu_ready,
+            cpu_abort_n,
+            cpu_irq_n,
+            cpu_nmi_n,
+            cpu_so_n,
+            cpu_r_nw,
+            cpu_sync,
+            cpu_ef,
+            cpu_mf,
+            cpu_xf,
+            cpu_ml_n,
+            cpu_vp_n,
+            cpu_vda,
+            cpu_vpa,
+            cpu_a,
+            cpu_di,
+            cpu_do
+        );
+        reset_n_out <= '1';
+        avr_TxD <= '1';
+    end generate;
+
+    GenAlanDCore: if UseAlanDCore and not UseICEDebugger generate
+        core : entity work.r65c02
+        port map (
+            reset    => reset_n,
+            clk      => clock_32,
+            enable   => cpu_clken,
+            nmi_n    => cpu_nmi_n,
+            irq_n    => cpu_irq_n,
+            di       => unsigned(cpu_di),
+            do       => cpu_dout_us,
+            addr     => cpu_addr_us,
+            nwe      => cpu_r_nw,
+            sync     => cpu_sync,
+            sync_irq => open,
+            Regs     => open
+        );
+        cpu_do <= std_logic_vector(cpu_dout_us);
+        cpu_a(15 downto 0) <= std_logic_vector(cpu_addr_us);
+        cpu_a(23 downto 16) <= (others => '0');
+        reset_n_out <= '1';
+        avr_TxD <= '1';
+    end generate;
 
     crtc : entity work.mc6845 port map (
         clock_32,
@@ -619,7 +626,7 @@ begin
         mhz4_clken,
         clock_32
         );
-        
+
     -- User VIA
     user_via : entity work.m6522 port map (
         cpu_a(3 downto 0),
@@ -664,24 +671,24 @@ begin
         keyb_break,
         keyb_dip
         );
-        
+
     -- Analog to Digital Convertor
-	adc: entity work.upd7002 port map (
-		clk        => clock_32,
-		cpu_clken  => cpu_clken,
-		mhz1_clken => mhz1_clken,
+    adc: entity work.upd7002 port map (
+        clk        => clock_32,
+        cpu_clken  => cpu_clken,
+        mhz1_clken => mhz1_clken,
         cs         => adc_enable,
-		reset_n    => reset_n,
-		r_nw       => cpu_r_nw,
-		addr       => cpu_a(1 downto 0),
-		di         => cpu_do,
-		do         => adc_do,
-		eoc_n      => adc_eoc_n,
-		ch0        => adc_ch0,
-		ch1        => adc_ch1,
-		ch2        => adc_ch2,
-		ch3        => adc_ch3
-	);    
+        reset_n    => reset_n,
+        r_nw       => cpu_r_nw,
+        addr       => cpu_a(1 downto 0),
+        di         => cpu_do,
+        do         => adc_do,
+        eoc_n      => adc_eoc_n,
+        ch0        => adc_ch0,
+        ch1        => adc_ch1,
+        ch2        => adc_ch2,
+        ch3        => adc_ch3
+    );
 
     -- Master Joystick Left/Right (low value = right)
     adc_ch0 <= "111111111111" when joystick1(2) = '0' else -- left
@@ -702,7 +709,7 @@ begin
     adc_ch3 <= "111111111111" when joystick2(0) = '0' else -- up
                "000000000000" when joystick2(1) = '0' else -- down
                "100000000000";
-    
+
     -- Sound generator (and drive logic for I2S codec)
     sound : entity work.sn76489_top port map (
         clock_32, mhz4_clken,
@@ -915,7 +922,7 @@ begin
         "11111110"    when io_sheila = '1' else
         "11111111"    when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
-        
+
     cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when ModeM128 else
                  not ((not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
@@ -924,7 +931,7 @@ begin
     -- Synchronous outputs to SRAM
 
     -- ext_A is 18..0 providing a 512KB address space
-    
+
     -- Paged ROMs at 0x00000-0x3FFFF in the external SRAM
     -- MOS ROM at 0x40000-0x43FFF in the external SRAM
     -- Unused at 0x44000-0x5FFFF
@@ -952,20 +959,20 @@ begin
     -- 100 00xx xxxx xxxx xxxx = MOS
     -- 100 01xx xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF) (M128)
     -- 100 10xx xxxx xxxx xxxx = Filing System RAM (8K, at C000-DFFF) (M128)
-    -- 100 11xx xxxx xxxx xxxx = 
+    -- 100 11xx xxxx xxxx xxxx =
     -- 101 00xx xxxx xxxx xxxx =
-    -- 101 01xx xxxx xxxx xxxx = 
-    -- 101 10xx xxxx xxxx xxxx = 
-    -- 101 11xx xxxx xxxx xxxx = 
+    -- 101 01xx xxxx xxxx xxxx =
+    -- 101 10xx xxxx xxxx xxxx =
+    -- 101 11xx xxxx xxxx xxxx =
     -- 110 00xx xxxx xxxx xxxx = Main memory
     -- 110 01xx xxxx xxxx xxxx = Main memory
     -- 110 10xx xxxx xxxx xxxx = Shadow memory (M128)
     -- 110 11xx xxxx xxxx xxxx = Shadow memory (M128)
     -- 111 00xx xxxx xxxx xxxx =
-    -- 111 01xx xxxx xxxx xxxx = 
-    -- 111 10xx xxxx xxxx xxxx = 
-    -- 111 11xx xxxx xxxx xxxx = 
-    
+    -- 111 01xx xxxx xxxx xxxx =
+    -- 111 10xx xxxx xxxx xxxx =
+    -- 111 11xx xxxx xxxx xxxx =
+
     process(clock_32,hard_reset_n)
     begin
 
@@ -1027,7 +1034,7 @@ begin
                 else
                     -- Model B
                     ext_A <= "1100" & display_a;
-                end if; 
+                end if;
             end if;
         end if;
     end process;
@@ -1085,8 +1092,8 @@ begin
     -- Connections to System VIA
     -- ADC
     sys_via_cb1_in <= adc_eoc_n;
-    sys_via_pb_in(5) <= joystick2(4); 
-    sys_via_pb_in(4) <= joystick1(4);     
+    sys_via_pb_in(5) <= joystick2(4);
+    sys_via_pb_in(4) <= joystick1(4);
 
     -- CRTC
     sys_via_ca1_in <= crtc_vsync;
@@ -1096,10 +1103,10 @@ begin
 
 
     -- TODO more work needed here, but this might be enough
-    sys_via_pa_in <= rtc_do when ModeM128 and rtc_ce = '1' and rtc_ds = '1' and rtc_rd_n_w = '1' else            
+    sys_via_pa_in <= rtc_do when ModeM128 and rtc_ce = '1' and rtc_ds = '1' and rtc_rd_n_w = '1' else
                      -- Must loop back output pins or keyboard won't work
                      keyb_out & sys_via_pa_out(6 downto 0);
-        
+
     keyb_column <= sys_via_pa_out(3 downto 0);
     keyb_row <= sys_via_pa_out(6 downto 4);
     -- Sound
@@ -1115,23 +1122,23 @@ begin
 
     -- SDCLK is driven from either PB1 or CB1 depending on the SR Mode
     sdclk_int     <= user_via_pb_out(1) when user_via_pb_oe_n(1) = '0' else
-                     user_via_cb1_out   when user_via_cb1_oe_n = '0' else                     
+                     user_via_cb1_out   when user_via_cb1_oe_n = '0' else
                      '1';
-    
+
     SDCLK           <= sdclk_int;
     user_via_cb1_in <= sdclk_int;
-    
+
     -- SDMOSI is always driven from PB0
     SDMOSI        <= user_via_pb_out(0) when user_via_pb_oe_n(0) = '0' else
                      '1';
-    
+
     -- SDMISO is always read from CB2
     user_via_cb2_in <= SDMISO; -- SDI
-    
-    -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
-    SDSS          <= '0';         
 
-    user_via_pa_in <= user_via_pa_out; 
+    -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
+    SDSS          <= '0';
+
+    user_via_pa_in <= user_via_pa_out;
     user_via_pb_in <= user_via_pb_out;
 
     -- ROM select latch
@@ -1173,44 +1180,44 @@ begin
 -- Scan Doubler from the MIST project
 -----------------------------------------------
 
-	inst_mist_scandoubler: entity work.mist_scandoubler port map (
-		clk => clock_32,
-		clk_16 => clock_32,
-		clk_16_en => vid_clken,
-		scanlines => '0',
-		hs_in => not crtc_hsync,
-		vs_in => not crtc_vsync,
-		r_in => r_out,
-		g_in => g_out,
-		b_in => b_out,
-		hs_out => vga0_hs,
-		vs_out => vga0_vs,
-		r_out => vga0_r,
-		g_out => vga0_g,
-		b_out => vga0_b,
-		is15k => open 
-	);
+    inst_mist_scandoubler: entity work.mist_scandoubler port map (
+        clk => clock_32,
+        clk_16 => clock_32,
+        clk_16_en => vid_clken,
+        scanlines => '0',
+        hs_in => not crtc_hsync,
+        vs_in => not crtc_vsync,
+        r_in => r_out,
+        g_in => g_out,
+        b_in => b_out,
+        hs_out => vga0_hs,
+        vs_out => vga0_vs,
+        r_out => vga0_r,
+        g_out => vga0_g,
+        b_out => vga0_b,
+        is15k => open
+    );
     vga0_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '0' else '0';
 
 -----------------------------------------------
 -- Scan Doubler from RGB2VGA project
 -----------------------------------------------
 
-	inst_rgb2vga: entity work.rgb2vga port map (
-		clock => clock_32,
-		clken => vid_clken,
-		clk25 => clock_27,
-		rgbi_in => r_out & g_out & b_out & '0',
-		hSync_in => crtc_hsync,
-		vSync_in => crtc_vsync,
-		rgbi_out => rgbi_out,
-		hSync_out => vga1_hs,
-		vSync_out => vga1_vs
-	);
+    inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler port map (
+        clock => clock_32,
+        clken => vid_clken,
+        clk25 => clock_27,
+        rgbi_in => r_out & g_out & b_out & '0',
+        hSync_in => crtc_hsync,
+        vSync_in => crtc_vsync,
+        rgbi_out => rgbi_out,
+        hSync_out => vga1_hs,
+        vSync_out => vga1_vs
+    );
     vga1_r <= rgbi_out(3) & rgbi_out(3);
     vga1_g <= rgbi_out(2) & rgbi_out(2);
     vga1_b <= rgbi_out(1) & rgbi_out(1);
-    
+
     vga1_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '1' else '0';
 
 -----------------------------------------------
@@ -1227,17 +1234,17 @@ begin
                    '1';
 
     video_hsync <= hsync_int xor vid_mode(2);
-    
+
     video_vsync <= vsync_int xor vid_mode(3);
-             
+
     video_red   <= vga0_r(1) & vga0_r(0) & "00" when vga0_mode = '1' else
                    vga1_r(1) & vga1_r(0) & "00" when vga1_mode = '1' else
                    r_out & r_out & r_out & r_out;
-             
+
     video_green <= vga0_g(1) & vga0_g(0) & "00" when vga0_mode = '1' else
                    vga1_g(1) & vga1_g(0) & "00" when vga1_mode = '1' else
                    g_out & g_out & g_out & g_out;
-             
+
     video_blue  <= vga0_b(1) & vga0_b(0) & "00" when vga0_mode = '1' else
                    vga1_b(1) & vga1_b(0) & "00" when vga1_mode = '1' else
                    b_out & b_out & b_out & b_out;
@@ -1294,7 +1301,7 @@ begin
         rtc_ds     <= ic32(2);
         rtc_rd_n_w <= ic32(1);
         rtc_do     <= rtc_ram(to_integer(unsigned(rtc_a)));
-        
+
         acc_irr <= acccon(7);
         acc_tst <= acccon(6);
         acc_ifj <= acccon(5);
@@ -1304,8 +1311,8 @@ begin
         acc_e   <= acccon(1);
         acc_d   <= acccon(0);
     end generate;
-    
+
     -- Debugging output
     cpu_addr <= cpu_a(15 downto 0);
-    
+
 end architecture;

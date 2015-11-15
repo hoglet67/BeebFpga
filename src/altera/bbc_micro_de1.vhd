@@ -23,7 +23,7 @@
 --   specific prior written agreement from the author.
 --
 -- * License is granted for non-commercial use only.  A fee may not be charged
---   for redistributions as source code or in synthesized/hardware form without 
+--   for redistributions as source code or in synthesized/hardware form without
 --   specific prior written agreement from the author.
 --
 -- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -58,12 +58,12 @@ port (
     CLOCK_27_1  :   in  std_logic;
     CLOCK_50    :   in  std_logic;
     EXT_CLOCK   :   in  std_logic;
-    
+
     -- Switches
     SW          :   in  std_logic_vector(9 downto 0);
     -- Buttons
     KEY         :   in  std_logic_vector(3 downto 0);
-    
+
     -- 7 segment displays
     HEX0        :   out std_logic_vector(6 downto 0);
     HEX1        :   out std_logic_vector(6 downto 0);
@@ -73,26 +73,26 @@ port (
     LEDR        :   out std_logic_vector(9 downto 0);
     -- Green LEDs
     LEDG        :   out std_logic_vector(7 downto 0);
-    
+
     -- VGA
     VGA_R       :   out std_logic_vector(3 downto 0);
     VGA_G       :   out std_logic_vector(3 downto 0);
     VGA_B       :   out std_logic_vector(3 downto 0);
     VGA_HS      :   out std_logic;
     VGA_VS      :   out std_logic;
-    
+
     -- Serial
     UART_RXD    :   in  std_logic;
     UART_TXD    :   out std_logic;
-    
+
     -- PS/2 Keyboard
     PS2_CLK     :   in  std_logic;
     PS2_DAT     :   in  std_logic;
-    
+
     -- I2C
     I2C_SCLK    :   inout   std_logic;
     I2C_SDAT    :   inout   std_logic;
-    
+
     -- Audio
     AUD_XCK     :   out     std_logic;
     AUD_BCLK    :   out     std_logic;
@@ -100,7 +100,7 @@ port (
     AUD_ADCDAT  :   in      std_logic;
     AUD_DACLRCK :   out     std_logic;
     AUD_DACDAT  :   out     std_logic;
-    
+
     -- SRAM
     SRAM_ADDR   :   out     std_logic_vector(17 downto 0);
     SRAM_DQ     :   inout   std_logic_vector(15 downto 0);
@@ -109,7 +109,7 @@ port (
     SRAM_WE_N   :   out     std_logic;
     SRAM_UB_N   :   out     std_logic;
     SRAM_LB_N   :   out     std_logic;
-    
+
     -- SDRAM
     DRAM_ADDR   :   out     std_logic_vector(11 downto 0);
     DRAM_DQ     :   inout   std_logic_vector(15 downto 0);
@@ -123,7 +123,7 @@ port (
     DRAM_RAS_N  :   in      std_logic;
     DRAM_UDQM   :   in      std_logic;
     DRAM_WE_N   :   in      std_logic;
-    
+
     -- Flash
     FL_ADDR     :   out     std_logic_vector(21 downto 0);
     FL_DQ       :   in      std_logic_vector(7 downto 0);
@@ -131,13 +131,13 @@ port (
     FL_OE_N     :   out     std_logic;
     FL_WE_N     :   out     std_logic;
     FL_CE_N     :   out     std_logic;
-    
+
     -- SD card (SPI mode)
     SD_nCS      :   out     std_logic;
     SD_MOSI     :   out     std_logic;
     SD_SCLK     :   out     std_logic;
     SD_MISO     :   in      std_logic;
-    
+
     -- GPIO
     GPIO_0      :   inout   std_logic_vector(35 downto 0);
     GPIO_1      :   inout   std_logic_vector(35 downto 0)
@@ -174,8 +174,8 @@ signal cpu_addr         : std_logic_vector (15 downto 0);
 -- A registered version to allow slow flash to be used
 signal ext_A_r          : std_logic_vector (18 downto 0);
 
-function hex_to_seven_seg(hex: std_logic_vector(3 downto 0)) 
-        return std_logic_vector 
+function hex_to_seven_seg(hex: std_logic_vector(3 downto 0))
+        return std_logic_vector
     is begin
         case hex is
             --                   abcdefg
@@ -246,12 +246,12 @@ begin
             cpu_addr       => cpu_addr,
             ModeM128       => SW(9)
         );
-    
-    
+
+
 --------------------------------------------------------
 -- Clock Generation
 --------------------------------------------------------
-    
+
     -- 32 MHz master clock from 24MHz input clock
     pll: entity work.pll32
         port map (
@@ -260,56 +260,56 @@ begin
             c0             => clock_32,
             locked         => pll_locked
         );
-    
+
 --------------------------------------------------------
 -- Power Up Reset Generation
 --------------------------------------------------------
-    
+
     -- Asynchronous reset
     -- PLL is reset by external reset switch
     pll_reset <= not KEY(0);
-    
+
     hard_reset_n <= not (pll_reset or not pll_locked);
-    
+
 --------------------------------------------------------
 -- Audio DACs
 --------------------------------------------------------
-        
+
     i2s : entity work.i2s_intf
         port map (
-            CLK			=> CLOCK_24_0,
-            nRESET		=> hard_reset_n,
-            PCM_INL		=> pcm_inl,
-            PCM_INR		=> pcm_inr,
-            PCM_OUTL	=> audio_l,
-            PCM_OUTR	=> audio_r,
-            I2S_MCLK	=> AUD_XCK,
-            I2S_LRCLK	=> AUD_DACLRCK,
-            I2S_BCLK	=> AUD_BCLK,
-            I2S_DOUT	=> AUD_DACDAT,
-            I2S_DIN		=> AUD_ADCDAT
+            CLK         => CLOCK_24_0,
+            nRESET      => hard_reset_n,
+            PCM_INL     => pcm_inl,
+            PCM_INR     => pcm_inr,
+            PCM_OUTL    => audio_l,
+            PCM_OUTR    => audio_r,
+            I2S_MCLK    => AUD_XCK,
+            I2S_LRCLK   => AUD_DACLRCK,
+            I2S_BCLK    => AUD_BCLK,
+            I2S_DOUT    => AUD_DACDAT,
+            I2S_DIN     => AUD_ADCDAT
             );
-    
+
     -- This is to avoid a possible conflict if the codec is in master mode
     AUD_ADCLRCK <= 'Z';
-        
-    i2c : entity work.i2c_loader 
+
+    i2c : entity work.i2c_loader
         generic map (
             log2_divider => 7
             )
         port map (
-        	CLK			=> clock_32,
-        	nRESET		=> hard_reset_n,
-        	I2C_SCL		=> I2C_SCLK,
-        	I2C_SDA		=> I2C_SDAT,
-        	IS_DONE		=> LEDR(5), -- IS_DONE
-        	IS_ERROR	=> LEDR(4) -- IS_ERROR
+            CLK         => clock_32,
+            nRESET      => hard_reset_n,
+            I2C_SCL     => I2C_SCLK,
+            I2C_SDA     => I2C_SDAT,
+            IS_DONE     => LEDR(5), -- IS_DONE
+            IS_ERROR    => LEDR(4) -- IS_ERROR
             );
-    
+
 --------------------------------------------------------
 -- Map external memory bus to SRAM/FLASH
 --------------------------------------------------------
-    
+
     -- Hold the ext_a for multiple clock cycles to allow slow FLASH to be used
     -- This is necessary because currently FLASH and SRAM accesses are
     -- interleaved every cycle.
@@ -334,7 +334,7 @@ begin
     FL_WE_N <= '1';
     -- Flash address change every at most every 16 cycles (2MHz)
     FL_ADDR <= "000" & ext_a_r;
-        
+
     -- SRAM bus
     SRAM_UB_N <= '1';
     SRAM_LB_N <= '0';
@@ -348,17 +348,19 @@ begin
     SRAM_ADDR <= ext_a(17 downto 0);
     SRAM_DQ(15 downto 8) <= (others => 'Z');
     SRAM_DQ(7 downto 0) <= ext_Din when ext_nWE = '0' else (others => 'Z');
-	 
-	 -- HEX Displays
-	 HEX0 <= hex_to_seven_seg(cpu_addr(15 downto 12));
-	 HEX1 <= hex_to_seven_seg(cpu_addr(11 downto  8));
-	 HEX2 <= hex_to_seven_seg(cpu_addr( 7 downto  4));
-	 HEX3 <= hex_to_seven_seg(cpu_addr( 3 downto  0));
-	 
-	 -- Unused outputs
-	 LEDG <= (others => '0');
-	 LEDR(3 downto 2) <= (others => '0');
-	 LEDR(9 downto 6) <= (others => '0');
-	 DRAM_ADDR <= (others => 'Z');
-	 
+
+     -- HEX Displays (active low)
+     HEX0 <= hex_to_seven_seg(cpu_addr(15 downto 12)) xor "1111111";
+     HEX1 <= hex_to_seven_seg(cpu_addr(11 downto  8)) xor "1111111";
+     HEX2 <= hex_to_seven_seg(cpu_addr( 7 downto  4)) xor "1111111";
+     HEX3 <= hex_to_seven_seg(cpu_addr( 3 downto  0)) xor "1111111";
+
+     -- Unused LEDs (active high)
+     LEDG <= (others => '0');
+     LEDR(3 downto 2) <= (others => '0');
+     LEDR(9 downto 6) <= (others => '0');
+
+    -- Unused outputs
+     DRAM_ADDR <= (others => 'Z');
+
 end architecture;

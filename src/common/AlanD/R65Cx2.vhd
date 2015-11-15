@@ -704,7 +704,7 @@ processCmpInput: process(clk, opcInfo, A, X, Y)
 --hardware interrupts IRQ & NMI will push the B flag as being 0.
 
 	
-processAlu: process(clk, opcInfo, aluInput, aluCmpInput, A, T, irqActive, N, V, D, I, Z, C)
+processAlu: process(clk, opcInfo, aluInput, aluCmpInput, A, T, irqActive, N, V, R, D, I, Z, C)
 		variable lowBits: unsigned(5 downto 0);
 		variable nineBits: unsigned(8 downto 0);
 		variable rmwBits: unsigned(8 downto 0);

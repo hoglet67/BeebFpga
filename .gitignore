@@ -5,9 +5,9 @@ nohup.out
 
 not_in_git/
 
-iseconfig/
 
 xilinx/working/
+xilinx/iseconfig/
 
 roms/tmp/
 

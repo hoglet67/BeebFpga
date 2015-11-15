@@ -145,157 +145,159 @@ begin
 			shiftreg <= (others => '0');
 			nak <= '0'; -- No error
 			retries <= num_retries;
-		elsif rising_edge(CLK) and clken = '1' then
-  			-- Next phase by default
-			phase <= phase + 1;
+		elsif rising_edge(CLK) then
+			if clken = '1' then
+				-- Next phase by default
+				phase <= phase + 1;
 
-			-- STATE: IDLE
-			if state = Idle then
-				-- Start loading the device registers straight away
-				-- A 'GO' bit could be polled here if required
-				state <= Start;
-				phase <= "00";
-				scl_out <= '1';
-				sda_out <= '1';
-				
-			-- STATE: START
-			elsif state = Start then
-				-- Generate START condition
-				case phase is
-				when "00" =>
-					-- Drop SDA first
-					sda_out <= '0';
-				when "10" =>
-					-- Then drop SCL
-					scl_out <= '0';
-				when "11" =>
-					-- Advance to next state
-					-- Shift register loaded with device slave address
-					state <= Data;
-					nbit <= 7;
-					shiftreg <= std_logic_vector(to_unsigned(device_address,7)) & '0'; -- writing
-					nbyte <= burst_length;
-				when others =>
-					null;
-				end case;
-				
-			-- STATE: DATA
-			elsif state = Data then
-				-- Generate data
-				case phase is
-				when "00" =>
-					-- Drop SCL
-					scl_out <= '0';
-				when "01" =>
-					-- Output data and shift (MSb first)
-					sda_out <= shiftreg(7);
-					shiftreg <= shiftreg(6 downto 0) & '0';
-				when "10" =>
-					-- Raise SCL
+				-- STATE: IDLE
+				if state = Idle then
+					-- Start loading the device registers straight away
+					-- A 'GO' bit could be polled here if required
+					state <= Start;
+					phase <= "00";
 					scl_out <= '1';
-				when "11" =>
-					-- Next bit or advance to next state when done
-					if nbit = 0 then
-						state <= Ack;
-					else
-						nbit <= nbit - 1;
-					end if;
-				when others =>
-				  null;
-				end case;
-				
-			-- STATE: ACK
-			elsif state = Ack then
-				-- Generate ACK clock and check for error condition
-				case phase is
-				when "00" =>
-					-- Drop SCL
-					scl_out <= '0';
-				when "01" =>
-					-- Float data
 					sda_out <= '1';
-				when "10" =>
-					-- Sample ack bit
-					nak <= I2C_SDA;
-					if I2C_SDA = '1' then
-						-- Error
-						nbyte <= 0; -- Close this burst and skip remaining registers
-						thisbyte <= init_regs'length;
-					else
-						-- Hold ACK to avoid spurious stops - this seems to fix a
-						-- problem with the Wolfson codec which releases the ACK
-						-- right on the falling edge of the clock pulse.  It looks like
-						-- the device interprets this is a STOP condition and then fails
-						-- to acknowledge the next byte.  We can avoid this by holding the
-						-- ACK condition for a little longer.
+					
+				-- STATE: START
+				elsif state = Start then
+					-- Generate START condition
+					case phase is
+					when "00" =>
+						-- Drop SDA first
 						sda_out <= '0';
-					end if;
-					-- Raise SCL
-					scl_out <= '1';
-				when "11" =>
-					-- Advance to next state
-					if nbyte = 0 then
-						-- No more bytes in this burst - generate a STOP
-						state <= Stop;
-					else
-						-- Generate next byte
+					when "10" =>
+						-- Then drop SCL
+						scl_out <= '0';
+					when "11" =>
+						-- Advance to next state
+						-- Shift register loaded with device slave address
 						state <= Data;
 						nbit <= 7;
-						shiftreg <= init_regs(thisbyte);
-						nbyte <= nbyte - 1;
-						thisbyte <= thisbyte + 1;
-					end if;
-				when others =>
-					null;
-				end case;
-				
-			-- STATE: STOP
-			elsif state = Stop then
-				-- Generate STOP condition
-				case phase is
-				when "00" =>
-					-- Drop SCL first
-					scl_out <= '0';
-				when "01" =>
-					-- Drop SDA
-					sda_out <= '0';
-				when "10" =>
-					-- Raise SCL
+						shiftreg <= std_logic_vector(to_unsigned(device_address,7)) & '0'; -- writing
+						nbyte <= burst_length;
+					when others =>
+						null;
+					end case;
+					
+				-- STATE: DATA
+				elsif state = Data then
+					-- Generate data
+					case phase is
+					when "00" =>
+						-- Drop SCL
+						scl_out <= '0';
+					when "01" =>
+						-- Output data and shift (MSb first)
+						sda_out <= shiftreg(7);
+						shiftreg <= shiftreg(6 downto 0) & '0';
+					when "10" =>
+						-- Raise SCL
+						scl_out <= '1';
+					when "11" =>
+						-- Next bit or advance to next state when done
+						if nbit = 0 then
+							state <= Ack;
+						else
+							nbit <= nbit - 1;
+						end if;
+					when others =>
+					  null;
+					end case;
+					
+				-- STATE: ACK
+				elsif state = Ack then
+					-- Generate ACK clock and check for error condition
+					case phase is
+					when "00" =>
+						-- Drop SCL
+						scl_out <= '0';
+					when "01" =>
+						-- Float data
+						sda_out <= '1';
+					when "10" =>
+						-- Sample ack bit
+						nak <= I2C_SDA;
+						if I2C_SDA = '1' then
+							-- Error
+							nbyte <= 0; -- Close this burst and skip remaining registers
+							thisbyte <= init_regs'length;
+						else
+							-- Hold ACK to avoid spurious stops - this seems to fix a
+							-- problem with the Wolfson codec which releases the ACK
+							-- right on the falling edge of the clock pulse.  It looks like
+							-- the device interprets this is a STOP condition and then fails
+							-- to acknowledge the next byte.  We can avoid this by holding the
+							-- ACK condition for a little longer.
+							sda_out <= '0';
+						end if;
+						-- Raise SCL
+						scl_out <= '1';
+					when "11" =>
+						-- Advance to next state
+						if nbyte = 0 then
+							-- No more bytes in this burst - generate a STOP
+							state <= Stop;
+						else
+							-- Generate next byte
+							state <= Data;
+							nbit <= 7;
+							shiftreg <= init_regs(thisbyte);
+							nbyte <= nbyte - 1;
+							thisbyte <= thisbyte + 1;
+						end if;
+					when others =>
+						null;
+					end case;
+					
+				-- STATE: STOP
+				elsif state = Stop then
+					-- Generate STOP condition
+					case phase is
+					when "00" =>
+						-- Drop SCL first
+						scl_out <= '0';
+					when "01" =>
+						-- Drop SDA
+						sda_out <= '0';
+					when "10" =>
+						-- Raise SCL
+						scl_out <= '1';
+					when "11" =>
+						if thisbyte = init_regs'length then
+							-- All registers done, advance to finished state.  This will
+							-- bring SDA high while SCL is still high, completing the STOP
+							-- condition
+							state <= Done;
+						else
+							-- Load the next register after a short delay
+							state <= Pause;
+						end if;
+					when others =>
+						null;
+					end case;
+					
+				-- STATE: PAUSE
+				elsif state = Pause then
+					-- Delay for one cycle of 'phase' then start the next burst
 					scl_out <= '1';
-				when "11" =>
-					if thisbyte = init_regs'length then
-						-- All registers done, advance to finished state.  This will
-						-- bring SDA high while SCL is still high, completing the STOP
-						-- condition
-						state <= Done;
-					else
-						-- Load the next register after a short delay
-						state <= Pause;
+					sda_out <= '1';
+					if phase = "11" then
+						state <= Start;
 					end if;
-				when others =>
-					null;
-				end case;
-				
-			-- STATE: PAUSE
-			elsif state = Pause then
-				-- Delay for one cycle of 'phase' then start the next burst
-				scl_out <= '1';
-				sda_out <= '1';
-				if phase = "11" then
-					state <= Start;
-				end if;
-				
-			-- STATE: DONE
-			else
-				-- Finished
-				scl_out <= '1';
-				sda_out <= '1';
-				
-				if nak = '1' and retries > 0 then
-					-- We can retry in the event of a NAK in case the
-					-- slave got out of sync for some reason
-					retries <= retries - 1;
-					state <= Idle;
+					
+				-- STATE: DONE
+				else
+					-- Finished
+					scl_out <= '1';
+					sda_out <= '1';
+					
+					if nak = '1' and retries > 0 then
+						-- We can retry in the event of a NAK in case the
+						-- slave got out of sync for some reason
+						retries <= retries - 1;
+						state <= Idle;
+					end if;
 				end if;
 			end if;
 		end if;

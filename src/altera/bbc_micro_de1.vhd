@@ -350,10 +350,10 @@ begin
     SRAM_DQ(7 downto 0) <= ext_Din when ext_nWE = '0' else (others => 'Z');
 
      -- HEX Displays (active low)
-     HEX0 <= hex_to_seven_seg(cpu_addr(15 downto 12)) xor "1111111";
-     HEX1 <= hex_to_seven_seg(cpu_addr(11 downto  8)) xor "1111111";
-     HEX2 <= hex_to_seven_seg(cpu_addr( 7 downto  4)) xor "1111111";
-     HEX3 <= hex_to_seven_seg(cpu_addr( 3 downto  0)) xor "1111111";
+     HEX3 <= hex_to_seven_seg(cpu_addr(15 downto 12)) xor "1111111";
+     HEX2 <= hex_to_seven_seg(cpu_addr(11 downto  8)) xor "1111111";
+     HEX1 <= hex_to_seven_seg(cpu_addr( 7 downto  4)) xor "1111111";
+     HEX0 <= hex_to_seven_seg(cpu_addr( 3 downto  0)) xor "1111111";
 
      -- Unused LEDs (active high)
      LEDG <= (others => '0');

@@ -2,12 +2,16 @@
 
 # Generates the mif file for the AVR firmware
 
+
 avr-objcopy -R .eeprom -O binary  ../../../AtomBusMon/firmware/avr_progmem.out avr_progmem.bin
 
 truncate -s 16384 avr_progmem.bin
 
+FILE=avr_progmem_$(md5sum avr_progmem.bin  | cut -c1-8).mif
 
-cat > avr_progmem.mif <<EOF
+echo $FILE
+
+cat > $FILE <<EOF
 -- begin_signature
 -- ram_init
 -- end_signature
@@ -22,10 +26,10 @@ EOF
 
 seq 0 8191 >> c1
 od -An -w2 -tx1 -v  avr_progmem.bin > c2
-paste c1 c2 | awk '{print $1 " : " $2$3 ";"}' >>  avr_progmem.mif
+paste c1 c2 | awk '{print $1 " : " $3$2 ";"}' >>  $FILE
 rm c1 c2
 
-cat >> avr_progmem.mif <<EOF
+cat >> $FILE <<EOF
 END;
 EOF
 

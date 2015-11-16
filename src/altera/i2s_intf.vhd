@@ -42,9 +42,11 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity i2s_intf is
 generic(
-	mclk_rate : positive := 12000000;
-	sample_rate : positive := 8000;
-	preamble : positive := 1; -- I2S
+	-- CLK is now the 32Mhz clock
+	inclk_rate  : positive := 32000000;
+	-- The DAC is fed with a 16MHz clock, and configured to FS=MCLK/125, giving FS=125KHz
+	sample_rate : positive := 125000;
+	preamble    : positive := 1; -- I2S
 	word_length : positive := 16
 	);
 
@@ -84,9 +86,13 @@ port (
 end i2s_intf;
 
 architecture i2s_intf_arch of i2s_intf is
-constant ratio_mclk_fs : positive := (mclk_rate / sample_rate);
-constant lrdivider_top : positive := (ratio_mclk_fs / 2) - 1;
-constant bdivider_top : positive := (ratio_mclk_fs / 8 / (preamble + word_length) * 2) - 1;
+-- this works out at 256
+constant ratio_inclk_fs : positive := (inclk_rate / sample_rate);
+-- this work out at 127
+constant lrdivider_top : positive := (ratio_inclk_fs / 2) - 1;
+-- this works out as 1; erring on the small side is fine
+constant bdivider_top : positive :=  (ratio_inclk_fs / 8 / (preamble + word_length) * 2) - 1;
+-- this works out as 17
 constant nbits : positive := preamble + word_length;
 
 subtype lrdivider_t is integer range 0 to lrdivider_top;

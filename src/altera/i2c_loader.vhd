@@ -84,8 +84,14 @@ constant init_regs : regs := (
 	X"0C", X"62",
 	-- Format 16-bit I2S, no bit inversion or phase changes
 	X"0E", X"02",
-	-- Sampling control, 8 kHz USB mode (MCLK = 250fs * 6)
-	X"10", X"0D",
+--	-- Sampling control, 8 kHz USB mode (MCLK = 250fs * 6)
+--	X"10", X"0D",
+--	-- Sampling control, 48 kHz USB mode (MCLK = 250fs)
+--	X"10", X"01",
+--	-- Sampling control, 48 kHz Normal (MCLK = 256fs) = 62.5KHz when fed with 16MHz
+--	X"10", X"00",
+	-- Sampling control, 96 kHz Normal (MCLK = 128fs) = 125KHz when fed with 16MHz
+	X"10", X"1C",
 	-- Activate
 	X"12", X"01"
 	);

@@ -277,7 +277,7 @@ begin
 
     i2s : entity work.i2s_intf
         port map (
-            CLK         => CLOCK_24_0,
+            CLK         => clock_32,
             nRESET      => hard_reset_n,
             PCM_INL     => pcm_inl,
             PCM_INR     => pcm_inr,

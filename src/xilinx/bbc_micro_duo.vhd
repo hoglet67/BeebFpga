@@ -102,7 +102,6 @@ signal powerup_reset_n : std_logic;
 signal hard_reset_n    : std_logic;
 signal reset_counter   : std_logic_vector (9 downto 0);
 
-
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
 -----------------------------------------------
@@ -154,6 +153,7 @@ begin
 bbc_micro : entity work.bbc_micro_core
     generic map (
         IncludeSID         => true,
+        IncludeMusic5000   => true,
         IncludeICEDebugger => true,
         UseT65Core         => false,
         UseAlanDCore       => true
@@ -231,14 +231,22 @@ bbc_micro : entity work.bbc_micro_core
 -- Audio DACs
 --------------------------------------------------------
 
-    dac_l : entity work.pwm_sddac port map(
+    dac_l : entity work.pwm_sddac
+    generic map (
+        msbi_g => 7
+    )
+    port map (
         clk_i => clock_32,
         reset => '0',
         dac_i => audio_l(15 downto 8),
         dac_o => audioL
     );
 
-    dac_r : entity work.pwm_sddac port map(
+    dac_r : entity work.pwm_sddac
+    generic map (
+        msbi_g => 7
+    )
+    port map (
         clk_i => clock_32,
         reset => '0',
         dac_i => audio_r(15 downto 8),

@@ -47,7 +47,7 @@ architecture rtl of rtc is
         x"00", -- CMOS  4 - Econet print server identity (hi)
         x"C3", -- CMOS  5 - Default Filing System / Language (default file system MMFS)
         x"FF", -- CMOS  6 - ROM frugal bits (*INSERT/*UNPLUG)
-        x"DD", -- CMOS  7 - ROM frugal bits (*INSERT/*UNPLUG) (disable DFS/ADFS)
+        x"DF", -- CMOS  7 - ROM frugal bits (*INSERT/*UNPLUG) (disable ADFS)
         x"00", -- CMOS  8 - Edit startup settings
         x"00", -- CMOS  9 - reserved for telecommunications applications
         x"F7", -- CMOS 10 - VDU mode and *TV settings

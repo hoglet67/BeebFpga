@@ -211,6 +211,7 @@ begin
     bbc_micro : entity work.bbc_micro_core
         generic map (
             IncludeSID         => true,
+            IncludeMusic5000   => true,
             IncludeICEDebugger => false,
             UseT65Core         => false,
             UseAlanDCore       => true

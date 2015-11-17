@@ -35,6 +35,7 @@
 #
 # -------------------------------------------------------------------------- #
 
+# set_parameter -name CYCLONEII_SAFE_WRITE VERIFIED_SAFE
 
 set_global_assignment -name FAMILY "Cyclone II"
 set_global_assignment -name DEVICE EP2C20F484C7
@@ -787,6 +788,9 @@ set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AUD_DACDAT
 set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AUD_BCLK
 set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AUD_ADCLRCK
 set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AUD_ADCDAT
+set_global_assignment -name VHDL_FILE ../src/common/music5000/Ram2K.vhd
+set_global_assignment -name VHDL_FILE ../src/common/music5000/LogLinRom.vhd
+set_global_assignment -name VHDL_FILE ../src/common/music5000/Music5000.vhd
 set_global_assignment -name VHDL_FILE ../src/common/SID/sid_components.vhd
 set_global_assignment -name VHDL_FILE ../src/common/SID/sid_voice.vhd
 set_global_assignment -name VHDL_FILE ../src/common/SID/sid_coeffs.vhd

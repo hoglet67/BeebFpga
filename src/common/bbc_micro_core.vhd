@@ -57,6 +57,7 @@ use ieee.numeric_std.all;
 entity bbc_micro_core is
     generic (
         IncludeSID         : boolean := false;
+        IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -144,6 +145,7 @@ architecture rtl of bbc_micro_core is
 signal reset_n      :   std_logic;
 signal reset_n_out  :   std_logic;
 signal clock_avr    :   std_logic;
+signal clock_6      :   std_logic;
 
 -- Clock enable counter
 -- CPU and video cycles are interleaved.  The CPU runs at 2 MHz (every 16th
@@ -156,6 +158,7 @@ signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
 -- IO cycles are out of phase with the CPU
 signal vid_clken        :   std_logic; -- 16 MHz video cycles
+signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
@@ -308,6 +311,11 @@ signal sound_ao         :   signed(7 downto 0);
 signal sid_ao           :   std_logic_vector(17 downto 0);
 signal sid_do           :   std_logic_vector(7 downto 0);
 signal sid_enable       :   std_logic;
+
+-- Optional Music5000
+signal music5000_ao_l   :   std_logic_vector(15 downto 0);
+signal music5000_ao_r   :   std_logic_vector(15 downto 0);
+signal music5000_do     :   std_logic_vector(7 downto 0);
 
 -- Memory enables
 signal ram_enable       :   std_logic;      -- 0x0000
@@ -666,10 +674,34 @@ begin
     end generate;
 
 --------------------------------------------------------
--- Sound
+-- Optional Music 5000
+--------------------------------------------------------
+
+    Optional_Music5000: if IncludeMusic5000 generate
+
+        Inst_Music5000: entity work.Music5000
+            port map (
+                clk      => clock_32,
+                clken    => mhz1_clken,
+                clk6     => clock_6,
+                clk6en   => '1',
+                rnw      => cpu_r_nw,
+                rst_n    => reset_n,
+                pgfc_n   => not io_fred,
+                pgfd_n   => not io_jim,
+                a        => cpu_a(7 downto 0),
+                din      => cpu_do,
+                dout     => music5000_do,
+                audio_l  => music5000_ao_l,
+                audio_r  => music5000_ao_r
+            );
+
+    end generate;
+    
+--------------------------------------------------------
+-- SN76489 Sound Generator
 --------------------------------------------------------
     
-    -- Sound generator (and drive logic for I2S codec)
     sound : entity work.sn76489_top port map (
         clock_32, mhz4_clken,
         reset_n, '0', sound_enable_n,
@@ -677,15 +709,51 @@ begin
         sound_ao
         );
 
-    process(sound_ao, sid_ao)
+--------------------------------------------------------
+-- Sound Mixer
+--------------------------------------------------------
+
+    -- TODO clean up to avoid using hard coded width constants
+    
+--    process(sound_ao, sid_ao, music5000_ao_l, music5000_ao_r)
+--        variable l : std_logic_vector(15 downto 0);
+--        variable r : std_logic_vector(15 downto 0);
+--    begin
+--        l := std_logic_vector(sound_ao) & "00000000";
+--        r := std_logic_vector(sound_ao) & "00000000";            
+--        if IncludeSID or IncludeMusic5000 then
+--            l := l(15) & l(15 downto 1); 
+--            r := r(15) & r(15 downto 1);
+--            if IncludeSID then
+--                l := l + (sid_ao(17) & sid_ao(17 downto 3));
+--                r := r + (sid_ao(17) & sid_ao(17 downto 3));
+--            end if;
+--            if IncludeMusic5000 then
+--                l := l + (music5000_ao_l(15) & music5000_ao_l(15 downto 1));
+--                r := r + (music5000_ao_r(15) & music5000_ao_r(15 downto 1));
+--            end if;
+--        end if;
+--        audio_l <= l;
+--        audio_r <= r;
+--    end process;
+
+    -- This version assumes only one source is playing at once
+    process(sound_ao, sid_ao, music5000_ao_l, music5000_ao_r)
+        variable l : std_logic_vector(15 downto 0);
+        variable r : std_logic_vector(15 downto 0);
     begin
+        l := std_logic_vector(sound_ao) & "00000000";
+        r := std_logic_vector(sound_ao) & "00000000";            
         if IncludeSID then
-            audio_l <= ("0" & std_logic_vector(sound_ao) & "0000000") + ("0" & sid_ao(17 downto 3));
-            audio_r <= ("0" & std_logic_vector(sound_ao) & "0000000") + ("0" & sid_ao(17 downto 3));    
-        else
-            audio_l <= std_logic_vector(sound_ao) & "00000000";
-            audio_r <= std_logic_vector(sound_ao) & "00000000";    
+            l := l + sid_ao(17 downto 3);
+            r := r + sid_ao(17 downto 3);
+		end if;
+        if IncludeMusic5000 then
+            l := l + music5000_ao_l;
+            r := r + music5000_ao_r;
         end if;
+        audio_l <= l;
+        audio_r <= r;
     end process;
 
 --------------------------------------------------------
@@ -738,10 +806,14 @@ begin
     end process;
 
     -- 12 MHz clock enable for SAA5050
+    -- 6 MHz clock for Music 5000
     ttxt_clk_gen: process(clock_24)
     begin
         if rising_edge(clock_24) then
-            ttxt_clken <= not ttxt_clken;
+            ttxt_clken_counter <= ttxt_clken_counter + 1;            
+            ttxt_clken <= ttxt_clken_counter(0);
+            clock_6 <= ttxt_clken_counter(1);
+            mhz6_clken <= ttxt_clken_counter(0) and ttxt_clken_counter(1);
         end if;
     end process;
 
@@ -903,6 +975,7 @@ begin
         user_via_do_r when user_via_enable = '1' else
         -- Optional peripherals
         sid_do        when sid_enable = '1' and IncludeSid else
+        music5000_do  when io_jim = '1' and IncludeMusic5000 else
         -- Master 128 additions
         romsel        when romsel_enable = '1' and ModeM128 = '1' else
         acccon        when acccon_enable = '1' and ModeM128 = '1' else

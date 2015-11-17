@@ -346,10 +346,9 @@ begin
     SRAM_CE_N <= '0';
     SRAM_OE_N <= ext_nOE;
 
-    -- TODO consider gating with clock, w.g.
-    -- SRAM_WE_N <= ext_nWE or nor clock_32;
-
-    SRAM_WE_N <= ext_nWE;
+    -- Gate the WE with clock to provide more address/data hold time
+    SRAM_WE_N <= ext_nWE or not clock_32;
+	 
     SRAM_ADDR <= ext_a(17 downto 0);
     SRAM_DQ(15 downto 8) <= (others => 'Z');
     SRAM_DQ(7 downto 0) <= ext_Din when ext_nWE = '0' else (others => 'Z');

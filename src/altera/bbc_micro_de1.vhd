@@ -169,6 +169,9 @@ signal ext_nCS          : std_logic;
 signal ext_nWE          : std_logic;
 signal ext_nOE          : std_logic;
 
+signal is_done          : std_logic;
+signal is_error         : std_logic;
+
 signal cpu_addr         : std_logic_vector (15 downto 0);
 
 -- A registered version to allow slow flash to be used
@@ -302,9 +305,11 @@ begin
             nRESET      => hard_reset_n,
             I2C_SCL     => I2C_SCLK,
             I2C_SDA     => I2C_SDAT,
-            IS_DONE     => LEDR(5), -- IS_DONE
-            IS_ERROR    => LEDR(4) -- IS_ERROR
+            IS_DONE     => is_done,
+            IS_ERROR    => is_error 
             );
+		LEDR(4) <= is_error;
+		LEDR(5) <= not is_done;
 
 --------------------------------------------------------
 -- Map external memory bus to SRAM/FLASH

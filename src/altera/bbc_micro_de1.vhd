@@ -210,9 +210,10 @@ begin
 
     bbc_micro : entity work.bbc_micro_core
         generic map (
-            UseICEDebugger => true,
-            UseT65Core     => false,
-            UseAlanDCore   => true
+            IncludeSID         => true,
+            IncludeICEDebugger => false,
+            UseT65Core         => false,
+            UseAlanDCore       => true
             )
         port map (
             clock_32       => clock_32,

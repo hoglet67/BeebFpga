@@ -56,9 +56,10 @@ use ieee.numeric_std.all;
 
 entity bbc_micro_core is
     generic (
-        UseICEDebugger : boolean := false;
-        UseT65Core     : boolean := false;
-        UseAlanDCore   : boolean := true
+        IncludeSID         : boolean := false;
+        IncludeICEDebugger : boolean := false;
+        UseT65Core         : boolean := false;
+        UseAlanDCore       : boolean := true
     );
     port (
         -- Clocks
@@ -303,6 +304,11 @@ signal sound_ready      :   std_logic;
 signal sound_di         :   std_logic_vector(7 downto 0);
 signal sound_ao         :   signed(7 downto 0);
 
+-- Optional SID
+signal sid_ao           :   std_logic_vector(17 downto 0);
+signal sid_do           :   std_logic_vector(7 downto 0);
+signal sid_enable       :   std_logic;
+
 -- Memory enables
 signal ram_enable       :   std_logic;      -- 0x0000
 signal rom_enable       :   std_logic;      -- 0x8000 (BASIC/sideways ROMs)
@@ -371,7 +377,7 @@ begin
     -- COMPONENT INSTANCES
     -------------------------
 
-    GenDebug: if UseICEDebugger generate
+    GenDebug: if IncludeICEDebugger generate
 
         core : entity work.MOS6502CpuMonCore
             generic map (
@@ -418,7 +424,7 @@ begin
 
     end generate;
 
-    GenT65Core: if UseT65Core and not UseICEDebugger generate
+    GenT65Core: if UseT65Core and not IncludeICEDebugger generate
         core : entity work.T65
         port map (
             cpu_mode,
@@ -447,7 +453,7 @@ begin
         avr_TxD <= '1';
     end generate;
 
-    GenAlanDCore: if UseAlanDCore and not UseICEDebugger generate
+    GenAlanDCore: if UseAlanDCore and not IncludeICEDebugger generate
         core : entity work.r65c02
         port map (
             reset    => reset_n,
@@ -632,6 +638,37 @@ begin
                "000000000000" when joystick2(1) = '0' else -- down
                "100000000000";
 
+
+--------------------------------------------------------
+-- Optional SID
+--------------------------------------------------------
+
+    Optional_SID: if IncludeSID generate
+
+        Inst_sid6581: entity work.sid6581
+            port map (
+                -- TODO, should update SID with a proper clocken
+                clk_1MHz   => mhz1_clken,
+                clk32      => clock_32,
+                clk_DAC    => '0', -- internal pwm dac not used
+                reset      => not reset_n,
+                cs         => sid_enable,
+                we         => not cpu_r_nw,
+                addr       => cpu_a(4 downto 0),
+                di         => cpu_do,
+                do         => sid_do,
+                pot_x      => '0',
+                pot_y      => '0',
+                audio_out  => open,
+                audio_data => sid_ao 
+            );
+
+    end generate;
+
+--------------------------------------------------------
+-- Sound
+--------------------------------------------------------
+    
     -- Sound generator (and drive logic for I2S codec)
     sound : entity work.sn76489_top port map (
         clock_32, mhz4_clken,
@@ -640,8 +677,16 @@ begin
         sound_ao
         );
 
-    audio_l <= std_logic_vector(sound_ao) & "00000000";
-    audio_r <= std_logic_vector(sound_ao) & "00000000";
+    process(sound_ao, sid_ao)
+    begin
+        if IncludeSID then
+            audio_l <= ("0" & std_logic_vector(sound_ao) & "0000000") + ("0" & sid_ao(17 downto 3));
+            audio_r <= ("0" & std_logic_vector(sound_ao) & "0000000") + ("0" & sid_ao(17 downto 3));    
+        else
+            audio_l <= std_logic_vector(sound_ao) & "00000000";
+            audio_r <= std_logic_vector(sound_ao) & "00000000";    
+        end if;
+    end process;
 
 --------------------------------------------------------
 -- Reset generation
@@ -727,6 +772,24 @@ begin
     mhz1_enable <= io_fred or io_jim or
         adc_enable or sys_via_enable or user_via_enable or
         serproc_enable or acia_enable or crtc_enable;
+
+
+    -- FRED address demux
+    -- Optional peripherals are mapped to fred and/or Jim
+    -- 0xFC20 - 0xFEFF = SID
+    process(cpu_a,io_fred)
+    begin
+        -- All regions normally de-selected
+        sid_enable <= '0';
+        if io_fred = '1' then
+            case cpu_a(7 downto 5) is
+                when "001" =>
+                    sid_enable <= '1';
+                when others =>
+                    null;
+            end case;
+        end if;
+    end process;
 
     -- SHEILA address demux
     -- All the system peripherals are mapped into this page as follows:
@@ -838,9 +901,11 @@ begin
         "00000010"    when acia_enable = '1' else
         sys_via_do_r  when sys_via_enable = '1' else
         user_via_do_r when user_via_enable = '1' else
+        -- Optional peripherals
+        sid_do        when sid_enable = '1' and IncludeSid else
         -- Master 128 additions
-        romsel when romsel_enable = '1' and ModeM128 = '1' else
-        acccon when acccon_enable = '1' and ModeM128 = '1' else
+        romsel        when romsel_enable = '1' and ModeM128 = '1' else
+        acccon        when acccon_enable = '1' and ModeM128 = '1' else
         "11111110"    when io_sheila = '1' else
         "11111111"    when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1

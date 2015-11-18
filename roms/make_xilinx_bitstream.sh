@@ -17,7 +17,7 @@ rm -f ./tmp/bitmerge
 
 # Run data2mem to merge in the AVR Firmware
 BMM_FILE=../src/xilinx/CpuMon_bd.bmm
-${DATA2MEM} -bm ${BMM_FILE} -bd ../../AtomBusMon/firmware/avr_progmem.mem -bt tmp/merged1.bit -o b tmp/merged2.bit
+${DATA2MEM} -bm ${BMM_FILE} -bd ../AtomBusMon/firmware/avr_progmem.mem -bt tmp/merged1.bit -o b tmp/merged2.bit
 
 # Program the Papilo Duo
 ${PROG} -v -f tmp/merged2.bit -b ${BSCAN}  -sa -r

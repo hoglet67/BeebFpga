@@ -233,23 +233,23 @@ bbc_micro : entity work.bbc_micro_core
 
     dac_l : entity work.pwm_sddac
     generic map (
-        msbi_g => 7
+        msbi_g => 9
     )
     port map (
         clk_i => clock_32,
         reset => '0',
-        dac_i => audio_l(15 downto 8),
+        dac_i => audio_l(15 downto 6),
         dac_o => audioL
     );
 
     dac_r : entity work.pwm_sddac
     generic map (
-        msbi_g => 7
+        msbi_g => 9
     )
     port map (
         clk_i => clock_32,
         reset => '0',
-        dac_i => audio_r(15 downto 8),
+        dac_i => audio_r(15 downto 6),
         dac_o => audioR
     );
 

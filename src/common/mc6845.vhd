@@ -202,6 +202,10 @@ begin
 				if R_nW = '1' then
 					-- Read
 					case addr_reg is
+					when "01100" =>
+						DO <= "00" & std_logic_vector(r12_start_addr_h);
+					when "01101" =>
+						DO <= std_logic_vector(r13_start_addr_l);
 					when "01110" =>
 						DO <= "00" & std_logic_vector(r14_cursor_h);
 					when "01111" =>

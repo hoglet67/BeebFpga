@@ -26,7 +26,7 @@ use ieee.numeric_std.all;
 
 entity Music5000 is
     generic (
-        sumwidth : integer := 21;
+        sumwidth : integer := 20;
         dacwidth : integer := 16
     );
     port (

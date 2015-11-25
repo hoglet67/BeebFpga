@@ -80,6 +80,10 @@ entity bbc_micro_duo is
            FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
            avr_RxD        : in    std_logic;
            avr_TxD        : out   std_logic;
+           -- DIP(0) = Video Mode: sRGB (0) / VGA (1)
+           -- DIP(1) = VGA Scan Doubler: MIST (0) / RGB2VGA (1)
+           -- DIP(2) = Machine: BBC Model B (0) / BBC Master (1)
+           -- DIP(3) = No Boot (0) : Boot (1)
            DIP            : in    std_logic_vector(3 downto 0);
            JOYSTICK1      : in    std_logic_vector(4 downto 0);
            JOYSTICK2      : in    std_logic_vector(4 downto 0)
@@ -163,7 +167,7 @@ bbc_micro : entity work.bbc_micro_core
         SDMOSI         => SDMOSI,
         caps_led       => LED1,
         shift_led      => LED2,
-        keyb_dip       => (others => '0'),
+        keyb_dip       => "0000" & DIP(3) & "000",
         vid_mode       => "00" & DIP(1 downto 0),
         joystick1      => JOYSTICK1,
         joystick2      => JOYSTICK2,

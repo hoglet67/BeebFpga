@@ -71,7 +71,7 @@ entity bbc_micro_core is
         -- Hard reset (active low)
         hard_reset_n   : in    std_logic;
 
-        -- Keboard
+        -- Keyboard
         ps2_clk        : in    std_logic;
         ps2_data       : in    std_logic;
 
@@ -668,7 +668,7 @@ begin
                 pot_x      => '0',
                 pot_y      => '0',
                 audio_out  => open,
-                audio_data => sid_ao 
+                audio_data => sid_ao
             );
 
     end generate;
@@ -697,11 +697,11 @@ begin
             );
 
     end generate;
-    
+
 --------------------------------------------------------
 -- SN76489 Sound Generator
 --------------------------------------------------------
-    
+
     sound : entity work.sn76489_top port map (
         clock_32, mhz4_clken,
         reset_n, '0', sound_enable_n,
@@ -714,15 +714,15 @@ begin
 --------------------------------------------------------
 
     -- TODO clean up to avoid using hard coded width constants
-    
+
 --    process(sound_ao, sid_ao, music5000_ao_l, music5000_ao_r)
 --        variable l : std_logic_vector(15 downto 0);
 --        variable r : std_logic_vector(15 downto 0);
 --    begin
 --        l := std_logic_vector(sound_ao) & "00000000";
---        r := std_logic_vector(sound_ao) & "00000000";            
+--        r := std_logic_vector(sound_ao) & "00000000";
 --        if IncludeSID or IncludeMusic5000 then
---            l := l(15) & l(15 downto 1); 
+--            l := l(15) & l(15 downto 1);
 --            r := r(15) & r(15 downto 1);
 --            if IncludeSID then
 --                l := l + (sid_ao(17) & sid_ao(17 downto 3));
@@ -742,13 +742,17 @@ begin
         variable l : std_logic_vector(15 downto 0);
         variable r : std_logic_vector(15 downto 0);
     begin
-        l := std_logic_vector(sound_ao) & "00000000";
-        r := std_logic_vector(sound_ao) & "00000000";            
+          -- SN76489 output is 8-bit signed
+          -- attenuate by one bit as to try to match level with other sources
+        l := std_logic_vector(sound_ao(7) & sound_ao) & "0000000";
+        r := std_logic_vector(sound_ao(7) & sound_ao) & "0000000";
         if IncludeSID then
-            l := l + sid_ao(17 downto 3);
-            r := r + sid_ao(17 downto 3);
-		end if;
+                -- SID output is 16-bit unsigned
+            l := l + (sid_ao(17 downto 2) - x"8000");
+            r := r + (sid_ao(17 downto 2) - x"8000");
+        end if;
         if IncludeMusic5000 then
+                -- Music 5000 output is 16-bit signed
             l := l + music5000_ao_l;
             r := r + music5000_ao_r;
         end if;
@@ -810,7 +814,7 @@ begin
     ttxt_clk_gen: process(clock_24)
     begin
         if rising_edge(clock_24) then
-            ttxt_clken_counter <= ttxt_clken_counter + 1;            
+            ttxt_clken_counter <= ttxt_clken_counter + 1;
             ttxt_clken <= ttxt_clken_counter(0);
             clock_6 <= ttxt_clken_counter(1);
             mhz6_clken <= ttxt_clken_counter(0) and ttxt_clken_counter(1);

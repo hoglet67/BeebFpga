@@ -5,25 +5,44 @@ library UNISIM;
 use UNISIM.Vcomponents.all;
 
 entity dcm1 is
-    port (CLKIN_IN  : in  std_logic;
-          CLK0_OUT  : out std_logic;
-          CLKFX_OUT : out std_logic);
+    port (CLKIN_IN       : in  std_logic;
+          CLK0_OUT       : out std_logic;
+          CLKFX_OUT      : out std_logic);
 end dcm1;
 
 architecture BEHAVIORAL of dcm1 is
-    signal CLKFX_BUF   : std_logic;
-    signal CLKIN_IBUFG : std_logic;
     signal GND_BIT     : std_logic;
+    signal CLKIN       : std_logic;
+    signal CLKFX       : std_logic;
+    signal CLKFX_BUF   : std_logic;
+    signal CLK0        : std_logic;
     signal CLK0_BUF    : std_logic;
+    signal CLKFB       : std_logic;
 begin
 
     GND_BIT <= '0';
-    CLKFX_BUFG_INST : BUFG
-        port map (I => CLKFX_BUF, O => CLKFX_OUT);
-
-    CLK0_BUFG_INST : BUFG
-        port map (I => CLK0_BUF, O => CLK0_OUT);
     
+    -- This DCM completely de-skews the clock network wrt the input pin
+    -- Note: the BUFIO2 instance needed manually placing in the .ucf file
+    
+    -- Clock input io2 buffer
+    CLKIN_BUFIO2_INST : BUFIO2
+        port map (I => CLKIN_IN, DIVCLK => CLKIN);
+        
+    -- Clock feedback io2 buffer
+    CLKFB_BUFIO2FB_INST : BUFIO2FB
+        port map (I => CLK0_BUF, O => CLKFB);
+    
+    -- CLK0 output buffer
+    CLK0_BUFG_INST : BUFG
+        port map (I => CLK0, O => CLK0_BUF);
+    CLK0_OUT <= CLK0_BUF;
+    
+    -- CLKFX output buffer
+    CLKFX_BUFG_INST : BUFG
+        port map (I => CLKFX, O => CLKFX_BUF);
+    CLKFX_OUT <= CLKFX_BUF;
+
     DCM_INST : DCM
         generic map(CLK_FEEDBACK          => "1X",
                     CLKDV_DIVIDE          => 4.0,  -- 24 = 32 * 3/4
@@ -39,17 +58,17 @@ begin
                     FACTORY_JF            => x"C080",
                     PHASE_SHIFT           => 0,
                     STARTUP_WAIT          => false)
-        port map (CLKFB    => CLK0_BUF,
-                  CLKIN    => CLKIN_IN,
+        port map (CLKFB    => CLKFB,
+                  CLKIN    => CLKIN,
                   DSSEN    => GND_BIT,
                   PSCLK    => GND_BIT,
                   PSEN     => GND_BIT,
                   PSINCDEC => GND_BIT,
                   RST      => GND_BIT,
                   CLKDV    => open,
-                  CLKFX    => CLKFX_BUF,
+                  CLKFX    => CLKFX,
                   CLKFX180 => open,
-                  CLK0     => CLK0_BUF,
+                  CLK0     => CLK0,
                   CLK2X    => open,
                   CLK2X180 => open,
                   CLK90    => open,

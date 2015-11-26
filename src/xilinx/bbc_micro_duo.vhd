@@ -48,6 +48,9 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
+library UNISIM;
+use UNISIM.Vcomponents.all;
+
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
      port (clk_32M00      : in    std_logic;
@@ -99,19 +102,21 @@ architecture rtl of bbc_micro_duo is
     signal clock_24        : std_logic;
     signal clock_27        : std_logic;
     signal clock_32        : std_logic;
+    signal dac_l_in        : std_logic_vector(9 downto 0);
+    signal dac_r_in        : std_logic_vector(9 downto 0);
     signal audio_l         : std_logic_vector(15 downto 0);
     signal audio_r         : std_logic_vector(15 downto 0);
     signal audio           : std_logic;
     signal powerup_reset_n : std_logic;
     signal hard_reset_n    : std_logic;
-    signal reset_counter   : std_logic_vector (9 downto 0);
-    signal RAM_A           : std_logic_vector (18 downto 0);
-    signal RAM_Din         : std_logic_vector (7 downto 0);
-    signal RAM_Dout        : std_logic_vector (7 downto 0);
+    signal reset_counter   : std_logic_vector(9 downto 0);
+    signal RAM_A           : std_logic_vector(18 downto 0);
+    signal RAM_Din         : std_logic_vector(7 downto 0);
+    signal RAM_Dout        : std_logic_vector(7 downto 0);
     signal RAM_nWE         : std_logic;
-    signal RAM_nWE_gated   : std_logic;
     signal RAM_nOE         : std_logic;
     signal RAM_nCS         : std_logic;
+    signal SRAM_nWE_int    : std_logic;
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -214,6 +219,10 @@ bbc_micro : entity work.bbc_micro_core
 -- Audio DACs
 --------------------------------------------------------
 
+    -- Convert from signed to unsigned
+    dac_l_in <= (not audio_l(15)) & audio_l(14 downto 6);
+    dac_r_in <= (not audio_r(15)) & audio_r(14 downto 6);
+
     dac_l : entity work.pwm_sddac
     generic map (
         msbi_g => 9
@@ -221,7 +230,7 @@ bbc_micro : entity work.bbc_micro_core
     port map (
         clk_i => clock_32,
         reset => '0',
-        dac_i => audio_l(15 downto 6),
+        dac_i => dac_l_in,
         dac_o => audioL
     );
 
@@ -232,7 +241,7 @@ bbc_micro : entity work.bbc_micro_core
     port map (
         clk_i => clock_32,
         reset => '0',
-        dac_i => audio_r(15 downto 6),
+        dac_i => dac_r_in,
         dac_o => audioR
     );
 
@@ -244,10 +253,27 @@ bbc_micro : entity work.bbc_micro_core
     ARDUINO_RESET <= SW1;
 
 --------------------------------------------------------
--- BOOTSTRAP SPI FLASH to SRAM
+-- Generate a gated RAM WE pulse
 --------------------------------------------------------
 
-    RAM_nWE_gated   <= RAM_nWE or not clock_32;
+    -- On the falling edge of clock_32, SRAM_nWE goes low if SRAM_nWE_int is low
+    -- On the rising edhe of clock_32,  SRAM_nWE goes high again
+
+    rx_clk_ddr : ODDR2
+    port map (
+        Q  => SRAM_nWE,
+        C0 => not clock_32,
+        C1 => clock_32,
+        CE => '1',
+        D0 => SRAM_nWE_int,
+        D1 => '1',
+        R  => '0',
+        S  => '0'
+    );
+
+--------------------------------------------------------
+-- BOOTSTRAP SPI FLASH to SRAM
+--------------------------------------------------------
 
     inst_bootstrap: entity work.bootstrap
     generic map (
@@ -259,13 +285,13 @@ bbc_micro : entity work.bbc_micro_core
         powerup_reset_n => powerup_reset_n,
         bootstrap_busy  => bootstrap_busy,
         RAM_nOE         => RAM_nOE,
-        RAM_nWE         => RAM_nWE_gated,
+        RAM_nWE         => RAM_nWE,
         RAM_nCS         => RAM_nCS,
         RAM_A           => RAM_A,
         RAM_Din         => RAM_Din,
         RAM_Dout        => RAM_Dout,
         SRAM_nOE        => SRAM_nOE,
-        SRAM_nWE        => SRAM_nWE,
+        SRAM_nWE        => SRAM_nWE_int,
         SRAM_nCS        => SRAM_nCS,
         SRAM_A          => SRAM_A,
         SRAM_D          => SRAM_D,

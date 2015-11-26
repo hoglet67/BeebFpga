@@ -458,7 +458,7 @@ begin
             cpu_do
         );
         reset_n_out <= '1';
-        avr_TxD <= '1';
+        avr_TxD <= avr_RxD;
     end generate;
 
     GenAlanDCore: if UseAlanDCore and not IncludeICEDebugger generate
@@ -481,7 +481,7 @@ begin
         cpu_a(15 downto 0) <= std_logic_vector(cpu_addr_us);
         cpu_a(23 downto 16) <= (others => '0');
         reset_n_out <= '1';
-        avr_TxD <= '1';
+        avr_TxD <= avr_RxD;
     end generate;
 
     crtc : entity work.mc6845 port map (

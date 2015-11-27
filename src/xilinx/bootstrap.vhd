@@ -19,6 +19,9 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
+library UNISIM;
+use UNISIM.Vcomponents.all;
+
 entity bootstrap is
     generic (
         -- start address of user data in FLASH
@@ -61,6 +64,11 @@ end;
 
 architecture behavioral of bootstrap is
 
+-- internal signals for SRAM interface
+signal SRAM_Din           : std_logic_vector (7 downto 0);
+signal SRAM_nDOE          : std_logic_vector (7 downto 0);
+signal SRAM_nWE_int       : std_logic;
+    
 -- an internal clock enable, avoiding gated clocks
 signal clock_en         : std_logic := '0';
 
@@ -92,17 +100,73 @@ begin
 
     bootstrap_busy      <= bs_busy;
 
-    -- SRAM muxer, allows access to physical SRAM by either bootstrap or user
-    SRAM_D              <= bs_Din when bs_busy = '1' and bs_nWE = '0' else RAM_Din when bs_busy = '0' and RAM_nWE = '0' else (others => 'Z');
+--------------------------------------------------------
+-- SRAM Multiplexor
+--------------------------------------------------------
+   
+    SRAM_Din            <= bs_Din when bs_busy = '1' else RAM_Din;
+   
     SRAM_A(18 downto 0) <= bs_A   when bs_busy = '1' else RAM_A;
     SRAM_A(19)          <= '0';
     SRAM_A(20)          <= '0';
+    
     SRAM_nCS            <= bs_nCS when bs_busy = '1' else RAM_nCS;
+
     SRAM_nOE            <= bs_nOE when bs_busy = '1' else RAM_nOE;
-    SRAM_nWE            <= bs_nWE when bs_busy = '1' else RAM_nWE;
+    
+--------------------------------------------------------
+-- Generate a gated RAM WE and Dout tristate controls
+--------------------------------------------------------
+    
+    -- The point of all this is to avoid conflicts with the SRAM
+    -- where the data bus changes direction
 
-    RAM_Dout            <= SRAM_D; -- anyone can read SRAM_D without contention but his provides some logical separation
+    -- On the falling edge of clock_32, SRAM_nWE goes low if SRAM_nWE_int is low
+    -- On the rising edhe of clock_32,  SRAM_nWE goes high again
 
+    SRAM_nWE_int <= bs_nWE when bs_busy = '1' else RAM_nWE;
+
+    rx_clk_ddr : ODDR2
+    port map (
+        Q  => SRAM_nWE,
+        C0 => not clock,
+        C1 => clock,
+        CE => '1',
+        D0 => SRAM_nWE_int,
+        D1 => '1',
+        R  => '0',
+        S  => '0'
+    );
+
+    gen_sram_data_io: for i in 0 to 7 generate
+        -- replicate the ODDR2 for each data bit, because of limited routing
+        oddr2x : ODDR2
+        port map (
+            Q  => SRAM_nDOE(i),
+            C0 => not clock,
+            C1 => clock,
+            CE => '1',
+            D0 => SRAM_nWE_int,
+            D1 => '1',
+            R  => '0',
+            S  => '0'
+        );
+        -- the active low tristate connects directly to the IOBUFT in the same IOB
+        iobufx : IOBUF
+        generic map (
+            DRIVE => 8
+        )
+        port map (
+            O  => RAM_Dout(i),
+            I  => SRAM_Din(i),
+            IO => SRAM_D(i),
+            T  => SRAM_nDOE(i)
+        );        
+   end generate; 
+--------------------------------------------------------
+-- Bootstrap SRAM from SPI FLASH
+--------------------------------------------------------
+        
     -- flash clock enable toggles on alternate cycles
     process(clock)
     begin

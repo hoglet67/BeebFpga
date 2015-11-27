@@ -75,64 +75,62 @@ NET SRAM_A(2)  OFFSET = OUT 10ns AFTER "clk_32M00";
 NET SRAM_A(1)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
 NET SRAM_A(0)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
 
-# This is controlled by an IODDR2 register, so will be pretty tight anyway
-NET SRAM_nWE   OFFSET = OUT      AFTER "clk_32M00";
-
 # This is the tightest path
 # SRAM_A Offset + Taccess + PCB + SRAM_D Offset In < 31.25ns
 # 10ns          + 10ns    + 1ns + 10ns             = 31.00ns 
 NET SRAM_D(*)  OFFSET = IN 10ns VALID 10ns BEFORE "clk_32M00";
-NET SRAM_D(*)  OFFSET = OUT           10ns AFTER  "clk_32M00";
+
+# SRAM_nWE is driven by an IODDR2 register
+NET SRAM_nWE   OFFSET = OUT  6ns AFTER "clk_32M00" FALLING;
+NET SRAM_nWE   OFFSET = OUT  6ns AFTER "clk_32M00" RISING;
+
+# SRAM_D tristate is driven by an IODDR2 register
+NET SRAM_D(*)  OFFSET = OUT  6ns AFTER  "clk_32M00" FALLING;
+# SRAM_D data includes some fabric logic delays
+NET SRAM_D(*)  OFFSET = OUT 10ns AFTER  "clk_32M00" RISING;
 
 #####################################
 # FLASH Interface runs at 16 MHz
 #####################################
 
 # Times can be somewhat lax, as there are two cycles to do a read
-NET FLASH_CS      OFFSET = OUT            15ns AFTER  "clk_32M00";
-NET FLASH_SI      OFFSET = OUT            15ns AFTER  "clk_32M00";
-NET FLASH_CK      OFFSET = OUT            15ns AFTER  "clk_32M00";
-NET FLASH_SO      OFFSET = IN  15ns VALID 15ns BEFORE "clk_32M00";
+NET FLASH_CS   OFFSET = OUT            15ns AFTER  "clk_32M00";
+NET FLASH_SI   OFFSET = OUT            15ns AFTER  "clk_32M00";
+NET FLASH_CK   OFFSET = OUT            15ns AFTER  "clk_32M00";
+NET FLASH_SO   OFFSET = IN  15ns VALID 15ns BEFORE "clk_32M00";
 
 #####################################
 # Non critical inputs
 #####################################
 
-NET ps2_clk       OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-NET ps2_data      OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-NET ERST          OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-NET SDMISO        OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-NET JOYSTICK1(*)  OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-NET JOYSTICK2(*)  OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-NET DIP(2)        OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-NET DIP(3)        OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-
-# No paths - commented to avoid warnings
-# NET avr_RxD       OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-# NET SW1           OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-# NET DIP(0)        OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
-# NET DIP(1)        OFFSET = IN 25ns VALID 25ns BEFORE "clk_32M00";
+NET ps2_clk       TIG;
+NET ps2_data      TIG;
+NET ERST          TIG;
+NET SDMISO        TIG;
+NET JOYSTICK1(*)  TIG;
+NET JOYSTICK2(*)  TIG;
+NET DIP(*)        TIG;
+NET avr_RxD       TIG;
+NET SW1           TIG;
 
 #####################################
 # Non critical outputs
 #####################################
 
-NET red(*)        OFFSET = OUT 30ns AFTER "clk_32M00";
-NET green(*)      OFFSET = OUT 30ns AFTER "clk_32M00";
-NET blue(*)       OFFSET = OUT 30ns AFTER "clk_32M00";
-NET vsync         OFFSET = OUT 30ns AFTER "clk_32M00";
-NET hsync         OFFSET = OUT 30ns AFTER "clk_32M00";
-NET audioL        OFFSET = OUT 30ns AFTER "clk_32M00";
-NET audioR        OFFSET = OUT 30ns AFTER "clk_32M00";
-NET SDCLK         OFFSET = OUT 30ns AFTER "clk_32M00";
-NET SDMOSI        OFFSET = OUT 30ns AFTER "clk_32M00";
-NET LED1          OFFSET = OUT 30ns AFTER "clk_32M00";
-NET LED2          OFFSET = OUT 30ns AFTER "clk_32M00";
-
-# No paths - commented to avoid warnings
-#NET avr_TxD       OFFSET = OUT 30ns AFTER "clk_32M00";
-#NET ARDUINO_RESET OFFSET = OUT 30ns AFTER "clk_32M00";
-#NET SDSS          OFFSET = OUT 30ns AFTER "clk_32M00";
+NET red(*)        TIG;
+NET green(*)      TIG;
+NET blue(*)       TIG;
+NET vsync         TIG;
+NET hsync         TIG;
+NET audioL        TIG;
+NET audioR        TIG;
+NET SDCLK         TIG;
+NET SDMOSI        TIG;
+NET LED1          TIG;
+NET LED2          TIG;
+NET avr_TxD       TIG;
+NET ARDUINO_RESET TIG;
+NET SDSS          TIG;
 
 #####################################
 # Pin placements

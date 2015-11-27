@@ -48,9 +48,6 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
-library UNISIM;
-use UNISIM.Vcomponents.all;
-
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
      port (clk_32M00      : in    std_logic;
@@ -116,7 +113,6 @@ architecture rtl of bbc_micro_duo is
     signal RAM_nWE         : std_logic;
     signal RAM_nOE         : std_logic;
     signal RAM_nCS         : std_logic;
-    signal SRAM_nWE_int    : std_logic;
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -253,25 +249,6 @@ bbc_micro : entity work.bbc_micro_core
     ARDUINO_RESET <= SW1;
 
 --------------------------------------------------------
--- Generate a gated RAM WE pulse
---------------------------------------------------------
-
-    -- On the falling edge of clock_32, SRAM_nWE goes low if SRAM_nWE_int is low
-    -- On the rising edhe of clock_32,  SRAM_nWE goes high again
-
-    rx_clk_ddr : ODDR2
-    port map (
-        Q  => SRAM_nWE,
-        C0 => not clock_32,
-        C1 => clock_32,
-        CE => '1',
-        D0 => SRAM_nWE_int,
-        D1 => '1',
-        R  => '0',
-        S  => '0'
-    );
-
---------------------------------------------------------
 -- BOOTSTRAP SPI FLASH to SRAM
 --------------------------------------------------------
 
@@ -291,7 +268,7 @@ bbc_micro : entity work.bbc_micro_core
         RAM_Din         => RAM_Din,
         RAM_Dout        => RAM_Dout,
         SRAM_nOE        => SRAM_nOE,
-        SRAM_nWE        => SRAM_nWE_int,
+        SRAM_nWE        => SRAM_nWE,
         SRAM_nCS        => SRAM_nCS,
         SRAM_A          => SRAM_A,
         SRAM_D          => SRAM_D,

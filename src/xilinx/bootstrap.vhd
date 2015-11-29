@@ -64,13 +64,16 @@ end;
 
 architecture behavioral of bootstrap is
 
--- internal signals for SRAM interface
-signal SRAM_Din           : std_logic_vector (7 downto 0);
-signal SRAM_nDOE          : std_logic_vector (7 downto 0);
-signal SRAM_nWE_int       : std_logic;
-    
+-- the inverted clock
+signal clock_n          : std_logic;
+  
 -- an internal clock enable, avoiding gated clocks
 signal clock_en         : std_logic := '0';
+
+-- internal signals for SRAM interface
+signal SRAM_Din         : std_logic_vector (7 downto 0);
+signal SRAM_nDOE        : std_logic_vector (7 downto 0);
+signal SRAM_nWE_int     : std_logic;
 
 --
 -- bootstrap signals
@@ -118,6 +121,8 @@ begin
 -- Generate a gated RAM WE and Dout tristate controls
 --------------------------------------------------------
     
+    clock_n <= not clock;
+    
     -- The point of all this is to avoid conflicts with the SRAM
     -- where the data bus changes direction
 
@@ -129,7 +134,7 @@ begin
     rx_clk_ddr : ODDR2
     port map (
         Q  => SRAM_nWE,
-        C0 => not clock,
+        C0 => clock_n,
         C1 => clock,
         CE => '1',
         D0 => SRAM_nWE_int,
@@ -143,7 +148,7 @@ begin
         oddr2x : ODDR2
         port map (
             Q  => SRAM_nDOE(i),
-            C0 => not clock,
+            C0 => clock_n,
             C1 => clock,
             CE => '1',
             D0 => SRAM_nWE_int,

@@ -142,6 +142,7 @@ architecture rtl of bbc_micro_core is
 -- Signals
 -------------
 
+signal reset        :   std_logic;
 signal reset_n      :   std_logic;
 signal reset_n_out  :   std_logic;
 signal clock_avr    :   std_logic;
@@ -175,6 +176,7 @@ signal cpu_irq_n        :   std_logic;
 signal cpu_nmi_n        :   std_logic;
 signal cpu_so_n         :   std_logic;
 signal cpu_r_nw         :   std_logic;
+signal cpu_nr_w         :   std_logic;
 signal cpu_sync         :   std_logic;
 signal cpu_ef           :   std_logic;
 signal cpu_mf           :   std_logic;
@@ -193,7 +195,9 @@ signal cpu_dout_us      :   unsigned (7 downto 0);
 signal crtc_clken       :   std_logic;
 signal crtc_do          :   std_logic_vector(7 downto 0);
 signal crtc_vsync       :   std_logic;
+signal crtc_vsync_n     :   std_logic;
 signal crtc_hsync       :   std_logic;
+signal crtc_hsync_n     :   std_logic;
 signal crtc_de          :   std_logic;
 signal crtc_cursor      :   std_logic;
 constant crtc_lpstb     :   std_logic := '0';
@@ -215,6 +219,7 @@ signal g_out            :   std_logic;
 signal b_out            :   std_logic;
 
 -- Scandoubler signals (Mist)
+signal rgbi_in          :   std_logic_vector(3 downto 0);
 signal vga0_r           :   std_logic_vector(1 downto 0);
 signal vga0_g           :   std_logic_vector(1 downto 0);
 signal vga0_b           :   std_logic_vector(1 downto 0);
@@ -324,8 +329,11 @@ signal mos_enable       :   std_logic;      -- 0xC000
 
 -- IO region enables
 signal io_fred          :   std_logic;      -- 0xFC00 (1 MHz bus)
+signal io_fred_n        :   std_logic;      -- 0xFC00 (1 MHz bus)
 signal io_jim           :   std_logic;      -- 0xFD00 (1 MHz bus)
+signal io_jim_n         :   std_logic;      -- 0xFD00 (1 MHz bus)
 signal io_sheila        :   std_logic;      -- 0xFE00 (System peripherals)
+signal io_sheila_n      :   std_logic;      -- 0xFE00 (System peripherals)
 
 -- SHIELA
 signal crtc_enable      :   std_logic;      -- 0xFE00-FE07
@@ -659,9 +667,9 @@ begin
                 clk_1MHz   => mhz1_clken,
                 clk32      => clock_32,
                 clk_DAC    => '0', -- internal pwm dac not used
-                reset      => not reset_n,
+                reset      => reset,
                 cs         => sid_enable,
-                we         => not cpu_r_nw,
+                we         => cpu_nr_w,
                 addr       => cpu_a(4 downto 0),
                 di         => cpu_do,
                 do         => sid_do,
@@ -687,8 +695,8 @@ begin
                 clk6en   => '1',
                 rnw      => cpu_r_nw,
                 rst_n    => reset_n,
-                pgfc_n   => not io_fred,
-                pgfd_n   => not io_jim,
+                pgfc_n   => io_fred_n,
+                pgfd_n   => io_jim_n,
                 a        => cpu_a(7 downto 0),
                 din      => cpu_do,
                 dout     => music5000_do,
@@ -767,6 +775,7 @@ begin
     -- Keyboard and System VIA and Video are by a power up reset signal
     -- Rest of system is reset by all of the above plus keyboard BREAK key
     reset_n <= reset_n_out and hard_reset_n and not keyb_break;
+    reset   <= not reset_n;
 
 --------------------------------------------------------
 -- Clock enable generation
@@ -827,7 +836,8 @@ begin
     cpu_abort_n <= '1';
     cpu_nmi_n <= '1';
     cpu_so_n <= '1';
-
+    cpu_nr_w <= not cpu_r_nw;
+    
     -- Address decoding
     -- 0x0000 = 32 KB SRAM
     -- 0x8000 = 16 KB BASIC/Sideways ROMs
@@ -841,8 +851,11 @@ begin
     rom_enable <= cpu_a(15) and not cpu_a(14);
     mos_enable <= cpu_a(15) and cpu_a(14) and not (io_fred or io_jim or io_sheila);
     io_fred <= '1' when cpu_a(15 downto 8) = "11111100" else '0';
+    io_fred_n <= not io_fred;
     io_jim <= '1' when cpu_a(15 downto 8) = "11111101" else '0';
+    io_jim_n <= not io_jim;
     io_sheila <= '1' when cpu_a(15 downto 8) = "11111110" else '0';
+    io_sheila_n <= not io_sheila;
     -- The following IO regions are accessed at 1 MHz and hence will stall the
     -- CPU accordingly
     mhz1_enable <= io_fred or io_jim or
@@ -1165,7 +1178,7 @@ begin
     b_in <= ttxt_b;
 
     -- SAA5050
-    ttxt_glr <= not crtc_hsync;
+    ttxt_glr <= crtc_hsync_n;
     ttxt_dew <= crtc_vsync;
     ttxt_crs <= not crtc_ra(0);
     ttxt_lose <= crtc_de;
@@ -1265,8 +1278,8 @@ begin
         clk_16 => clock_32,
         clk_16_en => vid_clken,
         scanlines => '0',
-        hs_in => not crtc_hsync,
-        vs_in => not crtc_vsync,
+        hs_in => crtc_hsync_n,
+        vs_in => crtc_vsync_n,
         r_in => r_out,
         g_in => g_out,
         b_in => b_out,
@@ -1277,26 +1290,31 @@ begin
         b_out => vga0_b,
         is15k => open
     );
+    crtc_hsync_n <= not crtc_hsync;
+    crtc_vsync_n <= not crtc_vsync;
     vga0_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '0' else '0';
 
 -----------------------------------------------
 -- Scan Doubler from RGB2VGA project
 -----------------------------------------------
 
+    rgbi_in <= r_out & g_out & b_out & '0';
+    
     inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler port map (
         clock => clock_32,
         clken => vid_clken,
         clk25 => clock_27,
-        rgbi_in => r_out & g_out & b_out & '0',
+        rgbi_in => rgbi_in,
         hSync_in => crtc_hsync,
         vSync_in => crtc_vsync,
         rgbi_out => rgbi_out,
         hSync_out => vga1_hs,
         vSync_out => vga1_vs
     );
-    vga1_r <= rgbi_out(3) & rgbi_out(3);
-    vga1_g <= rgbi_out(2) & rgbi_out(2);
-    vga1_b <= rgbi_out(1) & rgbi_out(1);
+    
+    vga1_r  <= rgbi_out(3) & rgbi_out(3);
+    vga1_g  <= rgbi_out(2) & rgbi_out(2);
+    vga1_b  <= rgbi_out(1) & rgbi_out(1);
 
     vga1_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '1' else '0';
 

@@ -113,6 +113,8 @@ architecture rtl of bbc_micro_duo is
     signal RAM_nWE         : std_logic;
     signal RAM_nOE         : std_logic;
     signal RAM_nCS         : std_logic;
+    signal keyb_dip        : std_logic_vector(7 downto 0);
+    signal vid_mode        : std_logic_vector(3 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -134,7 +136,9 @@ begin
 -- BBC Micro Core
 --------------------------------------------------------
 
-bbc_micro : entity work.bbc_micro_core
+    keyb_dip <= "0000" & DIP(3) & "000";
+    vid_mode <= "00" & DIP(1 downto 0);
+    bbc_micro : entity work.bbc_micro_core
     generic map (
         IncludeSID         => true,
         IncludeMusic5000   => true,
@@ -168,8 +172,8 @@ bbc_micro : entity work.bbc_micro_core
         SDMOSI         => SDMOSI,
         caps_led       => LED1,
         shift_led      => LED2,
-        keyb_dip       => "0000" & DIP(3) & "000",
-        vid_mode       => "00" & DIP(1 downto 0),
+        keyb_dip       => keyb_dip,
+        vid_mode       => vid_mode,
         joystick1      => JOYSTICK1,
         joystick2      => JOYSTICK2,
         avr_RxD        => avr_RxD,

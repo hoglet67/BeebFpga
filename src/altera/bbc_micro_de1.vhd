@@ -355,18 +355,19 @@ begin
     SRAM_DQ(15 downto 8) <= (others => 'Z');
     SRAM_DQ(7 downto 0) <= ext_Din when ext_nWE = '0' else (others => 'Z');
 
-     -- HEX Displays (active low)
-     HEX3 <= hex_to_seven_seg(cpu_addr(15 downto 12)) xor "1111111";
-     HEX2 <= hex_to_seven_seg(cpu_addr(11 downto  8)) xor "1111111";
-     HEX1 <= hex_to_seven_seg(cpu_addr( 7 downto  4)) xor "1111111";
-     HEX0 <= hex_to_seven_seg(cpu_addr( 3 downto  0)) xor "1111111";
+    -- HEX Displays (active low)
+    HEX3 <= hex_to_seven_seg(cpu_addr(15 downto 12)) xor "1111111";
+    HEX2 <= hex_to_seven_seg(cpu_addr(11 downto  8)) xor "1111111";
+    HEX1 <= hex_to_seven_seg(cpu_addr( 7 downto  4)) xor "1111111";
+    HEX0 <= hex_to_seven_seg(cpu_addr( 3 downto  0)) xor "1111111";
 
-     -- Unused LEDs (active high)
-     LEDG <= (others => '0');
-     LEDR(3 downto 2) <= (others => '0');
-     LEDR(9 downto 6) <= (others => '0');
+    -- Unused LEDs (active high)
+    LEDG <= (others => '0');
+    LEDR(3 downto 2) <= (others => '0');
+    LEDR(9 downto 6) <= (others => '0');
 
     -- Unused outputs
-     DRAM_ADDR <= (others => 'Z');
+    DRAM_ADDR <= (others => 'Z');
+    DRAM_DQ <= (others => 'Z');
 
 end architecture;

@@ -146,7 +146,6 @@ end entity;
 
 architecture rtl of bbc_micro_de1 is
 
-
 -------------
 -- Signals
 -------------
@@ -169,10 +168,15 @@ signal ext_nCS          : std_logic;
 signal ext_nWE          : std_logic;
 signal ext_nOE          : std_logic;
 
+
+signal caps_led         : std_logic;
+signal shift_led        : std_logic;
 signal is_done          : std_logic;
 signal is_error         : std_logic;
 
 signal cpu_addr         : std_logic_vector (15 downto 0);
+
+signal test             : std_logic_vector (7 downto 0);
 
 -- A registered version to allow slow flash to be used
 signal ext_A_r          : std_logic_vector (18 downto 0);
@@ -212,7 +216,8 @@ begin
         generic map (
             IncludeSID         => false,
             IncludeMusic5000   => false,
-            IncludeICEDebugger => true,
+            IncludeICEDebugger => false,
+            Include6502CoPro   => true,
             UseT65Core         => false,
             UseAlanDCore       => true
             )
@@ -240,8 +245,8 @@ begin
             SDSS           => SD_nCS,
             SDCLK          => SD_SCLK,
             SDMOSI         => SD_MOSI,
-            caps_led       => LEDR(0),
-            shift_led      => LEDR(1),
+            caps_led       => caps_led,
+            shift_led      => shift_led,
             keyb_dip       => "00" & SW(5 downto 0),
             vid_mode       => "00" & SW(8 downto 7),
             joystick1      => (others => '1'),
@@ -249,7 +254,8 @@ begin
             avr_RxD        => UART_RXD,
             avr_TxD        => UART_TXD,
             cpu_addr       => cpu_addr,
-            ModeM128       => SW(9)
+            ModeM128       => SW(9),
+            test           => test
         );
 
 
@@ -308,10 +314,10 @@ begin
             I2C_SCL     => I2C_SCLK,
             I2C_SDA     => I2C_SDAT,
             IS_DONE     => is_done,
-            IS_ERROR    => is_error 
+            IS_ERROR    => is_error
             );
-		LEDR(4) <= is_error;
-		LEDR(5) <= not is_done;
+    LEDR(4) <= is_error;
+    LEDR(5) <= not is_done;
 
 --------------------------------------------------------
 -- Map external memory bus to SRAM/FLASH
@@ -350,7 +356,7 @@ begin
 
     -- Gate the WE with clock to provide more address/data hold time
     SRAM_WE_N <= ext_nWE or not clock_32;
-	 
+
     SRAM_ADDR <= ext_a(17 downto 0);
     SRAM_DQ(15 downto 8) <= (others => 'Z');
     SRAM_DQ(7 downto 0) <= ext_Din when ext_nWE = '0' else (others => 'Z');
@@ -362,12 +368,17 @@ begin
     HEX0 <= hex_to_seven_seg(cpu_addr( 3 downto  0)) xor "1111111";
 
     -- Unused LEDs (active high)
-    LEDG <= (others => '0');
+    --LEDG <= (others => '0');
+    LEDR(0) <= caps_led;
+    LEDR(1) <= shift_led;
     LEDR(3 downto 2) <= (others => '0');
     LEDR(9 downto 6) <= (others => '0');
 
     -- Unused outputs
     DRAM_ADDR <= (others => 'Z');
     DRAM_DQ <= (others => 'Z');
+
+    LEDG <= test;
+    GPIO_1(7 downto 0) <= test;
 
 end architecture;

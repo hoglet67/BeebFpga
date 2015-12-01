@@ -59,6 +59,7 @@ entity bbc_micro_core is
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
+        Include6502CoPro   : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
     );
@@ -132,7 +133,11 @@ entity bbc_micro_core is
         cpu_addr       : out   std_logic_vector(15 downto 0);
 
         -- Master Mode
-        ModeM128       : in    std_logic
+        ModeM128       : in    std_logic;
+
+        -- Test outputs
+        test           : out   std_logic_vector(7 downto 0)
+        
     );
 end entity;
 
@@ -335,6 +340,9 @@ signal io_jim_n         :   std_logic;      -- 0xFD00 (1 MHz bus)
 signal io_sheila        :   std_logic;      -- 0xFE00 (System peripherals)
 signal io_sheila_n      :   std_logic;      -- 0xFE00 (System peripherals)
 
+-- Tube
+signal tube_do          :   std_logic_vector(7 downto 0);
+
 -- SHIELA
 signal crtc_enable      :   std_logic;      -- 0xFE00-FE07
 signal acia_enable      :   std_logic;      -- 0xFE08-FE0F
@@ -345,7 +353,7 @@ signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
 signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F
 --signal fddc_enable      :   std_logic;      -- 0xFE80-FE9F
 --signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
---signal tube_enable      :   std_logic;      -- 0xFEE0-FEFF
+signal tube_enable      :   std_logic;      -- 0xFEE0-FEFF
 
 signal adc_enable       :   std_logic;      -- 0xFEC0-FEDF
 signal adc_eoc_n        :   std_logic;
@@ -678,7 +686,6 @@ begin
                 audio_out  => open,
                 audio_data => sid_ao
             );
-
     end generate;
 
 --------------------------------------------------------
@@ -706,6 +713,35 @@ begin
 
     end generate;
 
+     
+--------------------------------------------------------
+-- Optional 6502 Co Processor
+--------------------------------------------------------
+
+    Gen6502CoPro: if Include6502CoPro generate
+        signal tube_cs_b : std_logic;
+    begin
+        copro : entity work.CoPro6502 
+        port map (
+            -- Host 
+            h_clk      => clock_32,
+            h_cs_b     => tube_cs_b,
+            h_rdnw     => cpu_r_nw,
+            h_addr     => cpu_a(2 downto 0),
+            h_data_in  => cpu_do,
+            h_data_out => tube_do,
+            h_rst_b    => reset_n,
+            h_irq_b    => open,
+
+            -- Parasite
+            clk_cpu    => clock_32,
+            sw         => "10", -- 4MHz
+
+            test       => test
+        );
+        tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
+    end generate;
+     
 --------------------------------------------------------
 -- SN76489 Sound Generator
 --------------------------------------------------------
@@ -791,7 +827,7 @@ begin
     mhz1_clken <= mhz2_clken and clken_counter(4); -- 31
     cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3)); -- 0/16
     cpu_clken <= cpu_cycle and not cpu_cycle_mask(1) and not cpu_cycle_mask(0);
-
+        
     clk_counter: process(clock_32)
     begin
         if rising_edge(clock_32) then
@@ -906,7 +942,7 @@ begin
  --     fddc_enable <= '0';
  --     adlc_enable <= '0';
         adc_enable <= '0';
---      tube_enable <= '0';
+        tube_enable <= '0';
         acccon_enable <= '0';
         intoff_enable <= '0';
         inton_enable  <= '0';
@@ -963,7 +999,7 @@ begin
                     if ModeM128 = '0' then
                         adc_enable <= '1';
                     end if;
---              when "111" => tube_enable <= '1';       -- 0xFEE0
+                when "111" => tube_enable <= '1';       -- 0xFEE0
                 when others =>
                     null;
             end case;
@@ -993,6 +1029,7 @@ begin
         -- Optional peripherals
         sid_do        when sid_enable = '1' and IncludeSid else
         music5000_do  when io_jim = '1' and IncludeMusic5000 else
+        tube_do       when tube_enable = '1' else
         -- Master 128 additions
         romsel        when romsel_enable = '1' and ModeM128 = '1' else
         acccon        when acccon_enable = '1' and ModeM128 = '1' else

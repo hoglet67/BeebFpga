@@ -153,33 +153,41 @@ architecture rtl of bbc_micro_de1 is
 signal clock_32        : std_logic;
 signal audio_l         : std_logic_vector(15 downto 0);
 signal audio_r         : std_logic_vector(15 downto 0);
+signal powerup_reset_n : std_logic;
 signal hard_reset_n    : std_logic;
+signal reset_counter   : std_logic_vector(15 downto 0);
 
 signal pll_reset       : std_logic;
 signal pll_locked      : std_logic;
 
-signal pcm_inl          : std_logic_vector(15 downto 0);
-signal pcm_inr          : std_logic_vector(15 downto 0);
+signal pcm_inl         : std_logic_vector(15 downto 0);
+signal pcm_inr         : std_logic_vector(15 downto 0);
 
-signal ext_A            : std_logic_vector (18 downto 0);
-signal ext_Din          : std_logic_vector (7 downto 0);
-signal ext_Dout         : std_logic_vector (7 downto 0);
-signal ext_nCS          : std_logic;
-signal ext_nWE          : std_logic;
-signal ext_nOE          : std_logic;
+signal ext_A           : std_logic_vector (18 downto 0);
+signal ext_Din         : std_logic_vector (7 downto 0);
+signal ext_Dout        : std_logic_vector (7 downto 0);
+signal ext_nCS         : std_logic;
+signal ext_nWE         : std_logic;
+signal ext_nOE         : std_logic;
 
+signal keyb_dip        : std_logic_vector(7 downto 0);
+signal vid_mode        : std_logic_vector(3 downto 0);
+signal m128_mode       : std_logic;
+signal m128_mode_1     : std_logic;
+signal m128_mode_2     : std_logic;
+signal copro6502_mode  : std_logic;
 
-signal caps_led         : std_logic;
-signal shift_led        : std_logic;
-signal is_done          : std_logic;
-signal is_error         : std_logic;
+signal caps_led        : std_logic;
+signal shift_led       : std_logic;
+signal is_done         : std_logic;
+signal is_error        : std_logic;
 
-signal cpu_addr         : std_logic_vector (15 downto 0);
+signal cpu_addr        : std_logic_vector (15 downto 0);
 
-signal test             : std_logic_vector (7 downto 0);
+signal test            : std_logic_vector (7 downto 0);
 
 -- A registered version to allow slow flash to be used
-signal ext_A_r          : std_logic_vector (18 downto 0);
+signal ext_A_r         : std_logic_vector (18 downto 0);
 
 function hex_to_seven_seg(hex: std_logic_vector(3 downto 0))
         return std_logic_vector
@@ -216,7 +224,7 @@ begin
         generic map (
             IncludeSID         => false,
             IncludeMusic5000   => false,
-            IncludeICEDebugger => false,
+            IncludeICEDebugger => true,
             Include6502CoPro   => true,
             UseT65Core         => false,
             UseAlanDCore       => true
@@ -247,17 +255,21 @@ begin
             SDMOSI         => SD_MOSI,
             caps_led       => caps_led,
             shift_led      => shift_led,
-            keyb_dip       => "00" & SW(5 downto 0),
-            vid_mode       => "00" & SW(8 downto 7),
+            keyb_dip       => keyb_dip,
+            vid_mode       => vid_mode,
             joystick1      => (others => '1'),
             joystick2      => (others => '1'),
             avr_RxD        => UART_RXD,
             avr_TxD        => UART_TXD,
             cpu_addr       => cpu_addr,
-            ModeM128       => SW(9),
+            m128_mode      => m128_mode,
+            copro6502_mode => copro6502_mode,
             test           => test
         );
-
+    m128_mode      <= SW(9);
+    vid_mode       <= "00" & SW(8 downto 7);
+    copro6502_mode <= SW(6);
+    keyb_dip       <= "00" & SW(5 downto 0);
 
 --------------------------------------------------------
 -- Clock Generation
@@ -276,11 +288,26 @@ begin
 -- Power Up Reset Generation
 --------------------------------------------------------
 
-    -- Asynchronous reset
     -- PLL is reset by external reset switch
     pll_reset <= not KEY(0);
 
-    hard_reset_n <= not (pll_reset or not pll_locked);
+    -- Generate a reliable power up reset
+    -- Also, perform a power up reset if the master/beeb mode switch is changed
+    reset_gen : process(clock_32)
+    begin
+        if rising_edge(clock_32) then
+            m128_mode_1 <= m128_mode;
+            m128_mode_2 <= m128_mode_1;
+            if (m128_mode_1 /= m128_mode_2) then
+                reset_counter <= (others => '0');
+            elsif (reset_counter(reset_counter'high) = '0') then
+                reset_counter <= reset_counter + 1;
+            end if;
+            powerup_reset_n <= reset_counter(reset_counter'high);
+        end if;
+    end process;
+
+    hard_reset_n <= not (pll_reset or not pll_locked or not powerup_reset_n);
 
 --------------------------------------------------------
 -- Audio DACs
@@ -329,24 +356,23 @@ begin
     process(clock_32)
     begin
         if rising_edge(clock_32) then
-            if ext_a(18 downto 17) /= "11" then
+            if ext_a(18) = '0' then
                 ext_a_r <= ext_a;
             end if;
         end if;
     end process;
 
-    -- 0x00000-0x5FFFF -> FLASH
-    -- 0x60000-0x7FFFF -> SRAM
-    -- Note: important to use ext_a here so that SRAM access do not incurr an
-    -- extra cycle of latency
-    ext_Dout <= SRAM_DQ(7 downto 0) when ext_a(18 downto 17) = "11" else FL_DQ;
+    -- 0x00000-0x3FFFF -> FLASH
+    -- 0x40000-0x7FFFF -> SRAM
+    ext_Dout <= SRAM_DQ(7 downto 0) when ext_a(18) = '1' else FL_DQ;
 
     FL_RST_N <= hard_reset_n;
     FL_CE_N <= '0';
     FL_OE_N <= '0';
     FL_WE_N <= '1';
     -- Flash address change every at most every 16 cycles (2MHz)
-    FL_ADDR <= "000" & ext_a_r;
+    -- Use the latched version to maximise access time
+    FL_ADDR <= "000" & m128_mode & ext_a_r(17 downto 0);
 
     -- SRAM bus
     SRAM_UB_N <= '1';

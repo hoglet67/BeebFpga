@@ -129,7 +129,7 @@ architecture rtl of rtc is
         x"20", -- CMOS 12 - Keyboard auto-repeat delay
         x"08", -- CMOS 13 - Keyboard auto-repeat rate
         x"0A", -- CMOS 14 - Printer ignore character
-        x"2C", -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
+        x"2D", -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
         ini16, -- CMOS 16 - Default serial data format, auto boot option, int/ext TUBE, bell amplitude
         x"00", -- CMOS 17 - reserved for ANFS
         x"00", -- CMOS 18 - reserved for ANFS

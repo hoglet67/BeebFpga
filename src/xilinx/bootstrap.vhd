@@ -24,9 +24,6 @@ use UNISIM.Vcomponents.all;
 
 entity bootstrap is
     generic (
-        -- start address of user data in FLASH
-        user_address   : std_logic_vector(23 downto 0) := x"060000";
-
         -- length user data in flash
         user_length    : std_logic_vector(23 downto 0) := x"040000"
     );
@@ -39,6 +36,9 @@ entity bootstrap is
         -- high when FLASH is being copied to SRAM, can be used by user as active high reset
         bootstrap_busy  : out   std_logic;
 
+        -- start address of user data in FLASH
+        user_address    : in std_logic_vector(23 downto 0);
+        
         -- interface from design
         RAM_nOE         : in   std_logic;
         RAM_nWE         : in   std_logic;

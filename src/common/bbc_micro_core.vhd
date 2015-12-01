@@ -133,11 +133,14 @@ entity bbc_micro_core is
         cpu_addr       : out   std_logic_vector(15 downto 0);
 
         -- Master Mode
-        ModeM128       : in    std_logic;
+        m128_mode      : in    std_logic;
+
+        -- Co Pro 6502 Mode
+        copro6502_mode : in    std_logic;
 
         -- Test outputs
         test           : out   std_logic_vector(7 downto 0)
-        
+
     );
 end entity;
 
@@ -718,7 +721,7 @@ begin
 
     end generate;
 
-     
+
 --------------------------------------------------------
 -- Optional 6502 Co Processor
 --------------------------------------------------------
@@ -726,9 +729,9 @@ begin
     Gen6502CoPro: if Include6502CoPro generate
         signal tube_cs_b : std_logic;
     begin
-        copro : entity work.CoPro6502 
+        copro : entity work.CoPro6502
         port map (
-            -- Host 
+            -- Host
             h_clk       => clock_32,
             h_cs_b      => tube_cs_b,
             h_rdnw      => cpu_r_nw,
@@ -753,10 +756,10 @@ begin
             if rising_edge(clock_32) then
                 tube_clken1 <= tube_clken;
             end if;
-        end process;        
+        end process;
         tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
-     
+
 --------------------------------------------------------
 -- SN76489 Sound Generator
 --------------------------------------------------------
@@ -834,7 +837,7 @@ begin
 
     -- 32 MHz clock split into 32 cycles
     -- CPU is on 0 and 16 (but can be masked by 1 MHz bus accesses)
-	 -- Co Pro CPU is on 4, 12, 20, 28
+     -- Co Pro CPU is on 4, 12, 20, 28
     -- Video is on all odd cycles (16 MHz)
     -- 1 MHz cycles are on cycle 31 (1 MHz)
 
@@ -876,7 +879,7 @@ begin
     -- 29              - Video Processor
     -- 30 - Video
     -- 31 - CPU        - Video Processor
-    
+
     vid_clken <= clken_counter(0); -- 1,3,5...
     mhz4_clken <= clken_counter(0) and clken_counter(1) and clken_counter(2); -- 7/15/23/31
     mhz2_clken <= mhz4_clken and clken_counter(3); -- 15/31
@@ -888,7 +891,7 @@ begin
     -- tube_clken  = 3/11/19/27 - co-processor external memory access cycle
     -- tube_clken1 = 4/12/20/28 - co-processor clocked
     tube_clken <= clken_counter(0) and clken_counter(1) and not clken_counter(2) when Include6502CoPro else '0';
-    
+
     clk_counter: process(clock_32)
     begin
         if rising_edge(clock_32) then
@@ -934,7 +937,7 @@ begin
     cpu_nmi_n <= '1';
     cpu_so_n <= '1';
     cpu_nr_w <= not cpu_r_nw;
-    
+
     -- Address decoding
     -- 0x0000 = 32 KB SRAM
     -- 0x8000 = 16 KB BASIC/Sideways ROMs
@@ -990,7 +993,7 @@ begin
     -- 0xFEA0 - 0xFEBF = 68B54 ADLC for Econet
     -- 0xFEC0 - 0xFEDF = uPD7002 ADC
     -- 0xFEE0 - 0xFEFF = Tube ULA
-    process(cpu_a,io_sheila,ModeM128)
+    process(cpu_a,io_sheila,m128_mode,copro6502_mode)
     begin
         -- All regions normally de-selected
         crtc_enable <= '0';
@@ -1025,7 +1028,7 @@ begin
                             serproc_enable <= '1';
                         else
                             -- 0xFE18
-                            if ModeM128 = '1' then
+                            if m128_mode = '1' then
                                 adc_enable <= '1';
                             end if;
                         end if;
@@ -1035,7 +1038,7 @@ begin
                     if cpu_a(4) = '0' then
                         -- 0xFE20
                         vidproc_enable <= '1';
-                    elsif ModeM128 = '1' then
+                    elsif m128_mode = '1' then
                         case cpu_a(3 downto 2) is
                             -- 0xFE30
                             when "00" => romsel_enable <= '1';
@@ -1057,10 +1060,13 @@ begin
 --              when "101" => adlc_enable <= '1';       -- 0xFEA0
                 when "110" =>
                     -- 0xFEC0
-                    if ModeM128 = '0' then
+                    if m128_mode = '0' then
                         adc_enable <= '1';
                     end if;
-                when "111" => tube_enable <= '1';       -- 0xFEE0
+                when "111" =>
+                    if copro6502_mode = '1' and Include6502CoPro then
+                        tube_enable <= '1';       -- 0xFEE0
+                    end if;
                 when others =>
                     null;
             end case;
@@ -1090,15 +1096,15 @@ begin
         -- Optional peripherals
         sid_do        when sid_enable = '1' and IncludeSid else
         music5000_do  when io_jim = '1' and IncludeMusic5000 else
-        tube_do       when tube_enable = '1' else
+        tube_do       when tube_enable = '1' and Include6502CoPro else
         -- Master 128 additions
-        romsel        when romsel_enable = '1' and ModeM128 = '1' else
-        acccon        when acccon_enable = '1' and ModeM128 = '1' else
+        romsel        when romsel_enable = '1' and m128_mode = '1' else
+        acccon        when acccon_enable = '1' and m128_mode = '1' else
         "11111110"    when io_sheila = '1' else
         "11111111"    when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
 
-    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when ModeM128 = '1' else
+    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
                  not ((not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
     ext_nCS <= '0';
@@ -1108,44 +1114,47 @@ begin
     -- ext_A is 18..0 providing a 512KB address space
 
     -- External Memory Map in 16KB pages
-    -- 0x00000-0x5FFFF is ROM
-    -- 0x60000-0x7FFFF is RAM
+    -- 0x00000-0x3FFFF is ROM
+    -- 0x40000-0x7FFFF is RAM
 
-    -- 000 00xx xxxx xxxx xxxx = Master MOS 3.20
-    -- 000 01xx xxxx xxxx xxxx = Master ROM 9
-    -- 000 10xx xxxx xxxx xxxx = Master ROM A
-    -- 000 11xx xxxx xxxx xxxx = Master ROM B
-    -- 001 00xx xxxx xxxx xxxx = Master ROM C
-    -- 001 01xx xxxx xxxx xxxx = Master ROM D
-    -- 001 10xx xxxx xxxx xxxx = Master ROM E
-    -- 001 11xx xxxx xxxx xxxx = Master ROM F
-    -- 010 00xx xxxx xxxx xxxx = Beeb OS 1.20
-    -- 010 01xx xxxx xxxx xxxx = Beeb ROM 9
-    -- 010 10xx xxxx xxxx xxxx = Beeb ROM A
-    -- 010 11xx xxxx xxxx xxxx = Beeb ROM B
-    -- 011 00xx xxxx xxxx xxxx = Beeb ROM C
-    -- 011 01xx xxxx xxxx xxxx = Beeb ROM D
-    -- 011 10xx xxxx xxxx xxxx = Beeb ROM E
-    -- 011 11xx xxxx xxxx xxxx = Beeb ROM F
-    -- 100 00xx xxxx xxxx xxxx = Master ROM 0
-    -- 100 01xx xxxx xxxx xxxx = Master ROM 1
-    -- 100 10xx xxxx xxxx xxxx = Master ROM 2
-    -- 100 11xx xxxx xxxx xxxx = Master ROM 3
-    -- 101 00xx xxxx xxxx xxxx = Beeb ROM 0
-    -- 101 01xx xxxx xxxx xxxx = Beeb ROM 1
-    -- 101 10xx xxxx xxxx xxxx = Beeb ROM 2
-    -- 101 11xx xxxx xxxx xxxx = Beeb ROM 3
+    -- Master Mode (Beeb Mode difference)
+
+    -- 000 00xx xxxx xxxx xxxx = ROM Slot 0
+    -- 000 01xx xxxx xxxx xxxx = ROM Slot 1
+    -- 000 10xx xxxx xxxx xxxx = ROM Slot 2
+    -- 000 11xx xxxx xxxx xxxx = ROM Slot 3
+    -- 001 00xx xxxx xxxx xxxx = MOS 3.20 (OS 1.20)
+    -- 001 01xx xxxx xxxx xxxx = unused
+    -- 001 10xx xxxx xxxx xxxx = unused
+    -- 001 11xx xxxx xxxx xxxx = unused
+    -- 010 00xx xxxx xxxx xxxx = ROM Slot 8
+    -- 010 01xx xxxx xxxx xxxx = ROM Slot 9
+    -- 010 10xx xxxx xxxx xxxx = ROM Slot A
+    -- 010 11xx xxxx xxxx xxxx = ROM Slot B
+    -- 011 00xx xxxx xxxx xxxx = ROM Slot C
+    -- 011 01xx xxxx xxxx xxxx = ROM Slot D
+    -- 011 10xx xxxx xxxx xxxx = ROM Slot E
+    -- 011 11xx xxxx xxxx xxxx = ROM Slot F
+
+    -- 100 00xx xxxx xxxx xxxx = Co Processor
+    -- 100 01xx xxxx xxxx xxxx = Co Processor
+    -- 100 10xx xxxx xxxx xxxx = Co Processor
+    -- 100 11xx xxxx xxxx xxxx = Co Processor
+    -- 101 00xx xxxx xxxx xxxx = RAM Slot 4
+    -- 101 01xx xxxx xxxx xxxx = RAM Slot 5
+    -- 101 10xx xxxx xxxx xxxx = RAM Slot 6
+    -- 101 11xx xxxx xxxx xxxx = RAM Slot 7
     -- 110 00xx xxxx xxxx xxxx = Main memory
     -- 110 01xx xxxx xxxx xxxx = Main memory
-    -- 110 1000 xxxx xxxx xxxx = Filing System RAM (4K, at C000-CFFF) (M128)
-    -- 110 1001 xxxx xxxx xxxx = Filing System RAM (4K, at D000-DFFF) (M128)
-    -- 110 1010 xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF) (M128)
-    -- 110 1011 xxxx xxxx xxxx = Shadow memory (4K, at 3000-3FFF) (M128)
-    -- 110 11xx xxxx xxxx xxxx = Shadow memory (16K, at 4000-7FFF) (M128)
-    -- 111 00xx xxxx xxxx xxxx = RAM Slot 4
-    -- 111 01xx xxxx xxxx xxxx = RAM Slot 5
-    -- 111 10xx xxxx xxxx xxxx = RAM Slot 6
-    -- 111 11xx xxxx xxxx xxxx = RAM Slot 7
+    -- 110 1000 xxxx xxxx xxxx = Filing System RAM (4K, at C000-CFFF) (unused in Beeb Mode)
+    -- 110 1001 xxxx xxxx xxxx = Filing System RAM (4K, at D000-DFFF) (unused in Beeb Mode)
+    -- 110 1010 xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF)       (unused in Beeb Mode)
+    -- 110 1011 xxxx xxxx xxxx = Shadow memory (4K, at 3000-3FFF)     (unused in Beeb Mode)
+    -- 110 11xx xxxx xxxx xxxx = Shadow memory (16K, at 4000-7FFF)    (unused in Beeb Mode)
+    -- 111 00xx xxxx xxxx xxxx = unused
+    -- 111 01xx xxxx xxxx xxxx = unused
+    -- 111 10xx xxxx xxxx xxxx = unused
+    -- 111 11xx xxxx xxxx xxxx = unused
 
     process(clock_32,hard_reset_n)
     begin
@@ -1164,23 +1173,23 @@ begin
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
             if vid_clken = '0' then
                 -- Fetch data from previous display cycle
-                if ModeM128 = '1' then
+                if m128_mode = '1' then
                     -- Master 128
                     ext_A <= "110" & acc_d & display_a;
                 else
                     -- Model B
                     ext_A <= "1100" & display_a;
-                end if;                
+                end if;
             elsif Include6502CoPro and tube_clken = '1' then
                 -- The Co Processor has access to the memory system on cycles 3, 11, 19, 27
                 ext_Din <= tube_ram_data_in;
                 ext_nWE <= not tube_ram_wr;
                 ext_nOE <= tube_ram_wr;
-                ext_A   <= "111" & tube_ram_addr;                
+                ext_A   <= "100" & tube_ram_addr;
             else
                 -- Fetch data from previous CPU cycle
                 if rom_enable = '1' then
-                    if ModeM128 = '1' and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
+                    if m128_mode = '1' and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
                         -- Master 128, RAM bit maps 8000-8FFF as private RAM
                         ext_A   <= "1101010" & cpu_a(11 downto 0);
                         ext_nWE <= cpu_r_nw;
@@ -1188,42 +1197,30 @@ begin
                     else
                         case romsel(3 downto 2) is
                             when "00" =>
-                                if ModeM128 = '1' then
-                                    ext_A <= "100" & romsel(1 downto 0) & cpu_a(13 downto 0);
-                                else
-                                    ext_A <= "101" & romsel(1 downto 0) & cpu_a(13 downto 0);
-                                end if;
+                                -- ROM slots 0,1,2,3 are in ROM
+                                ext_A <= "000" & romsel(1 downto 0) & cpu_a(13 downto 0);
                             when "01" =>
                                 -- ROM slots 4,5,6,7 are writeable on the Beeb and Master
-                                ext_A <= "111" & romsel(1 downto 0) & cpu_a(13 downto 0);
+                                ext_A <= "101" & romsel(1 downto 0) & cpu_a(13 downto 0);
                                 ext_nWE <= cpu_r_nw;
                                 ext_nOE <= not cpu_r_nw;
                             when others =>
-                                -- TODO: Exclude OS rom from appearing in Slot 8?
-                                if ModeM128 = '1' then
-                                    ext_A <= "00" & romsel(2 downto 0) & cpu_a(13 downto 0);
-                                else
-                                    ext_A <= "01" & romsel(2 downto 0) & cpu_a(13 downto 0);
-                                end if;
+                                -- ROM slots 8,9,A,B,C,D,E,F are in ROM
+                                ext_A <= "01" & romsel(2 downto 0) & cpu_a(13 downto 0);
                         end case;
                     end if;
                 elsif mos_enable = '1' then
-                    if ModeM128 = '1' then
-                        if cpu_a(15 downto 13) = "110" and acc_y = '1' then
-                            -- Master 128, Y bit maps C000-DFFF as filing system RAM
-                            ext_A   <= "110100" &  cpu_a(12 downto 0);
-                            ext_nWE <= cpu_r_nw;
-                            ext_nOE <= not cpu_r_nw;
-                        else
-                            -- Master OS 3.20
-                            ext_A <= "00000" & cpu_a(13 downto 0);
-                        end if;
+                    if m128_mode = '1' and cpu_a(15 downto 13) = "110" and acc_y = '1' then
+                        -- Master 128, Y bit maps C000-DFFF as filing system RAM
+                        ext_A   <= "110100" &  cpu_a(12 downto 0);
+                        ext_nWE <= cpu_r_nw;
+                        ext_nOE <= not cpu_r_nw;
                     else
-                        -- Model B OS 1.20
-                        ext_A <= "01000" & cpu_a(13 downto 0);
+                        -- Master OS 3.20 / Model B OS 1.20
+                        ext_A <= "00100" & cpu_a(13 downto 0);
                     end if;
                 elsif ram_enable = '1' then
-                    if ModeM128 = '1' and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and (acc_x = '1' or (acc_e = '1' and vdu_op = '1' and cpu_sync = '0')) then
+                    if m128_mode = '1' and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and (acc_x = '1' or (acc_e = '1' and vdu_op = '1' and cpu_sync = '0')) then
                         -- Shadow RAM
                         ext_A   <= "1101" & cpu_a(14 downto 0);
                     else
@@ -1301,7 +1298,7 @@ begin
 
 
     -- TODO more work needed here, but this might be enough
-    sys_via_pa_in <= rtc_do when ModeM128 = '1' and rtc_ce = '1' and rtc_ds = '1' and rtc_r_nw = '1' else
+    sys_via_pa_in <= rtc_do when m128_mode = '1' and rtc_ce = '1' and rtc_ds = '1' and rtc_r_nw = '1' else
                      -- Must loop back output pins or keyboard won't work
                      keyb_out & sys_via_pa_out(6 downto 0);
 
@@ -1403,7 +1400,7 @@ begin
 -----------------------------------------------
 
     rgbi_in <= r_out & g_out & b_out & '0';
-    
+
     inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler port map (
         clock => clock_32,
         clken => vid_clken,
@@ -1415,7 +1412,7 @@ begin
         hSync_out => vga1_hs,
         vSync_out => vga1_vs
     );
-    
+
     vga1_r  <= rgbi_out(3) & rgbi_out(3);
     vga1_g  <= rgbi_out(2) & rgbi_out(2);
     vga1_b  <= rgbi_out(1) & rgbi_out(1);

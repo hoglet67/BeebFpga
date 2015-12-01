@@ -1,6 +1,6 @@
 #!/bin/bash
 
-run_data2mem = $false
+run_data2mem=$false
 
 XILINX=/opt/Xilinx/14.7
 DATA2MEM=${XILINX}/ISE_DS/ISE/bin/lin/data2mem

@@ -39,6 +39,7 @@
 `define TWOSTATE_PARASITE_INTERRUPTS_D    1
 `define SEPARATE_HOST_DATABUSSES_D        1
 `define SEPARATE_PARASITE_DATABUSSES_D    1
+`define OMIT_DMA_PINS_D                   1
   
 // Interrupts can be open collector type outputs in non-trivial systems
 `ifdef TWOSTATE_HOST_INTERRUPTS_D

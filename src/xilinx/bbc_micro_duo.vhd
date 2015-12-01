@@ -115,6 +115,12 @@ architecture rtl of bbc_micro_duo is
     signal RAM_nCS         : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
+    signal m128_mode       : std_logic;
+    signal m128_mode_1     : std_logic;
+    signal m128_mode_2     : std_logic;
+    signal copro6502_mode  : std_logic;
+    signal caps_led        : std_logic;
+    signal shift_led       : std_logic;
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -122,10 +128,12 @@ architecture rtl of bbc_micro_duo is
 
     -- start address of user data in FLASH as obtained from bitmerge.py
     -- this is safely beyond the end of the bitstream
-    constant user_address  : std_logic_vector(23 downto 0) := x"060000";
+    constant user_address_beeb    : std_logic_vector(23 downto 0) := x"060000";
+    constant user_address_master  : std_logic_vector(23 downto 0) := x"0A0000";
+    signal   user_address         : std_logic_vector(23 downto 0);
 
-    -- lenth of user data in FLASH = 384KB (24x 16K ROM) images
-    constant user_length   : std_logic_vector(23 downto 0) := x"060000";
+    -- lenth of user data in FLASH = 256KB (16x 16K ROM) images
+    constant user_length   : std_logic_vector(23 downto 0) := x"040000";
 
     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
     signal bootstrap_busy  : std_logic;
@@ -136,13 +144,16 @@ begin
 -- BBC Micro Core
 --------------------------------------------------------
 
-    keyb_dip <= "0000" & DIP(3) & "000";
-    vid_mode <= "00" & DIP(1 downto 0);
+    copro6502_mode <= DIP(3);
+    keyb_dip       <= "00000000";
+    m128_mode      <= DIP(2);
+    vid_mode       <= "00" & DIP(1 downto 0);
     bbc_micro : entity work.bbc_micro_core
     generic map (
         IncludeSID         => true,
         IncludeMusic5000   => true,
         IncludeICEDebugger => true,
+        Include6502CoPro   => true,
         UseT65Core         => false,
         UseAlanDCore       => true
     )
@@ -170,8 +181,8 @@ begin
         SDSS           => SDSS,
         SDCLK          => SDCLK,
         SDMOSI         => SDMOSI,
-        caps_led       => LED1,
-        shift_led      => LED2,
+        caps_led       => caps_led,
+        shift_led      => shift_led,
         keyb_dip       => keyb_dip,
         vid_mode       => vid_mode,
         joystick1      => JOYSTICK1,
@@ -179,8 +190,11 @@ begin
         avr_RxD        => avr_RxD,
         avr_TxD        => avr_TxD,
         cpu_addr       => open,
-        ModeM128       => DIP(2)
+        m128_mode      => m128_mode,
+        copro6502_mode => copro6502_mode
     );
+    LED1 <= caps_led;
+    LED2 <= shift_led;
 
 --------------------------------------------------------
 -- Clock Generation
@@ -202,17 +216,22 @@ begin
 --------------------------------------------------------
 
     -- Generate a reliable power up reset, as ERST on the Papilio doesn't do this
+    -- Also, perform a power up reset if the master/beeb mode switch is changed
     reset_gen : process(clock_32)
     begin
         if rising_edge(clock_32) then
-            if (reset_counter(reset_counter'high) = '0') then
+            m128_mode_1 <= m128_mode;
+            m128_mode_2 <= m128_mode_1;
+            if (m128_mode_1 /= m128_mode_2) then
+                reset_counter <= (others => '0');
+            elsif (reset_counter(reset_counter'high) = '0') then
                 reset_counter <= reset_counter + 1;
             end if;
             powerup_reset_n <= not ERST and reset_counter(reset_counter'high);
         end if;
     end process;
 
-   -- extens the version seen by the core to hold the 6502 reset during bootstrap
+   -- extend the version seen by the core to hold the 6502 reset during bootstrap
    hard_reset_n <= powerup_reset_n and not bootstrap_busy;
 
 --------------------------------------------------------
@@ -256,15 +275,17 @@ begin
 -- BOOTSTRAP SPI FLASH to SRAM
 --------------------------------------------------------
 
+    user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
+
     inst_bootstrap: entity work.bootstrap
     generic map (
-        user_address   => user_address,
-        user_length    => user_length
+        user_length     => user_length
     )
     port map(
         clock           => clock_32,
         powerup_reset_n => powerup_reset_n,
         bootstrap_busy  => bootstrap_busy,
+        user_address    => user_address,
         RAM_nOE         => RAM_nOE,
         RAM_nWE         => RAM_nWE,
         RAM_nCS         => RAM_nCS,

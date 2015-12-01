@@ -110,7 +110,7 @@ begin
             when x"050" => DATA <= x"85";
             when x"051" => DATA <= x"F2";
             when x"052" => DATA <= x"A9";
-            when x"053" => DATA <= x"38"; -- was F8
+            when x"053" => DATA <= x"F8";
             when x"054" => DATA <= x"85";
             when x"055" => DATA <= x"F3";
             when x"056" => DATA <= x"4C";

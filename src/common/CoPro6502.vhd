@@ -7,26 +7,27 @@ entity CoPro6502 is
     port (
 
         -- Host 
-        h_clk      : in    std_logic;
-        h_cs_b     : in    std_logic;
-        h_rdnw     : in    std_logic;
-        h_addr     : in    std_logic_vector(2 downto 0);
-        h_data_in  : in    std_logic_vector(7 downto 0);
-        h_data_out : out   std_logic_vector(7 downto 0);
-        h_rst_b    : in    std_logic;
-        h_irq_b    : out    std_logic;
+        h_clk        : in    std_logic;
+        h_cs_b       : in    std_logic;
+        h_rdnw       : in    std_logic;
+        h_addr       : in    std_logic_vector(2 downto 0);
+        h_data_in    : in    std_logic_vector(7 downto 0);
+        h_data_out   : out   std_logic_vector(7 downto 0);
+        h_rst_b      : in    std_logic;
+        h_irq_b      : out    std_logic;
 
         -- Parasite Clock (32 MHz)
-        clk_cpu    : in    std_logic;
+        clk_cpu      : in    std_logic;
+        cpu_clken    : in    std_logic;
 
-        -- Clock speed:
-        -- 00 = 16MHz
-        -- 01 = 8MHz
-        -- 10 = 4MHz
-        -- 11 = 2MHz
-        sw     : in    std_logic_vector(1 downto 0);
+        -- External RAM
+        ram_addr     : out  std_logic_vector(15 downto 0);
+        ram_data_in  : out  std_logic_vector(7 downto 0);
+        ram_data_out : in   std_logic_vector(7 downto 0);
+        ram_wr       : out  std_logic;
 
-        test   : out    std_logic_vector(7 downto 0)
+        -- Test signals for debugging
+        test         : out    std_logic_vector(7 downto 0)
     );
 end;
 
@@ -58,11 +59,9 @@ end component;
 -- clock and reset signals
 -------------------------------------------------
 
-    signal cpu_clken     : std_logic;
     signal bootmode      : std_logic;
     signal RSTn          : std_logic;
     signal RSTn_sync     : std_logic;
-    signal clken_counter : std_logic_vector (3 downto 0);
     signal reset_counter : std_logic_vector (8 downto 0);
     
 -------------------------------------------------
@@ -77,10 +76,8 @@ end component;
 -------------------------------------------------
 
     signal ram_cs_b        : std_logic;
-    signal ram_wr_int      : std_logic;
     signal rom_cs_b        : std_logic;
     signal rom_data_out    : std_logic_vector (7 downto 0);
-    signal ram_data_out    : std_logic_vector (7 downto 0);
 
 -------------------------------------------------
 -- cpu signals
@@ -144,17 +141,9 @@ begin
         p_rst_b         => RSTn,
         p_nmi_b         => cpu_NMI_n,
         p_irq_b         => cpu_IRQ_n,
-        test            => test
+        test            => open
     );
 
-    Inst_RAM_16K: entity work.RAM_16K PORT MAP(
-        clk     => clk_cpu,
-        we_uP   => ram_wr_int,
-        ce      => '1',
-        addr_uP => cpu_addr(13 downto 0),
-        D_uP    => cpu_dout,
-        Q_uP    => ram_data_out
-    );
 
     p_cs_b <= '0' when cpu_addr(15 downto 3) = "1111111011111" else '1';
 
@@ -162,8 +151,12 @@ begin
 
     ram_cs_b <= '0' when p_cs_b = '1' and rom_cs_b = '1' else '1';
     
-    ram_wr_int <= ((not ram_cs_b) and (not cpu_R_W_n) and cpu_clken);
+    ram_wr <= (not ram_cs_b) and (not cpu_R_W_n);
 
+    ram_data_in <= cpu_dout;
+    
+    ram_addr <= cpu_addr(15 downto 0);
+    
     cpu_din <=
         p_data_out   when p_cs_b      = '0' else
         rom_data_out when rom_cs_b    = '0' else
@@ -213,30 +206,7 @@ begin
         end if;
     end process;
 
---------------------------------------------------------
--- clock enable generator
---------------------------------------------------------
-    clk_gen : process(clk_cpu)
-    begin
-        if rising_edge(clk_cpu) then
-            clken_counter <= clken_counter + 1;
-            case "00" & sw(1 downto 0) is
-               when x"0"   =>
-                   cpu_clken     <= clken_counter(0);
-               when x"1"   =>
-                   cpu_clken     <= clken_counter(1) and clken_counter(0);
-               when x"2"   =>
-                   cpu_clken     <= clken_counter(2) and clken_counter(1) and clken_counter(0);
-               when x"3"   =>
-                   cpu_clken     <= clken_counter(3) and clken_counter(2) and clken_counter(1) and clken_counter(0);
-               when others =>
-                   cpu_clken     <= clken_counter(0);
-            end case;
-        end if;
-    end process;
-
-
-    -- test <= RSTn & RSTn_sync &  h_rst_b & cpu_NMI_n_sync &  cpu_IRQ_n_sync & bootmode & "00";
+    test <= RSTn & RSTn_sync &  h_rst_b & cpu_NMI_n_sync &  cpu_IRQ_n_sync & bootmode & "00";
     
 end BEHAVIORAL;
 

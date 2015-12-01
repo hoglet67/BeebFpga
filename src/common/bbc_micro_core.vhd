@@ -327,6 +327,16 @@ signal music5000_ao_l   :   std_logic_vector(15 downto 0);
 signal music5000_ao_r   :   std_logic_vector(15 downto 0);
 signal music5000_do     :   std_logic_vector(7 downto 0);
 
+-- Optional Tube
+signal tube_do          :   std_logic_vector(7 downto 0);
+signal tube_clken       :   std_logic;
+signal tube_clken1      :   std_logic := '0';
+signal tube_clken2      :   std_logic := '0';
+signal tube_ram_wr      :   std_logic;
+signal tube_ram_addr    :   std_logic_vector(15 downto 0);
+signal tube_ram_data_in :   std_logic_vector(7 downto 0);
+signal tube_ram_data_out:   std_logic_vector(7 downto 0);
+
 -- Memory enables
 signal ram_enable       :   std_logic;      -- 0x0000
 signal rom_enable       :   std_logic;      -- 0x8000 (BASIC/sideways ROMs)
@@ -339,9 +349,6 @@ signal io_jim           :   std_logic;      -- 0xFD00 (1 MHz bus)
 signal io_jim_n         :   std_logic;      -- 0xFD00 (1 MHz bus)
 signal io_sheila        :   std_logic;      -- 0xFE00 (System peripherals)
 signal io_sheila_n      :   std_logic;      -- 0xFE00 (System peripherals)
-
--- Tube
-signal tube_do          :   std_logic_vector(7 downto 0);
 
 -- SHIELA
 signal crtc_enable      :   std_logic;      -- 0xFE00-FE07
@@ -724,21 +731,36 @@ begin
         copro : entity work.CoPro6502 
         port map (
             -- Host 
-            h_clk      => clock_32,
-            h_cs_b     => tube_cs_b,
-            h_rdnw     => cpu_r_nw,
-            h_addr     => cpu_a(2 downto 0),
-            h_data_in  => cpu_do,
-            h_data_out => tube_do,
-            h_rst_b    => reset_n,
-            h_irq_b    => open,
-
+            h_clk       => clock_32,
+            h_cs_b      => tube_cs_b,
+            h_rdnw      => cpu_r_nw,
+            h_addr      => cpu_a(2 downto 0),
+            h_data_in   => cpu_do,
+            h_data_out  => tube_do,
+            h_rst_b     => reset_n,
+            h_irq_b     => open,
             -- Parasite
-            clk_cpu    => clock_32,
-            sw         => "10", -- 4MHz
-
-            test       => test
+            clk_cpu     => clock_32,
+            cpu_clken   => tube_clken,
+            -- External RAM
+            ram_addr     => tube_ram_addr,
+            ram_data_in  => tube_ram_data_in,
+            ram_data_out => tube_ram_data_out,
+            ram_wr       => tube_ram_wr,
+            -- Test signals for debugging
+            test         => test
         );
+        process(clock_32)
+        begin
+            if rising_edge(clock_32) then
+                tube_clken1 <= tube_clken;
+                tube_clken2 <= tube_clken1;
+                -- there is a two cycle latency through the external memory system
+                if tube_clken2 = '1' then
+                    tube_ram_data_out <= ext_Dout;
+                end if;
+            end if;
+        end process;        
         tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
      
@@ -821,13 +843,59 @@ begin
     -- CPU is on 0 and 16 (but can be masked by 1 MHz bus accesses)
     -- Video is on all odd cycles (16 MHz)
     -- 1 MHz cycles are on cycle 31 (1 MHz)
+
+    -- Cycles are used as follows
+    --
+    --      External    Processor
+    --        Mem
+    --       Access
+    --
+    -- 00 - Video      - CPU
+    -- 01 -            - Video Processor
+    -- 02 - Video      - Co Pro CPU
+    -- 03 - Co Pro     - Video Processor
+    -- 04 - Video      - Co Pro Read Data Latched
+    -- 05              - Video Processor
+    -- 06 - Video
+    -- 07              - Video Processor
+    -- 08 - Video
+    -- 09              - Video Processor
+    -- 10 - Video      - Co Pro CPU
+    -- 11 - Co Pro     - Video Processor
+    -- 12 - Video      - Co Pro Read Data Latched
+    -- 13              - Video Processor
+    -- 14 - Video
+    -- 15 - CPU        - Video Processor
+    -- 16 - Video      - CPU
+    -- 17              - Video Processor
+    -- 18 - Video      - Co Pro CPU
+    -- 19 - Co Pro     - Video Processor
+    -- 20 - Video      - Co Pro Read Data Latched
+    -- 21              - Video Processor
+    -- 22 - Video
+    -- 23              - Video Processor
+    -- 24 - Video
+    -- 25              - Video Processor
+    -- 26 - Video      - Co Pro CPU
+    -- 27 - Co Pro     - Video Processor
+    -- 28 - Video      - Co Pro Read Data Latched
+    -- 29              - Video Processor
+    -- 30 - Video
+    -- 31 - CPU        - Video Processor
+    
     vid_clken <= clken_counter(0); -- 1,3,5...
     mhz4_clken <= clken_counter(0) and clken_counter(1) and clken_counter(2); -- 7/15/23/31
     mhz2_clken <= mhz4_clken and clken_counter(3); -- 15/31
     mhz1_clken <= mhz2_clken and clken_counter(4); -- 31
     cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3)); -- 0/16
     cpu_clken <= cpu_cycle and not cpu_cycle_mask(1) and not cpu_cycle_mask(0);
-        
+
+    -- Co Processor memory cycles are interleaved with CPU cycles
+    -- tube_clken  = 2/10/18/26 - co-processor clocked 
+    -- tube_clken1 = 3/11/19/27 - co-processor external memory access cycle
+    -- tube_clken2 = 4/12/20/28 - co-processor external memory read data latched
+    tube_clken <= not clken_counter(0) and clken_counter(1) and not clken_counter(2) when Include6502CoPro else '0';
+    
     clk_counter: process(clock_32)
     begin
         if rising_edge(clock_32) then
@@ -1101,7 +1169,22 @@ begin
             ext_nWE  <= '1';
             ext_nOE  <= '0';
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
-            if vid_clken = '1' then
+            if vid_clken = '0' then
+                -- Fetch data from previous display cycle
+                if ModeM128 = '1' then
+                    -- Master 128
+                    ext_A <= "110" & acc_d & display_a;
+                else
+                    -- Model B
+                    ext_A <= "1100" & display_a;
+                end if;                
+            elsif Include6502CoPro and tube_clken1 = '1' then
+                -- The Co Processor has access to the memory system on cycles ???
+                ext_Din <= tube_ram_data_in;
+                ext_nWE <= not tube_ram_wr;
+                ext_nOE <= tube_ram_wr;
+                ext_A   <= "111" & tube_ram_addr;                
+            else
                 -- Fetch data from previous CPU cycle
                 if rom_enable = '1' then
                     if ModeM128 = '1' and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
@@ -1156,15 +1239,6 @@ begin
                     end if;
                     ext_nWE <= cpu_r_nw;
                     ext_nOE <= not cpu_r_nw;
-                end if;
-            else
-                -- Fetch data from previous display cycle
-                if ModeM128 = '1' then
-                    -- Master 128
-                    ext_A <= "110" & acc_d & display_a;
-                else
-                    -- Model B
-                    ext_A <= "1100" & display_a;
                 end if;
             end if;
         end if;

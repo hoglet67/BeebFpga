@@ -368,7 +368,7 @@ begin
     HEX0 <= hex_to_seven_seg(cpu_addr( 3 downto  0)) xor "1111111";
 
     -- Unused LEDs (active high)
-    --LEDG <= (others => '0');
+    LEDG <= (others => '0');
     LEDR(0) <= caps_led;
     LEDR(1) <= shift_led;
     LEDR(3 downto 2) <= (others => '0');
@@ -378,7 +378,7 @@ begin
     DRAM_ADDR <= (others => 'Z');
     DRAM_DQ <= (others => 'Z');
 
-    LEDG <= test;
+     -- Test outputs
     GPIO_1(7 downto 0) <= test;
 
 end architecture;

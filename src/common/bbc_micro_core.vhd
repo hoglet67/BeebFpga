@@ -331,11 +331,9 @@ signal music5000_do     :   std_logic_vector(7 downto 0);
 signal tube_do          :   std_logic_vector(7 downto 0);
 signal tube_clken       :   std_logic;
 signal tube_clken1      :   std_logic := '0';
-signal tube_clken2      :   std_logic := '0';
 signal tube_ram_wr      :   std_logic;
 signal tube_ram_addr    :   std_logic_vector(15 downto 0);
 signal tube_ram_data_in :   std_logic_vector(7 downto 0);
-signal tube_ram_data_out:   std_logic_vector(7 downto 0);
 
 -- Memory enables
 signal ram_enable       :   std_logic;      -- 0x0000
@@ -741,11 +739,11 @@ begin
             h_irq_b     => open,
             -- Parasite
             clk_cpu     => clock_32,
-            cpu_clken   => tube_clken,
+            cpu_clken   => tube_clken1,
             -- External RAM
             ram_addr     => tube_ram_addr,
             ram_data_in  => tube_ram_data_in,
-            ram_data_out => tube_ram_data_out,
+            ram_data_out => ext_Dout,
             ram_wr       => tube_ram_wr,
             -- Test signals for debugging
             test         => test
@@ -754,11 +752,6 @@ begin
         begin
             if rising_edge(clock_32) then
                 tube_clken1 <= tube_clken;
-                tube_clken2 <= tube_clken1;
-                -- there is a two cycle latency through the external memory system
-                if tube_clken2 = '1' then
-                    tube_ram_data_out <= ext_Dout;
-                end if;
             end if;
         end process;        
         tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
@@ -841,6 +834,7 @@ begin
 
     -- 32 MHz clock split into 32 cycles
     -- CPU is on 0 and 16 (but can be masked by 1 MHz bus accesses)
+	 -- Co Pro CPU is on 4, 12, 20, 28
     -- Video is on all odd cycles (16 MHz)
     -- 1 MHz cycles are on cycle 31 (1 MHz)
 
@@ -852,33 +846,33 @@ begin
     --
     -- 00 - Video      - CPU
     -- 01 -            - Video Processor
-    -- 02 - Video      - Co Pro CPU
+    -- 02 - Video
     -- 03 - Co Pro     - Video Processor
-    -- 04 - Video      - Co Pro Read Data Latched
+    -- 04 - Video      - Co Pro CPU
     -- 05              - Video Processor
     -- 06 - Video
     -- 07              - Video Processor
     -- 08 - Video
     -- 09              - Video Processor
-    -- 10 - Video      - Co Pro CPU
+    -- 10 - Video
     -- 11 - Co Pro     - Video Processor
-    -- 12 - Video      - Co Pro Read Data Latched
+    -- 12 - Video      - Co Pro CPU
     -- 13              - Video Processor
     -- 14 - Video
     -- 15 - CPU        - Video Processor
     -- 16 - Video      - CPU
     -- 17              - Video Processor
-    -- 18 - Video      - Co Pro CPU
+    -- 18 - Video
     -- 19 - Co Pro     - Video Processor
-    -- 20 - Video      - Co Pro Read Data Latched
+    -- 20 - Video      - Co Pro CPU
     -- 21              - Video Processor
     -- 22 - Video
     -- 23              - Video Processor
     -- 24 - Video
     -- 25              - Video Processor
-    -- 26 - Video      - Co Pro CPU
+    -- 26 - Video
     -- 27 - Co Pro     - Video Processor
-    -- 28 - Video      - Co Pro Read Data Latched
+    -- 28 - Video      - Co Pro CPU
     -- 29              - Video Processor
     -- 30 - Video
     -- 31 - CPU        - Video Processor
@@ -891,10 +885,9 @@ begin
     cpu_clken <= cpu_cycle and not cpu_cycle_mask(1) and not cpu_cycle_mask(0);
 
     -- Co Processor memory cycles are interleaved with CPU cycles
-    -- tube_clken  = 2/10/18/26 - co-processor clocked 
-    -- tube_clken1 = 3/11/19/27 - co-processor external memory access cycle
-    -- tube_clken2 = 4/12/20/28 - co-processor external memory read data latched
-    tube_clken <= not clken_counter(0) and clken_counter(1) and not clken_counter(2) when Include6502CoPro else '0';
+    -- tube_clken  = 3/11/19/27 - co-processor external memory access cycle
+    -- tube_clken1 = 4/12/20/28 - co-processor clocked
+    tube_clken <= clken_counter(0) and clken_counter(1) and not clken_counter(2) when Include6502CoPro else '0';
     
     clk_counter: process(clock_32)
     begin
@@ -1178,8 +1171,8 @@ begin
                     -- Model B
                     ext_A <= "1100" & display_a;
                 end if;                
-            elsif Include6502CoPro and tube_clken1 = '1' then
-                -- The Co Processor has access to the memory system on cycles ???
+            elsif Include6502CoPro and tube_clken = '1' then
+                -- The Co Processor has access to the memory system on cycles 3, 11, 19, 27
                 ext_Din <= tube_ram_data_in;
                 ext_nWE <= not tube_ram_wr;
                 ext_nOE <= tube_ram_wr;

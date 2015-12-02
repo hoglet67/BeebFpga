@@ -59,7 +59,8 @@ entity bbc_micro_core is
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
-        Include6502CoPro   : boolean := false;
+        IncludeCoPro6502   : boolean := false;
+        IncludeCoProSPI    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
     );
@@ -136,7 +137,18 @@ entity bbc_micro_core is
         m128_mode      : in    std_logic;
 
         -- Co Pro 6502 Mode
-        copro6502_mode : in    std_logic;
+        copro_mode     : in    std_logic;
+
+        -- Co Pro SPI - slave interface
+        p_spi_ssel     : in    std_logic;
+        p_spi_sck      : in    std_logic;
+        p_spi_mosi     : in    std_logic;
+        p_spi_miso     : out   std_logic;
+
+        -- Co Pro SPI - interrupts/control
+        p_irq_b        : out   std_logic;
+        p_nmi_b        : out   std_logic;
+        p_rst_b        : out   std_logic;
 
         -- Test outputs
         test           : out   std_logic_vector(7 downto 0)
@@ -726,10 +738,10 @@ begin
 -- Optional 6502 Co Processor
 --------------------------------------------------------
 
-    Gen6502CoPro: if Include6502CoPro generate
+    GenCoPro6502: if IncludeCoPro6502 generate
         signal tube_cs_b : std_logic;
     begin
-        copro : entity work.CoPro6502
+        copro1 : entity work.CoPro6502
         port map (
             -- Host
             h_clk       => clock_32,
@@ -757,6 +769,41 @@ begin
                 tube_clken1 <= tube_clken;
             end if;
         end process;
+        tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
+    end generate;
+
+--------------------------------------------------------
+-- Optional SPI Co Processor
+--------------------------------------------------------
+
+    GenCoProSPI: if IncludeCoProSPI generate
+        signal tube_cs_b : std_logic;
+    begin
+        copro2 : entity work.CoProSPI
+        port map (
+            -- Host
+            h_clk       => clock_32,
+            h_cs_b      => tube_cs_b,
+            h_rdnw      => cpu_r_nw,
+            h_addr      => cpu_a(2 downto 0),
+            h_data_in   => cpu_do,
+            h_data_out  => tube_do,
+            h_rst_b     => reset_n,
+            h_irq_b     => open,
+            -- Parasite
+            p_clk       => clock_32,
+            -- SPI Slave
+            p_spi_ssel  => p_spi_ssel,
+            p_spi_sck   => p_spi_sck,
+            p_spi_mosi  => p_spi_mosi,
+            p_spi_miso  => p_spi_miso,
+            -- Interrupts/Control
+            p_irq_b     => p_irq_b,
+            p_nmi_b     => p_nmi_b,
+            p_rst_b     => p_rst_b,
+            -- Test signals for debugging
+            test        => test
+        );
         tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
 
@@ -890,7 +937,7 @@ begin
     -- Co Processor memory cycles are interleaved with CPU cycles
     -- tube_clken  = 3/11/19/27 - co-processor external memory access cycle
     -- tube_clken1 = 4/12/20/28 - co-processor clocked
-    tube_clken <= clken_counter(0) and clken_counter(1) and not clken_counter(2) when Include6502CoPro else '0';
+    tube_clken <= clken_counter(0) and clken_counter(1) and not clken_counter(2) when IncludeCoPro6502 else '0';
 
     clk_counter: process(clock_32)
     begin
@@ -993,7 +1040,7 @@ begin
     -- 0xFEA0 - 0xFEBF = 68B54 ADLC for Econet
     -- 0xFEC0 - 0xFEDF = uPD7002 ADC
     -- 0xFEE0 - 0xFEFF = Tube ULA
-    process(cpu_a,io_sheila,m128_mode,copro6502_mode)
+    process(cpu_a,io_sheila,m128_mode,copro_mode)
     begin
         -- All regions normally de-selected
         crtc_enable <= '0';
@@ -1064,7 +1111,7 @@ begin
                         adc_enable <= '1';
                     end if;
                 when "111" =>
-                    if copro6502_mode = '1' and Include6502CoPro then
+                    if copro_mode = '1' and (IncludeCoPro6502 or IncludeCoProSPI) then
                         tube_enable <= '1';       -- 0xFEE0
                     end if;
                 when others =>
@@ -1096,7 +1143,7 @@ begin
         -- Optional peripherals
         sid_do        when sid_enable = '1' and IncludeSid else
         music5000_do  when io_jim = '1' and IncludeMusic5000 else
-        tube_do       when tube_enable = '1' and Include6502CoPro else
+        tube_do       when tube_enable = '1' and (IncludeCoPro6502 or IncludeCoProSPI) else
         -- Master 128 additions
         romsel        when romsel_enable = '1' and m128_mode = '1' else
         acccon        when acccon_enable = '1' and m128_mode = '1' else
@@ -1180,7 +1227,7 @@ begin
                     -- Model B
                     ext_A <= "1100" & display_a;
                 end if;
-            elsif Include6502CoPro and tube_clken = '1' then
+            elsif IncludeCoPro6502 and tube_clken = '1' then
                 -- The Co Processor has access to the memory system on cycles 3, 11, 19, 27
                 ext_Din <= tube_ram_data_in;
                 ext_nWE <= not tube_ram_wr;

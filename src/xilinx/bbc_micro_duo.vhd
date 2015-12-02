@@ -118,7 +118,7 @@ architecture rtl of bbc_micro_duo is
     signal m128_mode       : std_logic;
     signal m128_mode_1     : std_logic;
     signal m128_mode_2     : std_logic;
-    signal copro6502_mode  : std_logic;
+    signal copro_mode      : std_logic;
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
 
@@ -144,7 +144,7 @@ begin
 -- BBC Micro Core
 --------------------------------------------------------
 
-    copro6502_mode <= DIP(3);
+    copro_mode <= DIP(3);
     keyb_dip       <= "00000000";
     m128_mode      <= DIP(2);
     vid_mode       <= "00" & DIP(1 downto 0);
@@ -153,7 +153,8 @@ begin
         IncludeSID         => true,
         IncludeMusic5000   => true,
         IncludeICEDebugger => true,
-        Include6502CoPro   => true,
+        IncludeCoPro6502   => true,
+        IncludeCoProSPI    => false,
         UseT65Core         => false,
         UseAlanDCore       => true
     )
@@ -191,7 +192,15 @@ begin
         avr_TxD        => avr_TxD,
         cpu_addr       => open,
         m128_mode      => m128_mode,
-        copro6502_mode => copro6502_mode
+        copro_mode     => copro_mode,
+        p_spi_ssel     => '0',
+        p_spi_sck      => '0',
+        p_spi_mosi     => '0',
+        p_spi_miso     => open,
+        p_irq_b        => open,
+        p_nmi_b        => open,
+        p_rst_b        => open,
+        test           => open
     );
     LED1 <= caps_led;
     LED2 <= shift_led;

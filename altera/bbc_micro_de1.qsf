@@ -788,6 +788,7 @@ set_instance_assignment -name CURRENT_STRENGTH_NEW 12MA -to AUD_DACDAT
 set_instance_assignment -name CURRENT_STRENGTH_NEW 12MA -to AUD_BCLK
 set_instance_assignment -name CURRENT_STRENGTH_NEW 12MA -to AUD_ADCLRCK
 set_instance_assignment -name CURRENT_STRENGTH_NEW 12MA -to AUD_ADCDAT
+set_global_assignment -name VHDL_FILE ../src/common/Tube/tube_comp_pack.vhd
 set_global_assignment -name VERILOG_FILE ../src/common/Tube/ph_reg3.v
 set_global_assignment -name VERILOG_FILE ../src/common/Tube/ph_flag_m.v
 set_global_assignment -name VERILOG_FILE ../src/common/Tube/hp_reg3.v
@@ -798,7 +799,8 @@ set_global_assignment -name VERILOG_FILE ../src/common/Tube/hp_byte.v
 set_global_assignment -name VERILOG_FILE ../src/common/Tube/hp_bytequad.v
 set_global_assignment -name VERILOG_FILE ../src/common/Tube/tube.v
 set_global_assignment -name VHDL_FILE ../src/common/CoPro6502.vhd
-set_global_assignment -name VHDL_FILE ../src/common/RAM_16K.vhd
+set_global_assignment -name VHDL_FILE ../src/common/CoProSPI.vhd
+set_global_assignment -name VHDL_FILE ../src/common/spi_slave.vhd
 set_global_assignment -name VHDL_FILE ../src/common/tuberom_65c102.vhd
 set_global_assignment -name VHDL_FILE ../src/altera/bbc_micro_de1.vhd
 set_global_assignment -name VHDL_FILE ../src/altera/i2c_loader.vhd

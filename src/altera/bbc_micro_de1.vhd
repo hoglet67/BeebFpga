@@ -175,7 +175,15 @@ signal vid_mode        : std_logic_vector(3 downto 0);
 signal m128_mode       : std_logic;
 signal m128_mode_1     : std_logic;
 signal m128_mode_2     : std_logic;
-signal copro6502_mode  : std_logic;
+signal copro_mode      : std_logic;
+
+signal p_spi_ssel      : std_logic;
+signal p_spi_sck       : std_logic;
+signal p_spi_mosi      : std_logic;
+signal p_spi_miso      : std_logic;
+signal p_irq_b         : std_logic;
+signal p_nmi_b         : std_logic;
+signal p_rst_b         : std_logic;
 
 signal caps_led        : std_logic;
 signal shift_led       : std_logic;
@@ -225,7 +233,8 @@ begin
             IncludeSID         => false,
             IncludeMusic5000   => false,
             IncludeICEDebugger => true,
-            Include6502CoPro   => true,
+            IncludeCoPro6502   => true,
+            IncludeCoProSPI    => false,
             UseT65Core         => false,
             UseAlanDCore       => true
             )
@@ -263,12 +272,19 @@ begin
             avr_TxD        => UART_TXD,
             cpu_addr       => cpu_addr,
             m128_mode      => m128_mode,
-            copro6502_mode => copro6502_mode,
+            copro_mode     => copro_mode,
+            p_spi_ssel     => p_spi_ssel,
+            p_spi_sck      => p_spi_sck,
+            p_spi_mosi     => p_spi_mosi,
+            p_spi_miso     => p_spi_miso,
+            p_irq_b        => p_irq_b,
+            p_nmi_b        => p_nmi_b,
+            p_rst_b        => p_rst_b,
             test           => test
         );
     m128_mode      <= SW(9);
     vid_mode       <= "00" & SW(8 downto 7);
-    copro6502_mode <= SW(6);
+    copro_mode <= SW(6);
     keyb_dip       <= "00" & SW(5 downto 0);
 
 --------------------------------------------------------
@@ -350,21 +366,21 @@ begin
 -- Map external memory bus to SRAM/FLASH
 --------------------------------------------------------
 
-    -- Hold the ext_a for multiple clock cycles to allow slow FLASH to be used
+    -- Hold the ext_A for multiple clock cycles to allow slow FLASH to be used
     -- This is necessary because currently FLASH and SRAM accesses are
     -- interleaved every cycle.
     process(clock_32)
     begin
         if rising_edge(clock_32) then
-            if ext_a(18) = '0' then
-                ext_a_r <= ext_a;
+            if ext_A(18) = '0' then
+                ext_A_r <= ext_A;
             end if;
         end if;
     end process;
 
     -- 0x00000-0x3FFFF -> FLASH
     -- 0x40000-0x7FFFF -> SRAM
-    ext_Dout <= SRAM_DQ(7 downto 0) when ext_a(18) = '1' else FL_DQ;
+    ext_Dout <= SRAM_DQ(7 downto 0) when ext_A(18) = '1' else FL_DQ;
 
     FL_RST_N <= hard_reset_n;
     FL_CE_N <= '0';
@@ -372,7 +388,7 @@ begin
     FL_WE_N <= '1';
     -- Flash address change every at most every 16 cycles (2MHz)
     -- Use the latched version to maximise access time
-    FL_ADDR <= "000" & m128_mode & ext_a_r(17 downto 0);
+    FL_ADDR <= "000" & m128_mode & ext_A_r(17 downto 0);
 
     -- SRAM bus
     SRAM_UB_N <= '1';
@@ -383,7 +399,7 @@ begin
     -- Gate the WE with clock to provide more address/data hold time
     SRAM_WE_N <= ext_nWE or not clock_32;
 
-    SRAM_ADDR <= ext_a(17 downto 0);
+    SRAM_ADDR <= ext_A(17 downto 0);
     SRAM_DQ(15 downto 8) <= (others => 'Z');
     SRAM_DQ(7 downto 0) <= ext_Din when ext_nWE = '0' else (others => 'Z');
 
@@ -400,11 +416,33 @@ begin
     LEDR(3 downto 2) <= (others => '0');
     LEDR(9 downto 6) <= (others => '0');
 
+    -- Co Pro SPI
+    p_spi_ssel <= GPIO_1(0);
+    p_spi_sck  <= GPIO_1(1);
+    p_spi_mosi <= GPIO_1(2);
+    GPIO_1(3)  <= p_spi_miso;
+    GPIO_1(4)  <= p_irq_b;
+    GPIO_1(5)  <= p_nmi_b;
+    GPIO_1(6)  <= p_rst_b;
+
+    -- Debug outputs for SPI interface
+    GPIO_1(28) <= p_spi_ssel;
+    GPIO_1(29) <= p_spi_sck;
+    GPIO_1(30) <= p_spi_mosi;
+    GPIO_1(31) <= p_spi_miso;
+    GPIO_1(32) <= p_irq_b;
+    GPIO_1(33) <= p_nmi_b;
+    GPIO_1(34) <= p_rst_b;
+    GPIO_1(35) <= '0';
+
+    -- Debug outputs for test signals
+    GPIO_0(35 downto 28) <= test;
+
     -- Unused outputs
     DRAM_ADDR <= (others => 'Z');
     DRAM_DQ <= (others => 'Z');
-
-     -- Test outputs
-    GPIO_1(7 downto 0) <= test;
+    GPIO_0(27 downto 0) <= (others => 'Z');
+    GPIO_1(2 downto 0) <= (others => 'Z');
+    GPIO_1(27 downto 7) <= (others => 'Z');
 
 end architecture;

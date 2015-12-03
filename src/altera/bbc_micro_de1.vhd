@@ -233,8 +233,8 @@ begin
             IncludeSID         => false,
             IncludeMusic5000   => false,
             IncludeICEDebugger => true,
-            IncludeCoPro6502   => true,
-            IncludeCoProSPI    => false,
+            IncludeCoPro6502   => false,
+            IncludeCoProSPI    => true,
             UseT65Core         => false,
             UseAlanDCore       => true
             )

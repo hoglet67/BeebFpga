@@ -9,22 +9,22 @@ entity CoProSPI is
     port (
 
         -- Host
-        h_clk        : in    std_logic;
-        h_cs_b       : in    std_logic;
-        h_rdnw       : in    std_logic;
-        h_addr       : in    std_logic_vector(2 downto 0);
-        h_data_in    : in    std_logic_vector(7 downto 0);
-        h_data_out   : out   std_logic_vector(7 downto 0);
-        h_rst_b      : in    std_logic;
-        h_irq_b      : out    std_logic;
+        h_clk        : in  std_logic;
+        h_cs_b       : in  std_logic;
+        h_rdnw       : in  std_logic;
+        h_addr       : in  std_logic_vector(2 downto 0);
+        h_data_in    : in  std_logic_vector(7 downto 0);
+        h_data_out   : out std_logic_vector(7 downto 0);
+        h_rst_b      : in  std_logic;
+        h_irq_b      : out  std_logic;
 
         -- Parasite Clock (32 MHz)
-        p_clk        : in    std_logic;
+        p_clk        : in  std_logic;
 
         -- SPI Slave
-        p_spi_ssel   : in std_logic;
-        p_spi_sck    : in std_logic;
-        p_spi_mosi   : in std_logic;
+        p_spi_ssel   : in  std_logic;
+        p_spi_sck    : in  std_logic;
+        p_spi_mosi   : in  std_logic;
         p_spi_miso   : out std_logic;
 
         -- Interrupts/Control
@@ -33,7 +33,7 @@ entity CoProSPI is
         p_rst_b      : out std_logic;
 
         -- Test signals for debugging
-        test         : out    std_logic_vector(7 downto 0)
+        test         : out std_logic_vector(7 downto 0)
     );
 end;
 
@@ -46,6 +46,7 @@ architecture BEHAVIORAL of CoProSPI is
     signal p_addr        : std_logic_vector (2 downto 0);
     signal p_data_in     : std_logic_vector (7 downto 0);
     signal p_data_out    : std_logic_vector (7 downto 0);
+    signal p_data_out_r  : std_logic_vector (7 downto 0);
 
     signal di_req        : std_logic;
     signal di            : std_logic_vector (7 downto 0);
@@ -54,14 +55,20 @@ architecture BEHAVIORAL of CoProSPI is
     signal do_valid      : std_logic;
     signal do            : std_logic_vector (7 downto 0);
 
+    signal p_spi_ssel1   : std_logic;
+    signal p_spi_ssel2   : std_logic;
+
     type SPI_STATE_TYPE is (
         IDLE,
-        CMD,
         WRITE1,
         WRITE2,
+        WRITE3,
         READ1,
         READ2,
-        READ3
+        READ3,
+        READ4,
+        READ5,
+        READ6
     );
 
     signal spi_state : SPI_STATE_TYPE := IDLE;
@@ -141,14 +148,27 @@ begin
 
 -- Master -> Slave:
 
-    -- Connext the data paths directly together
+    -- SPI -> Tube can be a direct connection
     p_data_in <= do;
-    di <= p_data_out;
+
+    -- Tube -> SPI needs a register as there are cases where the tube removes
+    -- the data quickly
+    di <= p_data_out_r;
 
     process(p_clk)
     begin
+
         if rising_edge(p_clk) then
-            if p_rst_b_int = '0' or p_spi_ssel = '1' then
+            -- generate the write signal
+            if wren = '1' then
+                wren <= '0';
+            else
+                wren <= di_req;
+            end if;
+            -- syncronize the ssel signal
+            p_spi_ssel1 <= p_spi_ssel;
+            p_spi_ssel2 <= p_spi_ssel1;
+            if p_rst_b_int = '0' or p_spi_ssel2 = '1' then
                 spi_state <= IDLE;
                 p_addr <= (others => '1');
                 p_rdnw <= '1';
@@ -161,45 +181,66 @@ begin
                     if do_valid = '1' then
                         if do(6 downto 3) = "0000" then
                             p_addr <= do(2 downto 0);
-                            p_rdnw <= do(7);
-                            spi_state <= CMD;
+                            if do(7) = '0' then
+                                p_rdnw <= '0';
+                                spi_state <= WRITE1;
+                            else
+                                p_rdnw <= '1';
+                                spi_state <= READ1;
+                            end if;
                         end if;
                     end if;
-                -- Command received, wait for do_valid to be re-asserted
-                when CMD =>
-                    if do_valid = '0' then
-                        if p_rdnw = '0' then
-                            spi_state <= WRITE1;
-                        else
-                            spi_state <= READ1;
-                        end if;
-                    end if;
+
                 -- Process write command
                 when WRITE1 =>
-                    if do_valid = '1' then
-                        -- assert CS for one cycle
-                        p_cs_b <= '0';
+                    if do_valid = '0' then
                         spi_state <= WRITE2;
                     end if;
                 when WRITE2 =>
+                    if do_valid = '1' then
+                        -- assert CS for one cycle
+                        p_cs_b <= '0';
+                        spi_state <= WRITE3;
+                    end if;
+                when WRITE3 =>
                     p_cs_b <= '1';
                     if do_valid = '0' then
                         spi_state <= IDLE;
                     end if;
+
                 -- Process read command
                 when READ1 =>
+                    -- assert CS for one cycle
                     p_cs_b <= '0';
                     spi_state <= READ2;
                 when READ2 =>
-                    p_cs_b <= '0';
-                    wren <= '1';
+                    -- latch the data read out of the tube chip
+                    p_cs_b <= '1';
+                    p_data_out_r <= p_data_out;
+                    --wren <= '1';
                     spi_state <= READ3;
                 when READ3 =>
-                    p_cs_b <= '1';
-                    wren <= '0';
-                    if wr_ack = '1' then
+                    --wren <= '0';
+                    -- wait for second byte of command before returning to idle
+                    if do_valid = '1' then
+                        spi_state <= READ4;
+                    end if;
+                when READ4 =>
+                    -- wait for second byte of command before returning to idle
+                    if do_valid = '0' then
+                        spi_state <= READ5;
+                    end if;
+                when READ5 =>
+                    -- wait for third byte of command before returning to idle
+                    if do_valid = '1' then
+                        spi_state <= READ6;
+                    end if;
+                when READ6 =>
+                    -- wait for third byte of command before returning to idle
+                    if do_valid = '0' then
                         spi_state <= IDLE;
                     end if;
+
                 when others =>
                     spi_state <= IDLE;
                 end case;
@@ -208,11 +249,12 @@ begin
     end process;
 
     test(0) <= '1' when spi_state = IDLE   else '0';
-    test(1) <= '1' when spi_state = CMD    else '0';
-    test(2) <= '1' when spi_state = WRITE1 else '0';
-    test(3) <= '1' when spi_state = WRITE2 else '0';
+    test(1) <= '1' when spi_state = WRITE1 else '0';
+    test(2) <= '1' when spi_state = WRITE2 else '0';
+    test(3) <= '1' when spi_state = WRITE3 else '0';
     test(4) <= '1' when spi_state = READ1  else '0';
     test(5) <= '1' when spi_state = READ2  else '0';
     test(6) <= '1' when spi_state = READ3  else '0';
+    test(7) <= '1' when spi_state = READ4  else '0';
 
 end BEHAVIORAL;

@@ -118,8 +118,6 @@ begin
             -- This works in Mode 0 only...
             -- MOSI should be sampled on the rising edge
             if rising_edge(p_spi_sck) then
-                -- for convenience, internal state also changes on this edge
-                spi_state <= spi_state + 1;
                 -- capture the important bits from the transaction
                 case spi_state is
                     when 0 =>
@@ -165,11 +163,10 @@ begin
             end if;
             -- This works in Mode 0 only...
             -- MISO should change on the falling edge
+            -- For very high speeds (e.g. 32MHz) change this to rising_edge
             if falling_edge(p_spi_sck) then
                 case spi_state is
-                    when 0 =>
-                        spi_shifter <= (others => '0');
-                    when 8 =>
+                    when 7 =>
                         -- is it a valid read cycle?
                         if valid = '1' and p_rdnw = '1' then
                             -- load the shift register just in time...
@@ -177,10 +174,14 @@ begin
                         else
                             spi_shifter <= (others => '0');
                         end if;
-                    when others =>
+                    when 8 to 14 =>
                         -- shift the shift register one place to the left
                         spi_shifter <= spi_shifter(6 downto 0) & '0';
+                    when others =>
+                        spi_shifter <= (others => '0');
                 end case;
+                -- for convenience, internal state also changes on this edge
+                spi_state <= spi_state + 1;
             end if;
         end if;
     end process;

@@ -20,8 +20,7 @@ component tube port (
     p_phi2     : in  std_logic;
     p_rst_b    : out std_logic;
     p_nmi_b    : out std_logic;
-    p_irq_b    : out std_logic;
-    test   : out    std_logic_vector(7 downto 0)
+    p_irq_b    : out std_logic
     );
 end component;
     

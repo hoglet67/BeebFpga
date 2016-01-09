@@ -99,9 +99,7 @@ begin
         p_phi2          => p_clk,
         p_rst_b         => p_rst_b_int,
         p_nmi_b         => p_nmi_b,
-        p_irq_b         => p_irq_b,
-        -- test
-        test            => open
+        p_irq_b         => p_irq_b
     );
     p_rst_b <= p_rst_b_int;
 

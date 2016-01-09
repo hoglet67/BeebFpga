@@ -120,8 +120,7 @@ begin
         p_phi2          => clk_cpu,
         p_rst_b         => RSTn,
         p_nmi_b         => cpu_NMI_n,
-        p_irq_b         => cpu_IRQ_n,
-        test            => open
+        p_irq_b         => cpu_IRQ_n
     );
 
 

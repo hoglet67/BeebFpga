@@ -40,7 +40,7 @@
 `define SEPARATE_HOST_DATABUSSES_D        1
 `define SEPARATE_PARASITE_DATABUSSES_D    1
 `define OMIT_DMA_PINS_D                   1
-  
+            
 // Interrupts can be open collector type outputs in non-trivial systems
 `ifdef TWOSTATE_HOST_INTERRUPTS_D
  `define H_INTERRUPT_OFF_D 1'b1
@@ -94,9 +94,7 @@ module tube (
              input       p_phi2,
              output      p_rst_b,
              output      p_nmi_b,
-             output      p_irq_b,
-
-			 output [7:0] test
+             output      p_irq_b
              );
    
 `ifdef OMIT_DMA_PINS_D   
@@ -368,9 +366,6 @@ module tube (
      end // always @ ( posedge h_phi2 or negedge h_rst_b )
 
 
-   assign test = {h_phi2, h_rst_b, h_rdnw, h_rdnw_q_r, h_select_reg0_d_w,  h_select_reg0_d_w, h_reg0_d_w[`P_IDX], h_reg0_q_r[`P_IDX]};
-   
-  
    // Provide option for retiming read of status/command reg from host to parasite
    always @ ( posedge p_phi2 or negedge h_rst_b )   
      if ( !h_rst_b )

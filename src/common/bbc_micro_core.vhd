@@ -1174,7 +1174,7 @@ begin
     -- 001 01xx xxxx xxxx xxxx = unused
     -- 001 10xx xxxx xxxx xxxx = unused
     -- 001 11xx xxxx xxxx xxxx = unused
-    -- 010 00xx xxxx xxxx xxxx = ROM Slot 8
+    -- 010 00xx xxxx xxxx xxxx = ROM Slot 8 (8000-B5FF)
     -- 010 01xx xxxx xxxx xxxx = ROM Slot 9
     -- 010 10xx xxxx xxxx xxxx = ROM Slot A
     -- 010 11xx xxxx xxxx xxxx = ROM Slot B
@@ -1198,7 +1198,7 @@ begin
     -- 110 1010 xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF)       (unused in Beeb Mode)
     -- 110 1011 xxxx xxxx xxxx = Shadow memory (4K, at 3000-3FFF)     (unused in Beeb Mode)
     -- 110 11xx xxxx xxxx xxxx = Shadow memory (16K, at 4000-7FFF)    (unused in Beeb Mode)
-    -- 111 00xx xxxx xxxx xxxx = unused
+    -- 111 00xx xxxx xxxx xxxx = RAM Slot 8 (B600-BFFF)
     -- 111 01xx xxxx xxxx xxxx = unused
     -- 111 10xx xxxx xxxx xxxx = unused
     -- 111 11xx xxxx xxxx xxxx = unused
@@ -1252,8 +1252,16 @@ begin
                                 ext_nWE <= cpu_r_nw;
                                 ext_nOE <= not cpu_r_nw;
                             when others =>
-                                -- ROM slots 8,9,A,B,C,D,E,F are in ROM
-                                ext_A <= "01" & romsel(2 downto 0) & cpu_a(13 downto 0);
+                                if m128_mode = '0' and romsel(3 downto 0) = "1000" and cpu_a(13 downto 8) >= "110110" then
+                                    -- ROM slot 8 >= B600 is mapped to RAM for
+                                    -- the SWRam version of MMFS in Beeb mode only
+                                    ext_A <= "11101" & cpu_a(13 downto 0);
+                                    ext_nWE <= cpu_r_nw;
+                                    ext_nOE <= not cpu_r_nw;
+                                else
+                                    -- ROM slots 8,9,A,B,C,D,E,F are in ROM
+                                    ext_A <= "01" & romsel(2 downto 0) & cpu_a(13 downto 0);
+                                end if;
                         end case;
                     end if;
                 elsif mos_enable = '1' then

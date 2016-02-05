@@ -63,10 +63,12 @@ module ph_bytequad (
        4'b1xxx: h_datamux_r = fifo3_w;
        default: h_datamux_r = 8'bx;
      endcase // case h_selectData
-
    
-//   ph_fifo    ph_reg1 ( 
-   ph_byte    ph_reg1 ( 
+`ifdef USE_FIFO_FOR_PH_REG1
+   ph_fifo    ph_reg1 (
+`else                       
+   ph_byte    ph_reg1 (
+`endif 
                         .h_rst_b(h_rst_b),
                         .h_rd(h_rd),
                         .h_selectData(h_selectData[0]),

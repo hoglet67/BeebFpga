@@ -230,6 +230,7 @@ begin
 
     bbc_micro : entity work.bbc_micro_core
         generic map (
+            IncludeAMXMouse    => false,
             IncludeSID         => false,
             IncludeMusic5000   => false,
             IncludeICEDebugger => true,
@@ -243,8 +244,10 @@ begin
             clock_24       => CLOCK_24_0,
             clock_27       => CLOCK_27_0,
             hard_reset_n   => hard_reset_n,
-            ps2_clk        => PS2_CLK,
-            ps2_data       => PS2_DAT,
+            ps2_kbd_clk    => PS2_CLK,
+            ps2_kbd_data   => PS2_DAT,
+            ps2_mse_clk    => GPIO_1(18),
+            ps2_mse_data   => GPIO_1(19),
             video_red      => VGA_R,
             video_green    => VGA_G,
             video_blue     => VGA_B,
@@ -443,6 +446,7 @@ begin
     DRAM_DQ <= (others => 'Z');
     GPIO_0(27 downto 0) <= (others => 'Z');
     GPIO_1(2 downto 0) <= (others => 'Z');
-    GPIO_1(27 downto 7) <= (others => 'Z');
+    GPIO_1(27 downto 20) <= (others => 'Z');
+    GPIO_1(17 downto 7) <= (others => 'Z');
 
 end architecture;

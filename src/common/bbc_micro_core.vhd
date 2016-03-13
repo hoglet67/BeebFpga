@@ -56,6 +56,7 @@ use ieee.numeric_std.all;
 
 entity bbc_micro_core is
     generic (
+        IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
@@ -74,8 +75,12 @@ entity bbc_micro_core is
         hard_reset_n   : in    std_logic;
 
         -- Keyboard
-        ps2_clk        : in    std_logic;
-        ps2_data       : in    std_logic;
+        ps2_kbd_clk    : in    std_logic;
+        ps2_kbd_data   : in    std_logic;
+
+        -- Mouse
+        ps2_mse_clk    : inout std_logic;
+        ps2_mse_data   : inout std_logic;
 
         -- Video
         video_red      : out   std_logic_vector (3 downto 0);
@@ -312,6 +317,33 @@ signal user_via_pb_out  :   std_logic_vector(7 downto 0);
 signal user_via_pb_oe_n :   std_logic_vector(7 downto 0);
 signal user_via_do_r    :   std_logic_vector (7 downto 0);
 
+-- Mouse VIA signals
+signal mouse_via_do      :   std_logic_vector(7 downto 0);
+signal mouse_via_do_oe_n :   std_logic;
+signal mouse_via_irq_n   :   std_logic;
+signal mouse_via_ca1_in  :   std_logic := '0';
+constant mouse_via_ca2_in  :   std_logic := '0';
+signal mouse_via_ca2_out :   std_logic;
+signal mouse_via_ca2_oe_n    :   std_logic;
+signal mouse_via_pa_in   :   std_logic_vector(7 downto 0);
+signal mouse_via_pa_out  :   std_logic_vector(7 downto 0);
+signal mouse_via_pa_oe_n :   std_logic_vector(7 downto 0);
+signal mouse_via_cb1_in  :   std_logic := '0';
+signal mouse_via_cb1_out :   std_logic;
+signal mouse_via_cb1_oe_n    :   std_logic;
+signal mouse_via_cb2_in  :   std_logic := '0';
+signal mouse_via_cb2_out :   std_logic;
+signal mouse_via_cb2_oe_n    :   std_logic;
+signal mouse_via_pb_in   :   std_logic_vector(7 downto 0);
+signal mouse_via_pb_out  :   std_logic_vector(7 downto 0);
+signal mouse_via_pb_oe_n :   std_logic_vector(7 downto 0);
+signal mouse_via_do_r    :   std_logic_vector(7 downto 0);
+signal mouse_read        :   std_logic;
+signal mouse_err         :   std_logic;
+signal mouse_rx_data     :   std_logic_vector(7 downto 0);
+signal mouse_write       :   std_logic;
+signal mouse_tx_data     :   std_logic_vector(7 downto 0);
+
 -- IC32 latch on System VIA
 signal ic32             :   std_logic_vector(7 downto 0);
 signal sound_enable_n   :   std_logic;
@@ -370,8 +402,8 @@ signal serproc_enable   :   std_logic;      -- 0xFE10-FE1F
 signal vidproc_enable   :   std_logic;      -- 0xFE20-FE2F
 signal romsel_enable    :   std_logic;      -- 0xFE30-FE3F
 signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
-signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F
---signal fddc_enable      :   std_logic;      -- 0xFE80-FE9F
+signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F, or FE80-FE9F
+signal mouse_via_enable :   std_logic;      -- 0xFE60-FE7F
 --signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
 signal tube_enable      :   std_logic;      -- 0xFEE0-FEFF
 
@@ -631,10 +663,94 @@ begin
         clock_32
         );
 
+    -- Second VIA
+    -- If this is included, it becomes the via at FE60 and the user via (above)
+    -- is re-addressed to FE80
+    GenMouse: if IncludeAMXMouse generate
+        mouse_via : entity work.m6522 port map (
+            cpu_a(3 downto 0),
+            cpu_do,
+            mouse_via_do,
+            mouse_via_do_oe_n,
+            cpu_r_nw,
+            mouse_via_enable,
+            '0', -- nCS2
+            mouse_via_irq_n,
+            mouse_via_ca1_in,
+            mouse_via_ca2_in,
+            mouse_via_ca2_out,
+            mouse_via_ca2_oe_n,
+            mouse_via_pa_in,
+            mouse_via_pa_out,
+            mouse_via_pa_oe_n,
+            mouse_via_cb1_in,
+            mouse_via_cb1_out,
+            mouse_via_cb1_oe_n,
+            mouse_via_cb2_in,
+            mouse_via_cb2_out,
+            mouse_via_cb2_oe_n,
+            mouse_via_pb_in,
+            mouse_via_pb_out,
+            mouse_via_pb_oe_n,
+            mhz1_clken,
+            hard_reset_n,
+            mhz4_clken,
+            clock_32
+        );
+        mouse_ps2interface: entity work.ps2interface
+		  generic map(
+            MainClockSpeed => 32000000
+		  )
+		  port map(
+           ps2_clk  => ps2_mse_clk,
+           ps2_data => ps2_mse_data,
+           clk      => clock_32,
+           rst      => reset,
+           tx_data  => mouse_tx_data,
+           write    => mouse_write,
+           rx_data  => mouse_rx_data,
+           read     => mouse_read,
+           busy     => open,
+           err      => mouse_err
+        );
+        -- BBC Micro User Port (Mouse use)
+        --  2 - CB1 - X Axis
+        --  6 - D0  - X Dir
+        --  4 - CB2 - Y Axis
+        -- 10 - D2  - Y Dir
+        -- 16 - D5  - Left button
+        -- 18 - D6  - Middle button
+        -- 20 - D7  - Right button
+        mouse_controller: entity work.quadrature_controller port map(
+           clk      => clock_32,
+           rst      => reset,
+           read     => mouse_read,
+           err      => mouse_err,
+           rx_data  => mouse_rx_data,
+           write    => mouse_write,
+           tx_data  => mouse_tx_data,
+           x_a      => mouse_via_cb1_in,
+           x_b      => mouse_via_pb_in(0),
+           y_a      => mouse_via_cb2_in,
+           y_b      => mouse_via_pb_in(2),
+           left     => mouse_via_pb_in(5),
+           middle   => mouse_via_pb_in(6),
+           right    => mouse_via_pb_in(7)
+        );        
+        mouse_via_pa_in <= mouse_via_pa_out;
+        mouse_via_pb_in(4) <= '1';
+        mouse_via_pb_in(3) <= '1';
+        mouse_via_pb_in(1) <= '1';
+    end generate;
+    GenNotMouse: if not IncludeAMXMouse generate
+        mouse_via_do <= x"FE";
+        mouse_via_irq_n <= '1';
+    end generate;
+
     -- Keyboard
     keyb : entity work.keyboard port map (
         clock_32, hard_reset_n, mhz1_clken,
-        ps2_clk, ps2_data,
+        ps2_kbd_clk, ps2_kbd_data,
         keyb_enable_n,
         keyb_column,
         keyb_row,
@@ -761,7 +877,7 @@ begin
             ram_data_out => ext_Dout,
             ram_wr       => tube_ram_wr,
             -- Test signals for debugging
-            test         => test
+            test         => open
         );
         process(clock_32)
         begin
@@ -802,7 +918,7 @@ begin
             p_nmi_b     => p_nmi_b,
             p_rst_b     => p_rst_b,
             -- Test signals for debugging
-            test        => test
+            test        => open
         );
         tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
@@ -1006,7 +1122,7 @@ begin
     -- The following IO regions are accessed at 1 MHz and hence will stall the
     -- CPU accordingly
     mhz1_enable <= io_fred or io_jim or
-        adc_enable or sys_via_enable or user_via_enable or
+        adc_enable or sys_via_enable or user_via_enable or mouse_via_enable or
         serproc_enable or acia_enable or crtc_enable;
 
 
@@ -1050,7 +1166,7 @@ begin
         romsel_enable <= '0';
         sys_via_enable <= '0';
         user_via_enable <= '0';
- --     fddc_enable <= '0';
+        mouse_via_enable <= '0';
  --     adlc_enable <= '0';
         adc_enable <= '0';
         tube_enable <= '0';
@@ -1101,9 +1217,21 @@ begin
                         -- 0xFE30
                         romsel_enable <= '1';
                     end if;
-                when "010" => sys_via_enable <= '1';    -- 0xFE40
-                when "011" => user_via_enable <= '1';   -- 0xFE60
---              when "100" => fddc_enable <= '1';       -- 0xFE80
+                when "010" =>
+                    -- 0xFE40
+                    sys_via_enable <= '1';
+                when "011" =>
+                    -- 0xFE60                   
+                    if IncludeAMXMouse then
+                        mouse_via_enable <= '1';
+                    else
+                        user_via_enable <= '1';
+                    end if;
+                when "100" =>
+                      -- 0xFE80
+                    if IncludeAMXMouse then
+                        user_via_enable <= '1';
+                    end if;
 --              when "101" => adlc_enable <= '1';       -- 0xFEA0
                 when "110" =>
                     -- 0xFEC0
@@ -1126,6 +1254,7 @@ begin
     begin
         if rising_edge(clock_32) then
             if (mhz1_clken = '1') then
+                mouse_via_do_r <= mouse_via_do;
                 user_via_do_r <= user_via_do;
                 sys_via_do_r  <= sys_via_do;
             end if;
@@ -1134,25 +1263,26 @@ begin
 
     -- CPU data bus mux and interrupts
     cpu_di <=
-        ext_Dout      when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
-        crtc_do       when crtc_enable = '1' else
-        adc_do        when adc_enable = '1' else
-        "00000010"    when acia_enable = '1' else
-        sys_via_do_r  when sys_via_enable = '1' else
-        user_via_do_r when user_via_enable = '1' else
+        ext_Dout       when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
+        crtc_do        when crtc_enable = '1' else
+        adc_do         when adc_enable = '1' else
+        "00000010"     when acia_enable = '1' else
+        sys_via_do_r   when sys_via_enable = '1' else
+        user_via_do_r  when user_via_enable = '1' else
+        mouse_via_do_r when mouse_via_enable = '1' else
         -- Optional peripherals
-        sid_do        when sid_enable = '1' and IncludeSid else
-        music5000_do  when io_jim = '1' and IncludeMusic5000 else
-        tube_do       when tube_enable = '1' and (IncludeCoPro6502 or IncludeCoProSPI) else
+        sid_do         when sid_enable = '1' and IncludeSid else
+        music5000_do   when io_jim = '1' and IncludeMusic5000 else
+        tube_do        when tube_enable = '1' and (IncludeCoPro6502 or IncludeCoProSPI) else
         -- Master 128 additions
-        romsel        when romsel_enable = '1' and m128_mode = '1' else
-        acccon        when acccon_enable = '1' and m128_mode = '1' else
-        "11111110"    when io_sheila = '1' else
-        "11111111"    when io_fred = '1' or io_jim = '1' else
+        romsel         when romsel_enable = '1' and m128_mode = '1' else
+        acccon         when acccon_enable = '1' and m128_mode = '1' else
+        "11111110"     when io_sheila = '1' else
+        "11111111"     when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
 
-    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
-                 not ((not sys_via_irq_n) or (not user_via_irq_n));
+    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or (not mouse_via_irq_n) or acc_irr) when m128_mode = '1' else
+                 not ((not sys_via_irq_n) or (not user_via_irq_n) or (not mouse_via_irq_n));
     -- SRAM bus
     ext_nCS <= '0';
 
@@ -1568,4 +1698,7 @@ begin
     -- Debugging output
     cpu_addr <= cpu_a(15 downto 0);
 
+    -- Test output
+    test <= mouse_via_pb_in(7 downto 5) & "0" & mouse_via_cb2_in &  mouse_via_pb_in(2) &  mouse_via_cb1_in & mouse_via_pb_in(0);
+        
 end architecture;

@@ -51,8 +51,10 @@ use ieee.numeric_std.all;
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
      port (clk_32M00      : in    std_logic;
-           ps2_clk        : in    std_logic;
-           ps2_data       : in    std_logic;
+           ps2_kbd_clk    : in    std_logic;
+           ps2_kbd_data   : in    std_logic;
+           ps2_mse_clk    : inout std_logic;
+           ps2_mse_data   : inout std_logic;
            ERST           : in    std_logic;
            red            : out   std_logic_vector (3 downto 0);
            green          : out   std_logic_vector (3 downto 0);
@@ -150,6 +152,7 @@ begin
     vid_mode       <= "00" & DIP(1 downto 0);
     bbc_micro : entity work.bbc_micro_core
     generic map (
+        IncludeAMXMouse    => false,
         IncludeSID         => true,
         IncludeMusic5000   => true,
         IncludeICEDebugger => true,
@@ -163,8 +166,10 @@ begin
         clock_24       => clock_24,
         clock_27       => clock_27,
         hard_reset_n   => hard_reset_n,
-        ps2_clk        => ps2_clk,
-        ps2_data       => ps2_data,
+        ps2_kbd_clk    => ps2_kbd_clk,
+        ps2_kbd_data   => ps2_kbd_data,
+        ps2_mse_clk    => ps2_mse_clk,
+        ps2_mse_data   => ps2_mse_data,
         video_red      => red,
         video_green    => green,
         video_blue     => blue,

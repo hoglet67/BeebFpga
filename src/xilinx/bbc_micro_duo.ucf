@@ -103,8 +103,10 @@ NET FLASH_SO   OFFSET = IN  15ns VALID 15ns BEFORE "clk_32M00";
 # Non critical inputs
 #####################################
 
-NET ps2_clk       TIG;
-NET ps2_data      TIG;
+NET ps2_kbd_clk   TIG;
+NET ps2_kbd_data  TIG;
+NET ps2_mse_clk   TIG;
+NET ps2_mse_data  TIG;
 NET ERST          TIG;
 NET SDMISO        TIG;
 NET JOYSTICK1(*)  TIG;
@@ -138,8 +140,10 @@ NET SDSS          TIG;
 
 NET clk_32M00       LOC="P94"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # CLK
 NET SDMISO          LOC="P118" | IOSTANDARD=LVTTL;                       # A2
-NET ps2_data        LOC="P120" | IOSTANDARD=LVTTL | PULLUP ;             # A4
-NET ps2_clk         LOC="P121" | IOSTANDARD=LVTTL | PULLUP ;             # A5
+NET ps2_kbd_data    LOC="P120" | IOSTANDARD=LVTTL | PULLUP ;             # A4
+NET ps2_kbd_clk     LOC="P121" | IOSTANDARD=LVTTL | PULLUP ;             # A5
+NET ps2_mse_clk     LOC="P74"  | IOSTANDARD=LVTTL | PULLUP ;             # D8
+NET ps2_mse_data    LOC="P66"  | IOSTANDARD=LVTTL | PULLUP ;             # D9
 NET SDMOSI          LOC="P115" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # B0
 NET SDCLK           LOC="P114" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # B1
 NET SDSS            LOC="P112" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # B2
@@ -233,8 +237,6 @@ NET JOYSTICK2<4>    LOC="P82"  | IOSTANDARD=LVTTL | PULLUP ;             # D5
 #NET uart_RxD   	    LOC="P116" | IOSTANDARD=LVTTL;                       # A0
 #NET uart_TxD        LOC="P117" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # A1
 #NET charSet         LOC="P111" | IOSTANDARD=LVTTL;                       # B3
-#NET ps2_mouse_clk   LOC="P74"  | IOSTANDARD=LVTTL | PULLUP ;             # D8
-#NET ps2_mouse_data  LOC="P66"  | IOSTANDARD=LVTTL | PULLUP ;             # D9
 
 #NET SD_CD           LOC="P119" | IOSTANDARD=LVTTL;                       # A3
 #NET SW_LEFT         LOC="P111" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # B3

@@ -125,7 +125,7 @@ architecture rtl of rtc is
         x"00", -- CMOS  8 - Edit startup settings
         x"00", -- CMOS  9 - reserved for telecommunications applications
         ini10, -- CMOS 10 - VDU mode and *TV settings
-        x"E3", -- CMOS 11 - ADFS startup options, keyboard settings, floppy params
+        x"63", -- CMOS 11 - ADFS startup options, keyboard settings, floppy params
         x"20", -- CMOS 12 - Keyboard auto-repeat delay
         x"08", -- CMOS 13 - Keyboard auto-repeat rate
         x"0A", -- CMOS 14 - Printer ignore character

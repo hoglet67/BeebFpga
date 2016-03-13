@@ -38,7 +38,7 @@ cat bbcb/basic2.rom            >> $IMAGE
 
 cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
-cat generic/blank.rom          >> $IMAGE
+cat m128/adfs1-57.rom          >> $IMAGE
 cat m128/mammfs.rom            >> $IMAGE
 
 # Note: It's not possible to pre-load the sideways RAM banks (4-7)

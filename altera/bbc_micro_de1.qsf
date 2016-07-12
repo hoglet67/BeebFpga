@@ -905,4 +905,5 @@ set_global_assignment -name VHDL_FILE ../AtomBusMon/src/AVR8/CommonPacks/AVRuCPa
 set_global_assignment -name VHDL_FILE ../AtomBusMon/src/AVR8/CommonPacks/avr_adr_pack.vhd
 set_global_assignment -name VHDL_FILE ../AtomBusMon/src/BusMonCore.vhd
 set_global_assignment -name VHDL_FILE ../AtomBusMon/src/MOS6502CpuMonCore.vhd
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO_0[34]
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

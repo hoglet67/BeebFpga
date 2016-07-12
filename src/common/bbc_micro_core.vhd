@@ -62,6 +62,7 @@ entity bbc_micro_core is
         IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := false;
         IncludeCoProSPI    : boolean := false;
+        UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
     );
@@ -115,6 +116,17 @@ entity bbc_micro_core is
         -- Keyboard DIP switches
         keyb_dip       : in    std_logic_vector(7 downto 0);
 
+        -- Original Keyboard
+        ext_keyb_led1  : out   std_logic;
+        ext_keyb_led2  : out   std_logic;
+        ext_keyb_led3  : out   std_logic;
+        ext_keyb_1mhz  : out   std_logic;
+        ext_keyb_en_n  : out   std_logic;
+        ext_keyb_pa    : out   std_logic_vector(6 downto 0);
+        ext_keyb_rst_n : in    std_logic;
+        ext_keyb_ca2   : in    std_logic;
+        ext_keyb_pa7   : in    std_logic;
+        
         -- Format of Video
         -- Bit 0 selects 15.625KHz SRGB (0) or 31.5KHz VGA (1)
         -- Bit 1 selects Mist (0) or RGB2VGA (1) scan doubler is used for VGA
@@ -747,18 +759,34 @@ begin
         mouse_via_irq_n <= '1';
     end generate;
 
-    -- Keyboard
-    keyb : entity work.keyboard port map (
-        clock_32, hard_reset_n, mhz1_clken,
-        ps2_kbd_clk, ps2_kbd_data,
-        keyb_enable_n,
-        keyb_column,
-        keyb_row,
-        keyb_out,
-        keyb_int,
-        keyb_break,
-        keyb_dip
-        );
+
+    -- Original Keyboard
+    keyboard_orig: if UseOrigKeyboard generate
+        ext_keyb_led3  <= '1';     -- motor LED would be driven off serial ULA
+        ext_keyb_led2  <= ic32(7); -- caps LED
+        ext_keyb_led1  <= ic32(6); -- shift LED
+        ext_keyb_1mhz  <= mhz1_clken;
+        ext_keyb_en_n  <= keyb_enable_n;
+        ext_keyb_pa    <= keyb_row & keyb_column;
+        keyb_out       <= ext_keyb_pa7;
+        keyb_int       <= ext_keyb_ca2;
+        keyb_break     <= not ext_keyb_rst_n;
+    end generate;
+        
+    -- PS/2 Keyboard
+    keyboard_ps2: if not UseOrigKeyboard generate 
+        keyb : entity work.keyboard port map (
+            clock_32, hard_reset_n, mhz1_clken,
+            ps2_kbd_clk, ps2_kbd_data,
+            keyb_enable_n,
+            keyb_column,
+            keyb_row,
+            keyb_out,
+            keyb_int,
+            keyb_break,
+            keyb_dip
+            );
+    end generate;
 
     -- Analog to Digital Convertor
     adc: entity work.upd7002 port map (

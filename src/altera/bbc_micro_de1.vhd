@@ -194,6 +194,16 @@ signal cpu_addr        : std_logic_vector (15 downto 0);
 
 signal test            : std_logic_vector (7 downto 0);
 
+signal ext_keyb_led1   : std_logic;
+signal ext_keyb_led2   : std_logic;
+signal ext_keyb_led3   : std_logic;
+signal ext_keyb_1mhz   : std_logic;
+signal ext_keyb_en_n   : std_logic;
+signal ext_keyb_pa     : std_logic_vector(6 downto 0);
+signal ext_keyb_rst_n  : std_logic;
+signal ext_keyb_ca2    : std_logic;
+signal ext_keyb_pa7    : std_logic;
+
 -- A registered version to allow slow flash to be used
 signal ext_A_r         : std_logic_vector (18 downto 0);
 
@@ -236,6 +246,7 @@ begin
             IncludeICEDebugger => true,
             IncludeCoPro6502   => false,
             IncludeCoProSPI    => true,
+            UseOrigKeyboard    => true,
             UseT65Core         => false,
             UseAlanDCore       => true
             )
@@ -268,6 +279,15 @@ begin
             caps_led       => caps_led,
             shift_led      => shift_led,
             keyb_dip       => keyb_dip,
+            ext_keyb_led1  => ext_keyb_led1,
+            ext_keyb_led2  => ext_keyb_led2,
+            ext_keyb_led3  => ext_keyb_led3,
+            ext_keyb_1mhz  => ext_keyb_1mhz,
+            ext_keyb_en_n  => ext_keyb_en_n,
+            ext_keyb_pa    => ext_keyb_pa,
+            ext_keyb_rst_n => ext_keyb_rst_n,
+            ext_keyb_ca2   => ext_keyb_ca2,
+            ext_keyb_pa7   => ext_keyb_pa7,
             vid_mode       => vid_mode,
             joystick1      => (others => '1'),
             joystick2      => (others => '1'),
@@ -439,14 +459,35 @@ begin
     GPIO_1(35) <= '0';
 
     -- Debug outputs for test signals
-    GPIO_0(35 downto 28) <= test;
+    GPIO_1(27 downto 20) <= test;
+
+    -- External Keyboard connected to GPIO0
+    -- GND                                -- pin 1
+    ext_keyb_rst_n  <= GPIO_0(34);        -- pin 2
+    GPIO_0(32)      <= ext_keyb_1mhz;     -- pin 3
+    GPIO_0(30)      <= ext_keyb_en_n;     -- pin 4
+    GPIO_0(28)      <= ext_keyb_pa(4);    -- pin 5
+    GPIO_0(26)      <= ext_keyb_pa(5);    -- pin 6
+    GPIO_0(24)      <= ext_keyb_pa(6);    -- pin 7
+    GPIO_0(22)      <= ext_keyb_pa(0);    -- pin 8
+    GPIO_0(20)      <= ext_keyb_pa(1);    -- pin 9
+    GPIO_0(18)      <= ext_keyb_pa(2);    -- pin 10
+    GPIO_0(16)      <= ext_keyb_pa(3);    -- pin 11
+    ext_keyb_pa7    <= GPIO_0(14);        -- pin 12
+    GPIO_0(12)      <= ext_keyb_led3;     -- pin 13
+    ext_keyb_ca2    <= GPIO_0(10);        -- pin 14
+    -- VCC                                -- pin 15    
+    GPIO_0(8)      <= ext_keyb_led1;      -- pin 16
+    GPIO_0(6)      <= ext_keyb_led2;      -- pin 17
 
     -- Unused outputs
-    DRAM_ADDR <= (others => 'Z');
-    DRAM_DQ <= (others => 'Z');
-    GPIO_0(27 downto 0) <= (others => 'Z');
-    GPIO_1(2 downto 0) <= (others => 'Z');
-    GPIO_1(27 downto 20) <= (others => 'Z');
-    GPIO_1(17 downto 7) <= (others => 'Z');
+    DRAM_ADDR            <= (others => 'Z');
+    DRAM_DQ              <= (others => 'Z');
+    GPIO_0(35 downto 33) <= (others => 'Z');
+    GPIO_0(31 downto 15) <= (others => 'Z');
+    GPIO_0(13 downto 0)  <= (others => 'Z');
+    
+    GPIO_1( 2 downto 0)  <= (others => 'Z');
+    GPIO_1(17 downto 7)  <= (others => 'Z');
 
 end architecture;

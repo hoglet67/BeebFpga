@@ -293,10 +293,12 @@ begin
      -- The spec says, this is not reset.
      -- Fact is that the 1541 VIA1 timer won't work,
      -- as the firmware ONLY sets the r_t1l_h latch!!!!
-     r_t1l_l   <= (others => '0');
-     r_t1l_h   <= (others => '0');
-     r_t2l_l   <= (others => '0');
-     r_t2l_h   <= (others => '0');
+	  -- DMB: These are observed power on values from the Beeb
+	  -- DMB: Note, it's a little overzeleaous setting these on reset; that doesn't happen in reality 
+     r_t1l_l   <= x"FE";
+     r_t1l_h   <= x"FF";
+     r_t2l_l   <= x"FE";
+     r_t2l_h   <= x"FF";
    elsif rising_edge(CLK) then
      if (ENA_4 = '1') then
       t1_w_reset_int  <= false;
@@ -370,7 +372,7 @@ begin
         when x"B" => O_DATA <= r_acr;
         when x"C" => O_DATA <= r_pcr;
         when x"D" => O_DATA <= r_ifr;
-        when x"E" => O_DATA <= ('0' & r_ier);
+        when x"E" => O_DATA <= ('1' & r_ier);
         when x"F" => O_DATA <= r_ira;
         when others => null;
       end case;

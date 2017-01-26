@@ -246,7 +246,7 @@ begin
             IncludeICEDebugger => true,
             IncludeCoPro6502   => false,
             IncludeCoProSPI    => true,
-            UseOrigKeyboard    => true,
+            UseOrigKeyboard    => false,
             UseT65Core         => false,
             UseAlanDCore       => true
             )

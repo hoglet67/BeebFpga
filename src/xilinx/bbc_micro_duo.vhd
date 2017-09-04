@@ -155,7 +155,7 @@ begin
         IncludeAMXMouse    => false,
         IncludeSID         => true,
         IncludeMusic5000   => true,
-        IncludeICEDebugger => true,
+        IncludeICEDebugger => false,
         IncludeCoPro6502   => true,
         IncludeCoProSPI    => false,
         UseOrigKeyboard    => false,

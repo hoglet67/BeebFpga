@@ -39,6 +39,7 @@
 --
 -- Revision list
 --
+--        dmb: Fixes to sr_do_shift change that broke MMFS on the Beeb (SR mode 0)
 -- version 005 Many fixes to all areas, VIA now passes all VICE tests
 -- version 004 fixes to PB7 T1 control and Mode 0 Shift Register operation
 -- version 003 fix reset of T1/T2 IFR flags if T1/T2 is reload via reg5/reg9 from wolfgang (WoS)
@@ -882,7 +883,9 @@ begin
                      if sr_strobe_rising then
                         sr_do_shift <= true;
                         r_sr(0) <= I_CB2;
-                     elsif sr_do_shift then
+                     -- DMB: Added sr_stroble_falling to avoid premature shift
+                     -- (fixes issue with MMFS on the Beeb in SR mode 0)
+                     elsif sr_do_shift and sr_strobe_falling then
                         sr_do_shift <= false;
                         r_sr(7 downto 1) <= r_sr(6 downto 0);
                      end if;
@@ -893,7 +896,9 @@ begin
                      if sr_strobe_falling then
                         sr_out <= r_sr(7);
                         sr_do_shift <= true;
-                     elsif sr_do_shift then
+                     -- DMB: Added sr_stroble_falling to avoid premature shift
+                     -- (fixes issue with MMFS on the Beeb in SR mode 0)
+                     elsif sr_do_shift and sr_strobe_rising then
                         sr_do_shift <= false;
                         r_sr <= r_sr(6 downto 0) & r_sr(7);
                      end if;

@@ -158,6 +158,7 @@ begin
         IncludeICEDebugger => true,
         IncludeCoPro6502   => true,
         IncludeCoProSPI    => false,
+        UseOrigKeyboard    => false,
         UseT65Core         => false,
         UseAlanDCore       => true
     )
@@ -205,7 +206,17 @@ begin
         p_irq_b        => open,
         p_nmi_b        => open,
         p_rst_b        => open,
-        test           => open
+        test           => open,
+        -- original keyboard not yet supported on the Duo
+        ext_keyb_led1  => open,
+        ext_keyb_led2  => open,
+        ext_keyb_led3  => open,
+        ext_keyb_1mhz  => open,
+        ext_keyb_en_n  => open,
+        ext_keyb_pa    => open,
+        ext_keyb_rst_n => '1',
+        ext_keyb_ca2   => '1',
+        ext_keyb_pa7   => '1'        
     );
     LED1 <= caps_led;
     LED2 <= shift_led;

@@ -374,7 +374,7 @@ signal keyb_break       :   std_logic;
 -- Sound generator
 signal sound_ready      :   std_logic;
 signal sound_di         :   std_logic_vector(7 downto 0);
-signal sound_ao         :   signed(7 downto 0);
+signal sound_ao         :   std_logic_vector(7 downto 0);
 
 -- Optional SID
 signal sid_ao           :   std_logic_vector(17 downto 0);
@@ -955,12 +955,20 @@ begin
 -- SN76489 Sound Generator
 --------------------------------------------------------
 
-    sound : entity work.sn76489_top port map (
-        clock_32, mhz4_clken,
-        reset_n, '0', sound_enable_n,
-        sound_ready, sound_di,
-        sound_ao
-        );
+    sound : entity work.sn76489
+        generic map (
+            AUDIO_RES => 8
+            )
+        port  map (
+            clk => clock_32,
+            clk_en => mhz4_clken,
+            reset => reset,
+            d => sound_di,
+            ready => sound_ready,
+            we_n => sound_enable_n,
+            ce_n => '0',
+            audio_out => sound_ao
+            );
 
 --------------------------------------------------------
 -- Sound Mixer
@@ -997,8 +1005,8 @@ begin
     begin
           -- SN76489 output is 8-bit signed
           -- attenuate by one bit as to try to match level with other sources
-        l := std_logic_vector(sound_ao(7) & sound_ao) & "0000000";
-        r := std_logic_vector(sound_ao(7) & sound_ao) & "0000000";
+        l := std_logic_vector(sound_ao(7) & sound_ao(7 downto 0)) & "0000000";
+        r := std_logic_vector(sound_ao(7) & sound_ao(7 downto 0)) & "0000000";
         if IncludeSID then
                 -- SID output is 16-bit unsigned
             l := l + (sid_ao(17 downto 2) - x"8000");

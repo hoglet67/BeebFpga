@@ -832,13 +832,7 @@ set_global_assignment -name VHDL_FILE ../src/common/T65/T65.vhd
 set_global_assignment -name VHDL_FILE ../src/common/scandoubler/rgb2vga_scandoubler.vhd
 set_global_assignment -name VHDL_FILE ../src/common/scandoubler/rgb2vga_dpram.vhd
 set_global_assignment -name VHDL_FILE ../src/common/scandoubler/mist_scandoubler.vhd
-set_global_assignment -name VHDL_FILE "../src/common/sn76489-1.0/sn76489_comp_pack-p.vhd"
-set_global_assignment -name VHDL_FILE "../src/common/sn76489-1.0/sn76489_top.vhd"
-set_global_assignment -name VHDL_FILE "../src/common/sn76489-1.0/sn76489_tone.vhd"
-set_global_assignment -name VHDL_FILE "../src/common/sn76489-1.0/sn76489_noise.vhd"
-set_global_assignment -name VHDL_FILE "../src/common/sn76489-1.0/sn76489_latch_ctrl.vhd"
-set_global_assignment -name VHDL_FILE "../src/common/sn76489-1.0/sn76489_clock_div.vhd"
-set_global_assignment -name VHDL_FILE "../src/common/sn76489-1.0/sn76489_attenuator.vhd"
+set_global_assignment -name VHDL_FILE ../src/common/sn76489.vhd
 set_global_assignment -name VHDL_FILE ../src/common/SID/sid_components.vhd
 set_global_assignment -name VHDL_FILE ../src/common/music5000/Ram2K.vhd
 set_global_assignment -name VHDL_FILE ../src/common/music5000/LogLinRom.vhd

@@ -39,6 +39,7 @@
 --
 -- Revision list
 --
+--        dmb: ier bit 7 should read back as '1'
 --        dmb: Fixes to sr_do_shift change that broke MMFS on the Beeb (SR mode 0)
 -- version 005 Many fixes to all areas, VIA now passes all VICE tests
 -- version 004 fixes to PB7 T1 control and Mode 0 Shift Register operation
@@ -390,7 +391,8 @@ begin
             when x"B" => O_DATA <= r_acr;
             when x"C" => O_DATA <= r_pcr;
             when x"D" => O_DATA <= r_ifr;
-            when x"E" => O_DATA <= ('0' & r_ier);
+            -- DMB: ier bit 7 should read back as '1'
+            when x"E" => O_DATA <= ('1' & r_ier);
             when x"F" => O_DATA <= r_ira;
             when others => null;
          end case;

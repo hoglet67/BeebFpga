@@ -1003,10 +1003,10 @@ begin
         variable l : std_logic_vector(15 downto 0);
         variable r : std_logic_vector(15 downto 0);
     begin
-          -- SN76489 output is 8-bit signed
+          -- SN76489 output is 8-bit unsigned
           -- attenuate by one bit as to try to match level with other sources
-        l := std_logic_vector(sound_ao(7) & sound_ao(7 downto 0)) & "0000000";
-        r := std_logic_vector(sound_ao(7) & sound_ao(7 downto 0)) & "0000000";
+        l := std_logic_vector(not sound_ao(7) & not sound_ao(7) & sound_ao(6 downto 0)) & "0000000";
+        r := std_logic_vector(not sound_ao(7) & not sound_ao(7) & sound_ao(6 downto 0)) & "0000000";
         if IncludeSID then
                 -- SID output is 16-bit unsigned
             l := l + (sid_ao(17 downto 2) - x"8000");

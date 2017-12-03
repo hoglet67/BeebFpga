@@ -150,6 +150,8 @@ architecture rtl of bbc_micro_de1 is
 -- Signals
 -------------
 
+signal clock_24        : std_logic;
+signal clock_48        : std_logic;
 signal clock_32        : std_logic;
 signal audio_l         : std_logic_vector(15 downto 0);
 signal audio_r         : std_logic_vector(15 downto 0);
@@ -252,7 +254,7 @@ begin
             )
         port map (
             clock_32       => clock_32,
-            clock_24       => CLOCK_24_0,
+            clock_24       => clock_24,
             clock_27       => CLOCK_27_0,
             hard_reset_n   => hard_reset_n,
             ps2_kbd_clk    => PS2_CLK,
@@ -314,14 +316,31 @@ begin
 -- Clock Generation
 --------------------------------------------------------
 
-    -- 32 MHz master clock from 24MHz input clock
-    pll: entity work.pll32
+    -- 32 MHz master clock from 27MHz input clock
+    -- plus intermediate 48MHz clock
+    pll32: entity work.pll32
         port map (
             areset         => pll_reset,
-            inclk0         => CLOCK_24_0,
-            c0             => clock_32,
+            inclk0         => CLOCK_27_0,   -- 27 MHz input clock
+            c0             => clock_32,     -- 32 MHz master clock for the Beeb
+            c1             => clock_48,     -- 48 MHz intermediate clock, see below
             locked         => pll_locked
         );
+
+    -- 24MHz teletext clock, generated from 48MHz intermediate clock
+    --
+    -- Important: this must be phase locked to the 32MHz clock
+    -- i.e. they must be generated from the same clock source
+    --
+    -- This is also the case on a real BBC, where the 6MHz teletext
+    -- clock is generted by some dubious delays from the 16MHz
+    -- system clock.
+    clock_24_gen : process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            clock_24 <= not clock_24;
+        end if;
+    end process;
 
 --------------------------------------------------------
 -- Power Up Reset Generation

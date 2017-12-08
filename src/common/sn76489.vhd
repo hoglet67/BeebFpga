@@ -30,15 +30,15 @@ begin
     variable tone   : std_logic;
   begin
     if reset = '1' then
-      count := freq;
+      count := (others => '0');
       tone := '0';
     elsif rising_edge(clk) then
       if clk_div16_en = '1' then
-        if count = 0 then
+        if count = freq then
           tone := not tone;
-          count := freq;
+          count := (others => '0');
         else
-          count := count - 1;
+          count := count + 1;
         end if;
       end if;
     end if;

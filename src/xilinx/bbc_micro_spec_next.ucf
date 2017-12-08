@@ -1,3 +1,124 @@
+# 32MHz main clock domain
+NET "clock_32" TNM_NET = clk_period_grp_32;
+TIMESPEC TS_clk_period_32 = PERIOD "clk_period_grp_32" 31.25ns HIGH;
+
+# 27MHz VGA clock domain
+#NET "clock_27" TNM_NET = clk_period_grp_27;
+#TIMESPEC TS_clk_period_27 = PERIOD "clk_period_grp_27" 37.04ns HIGH;
+
+# 24MHz SAA5050 clock domain
+NET "clock_24" TNM_NET = clk_period_grp_24;
+TIMESPEC TS_clk_period_24 = PERIOD "clk_period_grp_24" 41.66ns HIGH;
+
+# 12MHz Music 5000 clock domain
+# TODO: This should be a PLL generated clock!
+NET "bbc_micro/ttxt_clken_BUFG" TNM_NET = clk_period_grp_12;
+TIMESPEC TS_clk_period_12 = PERIOD "clk_period_grp_12" 83.33ns HIGH;
+
+# 1MHz SID clock domain
+# TODO: This should be a PLL generated clock!
+NET "bbc_micro/mhz1_clken_BUFG" TNM_NET = clk_period_grp_01;
+TIMESPEC TS_clk_period_01 = PERIOD "clk_period_grp_01" 1000.00ns HIGH;
+
+# Avoid timing warnings for cross domain signals (which are synchronized anyway)
+NET "clock_32"                  TNM_NET = FFS "clk_domain_32";
+#NET "clock_27"                  TNM_NET = FFS "clk_domain_27";
+NET "clock_24"                  TNM_NET = FFS "clk_domain_24";
+NET "bbc_micro/ttxt_clken_BUFG" TNM_NET = FFS "clk_domain_12";
+NET "bbc_micro/mhz1_clken_BUFG" TNM_NET = FFS "clk_domain_01";
+
+#TIMESPEC "TS_CrossDomain_32_27" = FROM "clk_domain_32" TO "clk_domain_27" TIG;
+TIMESPEC "TS_CrossDomain_32_24" = FROM "clk_domain_32" TO "clk_domain_24" TIG;
+TIMESPEC "TS_CrossDomain_32_12" = FROM "clk_domain_32" TO "clk_domain_12" TIG;
+TIMESPEC "TS_CrossDomain_32_01" = FROM "clk_domain_32" TO "clk_domain_01" TIG;
+TIMESPEC "TS_CrossDomain_12_32" = FROM "clk_domain_12" TO "clk_domain_32" TIG;
+TIMESPEC "TS_CrossDomain_01_32" = FROM "clk_domain_01" TO "clk_domain_32" TIG;
+
+# #####################################
+# # SRAM Interface - runs at 32MHz
+# #####################################
+# 
+# NET ram_oe_n_o     OFFSET = OUT 10ns AFTER "clock_32";
+# NET ram_addr_o(18) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(17) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(16) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(15) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(14) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(13) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(12) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(11) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(10) OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(9)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(8)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(7)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(6)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(5)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(4)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(3)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(2)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(1)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# NET ram_addr_o(0)  OFFSET = OUT 10ns AFTER "clock_32"; 
+# 
+# # This is the tightest path
+# # ram_addr_o Offset + Taccess + PCB + SRAM_D Offset In < 31.25ns
+# # 10ns          + 10ns    + 1ns + 10ns             = 31.00ns 
+# NET ram_data_io(*)  OFFSET = IN 10ns VALID 10ns BEFORE "clock_32";
+# 
+# # ram_we_n_o is driven by an IODDR2 register
+# NET ram_we_n_o   OFFSET = OUT  6ns AFTER "clock_32" FALLING;
+# NET ram_we_n_o   OFFSET = OUT  6ns AFTER "clock_32" RISING;
+# 
+# # ram_data_io tristate is driven by an IODDR2 register
+# NET ram_data_io(*)  OFFSET = OUT  6ns AFTER  "clock_32" FALLING;
+# # ram_data_io data includes some fabric logic delays
+# NET ram_data_io(*)  OFFSET = OUT 10ns AFTER  "clock_32" RISING;
+# 
+# #####################################
+# # FLASH Interface runs at 16 MHz
+# #####################################
+# 
+# # Times can be somewhat lax, as there are two cycles to do a read
+# NET flash_cs_n_o   OFFSET = OUT            15ns AFTER  "clock_32";
+# NET flash_mosi_o   OFFSET = OUT            15ns AFTER  "clock_32";
+# NET flash_sclk_o   OFFSET = OUT            15ns AFTER  "clock_32";
+# NET flash_miso_i   OFFSET = IN  15ns VALID 15ns BEFORE "clock_32";
+# 
+# #####################################
+# # Non critical inputs
+# #####################################
+# 
+# NET ps2_clk_io          TIG;
+# NET ps2_data_io         TIG;
+# NET ps2_pin2_io         TIG;
+# NET ps2_pin6_io         TIG;
+# NET btn_divmmc_n_i	   TIG;
+# NET btn_multiface_n_i	TIG;
+# NET btn_reset_n_i		   TIG;
+# NET sd_miso_i           TIG;
+# NET joyp1_i             TIG;
+# NET joyp2_i             TIG;
+# NET joyp3_i             TIG;
+# NET joyp4_i             TIG;
+# NET joyp6_i             TIG;
+# NET joyp9_i             TIG;
+# NET esp_rx_i            TIG;
+# 
+# #####################################
+# # Non critical outputs
+# #####################################
+# 
+# NET rgb_r_o(*)          TIG;
+# NET rgb_g_o(*)          TIG;
+# NET rgb_b_o(*)          TIG;
+# NET vsync_o             TIG;
+# NET hsync_o             TIG;
+# NET audioext_l_o        TIG;
+# NET audioext_r_o        TIG;
+# NET sd_sclk_o           TIG;
+# NET sd_mosi_o           TIG;
+# NET sd_cs_n_o           TIG;
+# NET esp_tx_o            TIG;
+
 #
 # TBBlue / ZX Spectrum Next project
 # Copyright (c) 2010-2017 - Fabio Belavenuto & Victor Trucco

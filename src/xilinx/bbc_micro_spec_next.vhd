@@ -189,16 +189,16 @@ begin
 -- BBC Micro Core
 --------------------------------------------------------
 
-	 -- TODO, make this optional
+    -- TODO, make this optional
     copro_mode     <= '1';
 
-	 -- As per the Beeb keyboard DIP switches
+    -- As per the Beeb keyboard DIP switches
     keyb_dip       <= "00000000";
 
-	 -- Bit 3 inverts vsync
-	 -- Bit 2 inverts hsync
-	 -- Bit 1 selects between Mist (0) and RGBtoVGA (1) scan doublers
-	 -- Bit 0 selecte between sRGB (0) and VGA (1)
+    -- Bit 3 inverts vsync
+    -- Bit 2 inverts hsync
+    -- Bit 1 selects between Mist (0) and RGBtoVGA (1) scan doublers
+    -- Bit 0 selecte between sRGB (0) and VGA (1)
     vid_mode       <= "0001";
 
     bbc_micro : entity work.bbc_micro_core
@@ -442,7 +442,7 @@ begin
         FLASH_SO        => flash_miso_i
         );
 
-	 ram_addr_o <= ram_addr(18 downto 0);
+    ram_addr_o <= ram_addr(18 downto 0);
     ram_data_io(15 downto 8) <= "ZZZZZZZZ";
     ram_ce_n_o(1) <= '0';
     ram_ce_n_o(2) <= '0';
@@ -493,16 +493,16 @@ begin
     i2c_scl_io <= 'Z';
     i2c_sda_io <= 'Z';
 
-	 -- TODO: what are these?
+    -- TODO: what are these?
     joyp7_o    <= '1';
     joysel_o   <= '1';
 
     keyb_row_o <= x"FF";
 
-	 -- TODO: what is this?
+    -- TODO: what is this?
     mic_port_o <= '1';
 
-	 -- TODO: are we using the correct CS?
+    -- TODO: are we using the correct CS?
     sd_cs2_n_o <= '1';
 
 end architecture;

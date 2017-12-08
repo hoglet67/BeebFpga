@@ -3,9 +3,9 @@
 run_data2mem=$false
 
 XILINX=/opt/Xilinx/14.7
-DATA2MEM=${XILINX}/ISE_DS/ISE/bin/lin/data2mem
+DATA2MEM=${XILINX}/ISE_DS/ISE/bin/lin64/data2mem
 PAPILIO_LOADER=/opt/GadgetFactory/papilio-loader/programmer
-PROG=${PAPILIO_LOADER}/linux32/papilio-prog
+PROG=${PAPILIO_LOADER}/linux64/papilio-prog
 BSCAN=${PAPILIO_LOADER}/bscan_spi_xc6slx9.bit
 IMAGE=tmp/rom_image.bin
 
@@ -25,7 +25,7 @@ mv tmp/merged2.bit tmp/merged.bit
 fi
 
 # Program the Papilo Duo
-${PROG} -v -f tmp/merged.bit -b ${BSCAN}  -sa -r
+sudo ${PROG} -v -f tmp/merged.bit -b ${BSCAN}  -sa -r
 
 # Reset the Papilio Duo
-${PROG} -c
+sudo ${PROG} -c

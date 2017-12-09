@@ -482,9 +482,9 @@ begin
     esp_gpio0_io   <= 'Z';
     esp_gpio2_io   <= 'Z';
 
-    -- Unused Flash inputs
-    flash_hold_o   <= '1'; -- low pauses serial communications with flash
-    flash_wp_o     <= '1'; -- disable write protection
+    -- Addtional flash pins; used at IO2 and IO3 in Quad SPI Mode
+    flash_hold_o   <= 'Z';
+    flash_wp_o     <= 'Z';
 
     -- TODO: add support for HDMI output
     OBUFDS_c0  : OBUFDS port map ( O  => hdmi_p_o(0), OB => hdmi_n_o(0), I => '1');

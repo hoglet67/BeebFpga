@@ -171,6 +171,8 @@ architecture rtl of bbc_micro_spec_next is
 -- Bootstrap ROM Image from SPI FLASH into SRAM
 -----------------------------------------------
 
+    -- Spec Next FLASH is Winbond 25Q128JVSQ (16MB)
+
     -- start address of user data in FLASH as obtained from bitmerge.py
     -- this is safely beyond the end of the bitstream
     constant user_address_beeb    : std_logic_vector(23 downto 0) := x"080000";
@@ -456,8 +458,8 @@ begin
     -- Pi Connector
     accel_io       <= "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZ";
 
-    -- TODO: what is this?
-    audioint_o     <= '1';
+    -- Interal audio (speaker, not fitted)
+    audioint_o     <= '0';
 
     -- Spectrum Next Bus
     bus_addr_o     <= x"0000";
@@ -493,16 +495,19 @@ begin
     i2c_scl_io <= 'Z';
     i2c_sda_io <= 'Z';
 
-    -- TODO: what are these?
+    -- Pin 7 on the joystick connecter. TODO: is '1' correct?
     joyp7_o    <= '1';
-    joysel_o   <= '1';
 
+    -- Controls a mux to select between two joystick ports
+    joysel_o   <= '0';
+
+    -- Keyboard row
     keyb_row_o <= x"FF";
 
-    -- TODO: what is this?
-    mic_port_o <= '1';
+    -- Mic Port (output, as it connects to the mic input on cassette deck)
+    mic_port_o <= '0';
 
-    -- TODO: are we using the correct CS?
+    -- CS2 is for internal SD socket
     sd_cs2_n_o <= '1';
 
 end architecture;

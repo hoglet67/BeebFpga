@@ -55,9 +55,9 @@ generic (
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := true;
-        IncludeCoPro6502   : boolean := false; -- The three co pro options
+        IncludeCoPro6502   : boolean := true;  -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
-        IncludeCoProExt    : boolean := true;  -- (i.e. select just one)
+        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -541,6 +541,11 @@ begin
         -- Unused outputs
         GPIO_1(35 downto 28) <= (others => 'Z');
         GPIO_1(17 downto 16) <= (others => 'Z');
+    end generate;
+
+    GenCoProNotExt: if not IncludeCoProExt generate
+    begin
+        ext_tube_do  <= x"FE";
     end generate;
 
     -- External Keyboard connected to GPIO0

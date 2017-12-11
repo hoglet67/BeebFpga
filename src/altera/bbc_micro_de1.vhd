@@ -50,6 +50,18 @@ use ieee.numeric_std.all;
 
 -- Generic top-level entity for Altera DE1 board
 entity bbc_micro_de1 is
+generic (
+        IncludeAMXMouse    : boolean := false;
+        IncludeSID         : boolean := false;
+        IncludeMusic5000   : boolean := false;
+        IncludeICEDebugger : boolean := true;
+        IncludeCoPro6502   : boolean := false; -- The three co pro options
+        IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
+        IncludeCoProExt    : boolean := true;  -- (i.e. select just one)
+        UseOrigKeyboard    : boolean := false;
+        UseT65Core         : boolean := false;
+        UseAlanDCore       : boolean := true
+);
 port (
     -- Clocks
     CLOCK_24_0  :   in  std_logic;
@@ -206,6 +218,14 @@ signal ext_keyb_rst_n  : std_logic;
 signal ext_keyb_ca2    : std_logic;
 signal ext_keyb_pa7    : std_logic;
 
+signal ext_tube_r_nw   : std_logic;
+signal ext_tube_nrst   : std_logic;
+signal ext_tube_ntube  : std_logic;
+signal ext_tube_phi2   : std_logic;
+signal ext_tube_a      : std_logic_vector(6 downto 0);
+signal ext_tube_di     : std_logic_vector(7 downto 0);
+signal ext_tube_do     : std_logic_vector(7 downto 0);
+
 -- A registered version to allow slow flash to be used
 signal ext_A_r         : std_logic_vector (18 downto 0);
 
@@ -242,15 +262,16 @@ begin
 
     bbc_micro : entity work.bbc_micro_core
         generic map (
-            IncludeAMXMouse    => false,
-            IncludeSID         => false,
-            IncludeMusic5000   => false,
-            IncludeICEDebugger => true,
-            IncludeCoPro6502   => false,
-            IncludeCoProSPI    => true,
-            UseOrigKeyboard    => false,
-            UseT65Core         => false,
-            UseAlanDCore       => true
+            IncludeAMXMouse    => IncludeAMXMouse,
+            IncludeSID         => IncludeSID,
+            IncludeMusic5000   => IncludeMusic5000,
+            IncludeICEDebugger => IncludeICEDebugger,
+            IncludeCoPro6502   => IncludeCoPro6502,
+            IncludeCoProSPI    => IncludeCoProSPI,
+            IncludeCoProExt    => IncludeCoProExt,
+            UseOrigKeyboard    => UseOrigKeyboard,
+            UseT65Core         => UseT65Core,
+            UseAlanDCore       => UseAlanDCore
             )
         port map (
             clock_32       => clock_32,
@@ -305,6 +326,13 @@ begin
             p_irq_b        => p_irq_b,
             p_nmi_b        => p_nmi_b,
             p_rst_b        => p_rst_b,
+            ext_tube_r_nw  => ext_tube_r_nw,
+            ext_tube_nrst  => ext_tube_nrst,
+            ext_tube_ntube => ext_tube_ntube,
+            ext_tube_phi2  => ext_tube_phi2,
+            ext_tube_a     => ext_tube_a,
+            ext_tube_di    => ext_tube_di,
+            ext_tube_do    => ext_tube_do,
             test           => test
         );
     m128_mode      <= SW(9);
@@ -458,27 +486,62 @@ begin
     LEDR(3 downto 2) <= (others => '0');
     LEDR(9 downto 6) <= (others => '0');
 
-    -- Co Pro SPI
-    p_spi_ssel <= GPIO_1(0);
-    p_spi_sck  <= GPIO_1(1);
-    p_spi_mosi <= GPIO_1(2);
-    GPIO_1(3)  <= p_spi_miso;
-    GPIO_1(4)  <= p_irq_b;
-    GPIO_1(5)  <= p_nmi_b;
-    GPIO_1(6)  <= p_rst_b;
+    -- GPIO_1 is the Co Processor connection
 
-    -- Debug outputs for SPI interface
-    GPIO_1(28) <= p_spi_ssel;
-    GPIO_1(29) <= p_spi_sck;
-    GPIO_1(30) <= p_spi_mosi;
-    GPIO_1(31) <= p_spi_miso;
-    GPIO_1(32) <= p_irq_b;
-    GPIO_1(33) <= p_nmi_b;
-    GPIO_1(34) <= p_rst_b;
-    GPIO_1(35) <= '0';
+    GenCoProSPI: if IncludeCoProSPI generate
+    begin
+        -- Co Pro SPI
+        p_spi_ssel <= GPIO_1(0);
+        p_spi_sck  <= GPIO_1(1);
+        p_spi_mosi <= GPIO_1(2);
+        GPIO_1(3)  <= p_spi_miso;
+        GPIO_1(4)  <= p_irq_b;
+        GPIO_1(5)  <= p_nmi_b;
+        GPIO_1(6)  <= p_rst_b;
 
-    -- Debug outputs for test signals
-    GPIO_1(27 downto 20) <= test;
+        -- Debug outputs for SPI interface
+        GPIO_1(28) <= p_spi_ssel;
+        GPIO_1(29) <= p_spi_sck;
+        GPIO_1(30) <= p_spi_mosi;
+        GPIO_1(31) <= p_spi_miso;
+        GPIO_1(32) <= p_irq_b;
+        GPIO_1(33) <= p_nmi_b;
+        GPIO_1(34) <= p_rst_b;
+        GPIO_1(35) <= '0';
+
+        -- Debug outputs for test signals
+        GPIO_1(27 downto 20) <= test;
+
+        -- Unused outputs
+        GPIO_1( 2 downto 0)  <= (others => 'Z');
+        GPIO_1(17 downto 7)  <= (others => 'Z');
+    end generate;
+
+    GenCoProNotSPI: if not IncludeCoProSPI generate
+    begin
+        p_spi_ssel <= '1';
+        p_spi_sck  <= '1';
+        p_spi_mosi <= '1';
+    end generate;
+
+    GenCoProExt: if IncludeCoProExt generate
+    begin
+        -- Tube signals, in a somewhat arbitrary order
+        ext_tube_do          <= GPIO_1(15 downto 8);
+        GPIO_1(0)            <= ext_tube_phi2;
+        GPIO_1(1)            <= ext_tube_r_nw;
+        GPIO_1(2)            <= ext_tube_ntube;
+        GPIO_1(3)            <= ext_tube_nrst;
+        GPIO_1(7 downto 4)   <= ext_tube_a(3 downto 0);
+        GPIO_1(15 downto 8)  <= ext_tube_di when ext_tube_r_nw = '0' else (others => 'Z');
+
+        -- Debug outputs for test signals
+        GPIO_1(27 downto 20) <= test;
+
+        -- Unused outputs
+        GPIO_1(35 downto 28) <= (others => 'Z');
+        GPIO_1(17 downto 16) <= (others => 'Z');
+    end generate;
 
     -- External Keyboard connected to GPIO0
     -- GND                                -- pin 1
@@ -495,7 +558,7 @@ begin
     ext_keyb_pa7    <= GPIO_0(14);        -- pin 12
     GPIO_0(12)      <= ext_keyb_led3;     -- pin 13
     ext_keyb_ca2    <= GPIO_0(10);        -- pin 14
-    -- VCC                                -- pin 15    
+    -- VCC                                -- pin 15
     GPIO_0(8)      <= ext_keyb_led1;      -- pin 16
     GPIO_0(6)      <= ext_keyb_led2;      -- pin 17
 
@@ -505,8 +568,6 @@ begin
     GPIO_0(35 downto 33) <= (others => 'Z');
     GPIO_0(31 downto 15) <= (others => 'Z');
     GPIO_0(13 downto 0)  <= (others => 'Z');
-    
-    GPIO_1( 2 downto 0)  <= (others => 'Z');
-    GPIO_1(17 downto 7)  <= (others => 'Z');
+
 
 end architecture;

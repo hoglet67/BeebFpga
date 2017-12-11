@@ -60,8 +60,9 @@ entity bbc_micro_core is
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := false;
-        IncludeCoProSPI    : boolean := false;
+        IncludeCoPro6502   : boolean := false; -- The three co pro options
+        IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
+        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -126,7 +127,7 @@ entity bbc_micro_core is
         ext_keyb_rst_n : in    std_logic;
         ext_keyb_ca2   : in    std_logic;
         ext_keyb_pa7   : in    std_logic;
-        
+
         -- Format of Video
         -- Bit 0 selects 15.625KHz SRGB (0) or 31.5KHz VGA (1)
         -- Bit 1 selects Mist (0) or RGB2VGA (1) scan doubler is used for VGA
@@ -166,6 +167,15 @@ entity bbc_micro_core is
         p_irq_b        : out   std_logic;
         p_nmi_b        : out   std_logic;
         p_rst_b        : out   std_logic;
+
+        -- External tube outputs, for connecting to PiTubeDirect
+        ext_tube_r_nw  : out   std_logic;
+        ext_tube_nrst  : out   std_logic;
+        ext_tube_ntube : out   std_logic;
+        ext_tube_phi2  : out   std_logic;
+        ext_tube_a     : out   std_logic_vector(6 downto 0);
+        ext_tube_di    : out   std_logic_vector(7 downto 0);
+        ext_tube_do    : in    std_logic_vector(7 downto 0) := x"FE";
 
         -- Test outputs
         test           : out   std_logic_vector(7 downto 0)
@@ -710,10 +720,10 @@ begin
             clock_32
         );
         mouse_ps2interface: entity work.ps2interface
-		  generic map(
+        generic map(
             MainClockSpeed => 32000000
-		  )
-		  port map(
+        )
+        port map(
            ps2_clk  => ps2_mse_clk,
            ps2_data => ps2_mse_data,
            clk      => clock_32,
@@ -748,7 +758,7 @@ begin
            left     => mouse_via_pb_in(5),
            middle   => mouse_via_pb_in(6),
            right    => mouse_via_pb_in(7)
-        );        
+        );
         mouse_via_pa_in <= mouse_via_pa_out;
         mouse_via_pb_in(4) <= '1';
         mouse_via_pb_in(3) <= '1';
@@ -772,9 +782,9 @@ begin
         keyb_int       <= ext_keyb_ca2;
         keyb_break     <= not ext_keyb_rst_n;
     end generate;
-        
+
     -- PS/2 Keyboard
-    keyboard_ps2: if not UseOrigKeyboard generate 
+    keyboard_ps2: if not UseOrigKeyboard generate
         keyb : entity work.keyboard port map (
             clock_32, hard_reset_n, mhz1_clken,
             ps2_kbd_clk, ps2_kbd_data,
@@ -951,6 +961,25 @@ begin
         tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
 
+--------------------------------------------------------
+-- Optional External Co Processor
+--------------------------------------------------------
+
+    GenCoProExt: if IncludeCoProExt generate
+    begin
+        ext_tube_r_nw  <= cpu_r_nw;
+        ext_tube_nrst  <= reset_n;
+        ext_tube_ntube <= not tube_enable;
+        ext_tube_a     <= cpu_a(6 downto 0);
+        ext_tube_di    <= cpu_do;
+        process(clock_32)
+        begin
+            if rising_edge(clock_32) then
+                ext_tube_phi2 <= clken_counter(3);
+            end if;
+        end process;
+    end generate;
+        
 --------------------------------------------------------
 -- SN76489 Sound Generator
 --------------------------------------------------------
@@ -1257,7 +1286,7 @@ begin
                     -- 0xFE40
                     sys_via_enable <= '1';
                 when "011" =>
-                    -- 0xFE60                   
+                    -- 0xFE60
                     if IncludeAMXMouse then
                         mouse_via_enable <= '1';
                     else
@@ -1275,7 +1304,7 @@ begin
                         adc_enable <= '1';
                     end if;
                 when "111" =>
-                    if copro_mode = '1' and (IncludeCoPro6502 or IncludeCoProSPI) then
+                    if copro_mode = '1' and (IncludeCoPro6502 or IncludeCoProSPI or IncludeCoProExt) then
                         tube_enable <= '1';       -- 0xFEE0
                     end if;
                 when others =>
@@ -1310,6 +1339,7 @@ begin
         sid_do         when sid_enable = '1' and IncludeSid else
         music5000_do   when io_jim = '1' and IncludeMusic5000 else
         tube_do        when tube_enable = '1' and (IncludeCoPro6502 or IncludeCoProSPI) else
+        ext_tube_do    when tube_enable = '1' and IncludeCoProExt else
         -- Master 128 additions
         romsel         when romsel_enable = '1' and m128_mode = '1' else
         acccon         when acccon_enable = '1' and m128_mode = '1' else
@@ -1736,5 +1766,5 @@ begin
 
     -- Test output
     test <= mouse_via_pb_in(7 downto 5) & "0" & mouse_via_cb2_in &  mouse_via_pb_in(2) &  mouse_via_cb1_in & mouse_via_pb_in(0);
-        
+
 end architecture;

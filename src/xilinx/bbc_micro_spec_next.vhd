@@ -52,6 +52,14 @@ use UNISIM.Vcomponents.all;
 
 -- Generic top-level entity for Spectrum Next board
 entity bbc_micro_spec_next is
+    generic (
+        IncludeAMXMouse    : boolean := false;
+        IncludeSID         : boolean := true;
+        IncludeMusic5000   : boolean := true;
+        IncludeICEDebugger : boolean := true;
+        IncludeCoPro6502   : boolean := false; -- The co pro options are mutually exclusive
+        IncludeCoProExt    : boolean := true   -- (i.e. select just one)
+    );
     port (
         accel_io              : inout std_logic_vector(27 downto 0);
         audioext_l_o          : out   std_logic;
@@ -166,6 +174,13 @@ architecture rtl of bbc_micro_spec_next is
     signal blue            : std_logic_vector(3 downto 0);
     signal joystick1       : std_logic_vector(4 downto 0);
     signal joystick2       : std_logic_vector(4 downto 0);
+    signal ext_tube_r_nw   : std_logic;
+    signal ext_tube_nrst   : std_logic;
+    signal ext_tube_ntube  : std_logic;
+    signal ext_tube_phi2   : std_logic;
+    signal ext_tube_a      : std_logic_vector(6 downto 0);
+    signal ext_tube_di     : std_logic_vector(7 downto 0);
+    signal ext_tube_do     : std_logic_vector(7 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -205,16 +220,17 @@ begin
 
     bbc_micro : entity work.bbc_micro_core
     generic map (
-        IncludeAMXMouse    => false,
-        IncludeSID         => true,
-        IncludeMusic5000   => true,
-        IncludeICEDebugger => true,
-        IncludeCoPro6502   => true,
+        IncludeAMXMouse    => IncludeAMXMouse,
+        IncludeSID         => IncludeSID,
+        IncludeMusic5000   => IncludeMusic5000,
+        IncludeICEDebugger => IncludeICEDebugger,
+        IncludeCoPro6502   => IncludeCoPro6502,
         IncludeCoProSPI    => false,
+        IncludeCoProExt    => IncludeCoProExt,
         UseOrigKeyboard    => false,
         UseT65Core         => false,
         UseAlanDCore       => true
-    )
+        )
     port map (
         clock_32       => clock_32,
         clock_24       => clock_24,
@@ -259,8 +275,15 @@ begin
         p_irq_b        => open,
         p_nmi_b        => open,
         p_rst_b        => open,
+        ext_tube_r_nw  => ext_tube_r_nw,
+        ext_tube_nrst  => ext_tube_nrst,
+        ext_tube_ntube => ext_tube_ntube,
+        ext_tube_phi2  => ext_tube_phi2,
+        ext_tube_a     => ext_tube_a,
+        ext_tube_di    => ext_tube_di,
+        ext_tube_do    => ext_tube_do,
         test           => open,
-        -- original keyboard not yet supported on the Duo
+        -- original keyboard not yet supported on the Spec Next
         ext_keyb_led1  => open,
         ext_keyb_led2  => open,
         ext_keyb_led3  => open,
@@ -452,11 +475,51 @@ begin
     ram_data_io(15 downto 8) <= "ZZZZZZZZ";
 
 --------------------------------------------------------
--- Unused outputs
+-- External tube connections
 --------------------------------------------------------
 
-    -- Pi Connector
-    accel_io       <= "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZ";
+    GenCoProExt: if IncludeCoProExt generate
+    begin
+        ext_tube_do  <= accel_io(25 downto 22) & accel_io(11 downto 8);
+        accel_io(0)  <= 'Z';
+        accel_io(1)  <= 'Z';
+        accel_io(2)  <= ext_tube_a(1);
+        accel_io(3)  <= ext_tube_a(2);
+        accel_io(4)  <= ext_tube_nrst;
+        accel_io(5)  <= 'Z'; -- reserved for ext_tube_a(3);
+        accel_io(6)  <= 'Z';
+        accel_io(7)  <= ext_tube_phi2;
+        accel_io(8)  <= ext_tube_di(0) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(9)  <= ext_tube_di(1) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(10) <= ext_tube_di(2) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(11) <= ext_tube_di(3) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(12) <= 'Z';
+        accel_io(13) <= 'Z';
+        accel_io(14) <= 'Z';
+        accel_io(15) <= 'Z';
+        accel_io(16) <= 'Z';
+        accel_io(17) <= ext_tube_ntube;
+        accel_io(18) <= ext_tube_r_nw;
+        accel_io(19) <= 'Z';
+        accel_io(20) <= 'Z';
+        accel_io(21) <= 'Z';
+        accel_io(22) <= ext_tube_di(4) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(23) <= ext_tube_di(5) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(24) <= ext_tube_di(6) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(25) <= ext_tube_di(7) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(26) <= 'Z';
+        accel_io(27) <= ext_tube_a(0);
+    end generate;
+
+    GenCoProNotExt: if not IncludeCoProExt generate
+    begin
+        ext_tube_do  <= x"FE";
+        accel_io     <= (others => 'Z');
+    end generate;
+
+--------------------------------------------------------
+-- Unused outputs
+--------------------------------------------------------
 
     -- Interal audio (speaker, not fitted)
     audioint_o     <= '0';

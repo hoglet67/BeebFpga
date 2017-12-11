@@ -331,7 +331,7 @@ NET 'accel_io<4>'			LOC='K16'	| IOSTANDARD = LVCMOS33;
 NET 'accel_io<5>'			LOC='F13'	| IOSTANDARD = LVCMOS33;
 NET 'accel_io<6>'			LOC='F14'	| IOSTANDARD = LVCMOS33;
 NET 'accel_io<7>'			LOC='F15'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<8>'			LOC='F16'	| IOSTANDARD = LVCMOS33;
+NET 'accel_io<8>'			LOC='F16'	| IOSTANDARD = LVCMOS33 | PULLDOWN; # (D0) Ensure model B boots if Pi not present
 NET 'accel_io<9>'			LOC='H16'	| IOSTANDARD = LVCMOS33;
 NET 'accel_io<10>'		LOC='L10'	| IOSTANDARD = LVCMOS33;
 NET 'accel_io<11>'		LOC='G16'	| IOSTANDARD = LVCMOS33;

@@ -1056,7 +1056,19 @@ begin
 
     -- Keyboard and System VIA and Video are by a power up reset signal
     -- Rest of system is reset by all of the above plus keyboard BREAK key
-    reset_n <= reset_n_out and hard_reset_n and not keyb_break;
+	 -- Syncronise the reset to cpu_clken. This seems to be needed for reliable
+	 -- operation of the Alan D core. I think without this, depending on when
+	 -- reset is release, there may be too short a time to read the the first
+	 -- byte of the reset vector from slow FLASH (on the Altera DE1).
+    sync_reset: process(clock_32)
+    begin
+        if rising_edge(clock_32) then
+            if cpu_clken = '1' then
+                reset_n <= reset_n_out and hard_reset_n and not keyb_break;
+            end if;
+        end if;
+    end process;
+
     reset   <= not reset_n;
 
 --------------------------------------------------------

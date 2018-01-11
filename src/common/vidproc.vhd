@@ -46,7 +46,8 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity vidproc is
     generic (
-        IncludeVideoNuLA : boolean := false
+        IncludeVideoNuLA : boolean := false;
+        RGB_WIDTH        : integer := 1
         );
     port (
         CLOCK       :   in  std_logic;
@@ -59,7 +60,7 @@ entity vidproc is
         
         -- Bus interface
         ENABLE      :   in  std_logic;
-        A0          :   in  std_logic;
+        A           :   in  std_logic_vector(1 downto 0);
         -- CPU data bus (for register writes)
         DI_CPU      :   in  std_logic_vector(7 downto 0);
         -- Display RAM data bus (for display data fetch)
@@ -76,9 +77,9 @@ entity vidproc is
         B_IN        :   in  std_logic;
         
         -- Video out
-        R           :   out std_logic_vector(0 downto 0);
-        G           :   out std_logic_vector(0 downto 0);
-        B           :   out std_logic_vector(0 downto 0)
+        R           :   out std_logic_vector(RGB_WIDTH - 1 downto 0);
+        G           :   out std_logic_vector(RGB_WIDTH - 1 downto 0);
+        B           :   out std_logic_vector(RGB_WIDTH - 1 downto 0)
         );
 end entity;
 
@@ -134,7 +135,7 @@ begin
             end loop;
         elsif rising_edge(CLOCK) then
             if ENABLE = '1' then
-                if A0 = '0' then
+                if A(0) = '0' then
                     -- Access control register
                     r0_cursor0 <= DI_CPU(7);
                     r0_cursor1 <= DI_CPU(6);
@@ -283,10 +284,9 @@ begin
             end if;
         end if;
     end process;
-    
-    -- Allow the 12MHz teletext signals to pass through without re-sampling
-    R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert;
-    G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert;
-    B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert;
+
+    R <= (others => RR) when r0_teletext = '0' else (others => R_IN xor cursor_invert);
+    G <= (others => GG) when r0_teletext = '0' else (others => G_IN xor cursor_invert);
+    B <= (others => BB) when r0_teletext = '0' else (others => B_IN xor cursor_invert);
     
 end architecture;

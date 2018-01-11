@@ -279,7 +279,7 @@ signal g_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal b_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
 -- Scandoubler signals (Mist)
-signal rgbi_in          :   std_logic_vector(3 downto 0);
+signal rgbi_in          :   std_logic_vector(RGB_WIDTH * 3 downto 0);
 signal vga0_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga0_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga0_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
@@ -606,7 +606,8 @@ begin
 
     video_ula : entity work.vidproc
     generic map (
-        IncludeVideoNuLA => IncludeVideoNuLA
+        IncludeVideoNuLA => IncludeVideoNuLA,
+        RGB_WIDTH => RGB_WIDTH
     )
     port map (
         clock_32,
@@ -614,7 +615,7 @@ begin
         hard_reset_n,
         crtc_clken,
         vidproc_enable,
-        cpu_a(0),
+        cpu_a(1 downto 0),
         cpu_do,
         ext_Dout,
         vidproc_invert_n,

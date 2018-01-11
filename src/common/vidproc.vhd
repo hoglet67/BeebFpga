@@ -52,7 +52,7 @@ entity vidproc is
     port (
         CLOCK       :   in  std_logic;
         CPUCLKEN    :   in  std_logic;
-        
+
         -- Clock enable qualifies display cycles (interleaved with CPU cycles)
         CLKEN       :   in  std_logic;
         nRESET      :   in  std_logic;
@@ -134,7 +134,7 @@ architecture rtl of vidproc is
     signal nula_write_index           : std_logic;
     signal nula_data_last             : std_logic_vector(7 downto 0);
     signal nula_RGB                   : std_logic_vector(11 downto 0);
-        
+
 -- Additional VideoNuLA palette
     type nula_palette_t is array(0 to 15) of std_logic_vector(11 downto 0);
     signal nula_palette               : nula_palette_t;
@@ -212,7 +212,7 @@ begin
                 nula_palette(13) <= x"707";
                 nula_palette(14) <= x"077";
                 nula_palette(15) <= x"777";
-                
+
             elsif rising_edge(CLOCK) then
                 if CPUCLKEN = '1' then
                     if ENABLE = '1' and A(1) = '1' and nula_disable_a1 = '0' then
@@ -252,9 +252,13 @@ begin
                                 nula_data_last <= DI_CPU;
                             else
                                 nula_palette(to_integer(unsigned(nula_data_last(7 downto 4)))) <= nula_data_last(3 downto 0) & DI_CPU;
+                                -- if writing to colours 8..15, set the flash
+                                -- flags to supress flashing
+                                if nula_data_last(7) = '1' then
+                                    nula_flashing_flags(to_integer(unsigned(nula_data_last(6 downto 4)))) <= '1';
+                                end if;
                             end if;
                             nula_write_index <= not nula_write_index;
-                            
                         end if;
                     end if;
                 end if;
@@ -365,6 +369,7 @@ begin
         variable red_val : std_logic;
         variable green_val : std_logic;
         variable blue_val : std_logic;
+        variable do_flash : std_logic;
     begin
         if nRESET = '0' then
             RR <= '0';
@@ -381,10 +386,17 @@ begin
                 palette_a := shiftreg(7) & shiftreg(5) & shiftreg(3) & shiftreg(1);
                 dot_val := palette(to_integer(unsigned(palette_a)));
 
+
                 -- Apply flash inversion if required
-                red_val := (dot_val(3) and r0_flash) xor not dot_val(0);
-                green_val := (dot_val(3) and r0_flash) xor not dot_val(1);
-                blue_val := (dot_val(3) and r0_flash) xor not dot_val(2);
+                do_flash := r0_flash;
+                if IncludeVideoNuLA then
+                    if nula_flashing_flags(to_integer(unsigned(dot_val(2 downto 0) xor "111"))) = '1' then
+                        do_flash := '0';
+                    end if;
+                end if;
+                red_val := (dot_val(3) and do_flash) xor not dot_val(0);
+                green_val := (dot_val(3) and do_flash) xor not dot_val(1);
+                blue_val := (dot_val(3) and do_flash) xor not dot_val(2);
 
                 -- To output
                 -- FIXME: INVERT option
@@ -394,7 +406,7 @@ begin
 
                 -- Display enable signal delayed by one clock
                 delayed_disen <= DISEN;
-                
+
                 -- Output physical colour, to be used by VideoNuLA
                 --if r0_teletext = '0' then
 
@@ -404,7 +416,7 @@ begin
                     phys_col <= dot_val(3) & blue_val & green_val & red_val;
                 end if;
 
-                                 
+
                 --else
                 --    phys_col <= '0' & (B_IN xor cursor_invert) & (G_IN xor cursor_invert) & (R_IN xor cursor_invert);
                 --end if;
@@ -425,20 +437,20 @@ begin
                        nula_RGB <= nula_palette(to_integer(unsigned(phys_col xor invert)));
                    else
                        nula_RGB <= x"000";
-                   end if; 
+                   end if;
                end if;
            end if;
         end process;
 
         R <= nula_RGB(11 downto 8) when r0_teletext = '0' else
              (others => R_IN xor cursor_invert);
-        
+
         G <= nula_RGB(7 downto 4) when r0_teletext = '0' else
              (others => G_IN xor cursor_invert);
-        
+
         B <= nula_RGB(3 downto 0) when r0_teletext = '0' else
              (others => B_IN xor cursor_invert);
-        
+
     end generate;
 
     VideoNula_not_included: if not IncludeVideoNuLA generate

@@ -20,6 +20,9 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity rgb2vga_scandoubler is
+   generic (
+      WIDTH : integer
+   );
 	port (
 		-- 32MHz pixel clock from BBC Micro
 		clock : in  std_logic;
@@ -31,12 +34,12 @@ entity rgb2vga_scandoubler is
         clk25 : in  std_logic;
         
 		-- Input 15.625kHz RGB signals
-		rgbi_in   : in  std_logic_vector(3 downto 0);
+		rgbi_in   : in  std_logic_vector(WIDTH - 1 downto 0);
 		hSync_in  : in  std_logic;
 		vSync_in  : in  std_logic;
 		
 		-- Output 31.250kHz VGA signals
-		rgbi_out  : out std_logic_vector(3 downto 0);
+		rgbi_out  : out std_logic_vector(WIDTH - 1 downto 0);
 		hSync_out : out std_logic;
 		vSync_out : out std_logic
 	);
@@ -124,8 +127,8 @@ architecture rtl of rgb2vga_scandoubler is
 	signal writeEn1        : std_logic;
 
 	-- Signals on the read side of the RAMs:
-	signal ram0Data        : std_logic_vector(3 downto 0);
-	signal ram1Data        : std_logic_vector(3 downto 0);
+	signal ram0Data        : std_logic_vector(WIDTH - 1 downto 0);
+	signal ram1Data        : std_logic_vector(WIDTH - 1 downto 0);
 
 begin
 
@@ -134,6 +137,9 @@ begin
 	-- swap every incoming 64us scanline.
 	--
 	ram0: entity work.rgb2vga_dpram
+      generic map (
+         WIDTH => WIDTH
+      )
 		port map(
 			-- Write port
 			wrclock   => clock,
@@ -147,6 +153,9 @@ begin
 			q         => ram0data
 		);
 	ram1: entity work.rgb2vga_dpram
+      generic map (
+         WIDTH => WIDTH
+      )
 		port map(
 			-- Write port
 			wrclock   => clock,

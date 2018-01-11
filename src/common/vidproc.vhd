@@ -45,6 +45,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity vidproc is
+generic (
+    IncludeVideoNuLA : boolean := false
+);
 port (
 	CLOCK		:	in	std_logic;
 	-- Clock enable qualifies display cycles (interleaved with CPU cycles)
@@ -73,9 +76,9 @@ port (
 	B_IN		:	in	std_logic;
 	
 	-- Video out
-	R			:	out	std_logic;
-	G			:	out	std_logic;
-	B			:	out	std_logic
+	R			:	out	std_logic_vector(0 downto 0);
+	G			:	out	std_logic_vector(0 downto 0);
+	B			:	out	std_logic_vector(0 downto 0)
 	);
 end entity;
 
@@ -282,9 +285,9 @@ begin
 	end process;
     
     -- Allow the 12MHz teletext signals to pass through without re-sampling
-    R <= RR when r0_teletext = '0' else R_IN xor cursor_invert; 
-    G <= GG when r0_teletext = '0' else G_IN xor cursor_invert; 
-    B <= BB when r0_teletext = '0' else B_IN xor cursor_invert; 
+    R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert; 
+    G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert; 
+    B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert; 
         
 end architecture;
 

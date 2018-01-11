@@ -63,6 +63,7 @@ entity bbc_micro_core is
         IncludeCoPro6502   : boolean := false; -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
+        IncludeVideoNuLA   : boolean := false;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -184,7 +185,19 @@ entity bbc_micro_core is
 end entity;
 
 architecture rtl of bbc_micro_core is
+    
+-- Use 4-bit RGB when VideoNuLA is included, other 1-bit RGB
+function calc_rgb_width(includeVideoNuLA : boolean) return integer is
+begin
+    if includeVideoNuLA then
+        return 4;
+    else
+        return 1;
+    end if;
+end function;
 
+constant RGB_WIDTH : integer := calc_rgb_width(IncludeVideoNuLA);
+  
 -------------
 -- Signals
 -------------
@@ -261,26 +274,26 @@ signal vidproc_disen    :   std_logic;
 signal r_in             :   std_logic;
 signal g_in             :   std_logic;
 signal b_in             :   std_logic;
-signal r_out            :   std_logic;
-signal g_out            :   std_logic;
-signal b_out            :   std_logic;
+signal r_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal g_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal b_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
 -- Scandoubler signals (Mist)
 signal rgbi_in          :   std_logic_vector(3 downto 0);
-signal vga0_r           :   std_logic_vector(1 downto 0);
-signal vga0_g           :   std_logic_vector(1 downto 0);
-signal vga0_b           :   std_logic_vector(1 downto 0);
+signal vga0_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga0_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga0_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga0_hs          :   std_logic;
 signal vga0_vs          :   std_logic;
 signal vga0_mode        :   std_logic;
 -- Scandoubler signals (RGB2VGA)
-signal vga1_r           :   std_logic_vector(1 downto 0);
-signal vga1_g           :   std_logic_vector(1 downto 0);
-signal vga1_b           :   std_logic_vector(1 downto 0);
+signal vga1_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga1_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga1_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga1_hs          :   std_logic;
 signal vga1_vs          :   std_logic;
 signal vga1_mode        :   std_logic;
-signal rgbi_out         :   std_logic_vector(3 downto 0);
+signal rgbi_out         :   std_logic_vector(RGB_WIDTH * 3 downto 0);
 signal vsync_int        :   std_logic;
 signal hsync_int        :   std_logic;
 
@@ -591,7 +604,11 @@ begin
         crtc_ma,
         crtc_ra );
 
-    video_ula : entity work.vidproc port map (
+    video_ula : entity work.vidproc
+    generic map (
+        IncludeVideoNuLA => IncludeVideoNuLA
+    )
+    port map (
         clock_32,
         vid_clken,
         hard_reset_n,
@@ -1637,11 +1654,15 @@ begin
 -- Scan Doubler from the MIST project
 -----------------------------------------------
 
-    inst_mist_scandoubler: entity work.mist_scandoubler port map (
+    inst_mist_scandoubler: entity work.mist_scandoubler
+    generic map (
+        -- WIDTH is width of individual rgb in/out ports
+        WIDTH => RGB_WIDTH
+    )
+    port map (
         clk => clock_32,
         clk_16 => clock_32,
         clk_16_en => vid_clken,
-        scanlines => '0',
         hs_in => crtc_hsync_n,
         vs_in => crtc_vsync_n,
         r_in => r_out,
@@ -1664,7 +1685,12 @@ begin
 
     rgbi_in <= r_out & g_out & b_out & '0';
 
-    inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler port map (
+    inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler
+    generic map (
+        -- WIDTH is width of combined rgbi in/out ports
+        WIDTH => RGB_WIDTH * 3 + 1
+    )
+    port map (
         clock => clock_32,
         clken => vid_clken,
         clk25 => clock_27,
@@ -1676,9 +1702,9 @@ begin
         vSync_out => vga1_vs
     );
 
-    vga1_r  <= rgbi_out(3) & rgbi_out(3);
-    vga1_g  <= rgbi_out(2) & rgbi_out(2);
-    vga1_b  <= rgbi_out(1) & rgbi_out(1);
+    vga1_r  <= rgbi_out(RGB_WIDTH * 3 downto RGB_WIDTH * 2 + 1);
+    vga1_g  <= rgbi_out(RGB_WIDTH * 2 downto RGB_WIDTH * 1 + 1);
+    vga1_b  <= rgbi_out(RGB_WIDTH * 1 downto RGB_WIDTH * 0 + 1);
 
     vga1_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '1' else '0';
 
@@ -1699,18 +1725,26 @@ begin
 
     video_vsync <= vsync_int xor vid_mode(3);
 
-    video_red   <= vga0_r(1) & vga0_r(0) & "00" when vga0_mode = '1' else
-                   vga1_r(1) & vga1_r(0) & "00" when vga1_mode = '1' else
-                   r_out & r_out & r_out & r_out;
+    video_red  (3 downto 4 - RGB_WIDTH) <= vga0_r when vga0_mode = '1' else
+                                           vga1_r when vga1_mode = '1' else
+                                           r_out;
 
-    video_green <= vga0_g(1) & vga0_g(0) & "00" when vga0_mode = '1' else
-                   vga1_g(1) & vga1_g(0) & "00" when vga1_mode = '1' else
-                   g_out & g_out & g_out & g_out;
+    video_green(3 downto 4 - RGB_WIDTH) <= vga0_g when vga0_mode = '1' else
+                                           vga1_g when vga1_mode = '1' else
+                                           g_out;
 
-    video_blue  <= vga0_b(1) & vga0_b(0) & "00" when vga0_mode = '1' else
-                   vga1_b(1) & vga1_b(0) & "00" when vga1_mode = '1' else
-                   b_out & b_out & b_out & b_out;
+    video_blue (3 downto 4 - RGB_WIDTH) <= vga0_b when vga0_mode = '1' else
+                                           vga1_b when vga1_mode = '1' else
+                                           b_out;
 
+    -- For smaller RGB_WIDTH values, pad the 4-bit video output appropriately
+    pad: if RGB_WIDTH < 4 generate
+    begin
+        video_red  (4 - RGB_WIDTH - 1 downto 0) <= (others => '0');
+        video_green(4 - RGB_WIDTH - 1 downto 0) <= (others => '0');
+        video_blue (4 - RGB_WIDTH - 1 downto 0) <= (others => '0');
+    end generate;
+    
 -----------------------------------------------
 -- Master 128 additions
 -----------------------------------------------

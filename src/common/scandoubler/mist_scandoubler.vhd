@@ -26,26 +26,28 @@ use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
 entity mist_scandoubler is
+    generic (
+        WIDTH     : integer
+    );
     port (
         -- system interface
         clk       : in  std_logic;  -- 32MHz
         clk_16    : in  std_logic;  -- from shifter
         clk_16_en : in  std_logic;
-        scanlines : in  std_logic;
 
         -- shifter video interface
         hs_in     : in  std_logic;
         vs_in     : in  std_logic;
-        r_in      : in  std_logic;
-        g_in      : in  std_logic;
-        b_in      : in  std_logic;
+        r_in      : in  std_logic_vector(WIDTH - 1 downto 0);
+        g_in      : in  std_logic_vector(WIDTH - 1 downto 0);
+        b_in      : in  std_logic_vector(WIDTH - 1 downto 0);
 
         -- output interface
         hs_out    : out std_logic;
         vs_out    : out std_logic;
-        r_out     : out std_logic_vector(1 downto 0);
-        g_out     : out std_logic_vector(1 downto 0);
-        b_out     : out std_logic_vector(1 downto 0);
+        r_out     : out std_logic_vector(WIDTH - 1 downto 0);
+        g_out     : out std_logic_vector(WIDTH - 1 downto 0);
+        b_out     : out std_logic_vector(WIDTH - 1 downto 0);
 
         is15k     : out std_logic
     );
@@ -54,14 +56,13 @@ end entity;
 architecture rtl of mist_scandoubler is
 
 -- scan doubler output register
-signal sd_out : std_logic_vector(2 downto 0);
+signal sd_out : std_logic_vector(WIDTH * 3 - 1 downto 0);
 
 -- --------------------- create output signals -----------------
--- latch everything once more to make it glitch free and apply scanline effect
-signal scanline : std_logic;
+-- latch everything once more to make it glitch free
 
 -- 2 lines of 1024 pixels 3*4 bit RGB
-type ram_type is array (2047 downto 0) of std_logic_vector (2 downto 0);
+type ram_type is array (2047 downto 0) of std_logic_vector (WIDTH * 3 - 1 downto 0);
 signal sd_buffer : ram_type;
 
 -- use alternating sd_buffers when storing/reading data
@@ -91,27 +92,9 @@ begin
         if rising_edge(clk) then
             hs <= hs_sd;
             vs <= vs_in;
-
-            -- reset scanlines at every new screen
-            if vs /= vs_in then
-                scanline <= '0';
-            end if;
-
-            -- toggle scanlines at begin of every hsync
-            if hs = '1' and hs_sd = '0' then
-                scanline <= not scanline;
-            end if;
-
-            -- if no scanlines or not a scanline
-            if scanlines = '0' or scanline = '0' then
-                r_out <= sd_out(2) & sd_out(2);
-                g_out <= sd_out(1) & sd_out(1);
-                b_out <= sd_out(0) & sd_out(0);
-            else
-                r_out <= '0' & sd_out(2);
-                g_out <= '0' & sd_out(1);
-                b_out <= '0' & sd_out(0);
-            end if;
+            r_out <= sd_out(WIDTH * 3 - 1 downto WIDTH * 2);
+            g_out <= sd_out(WIDTH * 2 - 1 downto WIDTH * 1);
+            b_out <= sd_out(WIDTH * 1 - 1 downto WIDTH * 0);
         end if;
     end process;
 

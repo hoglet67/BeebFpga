@@ -5,7 +5,7 @@ use ieee.std_logic_unsigned.all;
 entity rgb2vga_dpram is
     generic (
         WIDTH : integer
-    );
+        );
     port (
         wrclock  : in  std_logic;
         wren   : in  std_logic;

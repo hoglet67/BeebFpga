@@ -611,6 +611,7 @@ begin
     )
     port map (
         clock_32,
+        cpu_clken,
         vid_clken,
         hard_reset_n,
         crtc_clken,
@@ -1295,7 +1296,7 @@ begin
                     -- 0xFE20
                     if cpu_a(4) = '0' then
                         -- 0xFE20
-                        vidproc_enable <= '1';
+                        vidproc_enable <= not cpu_r_nw;
                     elsif m128_mode = '1' then
                         case cpu_a(3 downto 2) is
                             -- 0xFE30

@@ -51,13 +51,15 @@ entity vidproc is
         );
     port (
         CLOCK       :   in  std_logic;
+        CPUCLKEN    :   in  std_logic;
+        
         -- Clock enable qualifies display cycles (interleaved with CPU cycles)
         CLKEN       :   in  std_logic;
         nRESET      :   in  std_logic;
-        
+
         -- Clock enable output to CRTC
         CLKEN_CRTC  :   out std_logic;
-        
+
         -- Bus interface
         ENABLE      :   in  std_logic;
         A           :   in  std_logic_vector(1 downto 0);
@@ -65,17 +67,17 @@ entity vidproc is
         DI_CPU      :   in  std_logic_vector(7 downto 0);
         -- Display RAM data bus (for display data fetch)
         DI_RAM      :   in  std_logic_vector(7 downto 0);
-        
+
         -- Control interface
         nINVERT     :   in  std_logic;
         DISEN       :   in  std_logic;
         CURSOR      :   in  std_logic;
-        
+
         -- Video in (teletext mode)
         R_IN        :   in  std_logic;
         G_IN        :   in  std_logic;
         B_IN        :   in  std_logic;
-        
+
         -- Video out
         R           :   out std_logic_vector(RGB_WIDTH - 1 downto 0);
         G           :   out std_logic_vector(RGB_WIDTH - 1 downto 0);
@@ -92,32 +94,55 @@ architecture rtl of vidproc is
     signal r0_pixel_rate    :   std_logic_vector(1 downto 0);
     signal r0_teletext      :   std_logic;
     signal r0_flash         :   std_logic;
-    
+
     type palette_t is array(0 to 15) of std_logic_vector(3 downto 0);
     signal palette          :   palette_t;
-    
+
 -- Pixel shift register
     signal shiftreg         :   std_logic_vector(7 downto 0);
 -- Delayed display enable
     signal delayed_disen    :   std_logic;
-    
+    signal delayed_disen2   :   std_logic;
+
 -- Internal clock enable generation
     signal clken_pixel      :   std_logic;
     signal clken_fetch      :   std_logic;
     signal clken_counter    :   unsigned(3 downto 0);
-    
+
 -- Cursor generation - can span up to 32 pixels
 -- Segments 0 and 1 are 8 pixels wide
 -- Segment 2 is 16 pixels wide
     signal cursor_invert    :   std_logic;
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
-    
+
     signal RR               :   std_logic;
     signal GG               :   std_logic;
     signal BB               :   std_logic;
-    
+
+-- Pass physical colour to VideoNuLA
+    signal phys_col                   : std_logic_vector(3 downto 0);
+
+-- Additional VideoNuLA registers
+    signal nula_palette_mode          : std_logic;
+    signal nula_hor_scroll_offset     : std_logic_vector(2 downto 0);
+    signal nula_left_banking_size     : std_logic_vector(3 downto 0);
+    signal nula_disable_a1            : std_logic;
+    signal nula_enable_attr_mode      : std_logic;
+    signal nula_enable_text_attr_mode : std_logic;
+    signal nula_flashing_flags        : std_logic_vector(7 downto 0);
+    signal nula_write_index           : std_logic;
+    signal nula_data_last             : std_logic_vector(7 downto 0);
+    signal nula_RGB                   : std_logic_vector(11 downto 0);
+        
+-- Additional VideoNuLA palette
+    type nula_palette_t is array(0 to 15) of std_logic_vector(11 downto 0);
+    signal nula_palette               : nula_palette_t;
+
 begin
+
+    -- Original VideoULA Registers
+
     -- Synchronous register access, enabled on every clock
     process(CLOCK,nRESET)
     begin
@@ -129,29 +154,117 @@ begin
             r0_pixel_rate <= "00";
             r0_teletext <= '0';
             r0_flash <= '0';
-            
+
             for colour in 0 to 15 loop
                 palette(colour) <= (others => '0');
             end loop;
         elsif rising_edge(CLOCK) then
-            if ENABLE = '1' then
-                if A(0) = '0' then
-                    -- Access control register
-                    r0_cursor0 <= DI_CPU(7);
-                    r0_cursor1 <= DI_CPU(6);
-                    r0_cursor2 <= DI_CPU(5);
-                    r0_crtc_2mhz <= DI_CPU(4);
-                    r0_pixel_rate <= DI_CPU(3 downto 2);
-                    r0_teletext <= DI_CPU(1);
-                    r0_flash <= DI_CPU(0);
-                else
-                    -- Access palette register
-                    palette(to_integer(unsigned(DI_CPU(7 downto 4)))) <= DI_CPU(3 downto 0);
+            if CPUCLKEN = '1' then
+                if ENABLE = '1' and (A(1) = '0' or not IncludeVideoNuLA or (IncludeVideoNuLA and nula_disable_a1 = '1')) then
+                    if A(0) = '0' then
+                        -- Access control register
+                        r0_cursor0 <= DI_CPU(7);
+                        r0_cursor1 <= DI_CPU(6);
+                        r0_cursor2 <= DI_CPU(5);
+                        r0_crtc_2mhz <= DI_CPU(4);
+                        r0_pixel_rate <= DI_CPU(3 downto 2);
+                        r0_teletext <= DI_CPU(1);
+                        r0_flash <= DI_CPU(0);
+                    else
+                        -- Access palette register
+                        palette(to_integer(unsigned(DI_CPU(7 downto 4)))) <= DI_CPU(3 downto 0);
+                    end if;
                 end if;
             end if;
         end if;
     end process;
-    
+
+    -- Additional VideoNuLA registers
+    videoNula_registers: if IncludeVideoNuLA generate
+    begin
+
+        -- Synchronous register access, enabled on every clock
+        process(CLOCK,nRESET)
+        begin
+            if nRESET = '0' then
+                nula_palette_mode          <= '0';
+                nula_hor_scroll_offset     <= (others => '0');
+                nula_left_banking_size     <= (others => '0');
+                nula_disable_a1            <= '0';
+                nula_enable_attr_mode      <= '0';
+                nula_enable_text_attr_mode <= '0';
+                nula_flashing_flags        <= (others => '0');
+                nula_write_index           <= '0';
+
+                nula_palette( 0) <= x"000";
+                nula_palette( 1) <= x"F00";
+                nula_palette( 2) <= x"0F0";
+                nula_palette( 3) <= x"FF0";
+                nula_palette( 4) <= x"00F";
+                nula_palette( 5) <= x"F0F";
+                nula_palette( 6) <= x"0FF";
+                nula_palette( 7) <= x"FFF";
+                nula_palette( 8) <= x"000";
+                nula_palette( 9) <= x"700";
+                nula_palette(10) <= x"070";
+                nula_palette(11) <= x"770";
+                nula_palette(12) <= x"007";
+                nula_palette(13) <= x"707";
+                nula_palette(14) <= x"077";
+                nula_palette(15) <= x"777";
+                
+            elsif rising_edge(CLOCK) then
+                if CPUCLKEN = '1' then
+                    if ENABLE = '1' and A(1) = '1' and nula_disable_a1 = '0' then
+                        if A(0) = '0' then
+                            -- &FE22 - Auxiliary Control Register
+                            case DI_CPU(7 downto 4) is
+                                when x"1" =>
+                                    nula_palette_mode          <= DI_CPU(0);
+                                when x"2" =>
+                                    nula_hor_scroll_offset     <= DI_CPU(2 downto 0);
+                                when x"3" =>
+                                    nula_left_banking_size     <= DI_CPU(3 downto 0);
+                                when x"4" =>
+                                    nula_palette_mode          <= '0';
+                                    nula_hor_scroll_offset     <= (others => '0');
+                                    nula_left_banking_size     <= (others => '0');
+                                    nula_disable_a1            <= '0';
+                                    nula_enable_attr_mode      <= '0';
+                                    nula_enable_text_attr_mode <= '0';
+                                    nula_flashing_flags        <= (others => '0');
+                                    nula_write_index           <= '0';
+                                when x"5" =>
+                                    nula_disable_a1            <= '1';
+                                when x"6" =>
+                                    nula_enable_attr_mode      <= DI_CPU(0);
+                                when x"7" =>
+                                    nula_enable_text_attr_mode <= DI_CPU(0);
+                                when x"8" =>
+                                    nula_flashing_flags(3 downto 0) <= DI_CPU(3 downto 0);
+                                when x"9" =>
+                                    nula_flashing_flags(7 downto 4) <= DI_CPU(3 downto 0);
+                                when others =>
+                            end case;
+                        else
+                            -- &FE23
+                            if nula_write_index = '0' then
+                                nula_data_last <= DI_CPU;
+                            else
+                                nula_palette(to_integer(unsigned(nula_data_last(7 downto 4)))) <= nula_data_last(3 downto 0) & DI_CPU;
+                            end if;
+                            nula_write_index <= not nula_write_index;
+                            
+                        end if;
+                    end if;
+                end if;
+            end if;
+        end process;
+    end generate;
+
+
+
+
     -- Clock enable generation.
     -- Pixel clock can be divided by 1,2,4 or 8 depending on the value
     -- programmed at r0_pixel_rate
@@ -172,7 +285,7 @@ begin
     -- counting cursor pixels
     clken_fetch <= CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2) or
                                   (clken_counter(3) and not r0_crtc_2mhz));
-    
+
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -184,7 +297,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Fetch control
     process(CLOCK,nRESET)
     begin
@@ -203,13 +316,13 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Cursor generation
     cursor_invert <= cursor_active and
                      ((r0_cursor0 and not (cursor_counter(0) or cursor_counter(1))) or
                       (r0_cursor1 and cursor_counter(0) and not cursor_counter(1)) or
                       (r0_cursor2 and cursor_counter(1)));
-    
+
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -220,12 +333,12 @@ begin
                 if CURSOR = '1' or cursor_active = '1' then
                     -- Latch cursor
                     cursor_active <= '1';
-                    
+
                     -- Reset on counter wrap
                     if cursor_counter = "11" then
                         cursor_active <= '0';
                     end if;
-                    
+
                     -- Increment counter
                     if cursor_active = '0' then
                         -- Reset
@@ -238,7 +351,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Pixel generation
     -- The new shift register contents are loaded during
     -- cycle 0 (and 8) but will not be read here until the next cycle.
@@ -267,26 +380,73 @@ begin
                 -- bit 0 - Not RED
                 palette_a := shiftreg(7) & shiftreg(5) & shiftreg(3) & shiftreg(1);
                 dot_val := palette(to_integer(unsigned(palette_a)));
-                
+
                 -- Apply flash inversion if required
                 red_val := (dot_val(3) and r0_flash) xor not dot_val(0);
                 green_val := (dot_val(3) and r0_flash) xor not dot_val(1);
                 blue_val := (dot_val(3) and r0_flash) xor not dot_val(2);
-                
+
                 -- To output
                 -- FIXME: INVERT option
                 RR <= (red_val and delayed_disen) xor cursor_invert;
                 GG <= (green_val and delayed_disen) xor cursor_invert;
                 BB <= (blue_val and delayed_disen) xor cursor_invert;
-                
+
                 -- Display enable signal delayed by one clock
                 delayed_disen <= DISEN;
+                
+                -- Output physical colour, to be used by VideoNuLA
+                --if r0_teletext = '0' then
+
+                if nula_palette_mode = '1' then
+                    phys_col <= palette_a;
+                else
+                    phys_col <= dot_val(3) & blue_val & green_val & red_val;
+                end if;
+
+                                 
+                --else
+                --    phys_col <= '0' & (B_IN xor cursor_invert) & (G_IN xor cursor_invert) & (R_IN xor cursor_invert);
+                --end if;
             end if;
         end if;
     end process;
 
-    R <= (others => RR) when r0_teletext = '0' else (others => R_IN xor cursor_invert);
-    G <= (others => GG) when r0_teletext = '0' else (others => G_IN xor cursor_invert);
-    B <= (others => BB) when r0_teletext = '0' else (others => B_IN xor cursor_invert);
-    
+    VideoNula_included: if IncludeVideoNuLA generate
+    begin
+        process (CLOCK)
+            variable invert : std_logic_vector(3 downto 0);
+        begin
+           if rising_edge(CLOCK) then
+               if CLKEN = '1' then
+                   delayed_disen2 <= delayed_disen;
+                   invert := (others => cursor_invert);
+                   if delayed_disen2 = '1' then
+                       nula_RGB <= nula_palette(to_integer(unsigned(phys_col xor invert)));
+                   else
+                       nula_RGB <= x"000";
+                   end if; 
+               end if;
+           end if;
+        end process;
+
+        R <= nula_RGB(11 downto 8) when r0_teletext = '0' else
+             (others => R_IN xor cursor_invert);
+        
+        G <= nula_RGB(7 downto 4) when r0_teletext = '0' else
+             (others => G_IN xor cursor_invert);
+        
+        B <= nula_RGB(3 downto 0) when r0_teletext = '0' else
+             (others => B_IN xor cursor_invert);
+        
+    end generate;
+
+    VideoNula_not_included: if not IncludeVideoNuLA generate
+    begin
+        R <= (others => RR) when r0_teletext = '0' else (others => R_IN xor cursor_invert);
+        G <= (others => GG) when r0_teletext = '0' else (others => G_IN xor cursor_invert);
+        B <= (others => BB) when r0_teletext = '0' else (others => B_IN xor cursor_invert);
+    end generate;
+
+
 end architecture;

@@ -255,9 +255,11 @@ begin
                                 when x"7" =>
                                     nula_enable_text_attr_mode <= DI_CPU(0);
                                 when x"8" =>
-                                    nula_flashing_flags(3 downto 0) <= DI_CPU(3 downto 0);
-                                when x"9" =>
+                                    -- bits 7..4 control colours 8..11 respectively
                                     nula_flashing_flags(7 downto 4) <= DI_CPU(3 downto 0);
+                                when x"9" =>
+                                    -- bits 3..0 control colours 12..15 respectively
+                                    nula_flashing_flags(3 downto 0) <= DI_CPU(3 downto 0);
                                 when others =>
                             end case;
                         else
@@ -269,7 +271,7 @@ begin
                                 -- if writing to colours 8..15, clear the flash
                                 -- flags to supress flashing
                                 if nula_data_last(7) = '1' then
-                                    nula_flashing_flags(to_integer(unsigned(nula_data_last(6 downto 4)))) <= '0';
+                                    nula_flashing_flags(to_integer(unsigned(nula_data_last(6 downto 4) xor "111"))) <= '0';
                                 end if;
                             end if;
                             nula_write_index <= not nula_write_index;
@@ -401,7 +403,7 @@ begin
                 -- Apply flash inversion if required
                 do_flash := r0_flash;
                 if IncludeVideoNuLA then
-                    if nula_flashing_flags(to_integer(unsigned(dot_val(2 downto 0) xor "111"))) = '0' then
+                    if nula_flashing_flags(to_integer(unsigned(dot_val(2 downto 0)))) = '0' then
                         do_flash := '0';
                     end if;
                 end if;

@@ -123,6 +123,11 @@ architecture rtl of vidproc is
 -- Pass physical colour to VideoNuLA
     signal phys_col                   : std_logic_vector(3 downto 0);
 
+-- Delay line for physical colour to support horirontal scroll offset
+    signal phys_col_delay_reg         : std_logic_vector(27 downto 0);
+    signal phys_col_delay_mux         : std_logic_vector(31 downto 0);
+    signal phys_col_delay_out         : std_logic_vector(3 downto 0);
+
 -- Additional VideoNuLA registers
     signal nula_palette_mode          : std_logic;
     signal nula_hor_scroll_offset     : std_logic_vector(2 downto 0);
@@ -426,18 +431,26 @@ begin
 
     VideoNula_included: if IncludeVideoNuLA generate
     begin
+
+        -- Infer a large mux to select the appropriate hor scroll delay tap
+        phys_col_delay_mux <= phys_col_delay_reg & phys_col;
+        phys_col_delay_out <= phys_col_delay_mux(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
+
         process (CLOCK)
             variable invert : std_logic_vector(3 downto 0);
         begin
            if rising_edge(CLOCK) then
                if CLKEN = '1' then
+                   -- Shift pixels in from right (so bits 3..0 are the most recent)
+                   phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
                    delayed_disen2 <= delayed_disen;
                    invert := (others => cursor_invert);
                    if delayed_disen2 = '1' then
-                       nula_RGB <= nula_palette(to_integer(unsigned(phys_col xor invert)));
+                       nula_RGB <= nula_palette(to_integer(unsigned(phys_col_delay_out xor invert)));
                    else
                        nula_RGB <= x"000";
                    end if;
+
                end if;
            end if;
         end process;

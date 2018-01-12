@@ -144,6 +144,9 @@ architecture rtl of vidproc is
     type nula_palette_t is array(0 to 15) of std_logic_vector(11 downto 0);
     signal nula_palette               : nula_palette_t;
 
+-- Additional VideoNuLA signals
+    signal nula_nreset                 : std_logic := '0';
+
 begin
 
     -- Original VideoULA Registers
@@ -189,37 +192,50 @@ begin
     begin
 
         -- Synchronous register access, enabled on every clock
-        process(CLOCK,nRESET)
+        process(CLOCK, nRESET)
         begin
-            if nRESET = '0' then
-                nula_palette_mode          <= '0';
-                nula_hor_scroll_offset     <= (others => '0');
-                nula_left_banking_size     <= (others => '0');
-                nula_disable_a1            <= '0';
-                nula_enable_attr_mode      <= '0';
-                nula_enable_text_attr_mode <= '0';
-                nula_flashing_flags        <= (others => '0');
-                nula_write_index           <= '0';
 
-                nula_palette( 0) <= x"000";
-                nula_palette( 1) <= x"F00";
-                nula_palette( 2) <= x"0F0";
-                nula_palette( 3) <= x"FF0";
-                nula_palette( 4) <= x"00F";
-                nula_palette( 5) <= x"F0F";
-                nula_palette( 6) <= x"0FF";
-                nula_palette( 7) <= x"FFF";
-                nula_palette( 8) <= x"000";
-                nula_palette( 9) <= x"700";
-                nula_palette(10) <= x"070";
-                nula_palette(11) <= x"770";
-                nula_palette(12) <= x"007";
-                nula_palette(13) <= x"707";
-                nula_palette(14) <= x"077";
-                nula_palette(15) <= x"777";
+            if nRESET = '0' then
+
+                nula_nreset <= '0';
 
             elsif rising_edge(CLOCK) then
+
                 if CPUCLKEN = '1' then
+
+                    -- If the nula_nreset register is '0', sSynchronously reset
+                    -- everything, then set nula_nreset to '1' to acknowledge.
+                    -- This allow the reset logic to be in one place, but
+                    -- triggered by three things: power up, nRESET and &FE22=&4x
+
+                    if nula_nreset = '0' then
+                        nula_palette_mode          <= '0';
+                        nula_hor_scroll_offset     <= (others => '0');
+                        nula_left_banking_size     <= (others => '0');
+                        nula_disable_a1            <= '0';
+                        nula_enable_attr_mode      <= '0';
+                        nula_enable_text_attr_mode <= '0';
+                        nula_flashing_flags        <= (others => '1');
+                        nula_write_index           <= '0';
+                        nula_palette( 0)           <= x"000";
+                        nula_palette( 1)           <= x"F00";
+                        nula_palette( 2)           <= x"0F0";
+                        nula_palette( 3)           <= x"FF0";
+                        nula_palette( 4)           <= x"00F";
+                        nula_palette( 5)           <= x"F0F";
+                        nula_palette( 6)           <= x"0FF";
+                        nula_palette( 7)           <= x"FFF";
+                        nula_palette( 8)           <= x"000";
+                        nula_palette( 9)           <= x"F00";
+                        nula_palette(10)           <= x"0F0";
+                        nula_palette(11)           <= x"FF0";
+                        nula_palette(12)           <= x"00F";
+                        nula_palette(13)           <= x"F0F";
+                        nula_palette(14)           <= x"0FF";
+                        nula_palette(15)           <= x"FFF";
+                        nula_nreset                <= '1';
+                    end if;
+
                     if ENABLE = '1' and A(1) = '1' and nula_disable_a1 = '0' then
                         if A(0) = '0' then
                             -- &FE22 - Auxiliary Control Register
@@ -231,14 +247,7 @@ begin
                                 when x"3" =>
                                     nula_left_banking_size     <= DI_CPU(3 downto 0);
                                 when x"4" =>
-                                    nula_palette_mode          <= '0';
-                                    nula_hor_scroll_offset     <= (others => '0');
-                                    nula_left_banking_size     <= (others => '0');
-                                    nula_disable_a1            <= '0';
-                                    nula_enable_attr_mode      <= '0';
-                                    nula_enable_text_attr_mode <= '0';
-                                    nula_flashing_flags        <= (others => '0');
-                                    nula_write_index           <= '0';
+                                    nula_nreset                <= '0';
                                 when x"5" =>
                                     nula_disable_a1            <= '1';
                                 when x"6" =>
@@ -257,10 +266,10 @@ begin
                                 nula_data_last <= DI_CPU;
                             else
                                 nula_palette(to_integer(unsigned(nula_data_last(7 downto 4)))) <= nula_data_last(3 downto 0) & DI_CPU;
-                                -- if writing to colours 8..15, set the flash
+                                -- if writing to colours 8..15, clear the flash
                                 -- flags to supress flashing
                                 if nula_data_last(7) = '1' then
-                                    nula_flashing_flags(to_integer(unsigned(nula_data_last(6 downto 4)))) <= '1';
+                                    nula_flashing_flags(to_integer(unsigned(nula_data_last(6 downto 4)))) <= '0';
                                 end if;
                             end if;
                             nula_write_index <= not nula_write_index;
@@ -270,9 +279,6 @@ begin
             end if;
         end process;
     end generate;
-
-
-
 
     -- Clock enable generation.
     -- Pixel clock can be divided by 1,2,4 or 8 depending on the value
@@ -395,7 +401,7 @@ begin
                 -- Apply flash inversion if required
                 do_flash := r0_flash;
                 if IncludeVideoNuLA then
-                    if nula_flashing_flags(to_integer(unsigned(dot_val(2 downto 0) xor "111"))) = '1' then
+                    if nula_flashing_flags(to_integer(unsigned(dot_val(2 downto 0) xor "111"))) = '0' then
                         do_flash := '0';
                     end if;
                 end if;

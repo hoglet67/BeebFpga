@@ -607,23 +607,27 @@ begin
     video_ula : entity work.vidproc
     generic map (
         IncludeVideoNuLA => IncludeVideoNuLA,
-        RGB_WIDTH => RGB_WIDTH
+        RGB_WIDTH   => RGB_WIDTH
     )
     port map (
-        clock_32,
-        cpu_clken,
-        vid_clken,
-        hard_reset_n,
-        crtc_clken,
-        vidproc_enable,
-        cpu_a(1 downto 0),
-        cpu_do,
-        ext_Dout,
-        vidproc_invert_n,
-        vidproc_disen,
-        crtc_cursor,
-        r_in, g_in, b_in,
-        r_out, g_out, b_out
+        CLOCK       => clock_32,
+        CPUCLKEN    => cpu_clken,
+        CLKEN       => vid_clken,
+        nRESET      => hard_reset_n,
+        CLKEN_CRTC  => crtc_clken,
+        ENABLE      => vidproc_enable,
+        A           => cpu_a(1 downto 0),
+        DI_CPU      => cpu_do,
+        DI_RAM      => ext_Dout,
+        nINVERT     => vidproc_invert_n,
+        DISEN       => vidproc_disen,
+        CURSOR      => crtc_cursor,
+        R_IN        => r_in,
+        G_IN        => g_in,
+        B_IN        => b_in,
+        R           => r_out,
+        G           => g_out,
+        B           => b_out
         );
 
     teletext : entity work.saa5050 port map (

@@ -263,7 +263,7 @@ begin
                                 when others =>
                             end case;
                         else
-                            -- &FE23
+                            -- &FE23 - Auxiliary Palette Register
                             if nula_write_index = '0' then
                                 nula_data_last <= DI_CPU;
                             else

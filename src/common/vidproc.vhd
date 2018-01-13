@@ -134,6 +134,10 @@ architecture rtl of vidproc is
     signal phys_col_delay_out         : std_logic_vector(3 downto 0);
     signal phys_col_final             : std_logic_vector(3 downto 0);
 
+-- Attribue bits
+    signal mode1                      : std_logic;
+    signal attr_bits                  : std_logic_vector(2 downto 0);
+
 -- Additional VideoNuLA registers
     signal nula_palette_mode          : std_logic;
     signal nula_hor_scroll_offset     : std_logic_vector(2 downto 0);
@@ -399,6 +403,8 @@ begin
         end if;
     end process;
 
+    mode1 <= '1' when r0_crtc_2mhz = '1' and r0_pixel_rate = "10" else '0';
+
     -- Shift register control
     process(PIXCLK,nRESET)
     begin
@@ -409,7 +415,23 @@ begin
                 if clken_load = '1' then
                     -- Fetch next byte from RAM into shift register.  This always occurs in
                     -- cycle 0, and also in cycle 8 if the CRTC is clocked at double rate.
-                    shiftreg <= di;
+                    if nula_enable_attr_mode = '1' then
+                        if nula_enable_text_attr_mode = '1' then
+                            shiftreg <= di and x"f8";
+                            attr_bits <= di(2 downto 0);
+                        else
+                            shiftreg <= di;
+                            if mode1 = '1' then
+                                -- mode 1
+                                attr_bits <= di(4) & di(0) & '0';
+                            else
+                                -- mode 0, 3, 4, 6
+                                attr_bits <= di(1) & di(0) & '0';
+                            end if;
+                        end if;
+                    else
+                        shiftreg <= di;
+                    end if;
                 else
                     -- Clock shift register and input '1' at LSB
                     shiftreg <= shiftreg(6 downto 0) & "1";
@@ -482,7 +504,16 @@ begin
                 -- bit 2 - Not BLUE
                 -- bit 1 - Not GREEN
                 -- bit 0 - Not RED
-                palette_a := shiftreg(7) & shiftreg(5) & shiftreg(3) & shiftreg(1);
+                if nula_enable_attr_mode = '1' then
+                    if mode1 = '1' then
+                        palette_a := attr_bits(2 downto 1) & shiftreg(7) & shiftreg(3);
+                    else
+                        palette_a := attr_bits(2 downto 0)               & shiftreg(7);
+                    end if;
+                else
+                    palette_a := shiftreg(7) & shiftreg(5) & shiftreg(3) & shiftreg(1);
+                end if;
+
                 dot_val := palette(to_integer(unsigned(palette_a)));
 
 
@@ -498,7 +529,6 @@ begin
                 blue_val := (dot_val(3) and do_flash) xor not dot_val(2);
 
                 -- To output
-                -- FIXME: INVERT option
                 RR <= (red_val and delayed_disen) xor cursor_invert;
                 GG <= (green_val and delayed_disen) xor cursor_invert;
                 BB <= (blue_val and delayed_disen) xor cursor_invert;

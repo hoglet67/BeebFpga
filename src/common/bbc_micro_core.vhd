@@ -73,6 +73,7 @@ entity bbc_micro_core is
         clock_32       : in    std_logic;
         clock_24       : in    std_logic;
         clock_27       : in    std_logic;
+        clock_48       : in    std_logic;
 
         -- Hard reset (active low)
         hard_reset_n   : in    std_logic;
@@ -613,6 +614,7 @@ begin
         CLOCK       => clock_32,
         CPUCLKEN    => cpu_clken,
         CLKEN       => vid_clken,
+        PIXCLK      => clock_48,
         nRESET      => hard_reset_n,
         CLKEN_CRTC  => crtc_clken,
         ENABLE      => vidproc_enable,

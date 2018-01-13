@@ -55,6 +55,7 @@ entity vidproc is
 
         -- Clock enable qualifies display cycles (interleaved with CPU cycles)
         CLKEN       :   in  std_logic;
+        PIXCLK      :   in  std_logic;
         nRESET      :   in  std_logic;
 
         -- Clock enable output to CRTC
@@ -108,6 +109,8 @@ architecture rtl of vidproc is
     signal clken_pixel      :   std_logic;
     signal clken_fetch      :   std_logic;
     signal clken_counter    :   unsigned(3 downto 0);
+    signal pixen_prescale   :   unsigned(1 downto 0);
+    signal pixen_counter    :   unsigned(3 downto 0);
 
 -- Cursor generation - can span up to 32 pixels
 -- Segments 0 and 1 are 8 pixels wide
@@ -282,26 +285,19 @@ begin
         end process;
     end generate;
 
-    -- Clock enable generation.
-    -- Pixel clock can be divided by 1,2,4 or 8 depending on the value
-    -- programmed at r0_pixel_rate
-    -- 00 = /8, 01 = /4, 10 = /2, 11 = /1
-    clken_pixel <=
-        CLKEN                                                   when r0_pixel_rate = "11" else
-        (CLKEN and not clken_counter(0))                        when r0_pixel_rate = "10" else
-        (CLKEN and not (clken_counter(0) or clken_counter(1)))  when r0_pixel_rate = "01" else
-        (CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2)));
     -- The CRT controller is always enabled in the 15th cycle, so that the result
     -- is ready for latching into the shift register in cycle 0.  If 2 MHz mode is
     -- selected then the CRTC is also enabled in the 7th cycle
     CLKEN_CRTC <= CLKEN and
                   clken_counter(0) and clken_counter(1) and clken_counter(2) and
                   (clken_counter(3) or r0_crtc_2mhz);
+
     -- The result is fetched from the CRTC in cycle 0 and also cycle 8 if 2 MHz
     -- mode is selected.  This is used for reloading the shift register as well as
     -- counting cursor pixels
     clken_fetch <= CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2) or
                                   (clken_counter(3) and not r0_crtc_2mhz));
+
 
     process(CLOCK,nRESET)
     begin
@@ -315,12 +311,47 @@ begin
         end if;
     end process;
 
+
+    -- Pixel clock enables
+    process(PIXCLK,nRESET)
+    begin
+        if nRESET = '0' then
+            pixen_counter <= (others => '0');
+            pixen_prescale <= (others => '0');
+        elsif rising_edge(PIXCLK) then
+
+            clken_pixel <= '0';
+
+            if pixen_prescale = 1 then
+                pixen_prescale <= pixen_prescale + 2;
+            else
+                pixen_prescale <= pixen_prescale + 1;
+            end if;
+
+            if pixen_prescale = 3 then
+                case r0_pixel_rate is
+                    when "00" =>
+                        clken_pixel <= not (clken_counter(0) or clken_counter(1) or clken_counter(2));
+                    when "01" =>
+                        clken_pixel <= not (clken_counter(0) or clken_counter(1));
+                    when "10" =>
+                        clken_pixel <= not clken_counter(0);
+                    when "11" =>
+                        clken_pixel <= '1';
+                    when others =>
+                end case;
+                pixen_counter <= pixen_counter + 1;
+            end if;
+        end if;
+    end process;
+
+
     -- Fetch control
-    process(CLOCK,nRESET)
+    process(PIXCLK,nRESET)
     begin
         if nRESET = '0' then
             shiftreg <= (others => '0');
-        elsif rising_edge(CLOCK) then
+        elsif rising_edge(PIXCLK) then
             if clken_pixel = '1' then
                 if clken_fetch = '1' then
                     -- Fetch next byte from RAM into shift register.  This always occurs in
@@ -376,7 +407,7 @@ begin
     -- the pixel rate we ensure that the resulting delay is minimal and
     -- constant (running this at the pixel rate would cause
     -- the display to move slightly depending on which mode was selected).
-    process(CLOCK,nRESET)
+    process(PIXCLK,nRESET)
         variable palette_a : std_logic_vector(3 downto 0);
         variable dot_val : std_logic_vector(3 downto 0);
         variable red_val : std_logic;
@@ -389,8 +420,8 @@ begin
             GG <= '0';
             BB <= '0';
             delayed_disen <= '0';
-        elsif rising_edge(CLOCK) then
-            if CLKEN = '1' then
+        elsif rising_edge(PIXCLK) then
+--            if CLKEN = '1' then
                 -- Look up dot value in the palette.  Bits are as follows:
                 -- bit 3 - FLASH
                 -- bit 2 - Not BLUE
@@ -421,19 +452,12 @@ begin
                 delayed_disen <= DISEN;
 
                 -- Output physical colour, to be used by VideoNuLA
-                --if r0_teletext = '0' then
-
                 if nula_palette_mode = '1' then
                     phys_col <= palette_a;
                 else
                     phys_col <= dot_val(3) & blue_val & green_val & red_val;
                 end if;
-
-
-                --else
-                --    phys_col <= '0' & (B_IN xor cursor_invert) & (G_IN xor cursor_invert) & (R_IN xor cursor_invert);
-                --end if;
-            end if;
+--            end if;
         end if;
     end process;
 
@@ -444,11 +468,11 @@ begin
         phys_col_delay_mux <= phys_col_delay_reg & phys_col;
         phys_col_delay_out <= phys_col_delay_mux(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
 
-        process (CLOCK)
+        process (PIXCLK)
             variable invert : std_logic_vector(3 downto 0);
         begin
-           if rising_edge(CLOCK) then
-               if CLKEN = '1' then
+           if rising_edge(PIXCLK) then
+--               if CLKEN = '1' then
                    -- Shift pixels in from right (so bits 3..0 are the most recent)
                    phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
                    delayed_disen2 <= delayed_disen;
@@ -459,7 +483,7 @@ begin
                        nula_RGB <= x"000";
                    end if;
 
-               end if;
+--               end if;
            end if;
         end process;
 

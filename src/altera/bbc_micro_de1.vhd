@@ -279,6 +279,7 @@ begin
             clock_32       => clock_32,
             clock_24       => clock_24,
             clock_27       => CLOCK_27_0,
+            clock_48       => clock_48,
             hard_reset_n   => hard_reset_n,
             ps2_kbd_clk    => PS2_CLK,
             ps2_kbd_data   => PS2_DAT,

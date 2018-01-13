@@ -54,10 +54,11 @@ generic (
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := true;
-        IncludeCoPro6502   : boolean := true;  -- The three co pro options
+        IncludeICEDebugger : boolean := false;
+        IncludeCoPro6502   : boolean := false; -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
+        IncludeVideoNuLA   : boolean := true ;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -269,6 +270,7 @@ begin
             IncludeCoPro6502   => IncludeCoPro6502,
             IncludeCoProSPI    => IncludeCoProSPI,
             IncludeCoProExt    => IncludeCoProExt,
+            IncludeVideoNuLA   => IncludeVideoNuLA,
             UseOrigKeyboard    => UseOrigKeyboard,
             UseT65Core         => UseT65Core,
             UseAlanDCore       => UseAlanDCore

@@ -363,7 +363,7 @@ begin
     end process;
 
 
-    -- Fetch control
+    -- Shift register control
     process(PIXCLK,nRESET)
     begin
         if nRESET = '0' then
@@ -388,29 +388,31 @@ begin
                       (r0_cursor1 and cursor_counter(0) and not cursor_counter(1)) or
                       (r0_cursor2 and cursor_counter(1)));
 
-    process(CLOCK,nRESET)
+    process(PIXCLK,nRESET)
     begin
         if nRESET = '0' then
             cursor_active <= '0';
             cursor_counter <= (others => '0');
-        elsif rising_edge(CLOCK) then
-            if clken_fetch = '1' then
-                if CURSOR = '1' or cursor_active = '1' then
-                    -- Latch cursor
-                    cursor_active <= '1';
+        elsif rising_edge(PIXCLK) then
+            if clken_pixel = '1' then
+                if clken_load = '1' then
+                    if CURSOR = '1' or cursor_active = '1' then
+                        -- Latch cursor
+                        cursor_active <= '1';
 
-                    -- Reset on counter wrap
-                    if cursor_counter = "11" then
-                        cursor_active <= '0';
-                    end if;
+                        -- Reset on counter wrap
+                        if cursor_counter = "11" then
+                            cursor_active <= '0';
+                        end if;
 
-                    -- Increment counter
-                    if cursor_active = '0' then
-                        -- Reset
-                        cursor_counter <= (others => '0');
-                    else
-                        -- Increment
-                        cursor_counter <= cursor_counter + 1;
+                        -- Increment counter
+                        if cursor_active = '0' then
+                            -- Reset
+                            cursor_counter <= (others => '0');
+                        else
+                            -- Increment
+                            cursor_counter <= cursor_counter + 1;
+                        end if;
                     end if;
                 end if;
             end if;
@@ -438,7 +440,7 @@ begin
             BB <= '0';
             delayed_disen <= '0';
         elsif rising_edge(PIXCLK) then
---            if CLKEN = '1' then
+            if clken_pixel = '1' then
                 -- Look up dot value in the palette.  Bits are as follows:
                 -- bit 3 - FLASH
                 -- bit 2 - Not BLUE
@@ -474,7 +476,7 @@ begin
                 else
                     phys_col <= dot_val(3) & blue_val & green_val & red_val;
                 end if;
---            end if;
+            end if;
         end if;
     end process;
 
@@ -489,7 +491,7 @@ begin
             variable invert : std_logic_vector(3 downto 0);
         begin
            if rising_edge(PIXCLK) then
---               if CLKEN = '1' then
+               if clken_pixel = '1' then
                    -- Shift pixels in from right (so bits 3..0 are the most recent)
                    phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
                    delayed_disen2 <= delayed_disen;
@@ -500,7 +502,7 @@ begin
                        nula_RGB <= x"000";
                    end if;
 
---               end if;
+               end if;
            end if;
         end process;
 

@@ -303,9 +303,9 @@ begin
 
     process(CLOCK,nRESET)
     begin
---        if nRESET = '0' then
---            clken_counter <= (others => '0');
-        if rising_edge(CLOCK) then
+        if nRESET = '0' then
+            clken_counter <= (others => '0');
+        elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 -- Increment internal cycle counter during each video clock
                 clken_counter <= clken_counter + 1;
@@ -325,10 +325,12 @@ begin
     -- Pixel clock enables
     process(PIXCLK,nRESET)
     begin
---        if nRESET = '0' then
---            pixen_counter <= (others => '0');
---            pixen_prescale <= (others => '0');
-        if rising_edge(PIXCLK) then
+        if nRESET = '0' then
+
+            pixen_counter <= (others => '0');
+            pixen_prescale <= (others => '0');
+
+        elsif rising_edge(PIXCLK) then
 
             clken_pixel <= '0';
             clken_load <= '0';

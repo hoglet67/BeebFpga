@@ -100,6 +100,7 @@ architecture rtl of vidproc is
     signal palette          :   palette_t;
 
 -- Pixel shift register
+    signal di               :   std_logic_vector(7 downto 0);
     signal shiftreg         :   std_logic_vector(7 downto 0);
 -- Delayed display enable
     signal delayed_disen    :   std_logic;
@@ -107,6 +108,7 @@ architecture rtl of vidproc is
 
 -- Internal clock enable generation
     signal clken_pixel      :   std_logic;
+    signal clken_load       :   std_logic;
     signal clken_fetch      :   std_logic;
     signal clken_counter    :   unsigned(3 downto 0);
     signal pixen_prescale   :   unsigned(1 downto 0);
@@ -301,26 +303,36 @@ begin
 
     process(CLOCK,nRESET)
     begin
-        if nRESET = '0' then
-            clken_counter <= (others => '0');
-        elsif rising_edge(CLOCK) then
+--        if nRESET = '0' then
+--            clken_counter <= (others => '0');
+        if rising_edge(CLOCK) then
             if CLKEN = '1' then
                 -- Increment internal cycle counter during each video clock
                 clken_counter <= clken_counter + 1;
+                if clken_fetch = '1' then
+                    di <= DI_RAM;
+                end if;
             end if;
         end if;
     end process;
 
 
+    -- =========================================================
+    -- PIXCLK is the main clock below this point
+    -- =========================================================
+
+
     -- Pixel clock enables
     process(PIXCLK,nRESET)
     begin
-        if nRESET = '0' then
-            pixen_counter <= (others => '0');
-            pixen_prescale <= (others => '0');
-        elsif rising_edge(PIXCLK) then
+--        if nRESET = '0' then
+--            pixen_counter <= (others => '0');
+--            pixen_prescale <= (others => '0');
+        if rising_edge(PIXCLK) then
 
             clken_pixel <= '0';
+            clken_load <= '0';
+
 
             if pixen_prescale = 1 then
                 pixen_prescale <= pixen_prescale + 2;
@@ -331,15 +343,18 @@ begin
             if pixen_prescale = 3 then
                 case r0_pixel_rate is
                     when "00" =>
-                        clken_pixel <= not (clken_counter(0) or clken_counter(1) or clken_counter(2));
+                        clken_pixel <= not (pixen_counter(0) or pixen_counter(1) or pixen_counter(2));
                     when "01" =>
-                        clken_pixel <= not (clken_counter(0) or clken_counter(1));
+                        clken_pixel <= not (pixen_counter(0) or pixen_counter(1));
                     when "10" =>
-                        clken_pixel <= not clken_counter(0);
+                        clken_pixel <= not pixen_counter(0);
                     when "11" =>
                         clken_pixel <= '1';
                     when others =>
                 end case;
+                if pixen_counter = 0 or (r0_crtc_2mhz = '1' and pixen_counter = 8) then
+                    clken_load <= '1';
+                end if;
                 pixen_counter <= pixen_counter + 1;
             end if;
         end if;
@@ -353,10 +368,10 @@ begin
             shiftreg <= (others => '0');
         elsif rising_edge(PIXCLK) then
             if clken_pixel = '1' then
-                if clken_fetch = '1' then
+                if clken_load = '1' then
                     -- Fetch next byte from RAM into shift register.  This always occurs in
                     -- cycle 0, and also in cycle 8 if the CRTC is clocked at double rate.
-                    shiftreg <= DI_RAM;
+                    shiftreg <= di;
                 else
                     -- Clock shift register and input '1' at LSB
                     shiftreg <= shiftreg(6 downto 0) & "1";

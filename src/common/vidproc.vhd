@@ -111,8 +111,8 @@ architecture rtl of vidproc is
     signal clken_load       :   std_logic;
     signal clken_fetch      :   std_logic;
     signal clken_counter    :   unsigned(3 downto 0);
-    signal pixen_prescale   :   unsigned(1 downto 0);
-    signal pixen_counter    :   unsigned(3 downto 0);
+    signal pixen_counter    :   unsigned(4 downto 0);
+    signal pixen_msb        :   std_logic;
 
 -- Cursor generation - can span up to 32 pixels
 -- Segments 0 and 1 are 8 pixels wide
@@ -132,6 +132,7 @@ architecture rtl of vidproc is
     signal phys_col_delay_reg         : std_logic_vector(27 downto 0);
     signal phys_col_delay_mux         : std_logic_vector(31 downto 0);
     signal phys_col_delay_out         : std_logic_vector(3 downto 0);
+    signal phys_col_final             : std_logic_vector(3 downto 0);
 
 -- Additional VideoNuLA registers
     signal nula_palette_mode          : std_logic;
@@ -321,47 +322,82 @@ begin
     -- PIXCLK is the main clock below this point
     -- =========================================================
 
+    -- Pixel Counter (pixel clock = 16 MHz)
+    --
+    -- 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23
+    -- L
+    -- X                                                                   r:00
+    -- X                                   X                               r:01
+    -- X                 X                 X                 X             r:10
+    -- X        X        X        X        X        X        X        X    r:11
+    --
+    -- Pixel Counter (pixel clock = 12 MHz)
+    --
+    -- 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23
+    -- L
+    -- X                       X                       X                   r:10
+    -- X           X           X           X           X           X       r:11
 
-    -- Pixel clock enables
     process(PIXCLK,nRESET)
     begin
         if nRESET = '0' then
 
             pixen_counter <= (others => '0');
-            pixen_prescale <= (others => '0');
+            pixen_msb     <= '0';
 
         elsif rising_edge(PIXCLK) then
 
             clken_pixel <= '0';
             clken_load <= '0';
 
-
-            if pixen_prescale = 1 then
-                pixen_prescale <= pixen_prescale + 2;
+            if pixen_counter = 23 then
+                pixen_counter <= (others => '0');
+                pixen_msb     <= not pixen_msb;
             else
-                pixen_prescale <= pixen_prescale + 1;
+                pixen_counter <= pixen_counter + 1;
             end if;
-
-            if pixen_prescale = 3 then
+            if r0_teletext = '0' and nula_enable_attr_mode = '0' then
                 case r0_pixel_rate is
                     when "00" =>
-                        clken_pixel <= not (pixen_counter(0) or pixen_counter(1) or pixen_counter(2));
+                        -- 2MHz
+                        if pixen_counter =  0 then
+                            clken_pixel <= '1';
+                        end if;
                     when "01" =>
-                        clken_pixel <= not (pixen_counter(0) or pixen_counter(1));
+                        -- 4MHz
+                        if pixen_counter =  0 or pixen_counter =  12 then
+                            clken_pixel <= '1';
+                        end if;
                     when "10" =>
-                        clken_pixel <= not pixen_counter(0);
+                        -- 8MHz
+                        if pixen_counter =  0 or pixen_counter =  6 or pixen_counter = 12 or pixen_counter = 18 then
+                            clken_pixel <= '1';
+                        end if;
                     when "11" =>
-                        clken_pixel <= '1';
+                        -- 16MHz
+                        if pixen_counter =  0 or pixen_counter =  3 or pixen_counter =  6 or pixen_counter =  9 or
+                            pixen_counter = 12 or pixen_counter = 15 or pixen_counter = 18 or pixen_counter = 21 then
+                            clken_pixel <= '1';
+                        end if;
                     when others =>
                 end case;
-                if pixen_counter = 0 or (r0_crtc_2mhz = '1' and pixen_counter = 8) then
-                    clken_load <= '1';
+            elsif r0_teletext = '0' and nula_enable_attr_mode = '1' and r0_pixel_rate = "10" then
+                -- 6MHz
+                if pixen_counter =  0 or pixen_counter =  8 or pixen_counter = 16 then
+                    clken_pixel <= '1';
                 end if;
-                pixen_counter <= pixen_counter + 1;
+            else
+                -- 12MHz
+                if pixen_counter =  0 or pixen_counter =  4 or pixen_counter =  8 or
+                    pixen_counter = 12 or pixen_counter = 16 or pixen_counter = 20 then
+                    clken_pixel <= '1';
+                end if;
+            end if;
+            if pixen_counter = 0 and (pixen_msb = '0' or r0_crtc_2mhz = '1') then
+                clken_load <= '1';
             end if;
         end if;
     end process;
-
 
     -- Shift register control
     process(PIXCLK,nRESET)
@@ -486,34 +522,31 @@ begin
         -- Infer a large mux to select the appropriate hor scroll delay tap
         phys_col_delay_mux <= phys_col_delay_reg & phys_col;
         phys_col_delay_out <= phys_col_delay_mux(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
+        phys_col_final <= phys_col_delay_out when r0_teletext = '0' else '0' & B_IN & G_IN & R_IN;
 
         process (PIXCLK)
             variable invert : std_logic_vector(3 downto 0);
         begin
-           if rising_edge(PIXCLK) then
-               if clken_pixel = '1' then
-                   -- Shift pixels in from right (so bits 3..0 are the most recent)
-                   phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
-                   delayed_disen2 <= delayed_disen;
-                   invert := (others => cursor_invert);
-                   if delayed_disen2 = '1' then
-                       nula_RGB <= nula_palette(to_integer(unsigned(phys_col_delay_out xor invert)));
-                   else
-                       nula_RGB <= x"000";
-                   end if;
+            if rising_edge(PIXCLK) then
 
-               end if;
-           end if;
+                if clken_pixel = '1' then
+                    -- Shift pixels in from right (so bits 3..0 are the most recent)
+                    phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
+                    delayed_disen2 <= delayed_disen;
+                    invert := (others => cursor_invert);
+                    if r0_teletext = '1' or delayed_disen2 = '1' then
+                        nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor invert)));
+                    else
+                        nula_RGB <= x"000";
+                    end if;
+
+                end if;
+            end if;
         end process;
 
-        R <= nula_RGB(11 downto 8) when r0_teletext = '0' else
-             (others => R_IN xor cursor_invert);
-
-        G <= nula_RGB(7 downto 4) when r0_teletext = '0' else
-             (others => G_IN xor cursor_invert);
-
-        B <= nula_RGB(3 downto 0) when r0_teletext = '0' else
-             (others => B_IN xor cursor_invert);
+        R <= nula_RGB(11 downto 8);
+        G <= nula_RGB(7 downto 4);
+        B <= nula_RGB(3 downto 0);
 
     end generate;
 

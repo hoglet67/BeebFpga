@@ -26,29 +26,42 @@ TIMESPEC TS_clk_period_27 = PERIOD "clk_period_grp_27" 37.04ns HIGH;
 NET "clock_24" TNM_NET = clk_period_grp_24;
 TIMESPEC TS_clk_period_24 = PERIOD "clk_period_grp_24" 41.66ns HIGH;
 
+# 48MHz pixel clock
+NET "clock_48" TNM_NET = clk_period_grp_48;
+TIMESPEC TS_clk_period_48 = PERIOD "clk_period_grp_48" 20.83ns HIGH;
+
 # 12MHz Music 5000 clock domain
 # TODO: This should be a PLL generated clock!
-NET "bbc_micro/ttxt_clken_BUFG" TNM_NET = clk_period_grp_12;
+NET "bbc_micro/ttxt_clken" TNM_NET = clk_period_grp_12;
 TIMESPEC TS_clk_period_12 = PERIOD "clk_period_grp_12" 83.33ns HIGH;
 
 # 1MHz SID clock domain
 # TODO: This should be a PLL generated clock!
-NET "bbc_micro/mhz1_clken_BUFG" TNM_NET = clk_period_grp_01;
+NET "bbc_micro/mhz1_clken" TNM_NET = clk_period_grp_01;
 TIMESPEC TS_clk_period_01 = PERIOD "clk_period_grp_01" 1000.00ns HIGH;
 
 # Avoid timing warnings for cross domain signals (which are synchronized anyway)
 NET "clock_32"                  TNM_NET = FFS "clk_domain_32";
 NET "clock_27"                  TNM_NET = FFS "clk_domain_27";
 NET "clock_24"                  TNM_NET = FFS "clk_domain_24";
-NET "bbc_micro/ttxt_clken_BUFG" TNM_NET = FFS "clk_domain_12";
-NET "bbc_micro/mhz1_clken_BUFG" TNM_NET = FFS "clk_domain_01";
+NET "clock_48"                  TNM_NET = FFS "clk_domain_48";
+NET "bbc_micro/ttxt_clken"      TNM_NET = FFS "clk_domain_12";
+NET "bbc_micro/mhz1_clken"      TNM_NET = FFS "clk_domain_01";
+
+
+NET "bbc_micro/ttxt_clken" S;
+NET "bbc_micro/mhz1_clken" S;
+
 
 TIMESPEC "TS_CrossDomain_32_27" = FROM "clk_domain_32" TO "clk_domain_27" TIG;
+TIMESPEC "TS_CrossDomain_32_48" = FROM "clk_domain_32" TO "clk_domain_48" TIG;
 TIMESPEC "TS_CrossDomain_32_24" = FROM "clk_domain_32" TO "clk_domain_24" TIG;
 TIMESPEC "TS_CrossDomain_32_12" = FROM "clk_domain_32" TO "clk_domain_12" TIG;
 TIMESPEC "TS_CrossDomain_32_01" = FROM "clk_domain_32" TO "clk_domain_01" TIG;
 TIMESPEC "TS_CrossDomain_12_32" = FROM "clk_domain_12" TO "clk_domain_32" TIG;
 TIMESPEC "TS_CrossDomain_01_32" = FROM "clk_domain_01" TO "clk_domain_32" TIG;
+TIMESPEC "TS_CrossDomain_24_48" = FROM "clk_domain_24" TO "clk_domain_48" TIG;
+TIMESPEC "TS_CrossDomain_48_24" = FROM "clk_domain_48" TO "clk_domain_24" TIG;
 
 #####################################
 # SRAM Interface - runs at 32MHz

@@ -114,8 +114,9 @@ architecture rtl of vidproc is
     signal shiftreg         :   std_logic_vector(7 downto 0);
 
 -- Delayed display enable
-    signal delayed_disen    :   std_logic;
-    signal delayed_disen2   :   std_logic;
+    signal disen0           :   std_logic;
+    signal disen1           :   std_logic;
+    signal disen2           :   std_logic;
 
 -- Internal clock enable generation
     signal modeIs12MHz      :   std_logic;
@@ -329,6 +330,7 @@ begin
                 clken_counter <= clken_counter + 1;
                 if clken_fetch = '1' then
                     di <= DI_RAM;
+                    disen0 <= DISEN;
                 end if;
             end if;
         end if;
@@ -447,25 +449,25 @@ begin
             cursor_active <= '0';
             cursor_counter <= (others => '0');
         elsif rising_edge(PIXCLK) then
-            if clken_shift = '1' then
-                if clken_load = '1' then
-                    if CURSOR = '1' or cursor_active = '1' then
-                        -- Latch cursor
-                        cursor_active <= '1';
+            if clken_load = '1' then
+                -- Display enable signal delayed by one character
+                disen1 <= disen0;
+                if CURSOR = '1' or cursor_active = '1' then
+                    -- Latch cursor
+                    cursor_active <= '1';
 
-                        -- Reset on counter wrap
-                        if cursor_counter = "11" then
-                            cursor_active <= '0';
-                        end if;
+                    -- Reset on counter wrap
+                    if cursor_counter = "11" then
+                        cursor_active <= '0';
+                    end if;
 
-                        -- Increment counter
-                        if cursor_active = '0' then
-                            -- Reset
-                            cursor_counter <= (others => '0');
-                        else
-                            -- Increment
-                            cursor_counter <= cursor_counter + 1;
-                        end if;
+                    -- Increment counter
+                    if cursor_active = '0' then
+                        -- Reset
+                        cursor_counter <= (others => '0');
+                    else
+                        -- Increment
+                        cursor_counter <= cursor_counter + 1;
                     end if;
                 end if;
             end if;
@@ -491,7 +493,6 @@ begin
             RR <= '0';
             GG <= '0';
             BB <= '0';
-            delayed_disen <= '0';
         elsif rising_edge(PIXCLK) then
             if clken_pixel = '1' then
                 -- Look up dot value in the palette.  Bits are as follows:
@@ -524,12 +525,9 @@ begin
                 blue_val := (dot_val(3) and do_flash) xor not dot_val(2);
 
                 -- To output
-                RR <= (red_val and delayed_disen) xor cursor_invert;
-                GG <= (green_val and delayed_disen) xor cursor_invert;
-                BB <= (blue_val and delayed_disen) xor cursor_invert;
-
-                -- Display enable signal delayed by one clock
-                delayed_disen <= DISEN;
+                RR <= (red_val and disen1) xor cursor_invert;
+                GG <= (green_val and disen1) xor cursor_invert;
+                BB <= (blue_val and disen1) xor cursor_invert;
 
                 -- Output physical colour, to be used by VideoNuLA
                 if nula_palette_mode = '1' then
@@ -557,9 +555,9 @@ begin
                 if clken_pixel = '1' then
                     -- Shift pixels in from right (so bits 3..0 are the most recent)
                     phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
-                    delayed_disen2 <= delayed_disen;
+                    disen2 <= disen1;
                     invert := (others => cursor_invert);
-                    if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and delayed_disen2 = '0') then
+                    if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disen2 = '0') then
                         nula_RGB <= invert & invert & invert;
                     else
                         nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor invert)));

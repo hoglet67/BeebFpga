@@ -53,9 +53,9 @@ entity bbc_micro_de1 is
 generic (
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
+        IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := false; -- The three co pro options
+        IncludeCoPro6502   : boolean := true;  -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
         IncludeVideoNuLA   : boolean := true ;

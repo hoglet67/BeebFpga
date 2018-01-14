@@ -1,5 +1,11 @@
 -- BBC Micro for Altera DE1
 --
+-- Copyright (c) 2018 David Banks
+--
+-- Includes VideoNuLA
+--
+-- Based on previous work by Mike Stirling
+--
 -- Copyright (c) 2011 Mike Stirling
 --
 -- All rights reserved
@@ -38,6 +44,7 @@
 --
 -- Synchronous implementation for FPGA
 --
+-- (C) 2018 Mike Stirling
 -- (C) 2011 Mike Stirling
 --
 library IEEE;
@@ -45,10 +52,6 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity vidproc is
-    generic (
-        IncludeVideoNuLA : boolean := false;
-        RGB_WIDTH        : integer := 1
-        );
     port (
         -- CLOCK is the Beeb's 32MHz master clock
         CLOCK       :   in  std_logic;
@@ -90,9 +93,9 @@ entity vidproc is
         B_IN        :   in  std_logic;
 
         -- Video out
-        R           :   out std_logic_vector(RGB_WIDTH - 1 downto 0);
-        G           :   out std_logic_vector(RGB_WIDTH - 1 downto 0);
-        B           :   out std_logic_vector(RGB_WIDTH - 1 downto 0)
+        R           :   out std_logic_vector(3 downto 0);
+        G           :   out std_logic_vector(3 downto 0);
+        B           :   out std_logic_vector(3 downto 0)
         );
 end entity;
 
@@ -136,10 +139,6 @@ architecture rtl of vidproc is
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
 
-    signal RR               :   std_logic;
-    signal GG               :   std_logic;
-    signal BB               :   std_logic;
-
     signal ttxt_R           :   std_logic_vector(6 downto 0);
     signal ttxt_G           :   std_logic_vector(6 downto 0);
     signal ttxt_B           :   std_logic_vector(6 downto 0);
@@ -179,7 +178,6 @@ architecture rtl of vidproc is
 begin
 
     -- Original VideoULA Registers
-
     -- Synchronous register access, enabled on every clock
     process(CLOCK,nRESET)
     begin
@@ -197,7 +195,7 @@ begin
             end loop;
         elsif rising_edge(CLOCK) then
             if CPUCLKEN = '1' then
-                if ENABLE = '1' and (A(1) = '0' or not IncludeVideoNuLA or (IncludeVideoNuLA and nula_disable_a1 = '1')) then
+                if ENABLE = '1' and (A(1) = '0' or nula_disable_a1 = '1') then
                     if A(0) = '0' then
                         -- Access control register
                         r0_cursor0 <= DI_CPU(7);
@@ -217,99 +215,95 @@ begin
     end process;
 
     -- Additional VideoNuLA registers
-    videoNula_registers: if IncludeVideoNuLA generate
+    -- Synchronous register access, enabled on every clock
+    process(CLOCK, nRESET)
     begin
 
-        -- Synchronous register access, enabled on every clock
-        process(CLOCK, nRESET)
-        begin
+        if nRESET = '0' then
 
-            if nRESET = '0' then
+            nula_nreset <= '0';
 
-                nula_nreset <= '0';
+        elsif rising_edge(CLOCK) then
 
-            elsif rising_edge(CLOCK) then
+            if CPUCLKEN = '1' then
 
-                if CPUCLKEN = '1' then
+                -- If the nula_nreset register is '0', sSynchronously reset
+                -- everything, then set nula_nreset to '1' to acknowledge.
+                -- This allow the reset logic to be in one place, but
+                -- triggered by three things: power up, nRESET and &FE22=&4x
 
-                    -- If the nula_nreset register is '0', sSynchronously reset
-                    -- everything, then set nula_nreset to '1' to acknowledge.
-                    -- This allow the reset logic to be in one place, but
-                    -- triggered by three things: power up, nRESET and &FE22=&4x
+                if nula_nreset = '0' then
+                    nula_palette_mode          <= '0';
+                    nula_hor_scroll_offset     <= (others => '0');
+                    nula_left_banking_size     <= (others => '0');
+                    nula_disable_a1            <= '0';
+                    nula_enable_attr_mode      <= '0';
+                    nula_enable_text_attr_mode <= '0';
+                    nula_flashing_flags        <= (others => '1');
+                    nula_write_index           <= '0';
+                    nula_palette( 0)           <= x"000";
+                    nula_palette( 1)           <= x"F00";
+                    nula_palette( 2)           <= x"0F0";
+                    nula_palette( 3)           <= x"FF0";
+                    nula_palette( 4)           <= x"00F";
+                    nula_palette( 5)           <= x"F0F";
+                    nula_palette( 6)           <= x"0FF";
+                    nula_palette( 7)           <= x"FFF";
+                    nula_palette( 8)           <= x"000";
+                    nula_palette( 9)           <= x"F00";
+                    nula_palette(10)           <= x"0F0";
+                    nula_palette(11)           <= x"FF0";
+                    nula_palette(12)           <= x"00F";
+                    nula_palette(13)           <= x"F0F";
+                    nula_palette(14)           <= x"0FF";
+                    nula_palette(15)           <= x"FFF";
+                    nula_nreset                <= '1';
+                end if;
 
-                    if nula_nreset = '0' then
-                        nula_palette_mode          <= '0';
-                        nula_hor_scroll_offset     <= (others => '0');
-                        nula_left_banking_size     <= (others => '0');
-                        nula_disable_a1            <= '0';
-                        nula_enable_attr_mode      <= '0';
-                        nula_enable_text_attr_mode <= '0';
-                        nula_flashing_flags        <= (others => '1');
-                        nula_write_index           <= '0';
-                        nula_palette( 0)           <= x"000";
-                        nula_palette( 1)           <= x"F00";
-                        nula_palette( 2)           <= x"0F0";
-                        nula_palette( 3)           <= x"FF0";
-                        nula_palette( 4)           <= x"00F";
-                        nula_palette( 5)           <= x"F0F";
-                        nula_palette( 6)           <= x"0FF";
-                        nula_palette( 7)           <= x"FFF";
-                        nula_palette( 8)           <= x"000";
-                        nula_palette( 9)           <= x"F00";
-                        nula_palette(10)           <= x"0F0";
-                        nula_palette(11)           <= x"FF0";
-                        nula_palette(12)           <= x"00F";
-                        nula_palette(13)           <= x"F0F";
-                        nula_palette(14)           <= x"0FF";
-                        nula_palette(15)           <= x"FFF";
-                        nula_nreset                <= '1';
-                    end if;
-
-                    if ENABLE = '1' and A(1) = '1' and nula_disable_a1 = '0' then
-                        if A(0) = '0' then
-                            -- &FE22 - Auxiliary Control Register
-                            case DI_CPU(7 downto 4) is
-                                when x"1" =>
-                                    nula_palette_mode          <= DI_CPU(0);
-                                when x"2" =>
-                                    nula_hor_scroll_offset     <= DI_CPU(2 downto 0);
-                                when x"3" =>
-                                    nula_left_banking_size     <= DI_CPU(3 downto 0);
-                                when x"4" =>
-                                    nula_nreset                <= '0';
-                                when x"5" =>
-                                    nula_disable_a1            <= '1';
-                                when x"6" =>
-                                    nula_enable_attr_mode      <= DI_CPU(0);
-                                when x"7" =>
-                                    nula_enable_text_attr_mode <= DI_CPU(0);
-                                when x"8" =>
-                                    -- bits 7..4 control colours 8..11 respectively
-                                    nula_flashing_flags(7 downto 4) <= DI_CPU(3 downto 0);
-                                when x"9" =>
-                                    -- bits 3..0 control colours 12..15 respectively
-                                    nula_flashing_flags(3 downto 0) <= DI_CPU(3 downto 0);
-                                when others =>
-                            end case;
+                if ENABLE = '1' and A(1) = '1' and nula_disable_a1 = '0' then
+                    if A(0) = '0' then
+                        -- &FE22 - Auxiliary Control Register
+                        case DI_CPU(7 downto 4) is
+                            when x"1" =>
+                                nula_palette_mode          <= DI_CPU(0);
+                            when x"2" =>
+                                nula_hor_scroll_offset     <= DI_CPU(2 downto 0);
+                            when x"3" =>
+                                nula_left_banking_size     <= DI_CPU(3 downto 0);
+                            when x"4" =>
+                                nula_nreset                <= '0';
+                            when x"5" =>
+                                nula_disable_a1            <= '1';
+                            when x"6" =>
+                                nula_enable_attr_mode      <= DI_CPU(0);
+                            when x"7" =>
+                                nula_enable_text_attr_mode <= DI_CPU(0);
+                            when x"8" =>
+                                -- bits 7..4 control colours 8..11 respectively
+                                nula_flashing_flags(7 downto 4) <= DI_CPU(3 downto 0);
+                            when x"9" =>
+                                -- bits 3..0 control colours 12..15 respectively
+                                nula_flashing_flags(3 downto 0) <= DI_CPU(3 downto 0);
+                            when others =>
+                        end case;
+                    else
+                        -- &FE23 - Auxiliary Palette Register
+                        if nula_write_index = '0' then
+                            nula_data_last <= DI_CPU;
                         else
-                            -- &FE23 - Auxiliary Palette Register
-                            if nula_write_index = '0' then
-                                nula_data_last <= DI_CPU;
-                            else
-                                nula_palette(to_integer(unsigned(nula_data_last(7 downto 4)))) <= nula_data_last(3 downto 0) & DI_CPU;
-                                -- if writing to colours 8..15, clear the flash
-                                -- flags to supress flashing
-                                if nula_data_last(7) = '1' then
-                                    nula_flashing_flags(to_integer(unsigned(nula_data_last(6 downto 4) xor "111"))) <= '0';
-                                end if;
+                            nula_palette(to_integer(unsigned(nula_data_last(7 downto 4)))) <= nula_data_last(3 downto 0) & DI_CPU;
+                            -- if writing to colours 8..15, clear the flash
+                            -- flags to supress flashing
+                            if nula_data_last(7) = '1' then
+                                nula_flashing_flags(to_integer(unsigned(nula_data_last(6 downto 4) xor "111"))) <= '0';
                             end if;
-                            nula_write_index <= not nula_write_index;
                         end if;
+                        nula_write_index <= not nula_write_index;
                     end if;
                 end if;
             end if;
-        end process;
-    end generate;
+        end if;
+    end process;
 
     -- The CRT controller is always enabled in the 15th cycle, so that the result
     -- is ready for latching into the shift register in cycle 0.  If 2 MHz mode is
@@ -496,9 +490,7 @@ begin
         variable do_flash : std_logic;
     begin
         if nRESET = '0' then
-            RR <= '0';
-            GG <= '0';
-            BB <= '0';
+            phys_col <= (others =>'0');
         elsif rising_edge(PIXCLK) then
             if clken_pixel = '1' then
                 -- Look up dot value in the palette.  Bits are as follows:
@@ -518,22 +510,14 @@ begin
 
                 dot_val := palette(to_integer(unsigned(palette_a)));
 
-
                 -- Apply flash inversion if required
                 do_flash := r0_flash;
-                if IncludeVideoNuLA then
-                    if nula_flashing_flags(to_integer(unsigned(dot_val(2 downto 0)))) = '0' then
-                        do_flash := '0';
-                    end if;
+                if nula_flashing_flags(to_integer(unsigned(dot_val(2 downto 0)))) = '0' then
+                    do_flash := '0';
                 end if;
                 red_val := (dot_val(3) and do_flash) xor not dot_val(0);
                 green_val := (dot_val(3) and do_flash) xor not dot_val(1);
                 blue_val := (dot_val(3) and do_flash) xor not dot_val(2);
-
-                -- To output
-                RR <= (red_val and disen1) xor cursor_invert;
-                GG <= (green_val and disen1) xor cursor_invert;
-                BB <= (blue_val and disen1) xor cursor_invert;
 
                 -- Output physical colour, to be used by VideoNuLA
                 if nula_palette_mode = '1' then
@@ -545,50 +529,37 @@ begin
         end if;
     end process;
 
-    VideoNula_included: if IncludeVideoNuLA generate
+    -- Infer a large mux to select the appropriate hor scroll delay tap
+    phys_col_delay_mux <= phys_col_delay_reg & phys_col;
+    phys_col_delay_out <= phys_col_delay_mux(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
+    phys_col_final <= phys_col_delay_out when r0_teletext = '0' else '0' & ttxt_B(0) & ttxt_G(0) & ttxt_R(0);
+
+    process (PIXCLK)
+        variable invert : std_logic_vector(3 downto 0);
     begin
+        if rising_edge(PIXCLK) then
 
-        -- Infer a large mux to select the appropriate hor scroll delay tap
-        phys_col_delay_mux <= phys_col_delay_reg & phys_col;
-        phys_col_delay_out <= phys_col_delay_mux(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
-        phys_col_final <= phys_col_delay_out when r0_teletext = '0' else '0' & ttxt_B(0) & ttxt_G(0) & ttxt_R(0);
+            if clken_pixel = '1' then
+                -- Delay teletext R, G, B slightly to align with cursor
+                ttxt_R <= R_IN & ttxt_R(6 downto 1);
+                ttxt_G <= G_IN & ttxt_G(6 downto 1);
+                ttxt_B <= B_IN & ttxt_B(6 downto 1);
 
-        process (PIXCLK)
-            variable invert : std_logic_vector(3 downto 0);
-        begin
-            if rising_edge(PIXCLK) then
-
-                if clken_pixel = '1' then
-                    -- Delay teletext R, G, B slightly to align with cursor
-                    ttxt_R <= R_IN & ttxt_R(6 downto 1);
-                    ttxt_G <= G_IN & ttxt_G(6 downto 1);
-                    ttxt_B <= B_IN & ttxt_B(6 downto 1);
-
-                    -- Shift pixels in from right (so bits 3..0 are the most recent)
-                    phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
-                    disen2 <= disen1;
-                    if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disen2 = '0') then
-                        nula_RGB <= invert & invert & invert;
-                    else
-                        nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor invert)));
-                    end if;
-                    invert := (others => cursor_invert);
+                -- Shift pixels in from right (so bits 3..0 are the most recent)
+                phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
+                disen2 <= disen1;
+                if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disen2 = '0') then
+                    nula_RGB <= invert & invert & invert;
+                else
+                    nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor invert)));
                 end if;
+                invert := (others => cursor_invert);
             end if;
-        end process;
+        end if;
+    end process;
 
-        R <= nula_RGB(11 downto 8);
-        G <= nula_RGB(7 downto 4);
-        B <= nula_RGB(3 downto 0);
-
-    end generate;
-
-    VideoNula_not_included: if not IncludeVideoNuLA generate
-    begin
-        R <= (others => RR) when r0_teletext = '0' else (others => R_IN xor cursor_invert);
-        G <= (others => GG) when r0_teletext = '0' else (others => G_IN xor cursor_invert);
-        B <= (others => BB) when r0_teletext = '0' else (others => B_IN xor cursor_invert);
-    end generate;
-
+    R <= nula_RGB(11 downto 8);
+    G <= nula_RGB(7 downto 4);
+    B <= nula_RGB(3 downto 0);
 
 end architecture;

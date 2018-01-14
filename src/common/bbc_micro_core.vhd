@@ -186,7 +186,7 @@ entity bbc_micro_core is
 end entity;
 
 architecture rtl of bbc_micro_core is
-    
+
 -- Use 4-bit RGB when VideoNuLA is included, other 1-bit RGB
 function calc_rgb_width(includeVideoNuLA : boolean) return integer is
 begin
@@ -198,7 +198,7 @@ begin
 end function;
 
 constant RGB_WIDTH : integer := calc_rgb_width(IncludeVideoNuLA);
-  
+
 -------------
 -- Signals
 -------------
@@ -298,6 +298,9 @@ signal rgbi_out         :   std_logic_vector(RGB_WIDTH * 3 downto 0);
 signal vsync_int        :   std_logic;
 signal hsync_int        :   std_logic;
 
+signal final_r          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal final_g          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal final_b          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
 -- SAA5050 signals
 signal ttxt_glr         :   std_logic;
@@ -605,32 +608,55 @@ begin
         crtc_ma,
         crtc_ra );
 
-    video_ula : entity work.vidproc
-    generic map (
-        IncludeVideoNuLA => IncludeVideoNuLA,
-        RGB_WIDTH   => RGB_WIDTH
-    )
-    port map (
-        CLOCK       => clock_32,
-        CPUCLKEN    => cpu_clken,
-        CLKEN       => vid_clken,
-        PIXCLK      => clock_48,
-        nRESET      => hard_reset_n,
-        CLKEN_CRTC  => crtc_clken,
-        ENABLE      => vidproc_enable,
-        A           => cpu_a(1 downto 0),
-        DI_CPU      => cpu_do,
-        DI_RAM      => ext_Dout,
-        nINVERT     => vidproc_invert_n,
-        DISEN       => vidproc_disen,
-        CURSOR      => crtc_cursor,
-        R_IN        => r_in,
-        G_IN        => g_in,
-        B_IN        => b_in,
-        R           => r_out,
-        G           => g_out,
-        B           => b_out
-        );
+    vidproc_nula: if IncludeVideoNuLA generate
+    begin
+        videoula : entity work.vidproc
+            port map (
+                CLOCK       => clock_32,
+                CPUCLKEN    => cpu_clken,
+                CLKEN       => vid_clken,
+                PIXCLK      => clock_48,
+                nRESET      => hard_reset_n,
+                CLKEN_CRTC  => crtc_clken,
+                ENABLE      => vidproc_enable,
+                A           => cpu_a(1 downto 0),
+                DI_CPU      => cpu_do,
+                DI_RAM      => ext_Dout,
+                nINVERT     => vidproc_invert_n,
+                DISEN       => vidproc_disen,
+                CURSOR      => crtc_cursor,
+                R_IN        => r_in,
+                G_IN        => g_in,
+                B_IN        => b_in,
+                R           => r_out,
+                G           => g_out,
+                B           => b_out
+                );
+    end generate;
+
+    vidproc_orig: if not IncludeVideoNuLA generate
+    begin
+        videoula_orig : entity work.vidproc_orig
+            port map (
+                CLOCK       => clock_32,
+                CLKEN       => vid_clken,
+                nRESET      => hard_reset_n,
+                CLKEN_CRTC  => crtc_clken,
+                ENABLE      => vidproc_enable,
+                A0          => cpu_a(0),
+                DI_CPU      => cpu_do,
+                DI_RAM      => ext_Dout,
+                nINVERT     => vidproc_invert_n,
+                DISEN       => vidproc_disen,
+                CURSOR      => crtc_cursor,
+                R_IN        => r_in,
+                G_IN        => g_in,
+                B_IN        => b_in,
+                R           => r_out,
+                G           => g_out,
+                B           => b_out
+                );
+    end generate;
 
     teletext : entity work.saa5050 port map (
         clock_24, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
@@ -1004,7 +1030,7 @@ begin
             end if;
         end process;
     end generate;
-        
+
 --------------------------------------------------------
 -- SN76489 Sound Generator
 --------------------------------------------------------
@@ -1733,26 +1759,32 @@ begin
 
     video_vsync <= vsync_int xor vid_mode(3);
 
-    video_red  (3 downto 4 - RGB_WIDTH) <= vga0_r when vga0_mode = '1' else
-                                           vga1_r when vga1_mode = '1' else
-                                           r_out;
+    final_r <= vga0_r when vga0_mode = '1' else
+               vga1_r when vga1_mode = '1' else
+               r_out;
 
-    video_green(3 downto 4 - RGB_WIDTH) <= vga0_g when vga0_mode = '1' else
-                                           vga1_g when vga1_mode = '1' else
-                                           g_out;
+    final_g <= vga0_g when vga0_mode = '1' else
+               vga1_g when vga1_mode = '1' else
+               g_out;
 
-    video_blue (3 downto 4 - RGB_WIDTH) <= vga0_b when vga0_mode = '1' else
-                                           vga1_b when vga1_mode = '1' else
-                                           b_out;
+    final_b <= vga0_b when vga0_mode = '1' else
+               vga1_b when vga1_mode = '1' else
+               b_out;
 
-    -- For smaller RGB_WIDTH values, pad the 4-bit video output appropriately
-    pad: if RGB_WIDTH < 4 generate
+    map_video_nula: if IncludeVideoNuLA generate
     begin
-        video_red  (4 - RGB_WIDTH - 1 downto 0) <= (others => '0');
-        video_green(4 - RGB_WIDTH - 1 downto 0) <= (others => '0');
-        video_blue (4 - RGB_WIDTH - 1 downto 0) <= (others => '0');
+        video_red   <= final_r;
+        video_green <= final_g;
+        video_blue  <= final_b;
     end generate;
-    
+
+    map_video_orig: if not IncludeVideoNuLA generate
+    begin
+        video_red   <= (others => final_r(0));
+        video_green <= (others => final_g(0));
+        video_blue  <= (others => final_b(0));
+    end generate;
+
 -----------------------------------------------
 -- Master 128 additions
 -----------------------------------------------

@@ -50,12 +50,20 @@ entity vidproc is
         RGB_WIDTH        : integer := 1
         );
     port (
+        -- CLOCK is the Beeb's 32MHz master clock
         CLOCK       :   in  std_logic;
+
+        -- CPUCLKEN qualifies CPU cycles, wrt. CLOCK
         CPUCLKEN    :   in  std_logic;
 
-        -- Clock enable qualifies display cycles (interleaved with CPU cycles)
+        -- CLKEN qualifies display cycles, wrt. CLOCK
         CLKEN       :   in  std_logic;
+
+        -- PIXCLK is a 48MHz clock to be used for pixel timing
+        -- 48MHz is the lowest common multiple of 12MHz and 16MHz
         PIXCLK      :   in  std_logic;
+
+        -- nRESET is a power-on reset
         nRESET      :   in  std_logic;
 
         -- Clock enable output to CRTC
@@ -64,8 +72,10 @@ entity vidproc is
         -- Bus interface
         ENABLE      :   in  std_logic;
         A           :   in  std_logic_vector(1 downto 0);
+
         -- CPU data bus (for register writes)
         DI_CPU      :   in  std_logic_vector(7 downto 0);
+
         -- Display RAM data bus (for display data fetch)
         DI_RAM      :   in  std_logic_vector(7 downto 0);
 
@@ -102,17 +112,20 @@ architecture rtl of vidproc is
 -- Pixel shift register
     signal di               :   std_logic_vector(7 downto 0);
     signal shiftreg         :   std_logic_vector(7 downto 0);
+
 -- Delayed display enable
     signal delayed_disen    :   std_logic;
     signal delayed_disen2   :   std_logic;
 
 -- Internal clock enable generation
+    signal modeIs12MHz      :   std_logic;
     signal clken_pixel      :   std_logic;
+    signal clken_shift      :   std_logic;
     signal clken_load       :   std_logic;
     signal clken_fetch      :   std_logic;
     signal clken_counter    :   unsigned(3 downto 0);
-    signal pixen_counter    :   unsigned(4 downto 0);
-    signal pixen_msb        :   std_logic;
+    signal pixen_prescale   :   unsigned(1 downto 0);
+    signal pixen_counter    :   unsigned(3 downto 0);
 
 -- Cursor generation - can span up to 32 pixels
 -- Segments 0 and 1 are 8 pixels wide
@@ -323,82 +336,66 @@ begin
 
 
     -- =========================================================
-    -- PIXCLK is the main clock below this point
+    -- PIXCLK (48MHz) is the main clock below this point
     -- =========================================================
 
-    -- Pixel Counter (pixel clock = 16 MHz)
-    --
-    -- 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23
-    -- L
-    -- X                                                                   r:00
-    -- X                                   X                               r:01
-    -- X                 X                 X                 X             r:10
-    -- X        X        X        X        X        X        X        X    r:11
-    --
-    -- Pixel Counter (pixel clock = 12 MHz)
-    --
-    -- 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23
-    -- L
-    -- X                       X                       X                   r:10
-    -- X           X           X           X           X           X       r:11
+    -- Depending on the mode, the base pixel clock is either 12MHz or 16MHz
+    modeIs12MHz <= '1' when r0_teletext = '1' or nula_enable_attr_mode = '1' else '0';
 
     process(PIXCLK,nRESET)
     begin
         if nRESET = '0' then
 
-            pixen_counter <= (others => '0');
-            pixen_msb     <= '0';
+            pixen_prescale <= (others => '0');
+            pixen_counter  <= (others => '0');
 
         elsif rising_edge(PIXCLK) then
 
             clken_pixel <= '0';
-            clken_load <= '0';
+            clken_shift <= '0';
+            clken_load  <= '0';
 
-            if pixen_counter = 23 then
-                pixen_counter <= (others => '0');
-                pixen_msb     <= not pixen_msb;
+            -- For 12MHz pixen_prescale counts: 0, 1, 2, 3
+            -- For 16MHz pixen_prescale counts: 0, 1,    3
+            if modeIs12Mhz = '0' and pixen_prescale = 1 then
+                pixen_prescale <= pixen_prescale + 2;
             else
-                pixen_counter <= pixen_counter + 1;
+                pixen_prescale <= pixen_prescale + 1;
             end if;
-            if r0_teletext = '0' and nula_enable_attr_mode = '0' then
+
+            if pixen_prescale = 3 then
+
+                clken_pixel <= '1';
+
+                -- For 12MHz pixen_counter counts 0..5, 8..13
+                -- For 16MHz pixen_counter counts 0..15
+                if modeIs12Mhz = '1' and pixen_counter(2 downto 0) = 5 then
+                    pixen_counter <= pixen_counter + 3;
+                else
+                    pixen_counter <= pixen_counter + 1;
+                end if;
+
+                -- clken_load is either 1MHz or 2MHz
+                if pixen_counter(2 downto 0) = 0 and (pixen_counter(3) = '1' or r0_crtc_2mhz = '1') then
+                    clken_load <= '1';
+                end if;
+
+                -- clken_shift depends on the pixel rate
                 case r0_pixel_rate is
                     when "00" =>
-                        -- 2MHz
-                        if pixen_counter =  0 then
-                            clken_pixel <= '1';
-                        end if;
+                        -- 2MHz/1MHz
+                        clken_shift <= not (pixen_counter(0) or pixen_counter(1) or pixen_counter(2));
                     when "01" =>
-                        -- 4MHz
-                        if pixen_counter =  0 or pixen_counter =  12 then
-                            clken_pixel <= '1';
-                        end if;
+                        -- 4MHz/3MHz
+                        clken_shift <= not (pixen_counter(0) or pixen_counter(1));
                     when "10" =>
-                        -- 8MHz
-                        if pixen_counter =  0 or pixen_counter =  6 or pixen_counter = 12 or pixen_counter = 18 then
-                            clken_pixel <= '1';
-                        end if;
+                        -- 8MHz/6MHz
+                        clken_shift <= not pixen_counter(0);
                     when "11" =>
-                        -- 16MHz
-                        if pixen_counter =  0 or pixen_counter =  3 or pixen_counter =  6 or pixen_counter =  9 or
-                            pixen_counter = 12 or pixen_counter = 15 or pixen_counter = 18 or pixen_counter = 21 then
-                            clken_pixel <= '1';
-                        end if;
+                        -- 16MHz/12MHz
+                        clken_shift <= '1';
                     when others =>
                 end case;
-            elsif r0_teletext = '0' and nula_enable_attr_mode = '1' and r0_pixel_rate = "10" then
-                -- 6MHz
-                if pixen_counter =  0 or pixen_counter =  8 or pixen_counter = 16 then
-                    clken_pixel <= '1';
-                end if;
-            else
-                -- 12MHz
-                if pixen_counter =  0 or pixen_counter =  4 or pixen_counter =  8 or
-                    pixen_counter = 12 or pixen_counter = 16 or pixen_counter = 20 then
-                    clken_pixel <= '1';
-                end if;
-            end if;
-            if pixen_counter = 0 and (pixen_msb = '0' or r0_crtc_2mhz = '1') then
-                clken_load <= '1';
             end if;
         end if;
     end process;
@@ -411,31 +408,29 @@ begin
         if nRESET = '0' then
             shiftreg <= (others => '0');
         elsif rising_edge(PIXCLK) then
-            if clken_pixel = '1' then
-                if clken_load = '1' then
-                    -- Fetch next byte from RAM into shift register.  This always occurs in
-                    -- cycle 0, and also in cycle 8 if the CRTC is clocked at double rate.
-                    if nula_enable_attr_mode = '1' then
-                        if nula_enable_text_attr_mode = '1' then
-                            shiftreg <= di and x"f8";
-                            attr_bits <= di(2 downto 0);
-                        else
-                            shiftreg <= di;
-                            if mode1 = '1' then
-                                -- mode 1
-                                attr_bits <= di(4) & di(0) & '0';
-                            else
-                                -- mode 0, 3, 4, 6
-                                attr_bits <= di(1) & di(0) & '0';
-                            end if;
-                        end if;
+            if clken_load = '1' then
+                -- Fetch next byte from RAM into shift register.  This always occurs in
+                -- cycle 0, and also in cycle 8 if the CRTC is clocked at double rate.
+                if nula_enable_attr_mode = '1' then
+                    if nula_enable_text_attr_mode = '1' then
+                        shiftreg <= di and x"f8";
+                        attr_bits <= di(2 downto 0);
                     else
                         shiftreg <= di;
+                        if mode1 = '1' then
+                            -- mode 1
+                            attr_bits <= di(4) & di(0) & '0';
+                        else
+                            -- mode 0, 3, 4, 6
+                            attr_bits <= di(1) & di(0) & '0';
+                        end if;
                     end if;
                 else
-                    -- Clock shift register and input '1' at LSB
-                    shiftreg <= shiftreg(6 downto 0) & "1";
+                    shiftreg <= di;
                 end if;
+            elsif clken_shift = '1' then
+                -- Clock shift register and input '1' at LSB
+                shiftreg <= shiftreg(6 downto 0) & "1";
             end if;
         end if;
     end process;
@@ -452,7 +447,7 @@ begin
             cursor_active <= '0';
             cursor_counter <= (others => '0');
         elsif rising_edge(PIXCLK) then
-            if clken_pixel = '1' then
+            if clken_shift = '1' then
                 if clken_load = '1' then
                     if CURSOR = '1' or cursor_active = '1' then
                         -- Latch cursor

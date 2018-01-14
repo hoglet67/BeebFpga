@@ -559,10 +559,10 @@ begin
                     phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
                     delayed_disen2 <= delayed_disen;
                     invert := (others => cursor_invert);
-                    if r0_teletext = '1' or delayed_disen2 = '1' then
-                        nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor invert)));
+                    if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and delayed_disen2 = '0') then
+                        nula_RGB <= invert & invert & invert;
                     else
-                        nula_RGB <= x"000";
+                        nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor invert)));
                     end if;
 
                 end if;

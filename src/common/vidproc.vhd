@@ -113,7 +113,7 @@ architecture rtl of vidproc is
     signal di               :   std_logic_vector(7 downto 0);
     signal shiftreg         :   std_logic_vector(7 downto 0);
 
--- Delayed display enable
+-- Pipelined display enables
     signal disen0           :   std_logic;
     signal disen1           :   std_logic;
     signal disen2           :   std_logic;
@@ -131,6 +131,7 @@ architecture rtl of vidproc is
 -- Cursor generation - can span up to 32 pixels
 -- Segments 0 and 1 are 8 pixels wide
 -- Segment 2 is 16 pixels wide
+    signal cursor0          :   std_logic;
     signal cursor_invert    :   std_logic;
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
@@ -329,13 +330,14 @@ begin
                 -- Increment internal cycle counter during each video clock
                 clken_counter <= clken_counter + 1;
                 if clken_fetch = '1' then
+                    -- Sample all inputs, so there are stable for a whole character
                     di <= DI_RAM;
                     disen0 <= DISEN;
+                    cursor0 <= CURSOR;
                 end if;
             end if;
         end if;
     end process;
-
 
     -- =========================================================
     -- PIXCLK (48MHz) is the main clock below this point
@@ -452,7 +454,7 @@ begin
             if clken_load = '1' then
                 -- Display enable signal delayed by one character
                 disen1 <= disen0;
-                if CURSOR = '1' or cursor_active = '1' then
+                if cursor0 = '1' or cursor_active = '1' then
                     -- Latch cursor
                     cursor_active <= '1';
 
@@ -556,13 +558,12 @@ begin
                     -- Shift pixels in from right (so bits 3..0 are the most recent)
                     phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
                     disen2 <= disen1;
-                    invert := (others => cursor_invert);
                     if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disen2 = '0') then
                         nula_RGB <= invert & invert & invert;
                     else
                         nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor invert)));
                     end if;
-
+                    invert := (others => cursor_invert);
                 end if;
             end if;
         end process;

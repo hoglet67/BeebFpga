@@ -5,7 +5,7 @@
 -- Includes VideoNuLA
 --
 -- VideoNuLA is an extension to the Beeb's Video Processor designed in 2017
--- by Rob Coleman (Robc) and published on the StarDot forums. It's a small
+-- by Rob Coleman (RobC) and published on the StarDot forums. It's a small
 -- board that replaces the Beeb's Video ULA with an Altera Max II CPLD. As
 -- well as being compatible with the original Acorn Video ULA, it adds:
 --     an extended 4096 colour palette, in all modes (inc. mode 7)
@@ -18,12 +18,12 @@
 --
 -- All credit for the original concept and implementation belongs to Rob.
 --
--- BeebFpga contain's my own re-implementation of VideoNuLA, using the
+-- BeebFpga contains my own re-implementation of VideoNuLA, using the
 -- information published by Rob in his excellent user guide, which can
 -- be found here:
 --     http://stardot.org.uk/forums/viewtopic.php?p=176865#p176865
 --
--- It aims compatible with Rob's design at the register interface layer,
+-- It aims to be compatible with Rob's design at the register interface layer,
 -- but likely differs in some of the implementation detail.
 --
 -- For more information on VideoNuLA see Rob's RISC OS London talk:

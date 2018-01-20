@@ -446,6 +446,8 @@ begin
     begin
         if nRESET = '0' then
             shiftreg <= (others => '0');
+            -- there must be a better way of syncing this, but this seems to work
+            first_byte <= '0';
         elsif rising_edge(PIXCLK) then
             if clken_load = '1' then
                 -- Fetch next byte from RAM into shift register.  This always occurs in
@@ -474,11 +476,7 @@ begin
                         speccy_fg <= speccy_attr(7 downto 4);
                         speccy_bg <= speccy_attr(3 downto 0);
                     end if;
-                    if disen1 = '0' then
-                        first_byte <= '0';
-                    else
-                        first_byte <= not first_byte;
-                    end if;
+                    first_byte <= not first_byte;
                 else
                     shiftreg <= di;
                 end if;

@@ -182,18 +182,24 @@ architecture rtl of vidproc is
 -- Attribue bits
     signal mode1                      : std_logic;
     signal attr_bits                  : std_logic_vector(2 downto 0);
+    signal odd_byte                   : std_logic;
+    signal speccy_fg                  : std_logic_vector(3 downto 0);
+    signal speccy_bg                  : std_logic_vector(3 downto 0);
 
 -- Additional VideoNuLA registers
     signal nula_palette_mode          : std_logic;
     signal nula_hor_scroll_offset     : std_logic_vector(2 downto 0);
     signal nula_left_banking_size     : std_logic_vector(3 downto 0);
     signal nula_disable_a1            : std_logic;
-    signal nula_enable_attr_mode      : std_logic;
-    signal nula_enable_text_attr_mode : std_logic;
+    signal nula_normal_attr_mode      : std_logic;
+    signal nula_text_attr_mode        : std_logic;
+    signal nula_speccy_attr_mode      : std_logic;
     signal nula_flashing_flags        : std_logic_vector(7 downto 0);
     signal nula_write_index           : std_logic;
     signal nula_data_last             : std_logic_vector(7 downto 0);
     signal nula_RGB                   : std_logic_vector(11 downto 0);
+    signal nula_reg6                  : std_logic_vector(1 downto 0);
+    signal nula_reg7                  : std_logic_vector(0 downto 0);
 
 -- Additional VideoNuLA palette
     type nula_palette_t is array(0 to 15) of std_logic_vector(11 downto 0);
@@ -264,8 +270,8 @@ begin
                     nula_hor_scroll_offset     <= (others => '0');
                     nula_left_banking_size     <= (others => '0');
                     nula_disable_a1            <= '0';
-                    nula_enable_attr_mode      <= '0';
-                    nula_enable_text_attr_mode <= '0';
+                    nula_reg6                  <= (others => '0');
+                    nula_reg7                  <= (others => '0');
                     nula_flashing_flags        <= (others => '1');
                     nula_write_index           <= '0';
                     nula_palette( 0)           <= x"000";
@@ -302,9 +308,9 @@ begin
                             when x"5" =>
                                 nula_disable_a1            <= '1';
                             when x"6" =>
-                                nula_enable_attr_mode      <= DI_CPU(0);
+                                nula_reg6                  <= DI_CPU(1 downto 0);
                             when x"7" =>
-                                nula_enable_text_attr_mode <= DI_CPU(0);
+                                nula_reg7                  <= DI_CPU(0 downto 0);
                             when x"8" =>
                                 -- bits 7..4 control colours 8..11 respectively
                                 nula_flashing_flags(7 downto 4) <= DI_CPU(3 downto 0);
@@ -331,6 +337,11 @@ begin
             end if;
         end if;
     end process;
+
+    -- Decode which attribute mode is active
+    nula_normal_attr_mode <= '1' when nula_reg6(1 downto 0) = "01" and nula_reg7(0) = '0' else '0';
+    nula_text_attr_mode   <= '1' when nula_reg6(1 downto 0) = "01" and nula_reg7(0) = '1' else '0';
+    nula_speccy_attr_mode <= '1' when nula_reg6(1 downto 0) = "10"                        else '0';
 
     -- The CRT controller is always enabled in the 15th cycle, so that the result
     -- is ready for latching into the shift register in cycle 0.  If 2 MHz mode is
@@ -369,7 +380,7 @@ begin
     -- =========================================================
 
     -- Depending on the mode, the base pixel clock is either 12MHz or 16MHz
-    modeIs12MHz <= '1' when r0_teletext = '1' or nula_enable_attr_mode = '1' else '0';
+    modeIs12MHz <= '1' when r0_teletext = '1' or nula_normal_attr_mode = '1' or nula_text_attr_mode = '1' else '0';
 
     process(PIXCLK,nRESET)
     begin
@@ -410,21 +421,18 @@ begin
                 end if;
 
                 -- clken_shift depends on the pixel rate
-                case r0_pixel_rate is
-                    when "00" =>
-                        -- 2MHz/1MHz
-                        clken_shift <= not (pixen_counter(0) or pixen_counter(1) or pixen_counter(2));
-                    when "01" =>
-                        -- 4MHz/3MHz
-                        clken_shift <= not (pixen_counter(0) or pixen_counter(1));
-                    when "10" =>
-                        -- 8MHz/6MHz
-                        clken_shift <= not pixen_counter(0);
-                    when "11" =>
-                        -- 16MHz/12MHz
-                        clken_shift <= '1';
-                    when others =>
-                end case;
+                if r0_pixel_rate = "00" then
+                    -- 2MHz/1MHz
+                    clken_shift <= not (pixen_counter(0) or pixen_counter(1) or pixen_counter(2));
+                elsif r0_pixel_rate = "01" then
+                    -- 4MHz/3MHz
+                    clken_shift <= not (pixen_counter(0) or pixen_counter(1));
+                elsif r0_pixel_rate = "10" or nula_speccy_attr_mode = '1' then
+                    -- 8MHz/6MHz
+                    clken_shift <= not pixen_counter(0);
+                else
+                    clken_shift <= '1';
+                end if;
             end if;
         end if;
     end process;
@@ -440,19 +448,29 @@ begin
             if clken_load = '1' then
                 -- Fetch next byte from RAM into shift register.  This always occurs in
                 -- cycle 0, and also in cycle 8 if the CRTC is clocked at double rate.
-                if nula_enable_attr_mode = '1' then
-                    if nula_enable_text_attr_mode = '1' then
-                        shiftreg <= di and x"f8";
-                        attr_bits <= di(2 downto 0);
+                if nula_normal_attr_mode = '1' then
+                    shiftreg <= di;
+                    if mode1 = '1' then
+                        -- mode 1
+                        attr_bits <= di(4) & di(0) & '0';
                     else
+                        -- mode 0, 3, 4, 6
+                        attr_bits <= di(1) & di(0) & '0';
+                    end if;
+                elsif nula_text_attr_mode = '1' then
+                    shiftreg <= di and x"f8";
+                    attr_bits <= di(2 downto 0);
+                elsif nula_speccy_attr_mode = '1' then
+                    if odd_byte = '1' then
                         shiftreg <= di;
-                        if mode1 = '1' then
-                            -- mode 1
-                            attr_bits <= di(4) & di(0) & '0';
-                        else
-                            -- mode 0, 3, 4, 6
-                            attr_bits <= di(1) & di(0) & '0';
-                        end if;
+                    else
+                        speccy_fg <= di(7 downto 4);
+                        speccy_bg <= di(3 downto 0);
+                    end if;
+                    if disen1 = '0' then
+                        odd_byte <= '0';
+                    else
+                        odd_byte <= not odd_byte;
                     end if;
                 else
                     shiftreg <= di;
@@ -525,11 +543,17 @@ begin
                 -- bit 2 - Not BLUE
                 -- bit 1 - Not GREEN
                 -- bit 0 - Not RED
-                if nula_enable_attr_mode = '1' then
+                if nula_normal_attr_mode = '1' or nula_text_attr_mode = '1' then
                     if mode1 = '1' then
                         palette_a := attr_bits(2 downto 1) & shiftreg(7) & shiftreg(3);
                     else
                         palette_a := attr_bits(2 downto 0)               & shiftreg(7);
+                    end if;
+                elsif nula_speccy_attr_mode = '1' then
+                    if shiftreg(7) = '1' then
+                        palette_a := speccy_fg;
+                    else
+                        palette_a := speccy_bg;
                     end if;
                 else
                     palette_a := shiftreg(7) & shiftreg(5) & shiftreg(3) & shiftreg(1);

@@ -146,7 +146,8 @@ architecture rtl of vidproc is
 -- Pipelined display enables
     signal disen0           :   std_logic;
     signal disen1           :   std_logic;
-    signal disen2           :   std_logic;
+    signal disen2           :   std_logic; -- needed to pipeline in speccy mode
+    signal disenout         :   std_logic;
 
 -- Internal clock enable generation
     signal modeIs12MHz      :   std_logic;
@@ -182,7 +183,8 @@ architecture rtl of vidproc is
 -- Attribue bits
     signal mode1                      : std_logic;
     signal attr_bits                  : std_logic_vector(2 downto 0);
-    signal odd_byte                   : std_logic;
+    signal first_byte                 : std_logic;
+    signal speccy_attr                : std_logic_vector(7 downto 0);
     signal speccy_fg                  : std_logic_vector(3 downto 0);
     signal speccy_bg                  : std_logic_vector(3 downto 0);
 
@@ -461,16 +463,21 @@ begin
                     shiftreg <= di and x"f8";
                     attr_bits <= di(2 downto 0);
                 elsif nula_speccy_attr_mode = '1' then
-                    if odd_byte = '1' then
-                        shiftreg <= di;
+                    if first_byte = '1' then
+                        -- first byte contains attribute
+                        speccy_attr <= di;
+                        -- also need a shift as well at this point
+                        shiftreg <= shiftreg(6 downto 0) & "1";
                     else
-                        speccy_fg <= di(7 downto 4);
-                        speccy_bg <= di(3 downto 0);
+                        -- second byte contains pixels
+                        shiftreg <= di;
+                        speccy_fg <= speccy_attr(7 downto 4);
+                        speccy_bg <= speccy_attr(3 downto 0);
                     end if;
                     if disen1 = '0' then
-                        odd_byte <= '0';
+                        first_byte <= '0';
                     else
-                        odd_byte <= not odd_byte;
+                        first_byte <= not first_byte;
                     end if;
                 else
                     shiftreg <= di;
@@ -497,6 +504,7 @@ begin
             if clken_load = '1' then
                 -- Display enable signal delayed by one character
                 disen1 <= disen0;
+                disen2 <= disen1;
                 if cursor0 = '1' or cursor_active = '1' then
                     -- Latch cursor
                     cursor_active <= '1';
@@ -571,7 +579,7 @@ begin
                 blue_val := (dot_val(3) and do_flash) xor not dot_val(2);
 
                 -- Output physical colour, to be used by VideoNuLA
-                if nula_palette_mode = '1' then
+                if nula_palette_mode = '1' or nula_speccy_attr_mode = '1' then
                     phys_col <= palette_a;
                 else
                     phys_col <= dot_val(3) & blue_val & green_val & red_val;
@@ -598,8 +606,12 @@ begin
 
                 -- Shift pixels in from right (so bits 3..0 are the most recent)
                 phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
-                disen2 <= disen1;
-                if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disen2 = '0') then
+                if nula_speccy_attr_mode = '1' then
+                    disenout <= disen2;
+                else
+                    disenout <= disen1;
+                end if;
+                if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disenout = '0') then
                     nula_RGB <= invert & invert & invert;
                 else
                     nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor invert)));

@@ -473,8 +473,14 @@ begin
                     else
                         -- second byte contains pixels
                         shiftreg <= di;
-                        speccy_fg <= speccy_attr(7 downto 4);
-                        speccy_bg <= speccy_attr(3 downto 0);
+                        -- attribute is <flash> <bright> <paper: G R B> <ink GRB>
+                        if speccy_attr(7) = '1' and r0_flash = '1' then
+                            speccy_fg <= speccy_attr(6) & speccy_attr(5 downto 3);
+                            speccy_bg <= speccy_attr(6) & speccy_attr(2 downto 0);
+                        else
+                            speccy_fg <= speccy_attr(6) & speccy_attr(2 downto 0);
+                            speccy_bg <= speccy_attr(6) & speccy_attr(5 downto 3);
+                        end if;
                     end if;
                     first_byte <= not first_byte;
                 else

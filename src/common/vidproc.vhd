@@ -443,6 +443,8 @@ begin
 
     -- Shift register control
     process(PIXCLK,nRESET)
+        variable fg : std_logic_vector(3 downto 0);
+        variable bg : std_logic_vector(3 downto 0);
     begin
         if nRESET = '0' then
             shiftreg <= (others => '0');
@@ -474,12 +476,31 @@ begin
                         -- second byte contains pixels
                         shiftreg <= di;
                         -- attribute is <flash> <bright> <paper: G R B> <ink GRB>
-                        if speccy_attr(7) = '1' and r0_flash = '1' then
-                            speccy_fg <= speccy_attr(6) & speccy_attr(5 downto 3);
-                            speccy_bg <= speccy_attr(6) & speccy_attr(2 downto 0);
-                        else
-                            speccy_fg <= speccy_attr(6) & speccy_attr(2 downto 0);
-                            speccy_bg <= speccy_attr(6) & speccy_attr(5 downto 3);
+                        -- beeb colour is <B G R>
+                        fg := speccy_attr(6) & speccy_attr(0) & speccy_attr(2) & speccy_attr(1);
+                        bg := speccy_attr(6) & speccy_attr(3) & speccy_attr(5) & speccy_attr(4);
+                        -- attribute 0x80 is used to indicate border
+                        -- which is then mapped to logical colour 0
+                        if speccy_attr = x"80" then
+                            speccy_fg <= x"0";
+                            speccy_bg <= x"0";
+                        else                            
+                            -- remap light black (0) to dark black (8) so
+                            -- logical colour zero can only be border
+                            if fg = x"0" then
+                                fg := x"8";
+                            end if;
+                            if bg = x"0" then
+                                bg := x"8";
+                            end if;
+                            -- now handle flashing
+                            if speccy_attr(7) = '1' and r0_flash = '1' then
+                                speccy_fg <= bg;
+                                speccy_bg <= fg;
+                            else
+                                speccy_fg <= fg;
+                                speccy_bg <= bg;
+                            end if;                            
                         end if;
                     end if;
                     first_byte <= not first_byte;

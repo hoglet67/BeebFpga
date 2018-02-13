@@ -420,6 +420,7 @@ signal tube_clken1      :   std_logic := '0';
 signal tube_ram_wr      :   std_logic;
 signal tube_ram_addr    :   std_logic_vector(15 downto 0);
 signal tube_ram_data_in :   std_logic_vector(7 downto 0);
+signal ext_tube_clk     :   std_logic;
 
 -- Memory enables
 signal ram_enable       :   std_logic;      -- 0x0000
@@ -1018,15 +1019,15 @@ begin
 
     GenCoProExt: if IncludeCoProExt generate
     begin
-        ext_tube_r_nw  <= cpu_r_nw;
-        ext_tube_nrst  <= reset_n;
-        ext_tube_ntube <= not tube_enable;
-        ext_tube_a     <= cpu_a(6 downto 0);
-        ext_tube_di    <= cpu_do;
         process(clock_32)
         begin
             if rising_edge(clock_32) then
                 ext_tube_phi2 <= clken_counter(3);
+                ext_tube_r_nw  <= cpu_r_nw;
+                ext_tube_nrst  <= reset_n;
+                ext_tube_ntube <= not tube_enable;
+                ext_tube_a     <= cpu_a(6 downto 0);
+                ext_tube_di    <= cpu_do;
             end if;
         end process;
     end generate;

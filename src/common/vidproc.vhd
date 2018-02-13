@@ -503,7 +503,11 @@ begin
                             end if;                            
                         end if;
                     end if;
-                    first_byte <= not first_byte;
+                    if disen1 = '0' and disen2 = '1' then
+                        first_byte <= '1';
+                    else
+                        first_byte <= not first_byte;
+                    end if;
                 else
                     shiftreg <= di;
                 end if;

@@ -1463,7 +1463,7 @@ begin
                                 if m128_mode = '0' and romsel(3 downto 0) = "1000" and cpu_a(13 downto 8) >= "110110" then
                                     -- ROM slot 8 >= B600 is mapped to RAM for
                                     -- the SWRam version of MMFS in Beeb mode only
-                                    ext_A <= "11101" & cpu_a(13 downto 0);
+                                    ext_A <= "11100" & cpu_a(13 downto 0);
                                     ext_nWE <= cpu_r_nw;
                                     ext_nOE <= not cpu_r_nw;
                                 else

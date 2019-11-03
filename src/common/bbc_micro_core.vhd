@@ -503,10 +503,10 @@ begin
                 avr_RxD      => avr_RxD,
                 avr_TxD      => avr_TxD,
                 sw1          => '0',
-                nsw2         => hard_reset_n,
-                led3         => open,
-                led6         => open,
-                led8         => open,
+                sw2          => not hard_reset_n,
+                led_bkpt     => open,
+                led_trig0    => open,
+                led_trig1    => open,
                 tmosi        => open,
                 tdin         => open,
                 tcclk        => open
@@ -979,7 +979,7 @@ begin
             end if;
         end process;
     end generate;
-        
+
 --------------------------------------------------------
 -- SN76489 Sound Generator
 --------------------------------------------------------

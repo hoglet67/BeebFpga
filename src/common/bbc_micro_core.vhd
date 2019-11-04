@@ -191,7 +191,6 @@ architecture rtl of bbc_micro_core is
 
 signal reset        :   std_logic;
 signal reset_n      :   std_logic;
-signal reset_n_out  :   std_logic;
 signal clock_avr    :   std_logic;
 signal clock_6      :   std_logic;
 
@@ -496,8 +495,7 @@ begin
                 Din          => cpu_di,
                 Dout         => cpu_do,
                 SO_n         => cpu_so_n,
-                Res_n_in     => reset_n,
-                Res_n_out    => reset_n_out,
+                Res_n        => reset_n,
                 Rdy          => cpu_ready,
                 trig         => "00",
                 avr_RxD      => avr_RxD,
@@ -547,7 +545,6 @@ begin
             cpu_di,
             cpu_do
         );
-        reset_n_out <= '1';
         avr_TxD <= avr_RxD;
     end generate;
 
@@ -570,7 +567,6 @@ begin
         cpu_do <= std_logic_vector(cpu_dout_us);
         cpu_a(15 downto 0) <= std_logic_vector(cpu_addr_us);
         cpu_a(23 downto 16) <= (others => '0');
-        reset_n_out <= '1';
         avr_TxD <= avr_RxD;
     end generate;
 
@@ -1064,7 +1060,7 @@ begin
     begin
         if rising_edge(clock_32) then
             if cpu_clken = '1' then
-                reset_n <= reset_n_out and hard_reset_n and not keyb_break;
+                reset_n <= hard_reset_n and not keyb_break;
             end if;
         end if;
     end process;

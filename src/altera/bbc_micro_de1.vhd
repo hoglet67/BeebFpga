@@ -52,7 +52,7 @@ use ieee.numeric_std.all;
 entity bbc_micro_de1 is
 generic (
         IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := false;
+        IncludeSID         : boolean := true;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := true;  -- The three co pro options

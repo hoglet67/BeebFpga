@@ -63,6 +63,7 @@ entity bbc_micro_core is
         IncludeCoPro6502   : boolean := false; -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
+        IncludeVideoNuLA   : boolean := false;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -72,6 +73,7 @@ entity bbc_micro_core is
         clock_32       : in    std_logic;
         clock_24       : in    std_logic;
         clock_27       : in    std_logic;
+        clock_48       : in    std_logic;
 
         -- Hard reset (active low)
         hard_reset_n   : in    std_logic;
@@ -185,6 +187,18 @@ end entity;
 
 architecture rtl of bbc_micro_core is
 
+-- Use 4-bit RGB when VideoNuLA is included, other 1-bit RGB
+function calc_rgb_width(includeVideoNuLA : boolean) return integer is
+begin
+    if includeVideoNuLA then
+        return 4;
+    else
+        return 1;
+    end if;
+end function;
+
+constant RGB_WIDTH : integer := calc_rgb_width(IncludeVideoNuLA);
+
 -------------
 -- Signals
 -------------
@@ -260,29 +274,32 @@ signal vidproc_disen    :   std_logic;
 signal r_in             :   std_logic;
 signal g_in             :   std_logic;
 signal b_in             :   std_logic;
-signal r_out            :   std_logic;
-signal g_out            :   std_logic;
-signal b_out            :   std_logic;
+signal r_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal g_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal b_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
 -- Scandoubler signals (Mist)
-signal rgbi_in          :   std_logic_vector(3 downto 0);
-signal vga0_r           :   std_logic_vector(1 downto 0);
-signal vga0_g           :   std_logic_vector(1 downto 0);
-signal vga0_b           :   std_logic_vector(1 downto 0);
+signal rgbi_in          :   std_logic_vector(RGB_WIDTH * 3 downto 0);
+signal vga0_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga0_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga0_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga0_hs          :   std_logic;
 signal vga0_vs          :   std_logic;
 signal vga0_mode        :   std_logic;
 -- Scandoubler signals (RGB2VGA)
-signal vga1_r           :   std_logic_vector(1 downto 0);
-signal vga1_g           :   std_logic_vector(1 downto 0);
-signal vga1_b           :   std_logic_vector(1 downto 0);
+signal vga1_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga1_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga1_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga1_hs          :   std_logic;
 signal vga1_vs          :   std_logic;
 signal vga1_mode        :   std_logic;
-signal rgbi_out         :   std_logic_vector(3 downto 0);
+signal rgbi_out         :   std_logic_vector(RGB_WIDTH * 3 downto 0);
 signal vsync_int        :   std_logic;
 signal hsync_int        :   std_logic;
 
+signal final_r          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal final_g          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal final_b          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
 -- SAA5050 signals
 signal ttxt_glr         :   std_logic;
@@ -402,6 +419,7 @@ signal tube_clken1      :   std_logic := '0';
 signal tube_ram_wr      :   std_logic;
 signal tube_ram_addr    :   std_logic_vector(15 downto 0);
 signal tube_ram_data_in :   std_logic_vector(7 downto 0);
+signal ext_tube_clk     :   std_logic;
 
 -- Memory enables
 signal ram_enable       :   std_logic;      -- 0x0000
@@ -587,21 +605,55 @@ begin
         crtc_ma,
         crtc_ra );
 
-    video_ula : entity work.vidproc port map (
-        clock_32,
-        vid_clken,
-        hard_reset_n,
-        crtc_clken,
-        vidproc_enable,
-        cpu_a(0),
-        cpu_do,
-        ext_Dout,
-        vidproc_invert_n,
-        vidproc_disen,
-        crtc_cursor,
-        r_in, g_in, b_in,
-        r_out, g_out, b_out
-        );
+    vidproc_nula: if IncludeVideoNuLA generate
+    begin
+        videoula : entity work.vidproc
+            port map (
+                CLOCK       => clock_32,
+                CPUCLKEN    => cpu_clken,
+                CLKEN       => vid_clken,
+                PIXCLK      => clock_48,
+                nRESET      => hard_reset_n,
+                CLKEN_CRTC  => crtc_clken,
+                ENABLE      => vidproc_enable,
+                A           => cpu_a(1 downto 0),
+                DI_CPU      => cpu_do,
+                DI_RAM      => ext_Dout,
+                nINVERT     => vidproc_invert_n,
+                DISEN       => vidproc_disen,
+                CURSOR      => crtc_cursor,
+                R_IN        => r_in,
+                G_IN        => g_in,
+                B_IN        => b_in,
+                R           => r_out,
+                G           => g_out,
+                B           => b_out
+                );
+    end generate;
+
+    vidproc_orig: if not IncludeVideoNuLA generate
+    begin
+        videoula_orig : entity work.vidproc_orig
+            port map (
+                CLOCK       => clock_32,
+                CLKEN       => vid_clken,
+                nRESET      => hard_reset_n,
+                CLKEN_CRTC  => crtc_clken,
+                ENABLE      => vidproc_enable,
+                A0          => cpu_a(0),
+                DI_CPU      => cpu_do,
+                DI_RAM      => ext_Dout,
+                nINVERT     => vidproc_invert_n,
+                DISEN       => vidproc_disen,
+                CURSOR      => crtc_cursor,
+                R_IN        => r_in,
+                G_IN        => g_in,
+                B_IN        => b_in,
+                R           => r_out,
+                G           => g_out,
+                B           => b_out
+                );
+    end generate;
 
     teletext : entity work.saa5050 port map (
         clock_24, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
@@ -963,15 +1015,15 @@ begin
 
     GenCoProExt: if IncludeCoProExt generate
     begin
-        ext_tube_r_nw  <= cpu_r_nw;
-        ext_tube_nrst  <= reset_n;
-        ext_tube_ntube <= not tube_enable;
-        ext_tube_a     <= cpu_a(6 downto 0);
-        ext_tube_di    <= cpu_do;
         process(clock_32)
         begin
             if rising_edge(clock_32) then
                 ext_tube_phi2 <= clken_counter(3);
+                ext_tube_r_nw  <= cpu_r_nw;
+                ext_tube_nrst  <= reset_n;
+                ext_tube_ntube <= not tube_enable;
+                ext_tube_a     <= cpu_a(6 downto 0);
+                ext_tube_di    <= cpu_do;
             end if;
         end process;
     end generate;
@@ -1273,7 +1325,7 @@ begin
                     -- 0xFE20
                     if cpu_a(4) = '0' then
                         -- 0xFE20
-                        vidproc_enable <= '1';
+                        vidproc_enable <= not cpu_r_nw;
                     elsif m128_mode = '1' then
                         case cpu_a(3 downto 2) is
                             -- 0xFE30
@@ -1633,11 +1685,15 @@ begin
 -- Scan Doubler from the MIST project
 -----------------------------------------------
 
-    inst_mist_scandoubler: entity work.mist_scandoubler port map (
+    inst_mist_scandoubler: entity work.mist_scandoubler
+    generic map (
+        -- WIDTH is width of individual rgb in/out ports
+        WIDTH => RGB_WIDTH
+    )
+    port map (
         clk => clock_32,
         clk_16 => clock_32,
         clk_16_en => vid_clken,
-        scanlines => '0',
         hs_in => crtc_hsync_n,
         vs_in => crtc_vsync_n,
         r_in => r_out,
@@ -1660,7 +1716,12 @@ begin
 
     rgbi_in <= r_out & g_out & b_out & '0';
 
-    inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler port map (
+    inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler
+    generic map (
+        -- WIDTH is width of combined rgbi in/out ports
+        WIDTH => RGB_WIDTH * 3 + 1
+    )
+    port map (
         clock => clock_32,
         clken => vid_clken,
         clk25 => clock_27,
@@ -1672,9 +1733,9 @@ begin
         vSync_out => vga1_vs
     );
 
-    vga1_r  <= rgbi_out(3) & rgbi_out(3);
-    vga1_g  <= rgbi_out(2) & rgbi_out(2);
-    vga1_b  <= rgbi_out(1) & rgbi_out(1);
+    vga1_r  <= rgbi_out(RGB_WIDTH * 3 downto RGB_WIDTH * 2 + 1);
+    vga1_g  <= rgbi_out(RGB_WIDTH * 2 downto RGB_WIDTH * 1 + 1);
+    vga1_b  <= rgbi_out(RGB_WIDTH * 1 downto RGB_WIDTH * 0 + 1);
 
     vga1_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '1' else '0';
 
@@ -1695,17 +1756,31 @@ begin
 
     video_vsync <= vsync_int xor vid_mode(3);
 
-    video_red   <= vga0_r(1) & vga0_r(0) & "00" when vga0_mode = '1' else
-                   vga1_r(1) & vga1_r(0) & "00" when vga1_mode = '1' else
-                   r_out & r_out & r_out & r_out;
+    final_r <= vga0_r when vga0_mode = '1' else
+               vga1_r when vga1_mode = '1' else
+               r_out;
 
-    video_green <= vga0_g(1) & vga0_g(0) & "00" when vga0_mode = '1' else
-                   vga1_g(1) & vga1_g(0) & "00" when vga1_mode = '1' else
-                   g_out & g_out & g_out & g_out;
+    final_g <= vga0_g when vga0_mode = '1' else
+               vga1_g when vga1_mode = '1' else
+               g_out;
 
-    video_blue  <= vga0_b(1) & vga0_b(0) & "00" when vga0_mode = '1' else
-                   vga1_b(1) & vga1_b(0) & "00" when vga1_mode = '1' else
-                   b_out & b_out & b_out & b_out;
+    final_b <= vga0_b when vga0_mode = '1' else
+               vga1_b when vga1_mode = '1' else
+               b_out;
+
+    map_video_nula: if IncludeVideoNuLA generate
+    begin
+        video_red   <= final_r;
+        video_green <= final_g;
+        video_blue  <= final_b;
+    end generate;
+
+    map_video_orig: if not IncludeVideoNuLA generate
+    begin
+        video_red   <= (others => final_r(0));
+        video_green <= (others => final_g(0));
+        video_blue  <= (others => final_b(0));
+    end generate;
 
 -----------------------------------------------
 -- Master 128 additions

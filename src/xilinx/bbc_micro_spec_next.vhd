@@ -58,7 +58,8 @@ entity bbc_micro_spec_next is
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := false; -- The co pro options are mutually exclusive
-        IncludeCoProExt    : boolean := true   -- (i.e. select just one)
+        IncludeCoProExt    : boolean := true;  -- (i.e. select just one)
+        IncludeVideoNuLA   : boolean := true
     );
     port (
         accel_io              : inout std_logic_vector(27 downto 0);
@@ -143,11 +144,12 @@ architecture rtl of bbc_micro_spec_next is
 -- Signals
 -------------
 
-    signal fx_clk_24       : std_logic;
+    signal fx_clk_48       : std_logic;
     signal fx_clk_32       : std_logic;
     signal clock_24        : std_logic;
     signal clock_27        : std_logic;
     signal clock_32        : std_logic;
+    signal clock_48        : std_logic;
     signal dac_l_in        : std_logic_vector(9 downto 0);
     signal dac_r_in        : std_logic_vector(9 downto 0);
     signal audio_l         : std_logic_vector(15 downto 0);
@@ -227,6 +229,7 @@ begin
         IncludeCoPro6502   => IncludeCoPro6502,
         IncludeCoProSPI    => false,
         IncludeCoProExt    => IncludeCoProExt,
+        IncludeVideoNuLA   => IncludeVideoNuLA,
         UseOrigKeyboard    => false,
         UseT65Core         => false,
         UseAlanDCore       => true
@@ -235,6 +238,7 @@ begin
         clock_32       => clock_32,
         clock_24       => clock_24,
         clock_27       => clock_27,
+        clock_48       => clock_48,
         hard_reset_n   => hard_reset_n,
         ps2_kbd_clk    => ps2_clk_io,
         ps2_kbd_data   => ps2_data_io,
@@ -345,7 +349,7 @@ begin
 
     DCM2 : DCM
     generic map (
-        CLKFX_MULTIPLY  => 12,
+        CLKFX_MULTIPLY  => 24,
         CLKFX_DIVIDE    => 25,
         CLK_FEEDBACK    => "NONE"
         )
@@ -357,16 +361,31 @@ begin
         PSINCDEC        => '0',
         PSEN            => '0',
         PSCLK           => '0',
-        CLKFX           => fx_clk_24
+        CLKFX           => fx_clk_48
         );
 
     BUFG2 : BUFG
     port map (
-        I => fx_clk_24,
-        O => clock_24
+        I => fx_clk_48,
+        O => clock_48
         );
 
     clock_27 <= '0';
+
+    -- 24MHz teletext clock, generated from 48MHz intermediate clock
+    --
+    -- Important: this must be phase locked to the 32MHz clock
+    -- i.e. they must be generated from the same clock source
+    --
+    -- This is also the case on a real BBC, where the 6MHz teletext
+    -- clock is generted by some dubious delays from the 16MHz
+    -- system clock.
+    clock_24_gen : process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            clock_24 <= not clock_24;
+        end if;
+    end process;
 
 --------------------------------------------------------
 -- Power Up Reset Generation

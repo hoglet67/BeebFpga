@@ -50,45 +50,55 @@ use ieee.numeric_std.all;
 
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
-     port (clk_32M00      : in    std_logic;
-           ps2_kbd_clk    : in    std_logic;
-           ps2_kbd_data   : in    std_logic;
-           ps2_mse_clk    : inout std_logic;
-           ps2_mse_data   : inout std_logic;
-           ERST           : in    std_logic;
-           red            : out   std_logic_vector (3 downto 0);
-           green          : out   std_logic_vector (3 downto 0);
-           blue           : out   std_logic_vector (3 downto 0);
-           vsync          : out   std_logic;
-           hsync          : out   std_logic;
-           audioL         : out   std_logic;
-           audioR         : out   std_logic;
-           SRAM_nOE       : out   std_logic;
-           SRAM_nWE       : out   std_logic;
-           SRAM_nCS       : out   std_logic;
-           SRAM_A         : out   std_logic_vector (20 downto 0);
-           SRAM_D         : inout std_logic_vector (7 downto 0);
-           SDMISO         : in    std_logic;
-           SDSS           : out   std_logic;
-           SDCLK          : out   std_logic;
-           SDMOSI         : out   std_logic;
-           LED1           : out   std_logic;
-           LED2           : out   std_logic;
-           ARDUINO_RESET  : out   std_logic;
-           SW1            : in    std_logic;
-           FLASH_CS       : out   std_logic;                     -- Active low FLASH chip select
-           FLASH_SI       : out   std_logic;                     -- Serial output to FLASH chip SI pin
-           FLASH_CK       : out   std_logic;                     -- FLASH clock
-           FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
-           avr_RxD        : in    std_logic;
-           avr_TxD        : out   std_logic;
-           -- DIP(0) = Video Mode: sRGB (0) / VGA (1)
-           -- DIP(1) = VGA Scan Doubler: MIST (0) / RGB2VGA (1)
-           -- DIP(2) = Machine: BBC Model B (0) / BBC Master (1)
-           -- DIP(3) = No Boot (0) : Boot (1)
-           DIP            : in    std_logic_vector(3 downto 0);
-           JOYSTICK1      : in    std_logic_vector(4 downto 0);
-           JOYSTICK2      : in    std_logic_vector(4 downto 0)
+    generic (
+        IncludeAMXMouse    : boolean := false;
+        IncludeSID         : boolean := true;
+        IncludeMusic5000   : boolean := true;
+        IncludeICEDebugger : boolean := false;
+        IncludeCoPro6502   : boolean := true;  -- The co pro options are mutually exclusive
+        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
+        IncludeVideoNuLA   : boolean := true
+    );
+    port (
+        clk_32M00      : in    std_logic;
+        ps2_kbd_clk    : in    std_logic;
+        ps2_kbd_data   : in    std_logic;
+        ps2_mse_clk    : inout std_logic;
+        ps2_mse_data   : inout std_logic;
+        ERST           : in    std_logic;
+        red            : out   std_logic_vector (3 downto 0);
+        green          : out   std_logic_vector (3 downto 0);
+        blue           : out   std_logic_vector (3 downto 0);
+        vsync          : out   std_logic;
+        hsync          : out   std_logic;
+        audioL         : out   std_logic;
+        audioR         : out   std_logic;
+        SRAM_nOE       : out   std_logic;
+        SRAM_nWE       : out   std_logic;
+        SRAM_nCS       : out   std_logic;
+        SRAM_A         : out   std_logic_vector (20 downto 0);
+        SRAM_D         : inout std_logic_vector (7 downto 0);
+        SDMISO         : in    std_logic;
+        SDSS           : out   std_logic;
+        SDCLK          : out   std_logic;
+        SDMOSI         : out   std_logic;
+        LED1           : out   std_logic;
+        LED2           : out   std_logic;
+        ARDUINO_RESET  : out   std_logic;
+        SW1            : in    std_logic;
+        FLASH_CS       : out   std_logic;                     -- Active low FLASH chip select
+        FLASH_SI       : out   std_logic;                     -- Serial output to FLASH chip SI pin
+        FLASH_CK       : out   std_logic;                     -- FLASH clock
+        FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
+        avr_RxD        : in    std_logic;
+        avr_TxD        : out   std_logic;
+        -- DIP(0) = Video Mode: sRGB (0) / VGA (1)
+        -- DIP(1) = VGA Scan Doubler: MIST (0) / RGB2VGA (1)
+        -- DIP(2) = Machine: BBC Model B (0) / BBC Master (1)
+        -- DIP(3) = No Boot (0) : Boot (1)
+        DIP            : in    std_logic_vector(3 downto 0);
+        JOYSTICK1      : in    std_logic_vector(4 downto 0);
+        JOYSTICK2      : in    std_logic_vector(4 downto 0)
     );
 end entity;
 
@@ -101,6 +111,7 @@ architecture rtl of bbc_micro_duo is
     signal clock_24        : std_logic;
     signal clock_27        : std_logic;
     signal clock_32        : std_logic;
+    signal clock_48        : std_logic;
     signal dac_l_in        : std_logic_vector(9 downto 0);
     signal dac_r_in        : std_logic_vector(9 downto 0);
     signal audio_l         : std_logic_vector(15 downto 0);
@@ -152,12 +163,14 @@ begin
     vid_mode       <= "00" & DIP(1 downto 0);
     bbc_micro : entity work.bbc_micro_core
     generic map (
-        IncludeAMXMouse    => false,
-        IncludeSID         => true,
-        IncludeMusic5000   => true,
-        IncludeICEDebugger => false,
-        IncludeCoPro6502   => true,
+        IncludeAMXMouse    => IncludeAMXMouse,
+        IncludeSID         => IncludeSID,
+        IncludeMusic5000   => IncludeMusic5000,
+        IncludeICEDebugger => IncludeICEDebugger,
+        IncludeCoPro6502   => IncludeCoPro6502,
         IncludeCoProSPI    => false,
+        IncludeCoProExt    => IncludeCoProExt,
+        IncludeVideoNuLA   => IncludeVideoNuLA,
         UseOrigKeyboard    => false,
         UseT65Core         => false,
         UseAlanDCore       => true
@@ -166,6 +179,7 @@ begin
         clock_32       => clock_32,
         clock_24       => clock_24,
         clock_27       => clock_27,
+        clock_48       => clock_48,
         hard_reset_n   => hard_reset_n,
         ps2_kbd_clk    => ps2_kbd_clk,
         ps2_kbd_data   => ps2_kbd_data,
@@ -228,13 +242,28 @@ begin
     inst_dcm1: entity work.dcm1 port map(
         CLKIN_IN  => clk_32M00,
         CLK0_OUT  => clock_32,
-        CLKFX_OUT => clock_24
+        CLKFX_OUT => clock_48
     );
 
     inst_dcm2: entity work.dcm2 port map (
         CLKIN_IN  => clk_32M00,
         CLKFX_OUT => clock_27
     );
+
+    -- 24MHz teletext clock, generated from 48MHz intermediate clock
+    --
+    -- Important: this must be phase locked to the 32MHz clock
+    -- i.e. they must be generated from the same clock source
+    --
+    -- This is also the case on a real BBC, where the 6MHz teletext
+    -- clock is generted by some dubious delays from the 16MHz
+    -- system clock.
+    clock_24_gen : process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            clock_24 <= not clock_24;
+        end if;
+    end process;
 
 --------------------------------------------------------
 -- Power Up Reset Generation

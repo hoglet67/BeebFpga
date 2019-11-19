@@ -45,9 +45,9 @@ begin
 
     DCM_INST : DCM
         generic map(CLK_FEEDBACK          => "1X",
-                    CLKDV_DIVIDE          => 4.0,  -- 24 = 32 * 3/4
+                    CLKDV_DIVIDE          => 4.0,  -- 48 = 32 * 6/4
                     CLKFX_DIVIDE          => 4,
-                    CLKFX_MULTIPLY        => 3,
+                    CLKFX_MULTIPLY        => 6,
                     CLKIN_DIVIDE_BY_2     => false,
                     CLKIN_PERIOD          => 31.250,
                     CLKOUT_PHASE_SHIFT    => "NONE",

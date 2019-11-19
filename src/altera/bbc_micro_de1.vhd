@@ -53,11 +53,12 @@ entity bbc_micro_de1 is
 generic (
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := true;
+        IncludeMusic5000   : boolean := true;
+        IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := true;  -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
+        IncludeVideoNuLA   : boolean := true ;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -269,6 +270,7 @@ begin
             IncludeCoPro6502   => IncludeCoPro6502,
             IncludeCoProSPI    => IncludeCoProSPI,
             IncludeCoProExt    => IncludeCoProExt,
+            IncludeVideoNuLA   => IncludeVideoNuLA,
             UseOrigKeyboard    => UseOrigKeyboard,
             UseT65Core         => UseT65Core,
             UseAlanDCore       => UseAlanDCore
@@ -277,6 +279,7 @@ begin
             clock_32       => clock_32,
             clock_24       => clock_24,
             clock_27       => CLOCK_27_0,
+            clock_48       => clock_48,
             hard_reset_n   => hard_reset_n,
             ps2_kbd_clk    => PS2_CLK,
             ps2_kbd_data   => PS2_DAT,

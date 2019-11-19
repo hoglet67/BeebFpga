@@ -36,3 +36,5 @@ altera/db/
 altera/incremental_db/
 altera/output_files/
 altera/bbc_micro_de1.qws
+
+releases/

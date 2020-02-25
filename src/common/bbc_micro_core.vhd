@@ -210,7 +210,7 @@ signal clock_avr    :   std_logic;
 -- Clock enable counter
 -- CPU and video cycles are interleaved.  The CPU runs at 2 MHz (every 16th
 -- cycle) and the video subsystem is enabled on every odd cycle.
-signal clken_counter    :   unsigned(4 downto 0);
+signal clken_counter    :   unsigned(5 downto 0);
 signal cpu_cycle        :   std_logic; -- Qualifies all 2 MHz cycles
 signal cpu_cycle_mask   :   std_logic_vector(1 downto 0); -- Set to mask CPU cycles until 1 MHz cycle is complete
 signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabled
@@ -500,9 +500,9 @@ begin
                 )
             port map (
                 clock_avr    => clock_avr,
-                busmon_clk   => clock_32,
+                busmon_clk   => clock_48,
                 busmon_clken => cpu_clken1,
-                cpu_clk      => clock_32,
+                cpu_clk      => clock_48,
                 cpu_clken    => cpu_clken,
                 IRQ_n        => cpu_irq_n,
                 NMI_n        => cpu_nmi_n,
@@ -527,9 +527,9 @@ begin
                 tcclk        => open
                 );
 
-        process(clock_32)
+        process(clock_48)
         begin
-            if rising_edge(clock_32) then
+            if rising_edge(clock_48) then
                 clock_avr <= not clock_avr;
                 cpu_clken1 <= cpu_clken;
             end if;
@@ -543,7 +543,7 @@ begin
             cpu_mode,
             reset_n,
             cpu_clken,
-            clock_32,
+            clock_48,
             cpu_ready,
             cpu_abort_n,
             cpu_irq_n,
@@ -569,7 +569,7 @@ begin
         core : entity work.r65c02
         port map (
             reset    => reset_n,
-            clk      => clock_32,
+            clk      => clock_48,
             enable   => cpu_clken,
             nmi_n    => cpu_nmi_n,
             irq_n    => cpu_irq_n,
@@ -588,7 +588,7 @@ begin
     end generate;
 
     crtc : entity work.mc6845 port map (
-        clock_32,
+        clock_48,
         crtc_clken,
         hard_reset_n,
         crtc_enable,
@@ -608,7 +608,7 @@ begin
     begin
         videoula : entity work.vidproc
             port map (
-                CLOCK       => clock_32,
+                CLOCK       => clock_48,
                 CPUCLKEN    => cpu_clken,
                 CLKEN       => vid_clken,
                 PIXCLK      => clock_48,
@@ -634,7 +634,7 @@ begin
     begin
         videoula_orig : entity work.vidproc_orig
             port map (
-                CLOCK       => clock_32,
+                CLOCK       => clock_48,
                 CLKEN       => vid_clken,
                 nRESET      => hard_reset_n,
                 CLKEN_CRTC  => crtc_clken,
@@ -658,7 +658,7 @@ begin
         clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
         mhz12_clken,
         hard_reset_n,
-        clock_32, -- Data input is synchronised from the bus clock domain
+        clock_48, -- Data input is synchronised from the bus clock domain
         vid_clken,
         ext_Dout(6 downto 0),
         ttxt_glr,
@@ -697,7 +697,7 @@ begin
         mhz1_clken,
         hard_reset_n, -- System VIA is reset by power on reset only
         mhz4_clken,
-        clock_32
+        clock_48
         );
 
     -- User VIA
@@ -729,7 +729,7 @@ begin
         mhz1_clken,
         hard_reset_n,
         mhz4_clken,
-        clock_32
+        clock_48
         );
 
     -- Second VIA
@@ -764,7 +764,7 @@ begin
             mhz1_clken,
             hard_reset_n,
             mhz4_clken,
-            clock_32
+            clock_48
         );
         mouse_ps2interface: entity work.ps2interface
         generic map(
@@ -773,7 +773,7 @@ begin
         port map(
            ps2_clk  => ps2_mse_clk,
            ps2_data => ps2_mse_data,
-           clk      => clock_32,
+           clk      => clock_48,
            rst      => reset,
            tx_data  => mouse_tx_data,
            write    => mouse_write,
@@ -791,7 +791,7 @@ begin
         -- 18 - D6  - Middle button
         -- 20 - D7  - Right button
         mouse_controller: entity work.quadrature_controller port map(
-           clk      => clock_32,
+           clk      => clock_48,
            rst      => reset,
            read     => mouse_read,
            err      => mouse_err,
@@ -833,7 +833,7 @@ begin
     -- PS/2 Keyboard
     keyboard_ps2: if not UseOrigKeyboard generate
         keyb : entity work.keyboard port map (
-            clock_32, hard_reset_n, mhz1_clken,
+            clock_48, hard_reset_n, mhz1_clken,
             ps2_kbd_clk, ps2_kbd_data,
             keyb_enable_n,
             keyb_column,
@@ -847,7 +847,7 @@ begin
 
     -- Analog to Digital Convertor
     adc: entity work.upd7002 port map (
-        clk        => clock_32,
+        clk        => clock_48,
         cpu_clken  => cpu_clken,
         mhz1_clken => mhz1_clken,
         cs         => adc_enable,
@@ -894,7 +894,7 @@ begin
             port map (
                 -- TODO, should update SID with a proper clocken
                 clk_1MHz   => mhz1_clken,
-                clk32      => clock_32,
+                clk32      => clock_48,
                 clk_DAC    => '0', -- internal pwm dac not used
                 reset      => reset,
                 cs         => sid_enable,
@@ -917,7 +917,7 @@ begin
 
         Inst_Music5000: entity work.Music5000
             port map (
-                clk      => clock_32,
+                clk      => clock_48,
                 clken    => mhz1_clken,
                 clk6     => mhz6_clken,
                 clk6en   => '1',
@@ -945,7 +945,7 @@ begin
         copro1 : entity work.CoPro6502
         port map (
             -- Host
-            h_clk       => clock_32,
+            h_clk       => clock_48,
             h_cs_b      => tube_cs_b,
             h_rdnw      => cpu_r_nw,
             h_addr      => cpu_a(2 downto 0),
@@ -954,7 +954,7 @@ begin
             h_rst_b     => reset_n,
             h_irq_b     => open,
             -- Parasite
-            clk_cpu     => clock_32,
+            clk_cpu     => clock_48,
             cpu_clken   => tube_clken1,
             -- External RAM
             ram_addr     => tube_ram_addr,
@@ -964,9 +964,9 @@ begin
             -- Test signals for debugging
             test         => open
         );
-        process(clock_32)
+        process(clock_48)
         begin
-            if rising_edge(clock_32) then
+            if rising_edge(clock_48) then
                 tube_clken1 <= tube_clken;
             end if;
         end process;
@@ -983,7 +983,7 @@ begin
         copro2 : entity work.CoProSPI
         port map (
             -- Host
-            h_clk       => clock_32,
+            h_clk       => clock_48,
             h_cs_b      => tube_cs_b,
             h_rdnw      => cpu_r_nw,
             h_addr      => cpu_a(2 downto 0),
@@ -992,7 +992,7 @@ begin
             h_rst_b     => reset_n,
             h_irq_b     => open,
             -- Parasite
-            p_clk       => clock_32,
+            p_clk       => clock_48,
             -- SPI Slave
             p_spi_ssel  => p_spi_ssel,
             p_spi_sck   => p_spi_sck,
@@ -1014,10 +1014,10 @@ begin
 
     GenCoProExt: if IncludeCoProExt generate
     begin
-        process(clock_32)
+        process(clock_48)
         begin
-            if rising_edge(clock_32) then
-                ext_tube_phi2 <= clken_counter(3);
+            if rising_edge(clock_48) then
+                ext_tube_phi2  <= clken_counter(4);
                 ext_tube_r_nw  <= cpu_r_nw;
                 ext_tube_nrst  <= reset_n;
                 ext_tube_ntube <= not tube_enable;
@@ -1036,7 +1036,7 @@ begin
             AUDIO_RES => 8
             )
         port  map (
-            clk => clock_32,
+            clk => clock_48,
             clk_en => mhz4_clken,
             reset => reset,
             d => sound_di,
@@ -1107,9 +1107,9 @@ begin
 	 -- operation of the Alan D core. I think without this, depending on when
 	 -- reset is release, there may be too short a time to read the the first
 	 -- byte of the reset vector from slow FLASH (on the Altera DE1).
-    sync_reset: process(clock_32)
+    sync_reset: process(clock_48)
     begin
-        if rising_edge(clock_32) then
+        if rising_edge(clock_48) then
             if cpu_clken = '1' then
                 reset_n <= hard_reset_n and not keyb_break;
             end if;
@@ -1167,30 +1167,47 @@ begin
     -- 30 - Video
     -- 31 - CPU        - Video Processor
 
-    vid_clken <= clken_counter(0); -- 1,3,5...
-    mhz4_clken <= clken_counter(0) and clken_counter(1) and clken_counter(2); -- 7/15/23/31
-    mhz2_clken <= mhz4_clken and clken_counter(3); -- 15/31
-    mhz1_clken <= mhz2_clken and clken_counter(4); -- 31
-    cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3)); -- 0/16
+    -- vid_clken <= clken_counter(0); -- 1,3,5...
+    -- mhz4_clken <= clken_counter(0) and clken_counter(1) and clken_counter(2); -- 7/15/23/31
+    -- mhz2_clken <= mhz4_clken and clken_counter(3); -- 15/31
+    -- mhz1_clken <= mhz2_clken and clken_counter(4); -- 31
+    -- cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3)); -- 0/16
+    -- cpu_clken <= cpu_cycle and not cpu_cycle_mask(1) and not cpu_cycle_mask(0);
+
+    -- -- Co Processor memory cycles are interleaved with CPU cycles
+    -- -- tube_clken  = 3/11/19/27 - co-processor external memory access cycle
+    -- -- tube_clken1 = 4/12/20/28 - co-processor clocked
+    -- tube_clken <= clken_counter(0) and clken_counter(1) and not clken_counter(2) when IncludeCoPro6502 else '0';
+
+    vid_clken <= clken_counter(1);
+    mhz4_clken <= clken_counter(1) and clken_counter(2) and clken_counter(3);
+    mhz2_clken <= mhz4_clken and clken_counter(4);
+    mhz1_clken <= mhz2_clken and clken_counter(5);
+    cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3) or clken_counter(4));
     cpu_clken <= cpu_cycle and not cpu_cycle_mask(1) and not cpu_cycle_mask(0);
 
     -- Co Processor memory cycles are interleaved with CPU cycles
     -- tube_clken  = 3/11/19/27 - co-processor external memory access cycle
     -- tube_clken1 = 4/12/20/28 - co-processor clocked
-    tube_clken <= clken_counter(0) and clken_counter(1) and not clken_counter(2) when IncludeCoPro6502 else '0';
+    tube_clken <= clken_counter(1) and clken_counter(2) and not clken_counter(3) when IncludeCoPro6502 else '0';
 
-    clk_counter: process(clock_32)
+    clk_counter: process(clock_48)
     begin
-        if rising_edge(clock_32) then
-            clken_counter <= clken_counter + 1;
+        if rising_edge(clock_48) then
+            -- 0, 1, 3, 4, 5, 7, 8, 9, 11, ...
+            if clken_counter(1 downto 0) = 1 then
+                clken_counter <= clken_counter + 2;
+            else
+                clken_counter <= clken_counter + 1;
+            end if;
         end if;
     end process;
 
-    cycle_stretch: process(clock_32,reset_n,mhz2_clken)
+    cycle_stretch: process(clock_48,reset_n,mhz2_clken)
     begin
         if reset_n = '0' then
             cpu_cycle_mask <= "00";
-        elsif rising_edge(clock_32) and mhz2_clken = '1' then
+        elsif rising_edge(clock_48) and mhz2_clken = '1' then
             if mhz1_enable = '1' and cpu_cycle_mask = "00" then
                 -- Block CPU cycles until 1 MHz cycle has completed
                 if mhz1_clken = '0' then
@@ -1373,9 +1390,9 @@ begin
 
     -- This is needed as in v003 of the 6522 data out is only valid while I_P2_H is asserted
     -- I_P2_H is driven from mhz1_clken
-    data_latch: process(clock_32)
+    data_latch: process(clock_48)
     begin
-        if rising_edge(clock_32) then
+        if rising_edge(clock_48) then
             if (mhz1_clken = '1') then
                 mouse_via_do_r <= mouse_via_do;
                 user_via_do_r <= user_via_do;
@@ -1457,7 +1474,7 @@ begin
     -- 111 10xx xxxx xxxx xxxx = unused
     -- 111 11xx xxxx xxxx xxxx = unused
 
-    process(clock_32,hard_reset_n)
+    process(clock_48,hard_reset_n)
     begin
 
         if hard_reset_n = '0' then
@@ -1465,7 +1482,7 @@ begin
             ext_nWE <= '1';
             ext_Din <= (others => '0');
             ext_A   <= (others => '0');
-        elsif rising_edge(clock_32) then
+        elsif rising_edge(clock_48) then
             -- Tri-stating of RAM data has been pushed up a level
             ext_Din  <= cpu_do;
             -- Default to reading RAM
@@ -1646,11 +1663,11 @@ begin
     user_via_pb_in <= user_via_pb_out;
 
     -- ROM select latch
-    process(clock_32,reset_n)
+    process(clock_48,reset_n)
     begin
         if reset_n = '0' then
             romsel <= (others => '0');
-        elsif rising_edge(clock_32) then
+        elsif rising_edge(clock_48) then
             if romsel_enable = '1' and cpu_r_nw = '0' then
                 romsel <= cpu_do;
             end if;
@@ -1668,12 +1685,12 @@ begin
     caps_led <= not ic32(6);
     shift_led <= not ic32(7);
 
-    process(clock_32,reset_n)
+    process(clock_48,reset_n)
     variable bit_num : integer;
     begin
         if reset_n = '0' then
             ic32 <= (others => '0');
-        elsif rising_edge(clock_32) then
+        elsif rising_edge(clock_48) then
             bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
             ic32(bit_num) <= sys_via_pb_out(3);
         end if;
@@ -1689,8 +1706,8 @@ begin
         WIDTH => RGB_WIDTH
     )
     port map (
-        clk => clock_32,
-        clk_16 => clock_32,
+        clk => clock_48,
+        clk_16 => clock_48,
         clk_16_en => vid_clken,
         hs_in => crtc_hsync_n,
         vs_in => crtc_vsync_n,
@@ -1720,7 +1737,7 @@ begin
         WIDTH => RGB_WIDTH * 3 + 1
     )
     port map (
-        clock => clock_32,
+        clock => clock_48,
         clken => vid_clken,
         clk25 => clock_27,
         rgbi_in => rgbi_in,
@@ -1786,7 +1803,7 @@ begin
 
     -- RTC/CMOS
     inst_rtc : entity work.rtc port map (
-        clk          => clock_32,
+        clk          => clock_48,
         cpu_clken    => cpu_clken,
         hard_reset_n => hard_reset_n,
         reset_n      => reset_n,
@@ -1811,12 +1828,12 @@ begin
     rtc_ds     <= ic32(2);
     rtc_r_nw   <= ic32(1);
 
-    process(clock_32,reset_n)
+    process(clock_48,reset_n)
     begin
         if reset_n = '0' then
             acccon <= (others => '0');
             vdu_op <= '0';
-        elsif rising_edge(clock_32) then
+        elsif rising_edge(clock_48) then
             if (cpu_clken = '1') then
                 -- Access Control Register 0xFE34
                 if acccon_enable = '1' and cpu_r_nw = '0' then

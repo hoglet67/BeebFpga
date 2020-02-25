@@ -230,7 +230,7 @@ begin
         ext_keyb_pa    => open,
         ext_keyb_rst_n => '1',
         ext_keyb_ca2   => '1',
-        ext_keyb_pa7   => '1'        
+        ext_keyb_pa7   => '1'
     );
     LED1 <= caps_led;
     LED2 <= shift_led;
@@ -271,9 +271,9 @@ begin
 
     -- Generate a reliable power up reset, as ERST on the Papilio doesn't do this
     -- Also, perform a power up reset if the master/beeb mode switch is changed
-    reset_gen : process(clock_32)
+    reset_gen : process(clock_48)
     begin
-        if rising_edge(clock_32) then
+        if rising_edge(clock_48) then
             m128_mode_1 <= m128_mode;
             m128_mode_2 <= m128_mode_1;
             if (m128_mode_1 /= m128_mode_2) then
@@ -301,7 +301,7 @@ begin
         msbi_g => 9
     )
     port map (
-        clk_i => clock_32,
+        clk_i => clock_48,
         reset => '0',
         dac_i => dac_l_in,
         dac_o => audioL
@@ -312,7 +312,7 @@ begin
         msbi_g => 9
     )
     port map (
-        clk_i => clock_32,
+        clk_i => clock_48,
         reset => '0',
         dac_i => dac_r_in,
         dac_o => audioR
@@ -336,7 +336,7 @@ begin
         user_length     => user_length
     )
     port map(
-        clock           => clock_32,
+        clock           => clock_48,
         powerup_reset_n => powerup_reset_n,
         bootstrap_busy  => bootstrap_busy,
         user_address    => user_address,

@@ -136,33 +136,31 @@ begin
     -- Wave RAM
     ------------------------------------------------
 
-    -- Running Wave RAM of seperate clocks
-    -- ram_we <= '1' when clk6en = '1' and pgfd_n = '0' and rnw = '0' and wrg_n = '0' else '0';
+    -- Running Wave RAM of seperate clocks on each port
+    -- ram_we <= '1' when clken = '1' and pgfd_n = '0' and rnw = '0' and wrg_n = '0' else '0';
     -- ram_clk <= clk;
 
-     -- Running Wave RAM of the same clock
-     -- this is a cludge to workaround an issue with early Cyclone II parts
-     -- google for:  
-     ram_clk <= clk6;
-     process (clk6)
-         variable we1 : std_logic;
-         variable we2 : std_logic;
-     begin
-         if rising_edge(clk6) then
-             if clk6en = '1' then
-                 if we2 = '0' and we1 = '1' then
-                     ram_we <= '1';
-                 else
-                     ram_we <= '0';
-                 end if;
-                 we2 := we1;
-                 if pgfd_n = '0' and rnw = '0' and wrg_n = '0' then
-                     we1 := '1';
-                 else
-                     we1 := '0';
-                 end if;
-             end if;
-         end if;                 
+    -- Running Wave RAM of the same clock on each port
+    -- this is a cludge to workaround an issue with early Cyclone II parts
+    -- It generates a 1-cycle WE pulse at the start of a CPU write cycle
+    ram_clk <= clk6;
+    process (ram_clk)
+        variable we1 : std_logic;
+        variable we2 : std_logic;
+    begin
+        if rising_edge(ram_clk) then
+            if we2 = '0' and we1 = '1' then
+                ram_we <= '1';
+            else
+                ram_we <= '0';
+            end if;
+            we2 := we1;
+            if pgfd_n = '0' and rnw = '0' and wrg_n = '0' then
+                we1 := '1';
+            else
+                we1 := '0';
+            end if;
+        end if;
     end process;
 
     ram_addr <= bank & a;
@@ -356,4 +354,3 @@ begin
 
 
 end Behavioral;
-

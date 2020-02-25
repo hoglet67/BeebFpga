@@ -206,7 +206,6 @@ constant RGB_WIDTH : integer := calc_rgb_width(IncludeVideoNuLA);
 signal reset        :   std_logic;
 signal reset_n      :   std_logic;
 signal clock_avr    :   std_logic;
-signal clock_6      :   std_logic;
 
 -- Clock enable counter
 -- CPU and video cycles are interleaved.  The CPU runs at 2 MHz (every 16th
@@ -219,14 +218,14 @@ signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
 -- IO cycles are out of phase with the CPU
 signal vid_clken        :   std_logic; -- 16 MHz video cycles
+signal mhz12_clken      :   std_logic; -- 12 MHz used by SAA 5050
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
 
 -- SAA5050 needs a 12 MHz clock enable relative to a 24 MHz clock
-signal ttxt_clken_counter   :   unsigned(1 downto 0);
-signal ttxt_clken       :   std_logic;
+signal ttxt_clken_counter   :   unsigned(2 downto 0);
 
 -- CPU signals
 signal cpu_mode         :   std_logic_vector(1 downto 0);
@@ -656,8 +655,8 @@ begin
     end generate;
 
     teletext : entity work.saa5050 port map (
-        clock_24, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
-        ttxt_clken,
+        clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
+        mhz12_clken,
         hard_reset_n,
         clock_32, -- Data input is synchronised from the bus clock domain
         vid_clken,
@@ -920,7 +919,7 @@ begin
             port map (
                 clk      => clock_32,
                 clken    => mhz1_clken,
-                clk6     => clock_6,
+                clk6     => mhz6_clken,
                 clk6en   => '1',
                 rnw      => cpu_r_nw,
                 rst_n    => reset_n,
@@ -1208,13 +1207,12 @@ begin
 
     -- 12 MHz clock enable for SAA5050
     -- 6 MHz clock for Music 5000
-    ttxt_clk_gen: process(clock_24)
+    ttxt_clk_gen: process(clock_48)
     begin
-        if rising_edge(clock_24) then
+        if rising_edge(clock_48) then
             ttxt_clken_counter <= ttxt_clken_counter + 1;
-            ttxt_clken <= ttxt_clken_counter(0);
-            clock_6 <= ttxt_clken_counter(1);
-            mhz6_clken <= ttxt_clken_counter(0) and ttxt_clken_counter(1);
+            mhz12_clken <= ttxt_clken_counter(0) and ttxt_clken_counter(1);
+            mhz6_clken <= ttxt_clken_counter(0) and ttxt_clken_counter(1) and ttxt_clken_counter(2);
         end if;
     end process;
 

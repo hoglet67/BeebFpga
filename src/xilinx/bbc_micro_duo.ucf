@@ -23,8 +23,8 @@ NET "clock_27" TNM_NET = clk_period_grp_27;
 TIMESPEC TS_clk_period_27 = PERIOD "clk_period_grp_27" 37.04ns HIGH;
 
 # 24MHz SAA5050 clock domain
-NET "clock_24" TNM_NET = clk_period_grp_24;
-TIMESPEC TS_clk_period_24 = PERIOD "clk_period_grp_24" 41.66ns HIGH;
+#NET "clock_24" TNM_NET = clk_period_grp_24;
+#TIMESPEC TS_clk_period_24 = PERIOD "clk_period_grp_24" 41.66ns HIGH;
 
 # 48MHz pixel clock
 NET "clock_48" TNM_NET = clk_period_grp_48;
@@ -32,8 +32,8 @@ TIMESPEC TS_clk_period_48 = PERIOD "clk_period_grp_48" 20.83ns HIGH;
 
 # 12MHz Music 5000 clock domain
 # TODO: This should be a PLL generated clock!
-NET "bbc_micro/ttxt_clken" TNM_NET = clk_period_grp_12;
-TIMESPEC TS_clk_period_12 = PERIOD "clk_period_grp_12" 83.33ns HIGH;
+#NET "bbc_micro/ttxt_clken" TNM_NET = clk_period_grp_12;
+#TIMESPEC TS_clk_period_12 = PERIOD "clk_period_grp_12" 83.33ns HIGH;
 
 # 1MHz SID clock domain
 # TODO: This should be a PLL generated clock!
@@ -43,54 +43,54 @@ TIMESPEC TS_clk_period_01 = PERIOD "clk_period_grp_01" 1000.00ns HIGH;
 # Avoid timing warnings for cross domain signals (which are synchronized anyway)
 NET "clock_32"                  TNM_NET = FFS "clk_domain_32";
 NET "clock_27"                  TNM_NET = FFS "clk_domain_27";
-NET "clock_24"                  TNM_NET = FFS "clk_domain_24";
+#NET "clock_24"                  TNM_NET = FFS "clk_domain_24";
 NET "clock_48"                  TNM_NET = FFS "clk_domain_48";
-NET "bbc_micro/ttxt_clken"      TNM_NET = FFS "clk_domain_12";
+#NET "bbc_micro/ttxt_clken"      TNM_NET = FFS "clk_domain_12";
 NET "bbc_micro/mhz1_clken"      TNM_NET = FFS "clk_domain_01";
 
 
-NET "bbc_micro/ttxt_clken" S;
+#NET "bbc_micro/ttxt_clken" S;
 NET "bbc_micro/mhz1_clken" S;
 
 
 TIMESPEC "TS_CrossDomain_32_27" = FROM "clk_domain_32" TO "clk_domain_27" TIG;
 TIMESPEC "TS_CrossDomain_32_48" = FROM "clk_domain_32" TO "clk_domain_48" TIG;
-TIMESPEC "TS_CrossDomain_32_24" = FROM "clk_domain_32" TO "clk_domain_24" TIG;
-TIMESPEC "TS_CrossDomain_32_12" = FROM "clk_domain_32" TO "clk_domain_12" TIG;
+#TIMESPEC "TS_CrossDomain_32_24" = FROM "clk_domain_32" TO "clk_domain_24" TIG;
+#TIMESPEC "TS_CrossDomain_32_12" = FROM "clk_domain_32" TO "clk_domain_12" TIG;
 TIMESPEC "TS_CrossDomain_32_01" = FROM "clk_domain_32" TO "clk_domain_01" TIG;
-TIMESPEC "TS_CrossDomain_12_32" = FROM "clk_domain_12" TO "clk_domain_32" TIG;
+#TIMESPEC "TS_CrossDomain_12_32" = FROM "clk_domain_12" TO "clk_domain_32" TIG;
 TIMESPEC "TS_CrossDomain_01_32" = FROM "clk_domain_01" TO "clk_domain_32" TIG;
-TIMESPEC "TS_CrossDomain_24_48" = FROM "clk_domain_24" TO "clk_domain_48" TIG;
-TIMESPEC "TS_CrossDomain_48_24" = FROM "clk_domain_48" TO "clk_domain_24" TIG;
+#TIMESPEC "TS_CrossDomain_24_48" = FROM "clk_domain_24" TO "clk_domain_48" TIG;
+#TIMESPEC "TS_CrossDomain_48_24" = FROM "clk_domain_48" TO "clk_domain_24" TIG;
 
 #####################################
 # SRAM Interface - runs at 32MHz
 #####################################
 
 NET SRAM_nOE   OFFSET = OUT 10ns AFTER "clk_32M00";
-NET SRAM_A(18) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(17) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(16) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(15) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(14) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(13) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(12) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(11) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(10) OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(9)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(8)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(7)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(6)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(5)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(4)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(3)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(2)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(1)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
-NET SRAM_A(0)  OFFSET = OUT 10ns AFTER "clk_32M00"; 
+NET SRAM_A(18) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(17) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(16) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(15) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(14) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(13) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(12) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(11) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(10) OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(9)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(8)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(7)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(6)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(5)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(4)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(3)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(2)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(1)  OFFSET = OUT 10ns AFTER "clk_32M00";
+NET SRAM_A(0)  OFFSET = OUT 10ns AFTER "clk_32M00";
 
 # This is the tightest path
 # SRAM_A Offset + Taccess + PCB + SRAM_D Offset In < 31.25ns
-# 10ns          + 10ns    + 1ns + 10ns             = 31.00ns 
+# 10ns          + 10ns    + 1ns + 10ns             = 31.00ns
 NET SRAM_D(*)  OFFSET = IN 10ns VALID 10ns BEFORE "clk_32M00";
 
 # SRAM_nWE is driven by an IODDR2 register

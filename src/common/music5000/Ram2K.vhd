@@ -49,6 +49,3 @@ begin
     end process;
 
 end BEHAVIORAL;
-
-
-

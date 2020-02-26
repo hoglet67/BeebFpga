@@ -1135,40 +1135,40 @@ begin
 
     -- Updated system timing, as of 26th Feb 2020
     --
+    -- The goal of this change to accomodate much slower external RAM.
+    --
     -- There is a single copy of clken_counter, inside the video processor,
     -- which is now passed out of it's interface.
     --
     -- The video processor increments clken_counter when vid_clken
     -- is asserted.
     --
-    -- The video processor assertes CRTC_CLKEN during cycle 7/15
+    -- The video processor assertes CRTC_CLKEN during cycle 3/11
     -- (qualified by vid_clken)
     --
-    -- The mc6845 increments the video address at the start of cycle 0/8
+    -- The mc6845 increments the video address at the start of cycle 4/12
     --
     -- The video processor latches read data at the end of cycle 0/8
     -- (qualified by vid_clken)
     --
-    --      Memory     Processor
-    --  0 - Co Pro     CPU
+    --      Memory     Data loaded
+    --  0 - Co Pro     CPU, Video
     --  1 - Co Pro
-    --  2 - Video      Co Pro
-    --  3 - Video
-    --  4 - Co Pro     Video
+    --  2 - CPU        Co Pro
+    --  3 - CPU
+    --  4 - Co Pro
     --  5 - Co Pro
-    --  6 - CPU        Co Pro
-    --  7 - CPU
-    --  8 - Co Pro     CPU
+    --  6 - Video      Co Pro
+    --  7 - Video
+    --  8 - Co Pro     CPU, Video
     --  9 - Co Pro
-    -- 10 - Video      Co Pro
-    -- 11 - Video
-    -- 12 - Co Pro     Video
+    -- 10 - CPU        Co Pro
+    -- 11 - CPU
+    -- 12 - Co Pro
     -- 13 - Co Pro
-    -- 14 - CPU        Co Pro
-    -- 15 - CPU
+    -- 14 - Video      Co Pro
+    -- 15 - Video
 
-    -- Note: clken_counter is provided by the video processor, and
-    -- increments when vid_clken is asserted (at 16MHz)
     process(clock_48)
     begin
         if rising_edge(clock_48) then
@@ -1252,7 +1252,7 @@ begin
             end if;
 
             -- CPU memory cycle
-            if clken_counter(2 downto 1) = "11" then
+            if clken_counter(2 downto 1) = "01" then
                 cpu_mem_cycle <= '1';
                 -- Latch read data at the end of the cycle
                 if div3_counter = 2 and clken_counter(0) = '1' then
@@ -1263,7 +1263,7 @@ begin
             end if;
 
             -- Video memory cycle
-            if clken_counter(2 downto 1) = "01" then
+            if clken_counter(2 downto 1) = "11" then
                 vid_mem_cycle <= '1';
                 -- Latch read data at the end of the cycle
                 if div3_counter = 2 and clken_counter(0) = '1' then

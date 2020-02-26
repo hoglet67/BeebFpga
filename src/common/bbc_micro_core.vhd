@@ -207,11 +207,16 @@ signal reset        :   std_logic;
 signal reset_n      :   std_logic;
 signal clock_avr    :   std_logic;
 
+-- Counter to divide 48MHz down to 16MHz and 8MHz
+signal div3_counter   :   unsigned(1 downto 0);
+
+-- Counter to divide 48MHz down to 12MHz and 6MHz
+signal div8_counter   :   unsigned(2 downto 0);
+
 -- Clock enable counter
 -- CPU and video cycles are interleaved.  The CPU runs at 2 MHz (every 16th
 -- cycle) and the video subsystem is enabled on every odd cycle.
-signal clken_counter    :   unsigned(5 downto 0);
-signal cpu_cycle        :   std_logic; -- Qualifies all 2 MHz cycles
+signal clken_counter    :   unsigned(3 downto 0);
 signal cpu_cycle_mask   :   std_logic_vector(1 downto 0); -- Set to mask CPU cycles until 1 MHz cycle is complete
 signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabled
 signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
@@ -224,8 +229,16 @@ signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
 
--- SAA5050 needs a 12 MHz clock enable relative to a 24 MHz clock
-signal ttxt_clken_counter   :   unsigned(2 downto 0);
+-- Control signals to indicate memory cycles
+signal vid_mem_cycle    :   std_logic;
+signal cpu_mem_cycle    :   std_logic;
+signal tube_mem_cycle   :   std_logic;
+signal mem_write_strobe :   std_logic;
+
+-- Latches for read data at the end of the memory cycle
+signal vid_mem_data    :   std_logic_vector(7 downto 0);
+signal cpu_mem_data    :   std_logic_vector(7 downto 0);
+signal tube_mem_data   :   std_logic_vector(7 downto 0);
 
 -- CPU signals
 signal cpu_mode         :   std_logic_vector(1 downto 0);
@@ -530,7 +543,7 @@ begin
         process(clock_48)
         begin
             if rising_edge(clock_48) then
-                clock_avr <= not clock_avr;
+                clock_avr <= vid_clken; -- 16MHz
                 cpu_clken1 <= cpu_clken;
             end if;
         end process;
@@ -614,10 +627,11 @@ begin
                 PIXCLK      => clock_48,
                 nRESET      => hard_reset_n,
                 CLKEN_CRTC  => crtc_clken,
+                CLKEN_COUNT => clken_counter,
                 ENABLE      => vidproc_enable,
                 A           => cpu_a(1 downto 0),
                 DI_CPU      => cpu_do,
-                DI_RAM      => ext_Dout,
+                DI_RAM      => vid_mem_data,
                 nINVERT     => vidproc_invert_n,
                 DISEN       => vidproc_disen,
                 CURSOR      => crtc_cursor,
@@ -638,10 +652,11 @@ begin
                 CLKEN       => vid_clken,
                 nRESET      => hard_reset_n,
                 CLKEN_CRTC  => crtc_clken,
+                CLKEN_COUNT => clken_counter,
                 ENABLE      => vidproc_enable,
                 A0          => cpu_a(0),
                 DI_CPU      => cpu_do,
-                DI_RAM      => ext_Dout,
+                DI_RAM      => vid_mem_data,
                 nINVERT     => vidproc_invert_n,
                 DISEN       => vidproc_disen,
                 CURSOR      => crtc_cursor,
@@ -660,7 +675,7 @@ begin
         hard_reset_n,
         clock_48, -- Data input is synchronised from the bus clock domain
         vid_clken,
-        ext_Dout(6 downto 0),
+        vid_mem_data(6 downto 0),
         ttxt_glr,
         ttxt_dew,
         ttxt_crs,
@@ -955,21 +970,15 @@ begin
             h_irq_b     => open,
             -- Parasite
             clk_cpu     => clock_48,
-            cpu_clken   => tube_clken1,
+            cpu_clken   => tube_clken,
             -- External RAM
             ram_addr     => tube_ram_addr,
             ram_data_in  => tube_ram_data_in,
-            ram_data_out => ext_Dout,
+            ram_data_out => tube_mem_data,
             ram_wr       => tube_ram_wr,
             -- Test signals for debugging
             test         => open
         );
-        process(clock_48)
-        begin
-            if rising_edge(clock_48) then
-                tube_clken1 <= tube_clken;
-            end if;
-        end process;
         tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
 
@@ -1017,7 +1026,7 @@ begin
         process(clock_48)
         begin
             if rising_edge(clock_48) then
-                ext_tube_phi2  <= clken_counter(4);
+                ext_tube_phi2  <= clken_counter(2); -- TODO, check this
                 ext_tube_r_nw  <= cpu_r_nw;
                 ext_tube_nrst  <= reset_n;
                 ext_tube_ntube <= not tube_enable;
@@ -1122,114 +1131,166 @@ begin
 -- Clock enable generation
 --------------------------------------------------------
 
-    -- 32 MHz clock split into 32 cycles
-    -- CPU is on 0 and 16 (but can be masked by 1 MHz bus accesses)
-     -- Co Pro CPU is on 4, 12, 20, 28
-    -- Video is on all odd cycles (16 MHz)
-    -- 1 MHz cycles are on cycle 31 (1 MHz)
+    -- Clock enable generation
 
-    -- Cycles are used as follows
+    -- Updated system timing, as of 26th Feb 2020
     --
-    --      External    Processor
-    --        Mem
-    --       Access
+    -- There is a single copy of clken_counter, inside the video processor,
+    -- which is now passed out of it's interface.
     --
-    -- 00 - Video      - CPU
-    -- 01 -            - Video Processor
-    -- 02 - Video
-    -- 03 - Co Pro     - Video Processor
-    -- 04 - Video      - Co Pro CPU
-    -- 05              - Video Processor
-    -- 06 - Video
-    -- 07              - Video Processor
-    -- 08 - Video
-    -- 09              - Video Processor
-    -- 10 - Video
-    -- 11 - Co Pro     - Video Processor
-    -- 12 - Video      - Co Pro CPU
-    -- 13              - Video Processor
-    -- 14 - Video
-    -- 15 - CPU        - Video Processor
-    -- 16 - Video      - CPU
-    -- 17              - Video Processor
-    -- 18 - Video
-    -- 19 - Co Pro     - Video Processor
-    -- 20 - Video      - Co Pro CPU
-    -- 21              - Video Processor
-    -- 22 - Video
-    -- 23              - Video Processor
-    -- 24 - Video
-    -- 25              - Video Processor
-    -- 26 - Video
-    -- 27 - Co Pro     - Video Processor
-    -- 28 - Video      - Co Pro CPU
-    -- 29              - Video Processor
-    -- 30 - Video
-    -- 31 - CPU        - Video Processor
+    -- The video processor increments clken_counter when vid_clken
+    -- is asserted.
+    --
+    -- The video processor assertes CRTC_CLKEN during cycle 7/15
+    -- (qualified by vid_clken)
+    --
+    -- The mc6845 increments the video address at the start of cycle 0/8
+    --
+    -- The video processor latches read data at the end of cycle 0/8
+    -- (qualified by vid_clken)
+    --
+    --      Memory     Processor
+    --  0 - Co Pro     CPU
+    --  1 - Co Pro
+    --  2 - Video      Co Pro
+    --  3 - Video
+    --  4 - Co Pro     Video
+    --  5 - Co Pro
+    --  6 - CPU        Co Pro
+    --  7 - CPU
+    --  8 - Co Pro     CPU
+    --  9 - Co Pro
+    -- 10 - Video      Co Pro
+    -- 11 - Video
+    -- 12 - Co Pro     Video
+    -- 13 - Co Pro
+    -- 14 - CPU        Co Pro
+    -- 15 - CPU
 
-    -- vid_clken <= clken_counter(0); -- 1,3,5...
-    -- mhz4_clken <= clken_counter(0) and clken_counter(1) and clken_counter(2); -- 7/15/23/31
-    -- mhz2_clken <= mhz4_clken and clken_counter(3); -- 15/31
-    -- mhz1_clken <= mhz2_clken and clken_counter(4); -- 31
-    -- cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3)); -- 0/16
-    -- cpu_clken <= cpu_cycle and not cpu_cycle_mask(1) and not cpu_cycle_mask(0);
-
-    -- -- Co Processor memory cycles are interleaved with CPU cycles
-    -- -- tube_clken  = 3/11/19/27 - co-processor external memory access cycle
-    -- -- tube_clken1 = 4/12/20/28 - co-processor clocked
-    -- tube_clken <= clken_counter(0) and clken_counter(1) and not clken_counter(2) when IncludeCoPro6502 else '0';
-
-    vid_clken <= clken_counter(1);
-    mhz4_clken <= clken_counter(1) and clken_counter(2) and clken_counter(3);
-    mhz2_clken <= mhz4_clken and clken_counter(4);
-    mhz1_clken <= mhz2_clken and clken_counter(5);
-    cpu_cycle <= not (clken_counter(0) or clken_counter(1) or clken_counter(2) or clken_counter(3) or clken_counter(4));
-    cpu_clken <= cpu_cycle and not cpu_cycle_mask(1) and not cpu_cycle_mask(0);
-
-    -- Co Processor memory cycles are interleaved with CPU cycles
-    -- tube_clken  = 3/11/19/27 - co-processor external memory access cycle
-    -- tube_clken1 = 4/12/20/28 - co-processor clocked
-    tube_clken <= clken_counter(1) and clken_counter(2) and not clken_counter(3) when IncludeCoPro6502 else '0';
-
-    clk_counter: process(clock_48)
+    -- Note: clken_counter is provided by the video processor, and
+    -- increments when vid_clken is asserted (at 16MHz)
+    process(clock_48)
     begin
         if rising_edge(clock_48) then
-            -- 0, 1, 3, 4, 5, 7, 8, 9, 11, ...
-            if clken_counter(1 downto 0) = 1 then
-                clken_counter <= clken_counter + 2;
+
+            -- Divide 48MHz by 8 to get 6MHz and 12MHz
+            div8_counter <= div8_counter + 1;
+
+            -- Divide 48MHz by 3 to get 16MHz and 8MHz
+            if div3_counter = 2 then
+                div3_counter <= (others => '0');
             else
-                clken_counter <= clken_counter + 1;
+                div3_counter <= div3_counter + 1;
             end if;
-        end if;
-    end process;
 
-    cycle_stretch: process(clock_48,reset_n,mhz2_clken)
-    begin
-        if reset_n = '0' then
-            cpu_cycle_mask <= "00";
-        elsif rising_edge(clock_48) and mhz2_clken = '1' then
-            if mhz1_enable = '1' and cpu_cycle_mask = "00" then
-                -- Block CPU cycles until 1 MHz cycle has completed
-                if mhz1_clken = '0' then
-                    cpu_cycle_mask <= "01";
-                else
-                    cpu_cycle_mask <= "10";
+            -- 16MHz (video) clock enable
+            if div3_counter = 1 then
+                vid_clken <= '1';
+            else
+                vid_clken <= '0';
+            end if;
+
+            -- 12MHz clock enable (for SAA5050)
+            if div8_counter(1 downto 0) = 3 then
+                mhz12_clken <= '1';
+            else
+                mhz12_clken <= '0';
+            end if;
+
+            -- 6MHz clock enable (for Music 5000)
+            if div8_counter(2 downto 0) = 7 then
+                mhz6_clken <= '1';
+            else
+                mhz6_clken <= '0';
+            end if;
+
+            -- 4MHz clock enable
+            if div3_counter = 1 and clken_counter(1 downto 0) = 3 then
+                mhz4_clken <= '1';
+            else
+                mhz4_clken <= '0';
+            end if;
+
+            -- 2MHz clock enable
+            if div3_counter = 1 and clken_counter(2 downto 0) = 7 then
+                mhz2_clken <= '1';
+                -- Compute cycle stretching
+                if mhz1_enable = '1' and cpu_cycle_mask = "00" then
+                    -- Block CPU cycles until 1 MHz cycle has completed
+                    if clken_counter(3) = '0' then
+                        cpu_cycle_mask <= "01";
+                    else
+                        cpu_cycle_mask <= "10";
+                    end if;
                 end if;
+                if cpu_cycle_mask /= "00" then
+                    cpu_cycle_mask <= cpu_cycle_mask - 1;
+                end if;
+            else
+                mhz2_clken <= '0';
             end if;
-            if cpu_cycle_mask /= "00" then
-                cpu_cycle_mask <= cpu_cycle_mask - 1;
-            end if;
-        end if;
-    end process;
 
-    -- 12 MHz clock enable for SAA5050
-    -- 6 MHz clock for Music 5000
-    ttxt_clk_gen: process(clock_48)
-    begin
-        if rising_edge(clock_48) then
-            ttxt_clken_counter <= ttxt_clken_counter + 1;
-            mhz12_clken <= ttxt_clken_counter(0) and ttxt_clken_counter(1);
-            mhz6_clken <= ttxt_clken_counter(0) and ttxt_clken_counter(1) and ttxt_clken_counter(2);
+            -- 1MHz clock enable
+            if div3_counter = 1 and clken_counter(3 downto 0) = 15 then
+                mhz1_clken <= '1';
+            else
+                mhz1_clken <= '0';
+            end if;
+
+            -- CPU clock enable (taking account of cycle stretching)
+            if div3_counter = 2 and clken_counter(2 downto 0) = 7 and cpu_cycle_mask = "00" then
+                cpu_clken <= '1';
+            else
+                cpu_clken <= '0';
+            end if;
+
+            -- Tube clock enable
+            if div3_counter = 2 and clken_counter(1 downto 0) = 1 and IncludeCoPro6502 then
+                tube_clken <= '1';
+            else
+                tube_clken <= '0';
+            end if;
+
+            -- CPU memory cycle
+            if clken_counter(2 downto 1) = "11" then
+                cpu_mem_cycle <= '1';
+                -- Latch read data at the end of the cycle
+                if div3_counter = 2 and clken_counter(0) = '1' then
+                    cpu_mem_data <= ext_Dout;
+                end if;
+            else
+                cpu_mem_cycle <= '0';
+            end if;
+
+            -- Video memory cycle
+            if clken_counter(2 downto 1) = "01" then
+                vid_mem_cycle <= '1';
+                -- Latch read data at the end of the cycle
+                if div3_counter = 2 and clken_counter(0) = '1' then
+                    vid_mem_data <= ext_Dout;
+                end if;
+            else
+                vid_mem_cycle <= '0';
+            end if;
+
+            -- Tube memory cycle
+            if clken_counter(1) = '0' then
+                tube_mem_cycle <= '1';
+                -- Latch read data at the end of the cycle
+                if div3_counter = 2 and clken_counter(0) = '1' then
+                    tube_mem_data <= ext_Dout;
+                end if;
+            else
+                tube_mem_cycle <= '0';
+            end if;
+
+            -- Control timing of the Ram write, mid cycle
+            if div3_counter = 0 and clken_counter(0) = '1' then
+                mem_write_strobe <= '1';
+            else
+                mem_write_strobe <= '0';
+            end if;
+
         end if;
     end process;
 
@@ -1296,7 +1357,7 @@ begin
     -- 0xFEA0 - 0xFEBF = 68B54 ADLC for Econet
     -- 0xFEC0 - 0xFEDF = uPD7002 ADC
     -- 0xFEE0 - 0xFEFF = Tube ULA
-    process(cpu_a,io_sheila,m128_mode,copro_mode)
+    process(cpu_a,io_sheila,m128_mode,copro_mode,cpu_r_nw)
     begin
         -- All regions normally de-selected
         crtc_enable <= '0';
@@ -1403,7 +1464,7 @@ begin
 
     -- CPU data bus mux and interrupts
     cpu_di <=
-        ext_Dout       when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
+        cpu_mem_data   when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
         crtc_do        when crtc_enable = '1' else
         adc_do         when adc_enable = '1' else
         "00000010"     when acia_enable = '1' else
@@ -1489,7 +1550,7 @@ begin
             ext_nWE  <= '1';
             ext_nOE  <= '0';
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
-            if vid_clken = '0' then
+            if vid_mem_cycle = '1' then
                 -- Fetch data from previous display cycle
                 if m128_mode = '1' then
                     -- Master 128
@@ -1498,10 +1559,10 @@ begin
                     -- Model B
                     ext_A <= "1100" & display_a;
                 end if;
-            elsif IncludeCoPro6502 and tube_clken = '1' then
+            elsif IncludeCoPro6502 and tube_mem_cycle = '1' then
                 -- The Co Processor has access to the memory system on cycles 3, 11, 19, 27
                 ext_Din <= tube_ram_data_in;
-                ext_nWE <= not tube_ram_wr;
+                ext_nWE <= not (tube_ram_wr and mem_write_strobe);
                 ext_nOE <= tube_ram_wr;
                 ext_A   <= "100" & tube_ram_addr;
             else
@@ -1510,7 +1571,7 @@ begin
                     if m128_mode = '1' and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
                         -- Master 128, RAM bit maps 8000-8FFF as private RAM
                         ext_A   <= "1101010" & cpu_a(11 downto 0);
-                        ext_nWE <= cpu_r_nw;
+                        ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                         ext_nOE <= not cpu_r_nw;
                     else
                         case romsel(3 downto 2) is
@@ -1520,14 +1581,14 @@ begin
                             when "01" =>
                                 -- ROM slots 4,5,6,7 are writeable on the Beeb and Master
                                 ext_A <= "101" & romsel(1 downto 0) & cpu_a(13 downto 0);
-                                ext_nWE <= cpu_r_nw;
+                                ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                                 ext_nOE <= not cpu_r_nw;
                             when others =>
                                 if m128_mode = '0' and romsel(3 downto 0) = "1000" and cpu_a(13 downto 8) >= "110110" then
                                     -- ROM slot 8 >= B600 is mapped to RAM for
                                     -- the SWRam version of MMFS in Beeb mode only
                                     ext_A <= "11100" & cpu_a(13 downto 0);
-                                    ext_nWE <= cpu_r_nw;
+                                    ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                                     ext_nOE <= not cpu_r_nw;
                                 else
                                     -- ROM slots 8,9,A,B,C,D,E,F are in ROM
@@ -1539,7 +1600,7 @@ begin
                     if m128_mode = '1' and cpu_a(15 downto 13) = "110" and acc_y = '1' then
                         -- Master 128, Y bit maps C000-DFFF as filing system RAM
                         ext_A   <= "110100" &  cpu_a(12 downto 0);
-                        ext_nWE <= cpu_r_nw;
+                        ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                         ext_nOE <= not cpu_r_nw;
                     else
                         -- Master OS 3.20 / Model B OS 1.20
@@ -1553,7 +1614,7 @@ begin
                         -- Main RAM
                         ext_A   <= "1100" & cpu_a(14 downto 0);
                     end if;
-                    ext_nWE <= cpu_r_nw;
+                    ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                     ext_nOE <= not cpu_r_nw;
                 end if;
             end if;

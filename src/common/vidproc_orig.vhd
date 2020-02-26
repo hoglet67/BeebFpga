@@ -53,10 +53,13 @@ entity vidproc_orig is
         -- Clock enable qualifies display cycles (interleaved with CPU cycles)
         CLKEN       :   in  std_logic;
         nRESET      :   in  std_logic;
-        
+
         -- Clock enable output to CRTC
         CLKEN_CRTC  :   out std_logic;
-        
+
+        -- Clock enable counter, so memory timing can be slaved to the video processor
+        CLKEN_COUNT : out unsigned(3 downto 0);
+
         -- Bus interface
         ENABLE      :   in  std_logic;
         A0          :   in  std_logic;
@@ -64,17 +67,17 @@ entity vidproc_orig is
         DI_CPU      :   in  std_logic_vector(7 downto 0);
         -- Display RAM data bus (for display data fetch)
         DI_RAM      :   in  std_logic_vector(7 downto 0);
-        
+
         -- Control interface
         nINVERT     :   in  std_logic;
         DISEN       :   in  std_logic;
         CURSOR      :   in  std_logic;
-        
+
         -- Video in (teletext mode)
         R_IN        :   in  std_logic;
         G_IN        :   in  std_logic;
         B_IN        :   in  std_logic;
-        
+
         -- Video out
         R           :   out std_logic_vector(0 downto 0);
         G           :   out std_logic_vector(0 downto 0);
@@ -91,31 +94,31 @@ architecture rtl of vidproc_orig is
     signal r0_pixel_rate    :   std_logic_vector(1 downto 0);
     signal r0_teletext      :   std_logic;
     signal r0_flash         :   std_logic;
-    
+
     type palette_t is array(0 to 15) of std_logic_vector(3 downto 0);
     signal palette          :   palette_t;
-    
+
 -- Pixel shift register
     signal shiftreg         :   std_logic_vector(7 downto 0);
 -- Delayed display enable
     signal delayed_disen    :   std_logic;
-    
+
 -- Internal clock enable generation
     signal clken_pixel      :   std_logic;
     signal clken_fetch      :   std_logic;
     signal clken_counter    :   unsigned(3 downto 0);
-    
+
 -- Cursor generation - can span up to 32 pixels
 -- Segments 0 and 1 are 8 pixels wide
 -- Segment 2 is 16 pixels wide
     signal cursor_invert    :   std_logic;
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
-    
+
     signal RR               :   std_logic;
     signal GG               :   std_logic;
     signal BB               :   std_logic;
-    
+
 begin
     -- Synchronous register access, enabled on every clock
     process(CLOCK,nRESET)
@@ -128,7 +131,7 @@ begin
             r0_pixel_rate <= "00";
             r0_teletext <= '0';
             r0_flash <= '0';
-            
+
             for colour in 0 to 15 loop
                 palette(colour) <= (others => '0');
             end loop;
@@ -150,7 +153,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Clock enable generation.
     -- Pixel clock can be divided by 1,2,4 or 8 depending on the value
     -- programmed at r0_pixel_rate
@@ -166,12 +169,15 @@ begin
     CLKEN_CRTC <= CLKEN and
                   clken_counter(0) and clken_counter(1) and clken_counter(2) and
                   (clken_counter(3) or r0_crtc_2mhz);
+
+    CLKEN_COUNT <= clken_counter;
+
     -- The result is fetched from the CRTC in cycle 0 and also cycle 8 if 2 MHz
     -- mode is selected.  This is used for reloading the shift register as well as
     -- counting cursor pixels
     clken_fetch <= CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2) or
                                   (clken_counter(3) and not r0_crtc_2mhz));
-    
+
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -183,7 +189,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Fetch control
     process(CLOCK,nRESET)
     begin
@@ -202,13 +208,13 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Cursor generation
     cursor_invert <= cursor_active and
                      ((r0_cursor0 and not (cursor_counter(0) or cursor_counter(1))) or
                       (r0_cursor1 and cursor_counter(0) and not cursor_counter(1)) or
                       (r0_cursor2 and cursor_counter(1)));
-    
+
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -219,12 +225,12 @@ begin
                 if CURSOR = '1' or cursor_active = '1' then
                     -- Latch cursor
                     cursor_active <= '1';
-                    
+
                     -- Reset on counter wrap
                     if cursor_counter = "11" then
                         cursor_active <= '0';
                     end if;
-                    
+
                     -- Increment counter
                     if cursor_active = '0' then
                         -- Reset
@@ -237,7 +243,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Pixel generation
     -- The new shift register contents are loaded during
     -- cycle 0 (and 8) but will not be read here until the next cycle.
@@ -266,27 +272,27 @@ begin
                 -- bit 0 - Not RED
                 palette_a := shiftreg(7) & shiftreg(5) & shiftreg(3) & shiftreg(1);
                 dot_val := palette(to_integer(unsigned(palette_a)));
-                
+
                 -- Apply flash inversion if required
                 red_val := (dot_val(3) and r0_flash) xor not dot_val(0);
                 green_val := (dot_val(3) and r0_flash) xor not dot_val(1);
                 blue_val := (dot_val(3) and r0_flash) xor not dot_val(2);
-                
+
                 -- To output
                 -- FIXME: INVERT option
                 RR <= (red_val and delayed_disen) xor cursor_invert;
                 GG <= (green_val and delayed_disen) xor cursor_invert;
                 BB <= (blue_val and delayed_disen) xor cursor_invert;
-                
+
                 -- Display enable signal delayed by one clock
                 delayed_disen <= DISEN;
             end if;
         end if;
     end process;
-    
+
     -- Allow the 12MHz teletext signals to pass through without re-sampling
     R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert;
     G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert;
     B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert;
-    
+
 end architecture;

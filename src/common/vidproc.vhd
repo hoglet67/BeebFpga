@@ -99,6 +99,9 @@ entity vidproc is
         -- Clock enable output to CRTC
         CLKEN_CRTC  :   out std_logic;
 
+        -- Clock enable counter, so memory timing can be slaved to the video processor
+        CLKEN_COUNT : out unsigned(3 downto 0);
+
         -- Bus interface
         ENABLE      :   in  std_logic;
         A           :   in  std_logic_vector(1 downto 0);
@@ -352,6 +355,8 @@ begin
                   clken_counter(0) and clken_counter(1) and clken_counter(2) and
                   (clken_counter(3) or r0_crtc_2mhz);
 
+    CLKEN_COUNT <= clken_counter;
+
     -- The result is fetched from the CRTC in cycle 0 and also cycle 8 if 2 MHz
     -- mode is selected.  This is used for reloading the shift register as well as
     -- counting cursor pixels
@@ -484,7 +489,7 @@ begin
                         if speccy_attr = x"80" then
                             speccy_fg <= x"0";
                             speccy_bg <= x"0";
-                        else                            
+                        else
                             -- remap light black (0) to dark black (8) so
                             -- logical colour zero can only be border
                             if fg = x"0" then
@@ -500,7 +505,7 @@ begin
                             else
                                 speccy_fg <= fg;
                                 speccy_bg <= bg;
-                            end if;                            
+                            end if;
                         end if;
                     end if;
                     if disen1 = '0' and disen2 = '1' then

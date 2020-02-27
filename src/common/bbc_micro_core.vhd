@@ -919,9 +919,9 @@ begin
 
         Inst_sid6581: entity work.sid6581
             port map (
-                -- TODO, should update SID with a proper clocken
-                clk_1MHz   => mhz1_clken,
-                clk32      => clock_48,
+                clk_1MHz   => clock_48,
+                clken      => mhz1_clken,
+                clk_SYS    => clock_48,
                 clk_DAC    => '0', -- internal pwm dac not used
                 reset      => reset,
                 cs         => sid_enable,

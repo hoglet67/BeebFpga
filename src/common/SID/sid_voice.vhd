@@ -20,6 +20,7 @@ use IEEE.numeric_std.all;
 entity sid_voice is
     port (
         clk_1MHz       : in  std_logic;                    -- this line drives the oscilator
+        clken          : in  std_logic;                    -- a clock enable
         reset          : in  std_logic;                    -- active high signal (i.e. registers are reset when reset=1)
         Freq_lo        : in  std_logic_vector(7 downto 0); -- low-byte of frequency register
         Freq_hi        : in  std_logic_vector(7 downto 0); -- high-byte of frequency register
@@ -143,14 +144,16 @@ begin
     PhaseAcc:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            PA_MSB_in_prev <= PA_MSB_in;
-            -- the reset and test signal can stop the oscillator,
-            -- stopping the oscillator is very useful when you want to play "samples"
-            if ((reset = '1') or (test = '1') or ((sync = '1') and (PA_MSB_in_prev /= PA_MSB_in) and (PA_MSB_in = '0'))) then
-                accumulator <= (others => '0');
-            else
-                -- accumulate the new phase (i.o.w. increment env_counter with the freq. value)
-                accumulator <= accumulator + ("0" & frequency);
+            if (clken = '1') then
+                PA_MSB_in_prev <= PA_MSB_in;
+                -- the reset and test signal can stop the oscillator,
+                -- stopping the oscillator is very useful when you want to play "samples"
+                if ((reset = '1') or (test = '1') or ((sync = '1') and (PA_MSB_in_prev /= PA_MSB_in) and (PA_MSB_in = '0'))) then
+                    accumulator <= (others => '0');
+                else
+                    -- accumulate the new phase (i.o.w. increment env_counter with the freq. value)
+                    accumulator <= accumulator + ("0" & frequency);
+                end if;
             end if;
         end if;
     end process;
@@ -161,7 +164,9 @@ begin
     Snd_Sawtooth:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            sawtooth <= accumulator(23 downto 12);
+            if (clken = '1') then
+                sawtooth <= accumulator(23 downto 12);
+            end if;
         end if;
     end process;
 
@@ -173,10 +178,12 @@ begin
     Snd_pulse:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            if ((accumulator(23 downto 12)) >= pulsewidth) then
-                pulse <= '1';
-            else
-                pulse <= '0';
+            if (clken = '1') then
+                if ((accumulator(23 downto 12)) >= pulsewidth) then
+                    pulse <= '1';
+                else
+                    pulse <= '0';
+                end if;
             end if;
         end if;
     end process;
@@ -194,34 +201,36 @@ begin
     Snd_triangle:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            if ringmod = '0' then
-                -- no ringmodulation
-                triangle(11)<= accumulator(23) xor accumulator(22);
-                triangle(10)<= accumulator(23) xor accumulator(21);
-                triangle(9) <= accumulator(23) xor accumulator(20);
-                triangle(8) <= accumulator(23) xor accumulator(19);
-                triangle(7) <= accumulator(23) xor accumulator(18);
-                triangle(6) <= accumulator(23) xor accumulator(17);
-                triangle(5) <= accumulator(23) xor accumulator(16);
-                triangle(4) <= accumulator(23) xor accumulator(15);
-                triangle(3) <= accumulator(23) xor accumulator(14);
-                triangle(2) <= accumulator(23) xor accumulator(13);
-                triangle(1) <= accumulator(23) xor accumulator(12);
-                triangle(0) <= accumulator(23) xor accumulator(11);
-            else
-                -- ringmodulation by the other voice (previous voice)
-                triangle(11)<= PA_MSB_in xor accumulator(22);
-                triangle(10)<= PA_MSB_in xor accumulator(21);
-                triangle(9) <= PA_MSB_in xor accumulator(20);
-                triangle(8) <= PA_MSB_in xor accumulator(19);
-                triangle(7) <= PA_MSB_in xor accumulator(18);
-                triangle(6) <= PA_MSB_in xor accumulator(17);
-                triangle(5) <= PA_MSB_in xor accumulator(16);
-                triangle(4) <= PA_MSB_in xor accumulator(15);
-                triangle(3) <= PA_MSB_in xor accumulator(14);
-                triangle(2) <= PA_MSB_in xor accumulator(13);
-                triangle(1) <= PA_MSB_in xor accumulator(12);
-                triangle(0) <= PA_MSB_in xor accumulator(11);
+            if (clken = '1') then
+                if ringmod = '0' then
+                    -- no ringmodulation
+                    triangle(11)<= accumulator(23) xor accumulator(22);
+                    triangle(10)<= accumulator(23) xor accumulator(21);
+                    triangle(9) <= accumulator(23) xor accumulator(20);
+                    triangle(8) <= accumulator(23) xor accumulator(19);
+                    triangle(7) <= accumulator(23) xor accumulator(18);
+                    triangle(6) <= accumulator(23) xor accumulator(17);
+                    triangle(5) <= accumulator(23) xor accumulator(16);
+                    triangle(4) <= accumulator(23) xor accumulator(15);
+                    triangle(3) <= accumulator(23) xor accumulator(14);
+                    triangle(2) <= accumulator(23) xor accumulator(13);
+                    triangle(1) <= accumulator(23) xor accumulator(12);
+                    triangle(0) <= accumulator(23) xor accumulator(11);
+                else
+                    -- ringmodulation by the other voice (previous voice)
+                    triangle(11)<= PA_MSB_in xor accumulator(22);
+                    triangle(10)<= PA_MSB_in xor accumulator(21);
+                    triangle(9) <= PA_MSB_in xor accumulator(20);
+                    triangle(8) <= PA_MSB_in xor accumulator(19);
+                    triangle(7) <= PA_MSB_in xor accumulator(18);
+                    triangle(6) <= PA_MSB_in xor accumulator(17);
+                    triangle(5) <= PA_MSB_in xor accumulator(16);
+                    triangle(4) <= PA_MSB_in xor accumulator(15);
+                    triangle(3) <= PA_MSB_in xor accumulator(14);
+                    triangle(2) <= PA_MSB_in xor accumulator(13);
+                    triangle(1) <= PA_MSB_in xor accumulator(12);
+                    triangle(0) <= PA_MSB_in xor accumulator(11);
+                end if;
             end if;
         end if;
     end process;
@@ -238,21 +247,23 @@ begin
     Snd_noise:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            -- the test signal can stop the oscillator,
-            -- stopping the oscillator is very useful when you want to play "samples"
-            if ((reset = '1') or (test = '1')) then
-                accu_bit_prev     <= '0';
-                -- the "seed" value (the value that eventually determines the output
-                -- pattern) may never be '0' otherwise the generator "locks up"
-                LFSR  <= "00000000000000000000001";
-            else
-                accu_bit_prev  <= accumulator(19);
-                -- when not equal to ...
-                if (accu_bit_prev /= accumulator(19)) then
-                    LFSR(22 downto 1) <= LFSR(21 downto 0);
-                    LFSR(0)              <= LFSR(17) xor LFSR(22);  -- see Xilinx XAPP052 for maximal LFSR taps
+            if (clken = '1') then
+                -- the test signal can stop the oscillator,
+                -- stopping the oscillator is very useful when you want to play "samples"
+                if ((reset = '1') or (test = '1')) then
+                    accu_bit_prev     <= '0';
+                    -- the "seed" value (the value that eventually determines the output
+                    -- pattern) may never be '0' otherwise the generator "locks up"
+                    LFSR  <= "00000000000000000000001";
                 else
-                    LFSR                    <= LFSR;
+                    accu_bit_prev  <= accumulator(19);
+                    -- when not equal to ...
+                    if (accu_bit_prev /= accumulator(19)) then
+                        LFSR(22 downto 1) <= LFSR(21 downto 0);
+                        LFSR(0)              <= LFSR(17) xor LFSR(22);  -- see Xilinx XAPP052 for maximal LFSR taps
+                    else
+                        LFSR                    <= LFSR;
+                    end if;
                 end if;
             end if;
         end if;
@@ -270,18 +281,20 @@ begin
     Snd_select:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            signal_mux(11) <= (triangle(11) and Control(4)) or (sawtooth(11) and Control(5)) or (pulse and Control(6)) or (noise(11) and Control(7));
-            signal_mux(10) <= (triangle(10) and Control(4)) or (sawtooth(10) and Control(5)) or (pulse and Control(6)) or (noise(10) and Control(7));
-            signal_mux(9)  <= (triangle(9)  and Control(4)) or (sawtooth(9)  and Control(5)) or (pulse and Control(6)) or (noise(9)  and Control(7));
-            signal_mux(8)  <= (triangle(8)  and Control(4)) or (sawtooth(8)  and Control(5)) or (pulse and Control(6)) or (noise(8)  and Control(7));
-            signal_mux(7)  <= (triangle(7)  and Control(4)) or (sawtooth(7)  and Control(5)) or (pulse and Control(6)) or (noise(7)  and Control(7));
-            signal_mux(6)  <= (triangle(6)  and Control(4)) or (sawtooth(6)  and Control(5)) or (pulse and Control(6)) or (noise(6)  and Control(7));
-            signal_mux(5)  <= (triangle(5)  and Control(4)) or (sawtooth(5)  and Control(5)) or (pulse and Control(6)) or (noise(5)  and Control(7));
-            signal_mux(4)  <= (triangle(4)  and Control(4)) or (sawtooth(4)  and Control(5)) or (pulse and Control(6)) or (noise(4)  and Control(7));
-            signal_mux(3)  <= (triangle(3)  and Control(4)) or (sawtooth(3)  and Control(5)) or (pulse and Control(6)) or (noise(3)  and Control(7));
-            signal_mux(2)  <= (triangle(2)  and Control(4)) or (sawtooth(2)  and Control(5)) or (pulse and Control(6)) or (noise(2)  and Control(7));
-            signal_mux(1)  <= (triangle(1)  and Control(4)) or (sawtooth(1)  and Control(5)) or (pulse and Control(6)) or (noise(1)  and Control(7));
-            signal_mux(0)  <= (triangle(0)  and Control(4)) or (sawtooth(0)  and Control(5)) or (pulse and Control(6)) or (noise(0)  and Control(7));
+            if (clken = '1') then
+                signal_mux(11) <= (triangle(11) and Control(4)) or (sawtooth(11) and Control(5)) or (pulse and Control(6)) or (noise(11) and Control(7));
+                signal_mux(10) <= (triangle(10) and Control(4)) or (sawtooth(10) and Control(5)) or (pulse and Control(6)) or (noise(10) and Control(7));
+                signal_mux(9)  <= (triangle(9)  and Control(4)) or (sawtooth(9)  and Control(5)) or (pulse and Control(6)) or (noise(9)  and Control(7));
+                signal_mux(8)  <= (triangle(8)  and Control(4)) or (sawtooth(8)  and Control(5)) or (pulse and Control(6)) or (noise(8)  and Control(7));
+                signal_mux(7)  <= (triangle(7)  and Control(4)) or (sawtooth(7)  and Control(5)) or (pulse and Control(6)) or (noise(7)  and Control(7));
+                signal_mux(6)  <= (triangle(6)  and Control(4)) or (sawtooth(6)  and Control(5)) or (pulse and Control(6)) or (noise(6)  and Control(7));
+                signal_mux(5)  <= (triangle(5)  and Control(4)) or (sawtooth(5)  and Control(5)) or (pulse and Control(6)) or (noise(5)  and Control(7));
+                signal_mux(4)  <= (triangle(4)  and Control(4)) or (sawtooth(4)  and Control(5)) or (pulse and Control(6)) or (noise(4)  and Control(7));
+                signal_mux(3)  <= (triangle(3)  and Control(4)) or (sawtooth(3)  and Control(5)) or (pulse and Control(6)) or (noise(3)  and Control(7));
+                signal_mux(2)  <= (triangle(2)  and Control(4)) or (sawtooth(2)  and Control(5)) or (pulse and Control(6)) or (noise(2)  and Control(7));
+                signal_mux(1)  <= (triangle(1)  and Control(4)) or (sawtooth(1)  and Control(5)) or (pulse and Control(6)) or (noise(1)  and Control(7));
+                signal_mux(0)  <= (triangle(0)  and Control(4)) or (sawtooth(0)  and Control(5)) or (pulse and Control(6)) or (noise(0)  and Control(7));
+            end if;
         end if;
     end process;
 
@@ -297,10 +310,12 @@ begin
     Envelope_multiplier:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            --calculate the resulting volume (due to the envelope generator) of the
-            --voice, signal_mux(12bit) * env_counter(8bit), so the result will
-            --require 20 bits !!
-            signal_vol  <= signal_mux * env_counter;
+            if (clken = '1') then
+                --calculate the resulting volume (due to the envelope generator) of the
+                --voice, signal_mux(12bit) * env_counter(8bit), so the result will
+                --require 20 bits !!
+                signal_vol  <= signal_mux * env_counter;
+            end if;
         end if;
     end process;
 
@@ -326,7 +341,9 @@ begin
             cur_state <= idle;
         else
             if (rising_edge(clk_1MHz)) then
-                cur_state <= next_state;
+                if (clken = '1') then
+                    cur_state <= next_state;
+                end if;
             end if;
         end if;
     end process;
@@ -474,16 +491,18 @@ begin
     Envelope_counter:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            if ((reset = '1') or (env_cnt_clear = '1')) then
-                env_counter <= (others => '0');
-            else
-                if ((env_count_hold_A = '1') or (env_count_hold_B = '1'))then
-                    env_counter <= env_counter;
+            if (clken = '1') then
+                if ((reset = '1') or (env_cnt_clear = '1')) then
+                    env_counter <= (others => '0');
                 else
-                    if (env_cnt_up = '1') then
-                        env_counter <= env_counter + 1;
+                    if ((env_count_hold_A = '1') or (env_count_hold_B = '1'))then
+                        env_counter <= env_counter;
                     else
-                        env_counter <= env_counter - 1;
+                        if (env_cnt_up = '1') then
+                            env_counter <= env_counter + 1;
+                        else
+                            env_counter <= env_counter - 1;
+                        end if;
                     end if;
                 end if;
             end if;
@@ -509,20 +528,22 @@ begin
     prog_freq_div:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            if ((reset = '1') or (divider_rst = '1')) then
-                env_count_hold_A <= '1';
-                divider_counter   <= 0;
-            else
-                if (divider_counter = 0) then
-                    env_count_hold_A  <= '0';
-                    if (exp_table_active = '1') then
-                        divider_counter   <= exp_table_value;
-                    else
-                        divider_counter   <= divider_value;
-                    end if;
+            if (clken = '1') then
+                if ((reset = '1') or (divider_rst = '1')) then
+                    env_count_hold_A <= '1';
+                    divider_counter   <= 0;
                 else
-                    env_count_hold_A  <= '1';
-                    divider_counter   <= divider_counter - 1;
+                    if (divider_counter = 0) then
+                        env_count_hold_A  <= '0';
+                        if (exp_table_active = '1') then
+                            divider_counter   <= exp_table_value;
+                        else
+                            divider_counter   <= divider_value;
+                        end if;
+                    else
+                        env_count_hold_A  <= '1';
+                        divider_counter   <= divider_counter - 1;
+                    end if;
                 end if;
             end if;
         end if;
@@ -541,17 +562,19 @@ begin
     Exponential_table:process(clk_1MHz)
     BEGIN
         if (rising_edge(clk_1MHz)) then
-            if (reset = '1') then
-                exp_table_value   <= 0;
-            else
-                case CONV_INTEGER(env_counter) is
-                    when   0 to  51 =>   exp_table_value <= divider_value * 16;
-                    when  52 to 101 =>   exp_table_value <= divider_value * 8;
-                    when 102 to 152 =>   exp_table_value <= divider_value * 4;
-                    when 153 to 203 =>   exp_table_value <= divider_value * 2;
-                    when 204 to 255 =>   exp_table_value <= divider_value;
-                    when others       => exp_table_value <= divider_value;
-                end case;
+            if (clken = '1') then
+                if (reset = '1') then
+                    exp_table_value   <= 0;
+                else
+                    case CONV_INTEGER(env_counter) is
+                        when   0 to  51 =>   exp_table_value <= divider_value * 16;
+                        when  52 to 101 =>   exp_table_value <= divider_value * 8;
+                        when 102 to 152 =>   exp_table_value <= divider_value * 4;
+                        when 153 to 203 =>   exp_table_value <= divider_value * 2;
+                        when 204 to 255 =>   exp_table_value <= divider_value;
+                        when others       => exp_table_value <= divider_value;
+                    end case;
+                end if;
             end if;
         end if;
     end process;
@@ -562,28 +585,30 @@ begin
     Attack_table:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            if (reset = '1') then
-                divider_attack <= 0;
-            else
-                case Att_dec(7 downto 4) is
-                    when "0000" => divider_attack <= 8;       --attack rate: (   2mS / 1uS per clockcycle) /254 steps
-                    when "0001" => divider_attack <= 31;         --attack rate: (   8mS / 1uS per clockcycle) /254 steps
-                    when "0010" => divider_attack <= 63;         --attack rate: (  16mS / 1uS per clockcycle) /254 steps
-                    when "0011" => divider_attack <= 94;         --attack rate: (  24mS / 1uS per clockcycle) /254 steps
-                    when "0100" => divider_attack <= 150;     --attack rate: (  38mS / 1uS per clockcycle) /254 steps
-                    when "0101" => divider_attack <= 220;     --attack rate: (  56mS / 1uS per clockcycle) /254 steps
-                    when "0110" => divider_attack <= 268;     --attack rate: (  68mS / 1uS per clockcycle) /254 steps
-                    when "0111" => divider_attack <= 315;     --attack rate: (  80mS / 1uS per clockcycle) /254 steps
-                    when "1000" => divider_attack <= 394;     --attack rate: ( 100mS / 1uS per clockcycle) /254 steps
-                    when "1001" => divider_attack <= 984;     --attack rate: ( 250mS / 1uS per clockcycle) /254 steps
-                    when "1010" => divider_attack <= 1968;    --attack rate: ( 500mS / 1uS per clockcycle) /254 steps
-                    when "1011" => divider_attack <= 3150;    --attack rate: ( 800mS / 1uS per clockcycle) /254 steps
-                    when "1100" => divider_attack <= 3937;    --attack rate: (1000mS / 1uS per clockcycle) /254 steps
-                    when "1101" => divider_attack <= 11811;   --attack rate: (3000mS / 1uS per clockcycle) /254 steps
-                    when "1110" => divider_attack <= 19685;   --attack rate: (5000mS / 1uS per clockcycle) /254 steps
-                    when "1111" => divider_attack <= 31496;   --attack rate: (8000mS / 1uS per clockcycle) /254 steps
-                    when others => divider_attack <= 0;       --
-                end case;
+            if (clken = '1') then
+                if (reset = '1') then
+                    divider_attack <= 0;
+                else
+                    case Att_dec(7 downto 4) is
+                        when "0000" => divider_attack <= 8;       --attack rate: (   2mS / 1uS per clockcycle) /254 steps
+                        when "0001" => divider_attack <= 31;         --attack rate: (   8mS / 1uS per clockcycle) /254 steps
+                        when "0010" => divider_attack <= 63;         --attack rate: (  16mS / 1uS per clockcycle) /254 steps
+                        when "0011" => divider_attack <= 94;         --attack rate: (  24mS / 1uS per clockcycle) /254 steps
+                        when "0100" => divider_attack <= 150;     --attack rate: (  38mS / 1uS per clockcycle) /254 steps
+                        when "0101" => divider_attack <= 220;     --attack rate: (  56mS / 1uS per clockcycle) /254 steps
+                        when "0110" => divider_attack <= 268;     --attack rate: (  68mS / 1uS per clockcycle) /254 steps
+                        when "0111" => divider_attack <= 315;     --attack rate: (  80mS / 1uS per clockcycle) /254 steps
+                        when "1000" => divider_attack <= 394;     --attack rate: ( 100mS / 1uS per clockcycle) /254 steps
+                        when "1001" => divider_attack <= 984;     --attack rate: ( 250mS / 1uS per clockcycle) /254 steps
+                        when "1010" => divider_attack <= 1968;    --attack rate: ( 500mS / 1uS per clockcycle) /254 steps
+                        when "1011" => divider_attack <= 3150;    --attack rate: ( 800mS / 1uS per clockcycle) /254 steps
+                        when "1100" => divider_attack <= 3937;    --attack rate: (1000mS / 1uS per clockcycle) /254 steps
+                        when "1101" => divider_attack <= 11811;   --attack rate: (3000mS / 1uS per clockcycle) /254 steps
+                        when "1110" => divider_attack <= 19685;   --attack rate: (5000mS / 1uS per clockcycle) /254 steps
+                        when "1111" => divider_attack <= 31496;   --attack rate: (8000mS / 1uS per clockcycle) /254 steps
+                        when others => divider_attack <= 0;       --
+                    end case;
+                end if;
             end if;
         end if;
     end process;
@@ -604,28 +629,30 @@ begin
     Decay_Release_table:process(clk_1MHz)
     begin
         if (rising_edge(clk_1MHz)) then
-            if reset = '1' then
-                divider_dec_rel <= 0;
-            else
-                case Dec_rel is
-                    when "0000" => divider_dec_rel <= 3;         --release rate: (    6mS / 1uS per clockcycle) / 1632
-                    when "0001" => divider_dec_rel <= 15;     --release rate: (   24mS / 1uS per clockcycle) / 1632
-                    when "0010" => divider_dec_rel <= 29;     --release rate: (   48mS / 1uS per clockcycle) / 1632
-                    when "0011" => divider_dec_rel <= 44;     --release rate: (   72mS / 1uS per clockcycle) / 1632
-                    when "0100" => divider_dec_rel <= 70;     --release rate: (  114mS / 1uS per clockcycle) / 1632
-                    when "0101" => divider_dec_rel <= 103;    --release rate: (  168mS / 1uS per clockcycle) / 1632
-                    when "0110" => divider_dec_rel <= 125;    --release rate: (  204mS / 1uS per clockcycle) / 1632
-                    when "0111" => divider_dec_rel <= 147;    --release rate: (  240mS / 1uS per clockcycle) / 1632
-                    when "1000" => divider_dec_rel <= 184;    --release rate: (  300mS / 1uS per clockcycle) / 1632
-                    when "1001" => divider_dec_rel <= 459;    --release rate: (  750mS / 1uS per clockcycle) / 1632
-                    when "1010" => divider_dec_rel <= 919;    --release rate: ( 1500mS / 1uS per clockcycle) / 1632
-                    when "1011" => divider_dec_rel <= 1471;   --release rate: ( 2400mS / 1uS per clockcycle) / 1632
-                    when "1100" => divider_dec_rel <= 1838;   --release rate: ( 3000mS / 1uS per clockcycle) / 1632
-                    when "1101" => divider_dec_rel <= 5515;   --release rate: ( 9000mS / 1uS per clockcycle) / 1632
-                    when "1110" => divider_dec_rel <= 9191;   --release rate: (15000mS / 1uS per clockcycle) / 1632
-                    when "1111" => divider_dec_rel <= 14706;  --release rate: (24000mS / 1uS per clockcycle) / 1632
-                    when others => divider_dec_rel <= 0;         --
-                end case;
+            if (clken = '1') then
+                if reset = '1' then
+                    divider_dec_rel <= 0;
+                else
+                    case Dec_rel is
+                        when "0000" => divider_dec_rel <= 3;         --release rate: (    6mS / 1uS per clockcycle) / 1632
+                        when "0001" => divider_dec_rel <= 15;     --release rate: (   24mS / 1uS per clockcycle) / 1632
+                        when "0010" => divider_dec_rel <= 29;     --release rate: (   48mS / 1uS per clockcycle) / 1632
+                        when "0011" => divider_dec_rel <= 44;     --release rate: (   72mS / 1uS per clockcycle) / 1632
+                        when "0100" => divider_dec_rel <= 70;     --release rate: (  114mS / 1uS per clockcycle) / 1632
+                        when "0101" => divider_dec_rel <= 103;    --release rate: (  168mS / 1uS per clockcycle) / 1632
+                        when "0110" => divider_dec_rel <= 125;    --release rate: (  204mS / 1uS per clockcycle) / 1632
+                        when "0111" => divider_dec_rel <= 147;    --release rate: (  240mS / 1uS per clockcycle) / 1632
+                        when "1000" => divider_dec_rel <= 184;    --release rate: (  300mS / 1uS per clockcycle) / 1632
+                        when "1001" => divider_dec_rel <= 459;    --release rate: (  750mS / 1uS per clockcycle) / 1632
+                        when "1010" => divider_dec_rel <= 919;    --release rate: ( 1500mS / 1uS per clockcycle) / 1632
+                        when "1011" => divider_dec_rel <= 1471;   --release rate: ( 2400mS / 1uS per clockcycle) / 1632
+                        when "1100" => divider_dec_rel <= 1838;   --release rate: ( 3000mS / 1uS per clockcycle) / 1632
+                        when "1101" => divider_dec_rel <= 5515;   --release rate: ( 9000mS / 1uS per clockcycle) / 1632
+                        when "1110" => divider_dec_rel <= 9191;   --release rate: (15000mS / 1uS per clockcycle) / 1632
+                        when "1111" => divider_dec_rel <= 14706;  --release rate: (24000mS / 1uS per clockcycle) / 1632
+                        when others => divider_dec_rel <= 0;         --
+                    end case;
+                end if;
             end if;
         end if;
     end process;

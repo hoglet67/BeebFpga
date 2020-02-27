@@ -26,19 +26,10 @@ TIMESPEC TS_clk_period_32 = PERIOD "clk_period_grp_32" 31.25ns HIGH;
 NET "bbc_micro/clock_vga_BUFG" TNM_NET = clk_period_grp_vga;
 TIMESPEC TS_clk_period_vga = PERIOD "clk_period_grp_vga" 31.25ns HIGH;
 
-# 1MHz SID clock domain
-# TODO: This should be a PLL generated clock!
-NET "bbc_micro/mhz1_clken" TNM_NET = clk_period_grp_01;
-TIMESPEC TS_clk_period_01 = PERIOD "clk_period_grp_01" 1000.00ns HIGH;
-
-# Save Net Flag, to stop it being optimised
-NET "bbc_micro/mhz1_clken" S;
-
 # Avoid timing warnings for cross domain signals (which are synchronized anyway)
 NET "clock_32"                  TNM_NET = FFS "clk_domain_32";
 NET "clock_27"                  TNM_NET = FFS "clk_domain_27";
 NET "clock_48"                  TNM_NET = FFS "clk_domain_48";
-NET "bbc_micro/mhz1_clken"      TNM_NET = FFS "clk_domain_01";
 NET "bbc_micro/clock_vga_BUFG"  TNM_NET = FFS "clk_domain_vga";
 
 TIMESPEC "TS_CrossDomain_48_27" = FROM "clk_domain_48" TO "clk_domain_27" TIG;
@@ -49,9 +40,6 @@ TIMESPEC "TS_CrossDomain_48_27" = FROM "clk_domain_48" TO "clk_domain_27" TIG;
 
 TIMESPEC "TS_CrossDomain_48_vga" = FROM "clk_domain_48" TO "clk_domain_vga" TIG;
 #TIMESPEC "TS_CrossDomain_vga_48" = FROM "clk_domain_vga" TO "clk_domain_48" TIG;
-
-TIMESPEC "TS_CrossDomain_48_01" = FROM "clk_domain_48" TO "clk_domain_01" TIG;
-TIMESPEC "TS_CrossDomain_01_48" = FROM "clk_domain_01" TO "clk_domain_48" TIG;
 
 #####################################
 # SRAM Interface - runs over multiple cycles

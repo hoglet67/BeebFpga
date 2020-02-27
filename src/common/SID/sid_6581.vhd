@@ -41,7 +41,8 @@ use IEEE.numeric_std.all;
 entity sid6581 is
     port (
         clk_1MHz       : in std_logic;      -- main SID clock signal
-        clk32          : in std_logic;      -- main clock signal
+        clken          : in std_logic;      -- main SID clock enable
+        clk_SYS        : in std_logic;      -- System clock, user for register access and filter
         clk_DAC        : in std_logic;      -- DAC clock signal, must be as high as possible for the best results
         reset          : in std_logic;      -- high active signal (reset when reset = '1')
         cs             : in std_logic;      -- "chip select", when this signal is '1' this model can be accessed
@@ -152,6 +153,7 @@ begin
     sid_voice_1: entity work.sid_voice
         port map(
             clk_1MHz          => clk_1MHz,
+            clken             => clken,
             reset             => reset,
             Freq_lo           => Voice_1_Freq_lo,
             Freq_hi           => Voice_1_Freq_hi,
@@ -170,6 +172,7 @@ begin
     sid_voice_2: entity work.sid_voice
         port map(
             clk_1MHz          => clk_1MHz,
+            clken             => clken,
             reset             => reset,
             Freq_lo           => Voice_2_Freq_lo,
             Freq_hi           => Voice_2_Freq_hi,
@@ -188,6 +191,7 @@ begin
     sid_voice_3: entity work.sid_voice
         port map(
             clk_1MHz          => clk_1MHz,
+            clken             => clken,
             reset             => reset,
             Freq_lo           => Voice_3_Freq_lo,
             Freq_hi           => Voice_3_Freq_hi,
@@ -214,14 +218,16 @@ begin
             ff1<='0';
         else
             if rising_edge(clk_1MHz) then
-                ff1<=not ff1;
+                if (clken = '1') then
+                    ff1<=not ff1;
+                end if;
             end if;
         end if;
     end process;
 
-    process(clk32)
+    process(clk_SYS)
     begin
-        if rising_edge(clk32) then
+        if rising_edge(clk_SYS) then
             tick_q1 <= ff1;
             tick_q2 <= tick_q1;
         end if;
@@ -235,7 +241,7 @@ begin
 
     filters: entity work.sid_filters
         port map (
-            clk         => clk32,
+            clk         => clk_SYS,
             rst         => reset,
             -- SID registers.
             Fc_lo       => Filter_Fc_lo,
@@ -259,9 +265,9 @@ begin
     audio_data     <= unsigned_audio;
 
 -- Register decoding
-    register_decoder:process(clk32)
+    register_decoder:process(clk_SYS)
     begin
-        if rising_edge(clk32) then
+        if rising_edge(clk_SYS) then
             if (reset = '1') then
                 --------------------------------------- Voice-1
                 Voice_1_Freq_lo   <= (others => '0');

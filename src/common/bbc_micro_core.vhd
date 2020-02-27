@@ -206,6 +206,11 @@ constant RGB_WIDTH : integer := calc_rgb_width(IncludeVideoNuLA);
 signal reset        :   std_logic;
 signal reset_n      :   std_logic;
 signal clock_avr    :   std_logic;
+signal clock_vga    :   std_logic;
+signal clken_pixel  :   std_logic;
+signal clock_32a    :   std_logic;
+signal clock_32b    :   std_logic;
+signal clock_32c    :   std_logic;
 
 -- Counter to divide 48MHz down to 16MHz and 8MHz
 signal div3_counter   :   unsigned(1 downto 0);
@@ -323,6 +328,7 @@ signal ttxt_r           :   std_logic;
 signal ttxt_g           :   std_logic;
 signal ttxt_b           :   std_logic;
 signal ttxt_y           :   std_logic;
+signal ttxt             :   std_logic;
 
 -- System VIA signals
 signal sys_via_do       :   std_logic_vector(7 downto 0);
@@ -631,6 +637,7 @@ begin
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
+                TTXT            => ttxt,
                 ENABLE          => vidproc_enable,
                 A               => cpu_a(1 downto 0),
                 DI_CPU          => cpu_do,
@@ -657,6 +664,7 @@ begin
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
+                TTXT            => ttxt,
                 ENABLE          => vidproc_enable,
                 A0              => cpu_a(0),
                 DI_CPU          => cpu_do,
@@ -1147,10 +1155,13 @@ begin
     -- The video processor increments clken_counter when vid_clken
     -- is asserted.
     --
-    -- The video processor assertes CRTC_CLKEN during cycle 3/11
+    -- The video processor assertes CRTC_CLKEN_ADR during cycle 3/11
     -- (qualified by vid_clken)
     --
     -- The mc6845 increments the video address at the start of cycle 4/12
+    --
+    -- The video processor assertes CRTC_CLKEN during cycle 15/7
+    -- (qualified by vid_clken)
     --
     -- The video processor latches read data at the end of cycle 0/8
     -- (qualified by vid_clken)
@@ -1765,15 +1776,39 @@ begin
 -- Scan Doubler from the MIST project
 -----------------------------------------------
 
+    -- Generate a VGA clock that is twice the speed of the input clock
+    -- (i.e. 24MHz in Mode 7, and 32 MHz in Modes 0..6)
+
+    process(clock_32)
+    begin
+        if rising_edge(clock_32) then
+            clock_32a <= not clock_32a;
+        end if;
+    end process;
+
+    process(clock_32)
+    begin
+        if falling_edge(clock_32) then
+            clock_32b <= not clock_32b;
+        end if;
+    end process;
+
+    clock_32c <= clock_32a xor clock_32b;
+
+    clock_vga <= div8_counter(0) when ttxt = '1' else clock_32c;
+
+    -- Input clock enable (sync to clock_48)
+    clken_pixel <= mhz12_clken when ttxt = '1' else vid_clken;
+
     inst_mist_scandoubler: entity work.mist_scandoubler
     generic map (
         -- WIDTH is width of individual rgb in/out ports
         WIDTH => RGB_WIDTH
     )
     port map (
-        clk => clock_48,
+        clk => clock_vga,
         clk_16 => clock_48,
-        clk_16_en => vid_clken,
+        clk_16_en => clken_pixel,
         hs_in => crtc_hsync_n,
         vs_in => crtc_vsync_n,
         r_in => r_out,

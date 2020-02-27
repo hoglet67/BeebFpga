@@ -63,6 +63,9 @@ entity vidproc_orig is
         -- Clock enable counter, so memory timing can be slaved to the video processor
         CLKEN_COUNT :   out unsigned(3 downto 0);
 
+        -- Indicates teletext
+        TTXT        :   out std_logic;
+
         -- Bus interface
         ENABLE      :   in  std_logic;
         A0          :   in  std_logic;
@@ -303,5 +306,8 @@ begin
     R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert;
     G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert;
     B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert;
+
+    -- Indicate mode 7 teletext is selected
+    TTXT <= r0_teletext;
 
 end architecture;

@@ -57,6 +57,7 @@ entity mc6845 is
 port (
 	CLOCK		:	in	std_logic;
 	CLKEN		:	in	std_logic;
+	CLKEN_ADR	:	in	std_logic;
 	nRESET		:	in	std_logic;
 
 	-- Bus interface
@@ -476,7 +477,7 @@ begin
 			RA <= (others => '0');
 			MA <= (others => '0');
 		elsif rising_edge(CLOCK) then
-			if CLKEN = '1' then
+			if CLKEN_ADR = '1' then
 				slv_line := std_logic_vector(line_counter);
 
 				-- Character row address is just the scan line counter delayed by

@@ -265,6 +265,7 @@ signal cpu_dout_us      :   unsigned (7 downto 0);
 
 -- CRTC signals
 signal crtc_clken       :   std_logic;
+signal crtc_clken_adr   :   std_logic;
 signal crtc_do          :   std_logic_vector(7 downto 0);
 signal crtc_vsync       :   std_logic;
 signal crtc_vsync_n     :   std_logic;
@@ -603,6 +604,7 @@ begin
     crtc : entity work.mc6845 port map (
         clock_48,
         crtc_clken,
+        crtc_clken_adr,
         hard_reset_n,
         crtc_enable,
         cpu_r_nw,
@@ -621,26 +623,27 @@ begin
     begin
         videoula : entity work.vidproc
             port map (
-                CLOCK       => clock_48,
-                CPUCLKEN    => cpu_clken,
-                CLKEN       => vid_clken,
-                PIXCLK      => clock_48,
-                nRESET      => hard_reset_n,
-                CLKEN_CRTC  => crtc_clken,
-                CLKEN_COUNT => clken_counter,
-                ENABLE      => vidproc_enable,
-                A           => cpu_a(1 downto 0),
-                DI_CPU      => cpu_do,
-                DI_RAM      => vid_mem_data,
-                nINVERT     => vidproc_invert_n,
-                DISEN       => vidproc_disen,
-                CURSOR      => crtc_cursor,
-                R_IN        => r_in,
-                G_IN        => g_in,
-                B_IN        => b_in,
-                R           => r_out,
-                G           => g_out,
-                B           => b_out
+                CLOCK           => clock_48,
+                CPUCLKEN        => cpu_clken,
+                CLKEN           => vid_clken,
+                PIXCLK          => clock_48,
+                nRESET          => hard_reset_n,
+                CLKEN_CRTC      => crtc_clken,
+                CLKEN_CRTC_ADR  => crtc_clken_adr,
+                CLKEN_COUNT     => clken_counter,
+                ENABLE          => vidproc_enable,
+                A               => cpu_a(1 downto 0),
+                DI_CPU          => cpu_do,
+                DI_RAM          => vid_mem_data,
+                nINVERT         => vidproc_invert_n,
+                DISEN           => vidproc_disen,
+                CURSOR          => crtc_cursor,
+                R_IN            => r_in,
+                G_IN            => g_in,
+                B_IN            => b_in,
+                R               => r_out,
+                G               => g_out,
+                B               => b_out
                 );
     end generate;
 
@@ -648,24 +651,25 @@ begin
     begin
         videoula_orig : entity work.vidproc_orig
             port map (
-                CLOCK       => clock_48,
-                CLKEN       => vid_clken,
-                nRESET      => hard_reset_n,
-                CLKEN_CRTC  => crtc_clken,
-                CLKEN_COUNT => clken_counter,
-                ENABLE      => vidproc_enable,
-                A0          => cpu_a(0),
-                DI_CPU      => cpu_do,
-                DI_RAM      => vid_mem_data,
-                nINVERT     => vidproc_invert_n,
-                DISEN       => vidproc_disen,
-                CURSOR      => crtc_cursor,
-                R_IN        => r_in,
-                G_IN        => g_in,
-                B_IN        => b_in,
-                R           => r_out,
-                G           => g_out,
-                B           => b_out
+                CLOCK           => clock_48,
+                CLKEN           => vid_clken,
+                nRESET          => hard_reset_n,
+                CLKEN_CRTC      => crtc_clken,
+                CLKEN_CRTC_ADR  => crtc_clken_adr,
+                CLKEN_COUNT     => clken_counter,
+                ENABLE          => vidproc_enable,
+                A0              => cpu_a(0),
+                DI_CPU          => cpu_do,
+                DI_RAM          => vid_mem_data,
+                nINVERT         => vidproc_invert_n,
+                DISEN           => vidproc_disen,
+                CURSOR          => crtc_cursor,
+                R_IN            => r_in,
+                G_IN            => g_in,
+                B_IN            => b_in,
+                R               => r_out,
+                G               => g_out,
+                B               => b_out
                 );
     end generate;
 

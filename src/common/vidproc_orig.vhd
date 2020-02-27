@@ -57,8 +57,11 @@ entity vidproc_orig is
         -- Clock enable output to CRTC
         CLKEN_CRTC  :   out std_logic;
 
+        -- Clock enable output to CRTC, to update the RAM address
+        CLKEN_CRTC_ADR  : out std_logic;
+
         -- Clock enable counter, so memory timing can be slaved to the video processor
-        CLKEN_COUNT : out unsigned(3 downto 0);
+        CLKEN_COUNT :   out unsigned(3 downto 0);
 
         -- Bus interface
         ENABLE      :   in  std_logic;
@@ -164,10 +167,15 @@ begin
         (CLKEN and not (clken_counter(0) or clken_counter(1)))  when r0_pixel_rate = "01" else
         (CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2)));
 
-    -- The CRT controller is always enabled in the 11th cycle, so that the result
+    -- The CRT controller is always enabled in the 15th cycle, so that the result
     -- is ready for latching into the shift register in cycle 0.  If 2 MHz mode is
-    -- selected then the CRTC is also enabled in the 3rd cycle
+    -- selected then the CRTC is also enabled in the 7rd cycle
     CLKEN_CRTC <= CLKEN and
+                  clken_counter(0) and clken_counter(1) and clken_counter(2) and
+                  (clken_counter(3) or r0_crtc_2mhz);
+
+    -- To allow for some latency through slow RAM, increment the address earlier
+    CLKEN_CRTC_ADR <= CLKEN and
                   clken_counter(0) and clken_counter(1) and (not clken_counter(2)) and
                   (clken_counter(3) or r0_crtc_2mhz);
 

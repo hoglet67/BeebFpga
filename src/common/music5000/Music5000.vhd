@@ -19,15 +19,13 @@
 ----------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
-
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
 use ieee.numeric_std.all;
 
 entity Music5000 is
     generic (
         sumwidth : integer := 20;
-        dacwidth : integer := 16
+        dacwidth : integer := 16;
+        id       : std_logic_vector(3 downto 0) := "0011"
     );
     port (
         -- This is the cpu clock
@@ -43,10 +41,13 @@ entity Music5000 is
         a        : in     std_logic_vector (7 downto 0);
         din      : in     std_logic_vector (7 downto 0);
         dout     : out    std_logic_vector (7 downto 0);
+        dout_oel : out    std_logic;
         audio_l  : out    std_logic_vector (dacwidth - 1 downto 0);
-        audio_r  : out    std_logic_vector (dacwidth - 1 downto 0)
+        audio_r  : out    std_logic_vector (dacwidth - 1 downto 0);
+        cycle    : out    std_logic_vector (6 downto 0);
+        test     : out    std_logic
     );
-end music5000;
+end Music5000;
 
 architecture Behavioral of Music5000 is
 
@@ -58,7 +59,6 @@ signal bb : std_logic_vector (7 downto 0);
 signal ram_clk : std_logic;
 signal ram_din : std_logic_vector (7 downto 0);
 signal ram_dout : std_logic_vector (7 downto 0);
-signal host_addr : std_logic_vector (7 downto 0);
 signal ram_addr : std_logic_vector (10 downto 0);
 signal ram_we : std_logic;
 signal wave_dout : std_logic_vector (7 downto 0);
@@ -100,8 +100,9 @@ signal reg_s0 : std_logic_vector (2 downto 0);
 signal reg_s4 : std_logic_vector (3 downto 0);
 
 -- bits of address fcff
-signal wrg_n : std_logic;
+signal wrg : std_logic;
 signal bank : std_logic_vector(2 downto 0);
+signal spare : std_logic;
 
 begin
 
@@ -109,58 +110,62 @@ begin
     -- Bus Interface
     ------------------------------------------------
 
-    bus_interface_fc : process(clk, rst_n)
+    bus_interface_fc : process(clk)
     begin
-        if rst_n = '0' then
-            wrg_n <= '0';
-            bank <= (others => '0');
-        elsif rising_edge(clk) then
+        if rising_edge(clk) then
             if clken = '1' then
                 if (pgfc_n = '0' and a = "11111111" and rnw = '0') then
-                    if (din(7 downto 4) = "0011") then
-                        wrg_n <= '0';
+                    if (din(7 downto 4) = id) then
+                        wrg <= '1';
                     else
-                        wrg_n <= '1';
+                        wrg <= '0';
                     end if;
                     bank <= din(3 downto 1);
+                    spare <= din(0);
                 end if;
             end if;
         end if;
     end process;
 
-    dout <= wrg_n & "000" & bank & '0' when pgfc_n = '0' and rnw = '1'
-            else ram_dout when pgfd_n = '0' and rnw = '1'
-            else (others => '0');
+    dout <= (id & bank & spare) xor x"FF" when pgfc_n = '0' and rnw = '1' else
+            ram_dout                      when pgfd_n = '0' and rnw = '1' else
+            (others => '0');
+
+    dout_oel <= '0' when rnw = '1' and pgfc_n = '0' and wrg = '1' and a = "11111111" else
+                '0' when rnw = '1' and pgfd_n = '0' and wrg = '1'                    else
+                '1';
 
     ------------------------------------------------
     -- Wave RAM
     ------------------------------------------------
 
-    -- Running Wave RAM of seperate clocks on each port
-    -- ram_we <= '1' when clken = '1' and pgfd_n = '0' and rnw = '0' and wrg_n = '0' else '0';
+    -- Running Wave RAM of seperate clocks
+    -- ram_we <= '1' when clk6en = '1' and pgfd_n = '0' and rnw = '0' and wrg = '1' else '0';
     -- ram_clk <= clk;
 
-    -- Running Wave RAM of the same clock on each port
-    -- this is a cludge to workaround an issue with early Cyclone II parts
-    -- It generates a 1-cycle WE pulse at the start of a CPU write cycle
-    ram_clk <= clk6;
-    process (ram_clk)
-        variable we1 : std_logic;
-        variable we2 : std_logic;
-    begin
-        if rising_edge(ram_clk) then
-            if we2 = '0' and we1 = '1' then
-                ram_we <= '1';
-            else
-                ram_we <= '0';
-            end if;
-            we2 := we1;
-            if pgfd_n = '0' and rnw = '0' and wrg_n = '0' then
-                we1 := '1';
-            else
-                we1 := '0';
-            end if;
-        end if;
+     -- Running Wave RAM of the same clock
+     -- this is a cludge to workaround an issue with early Cyclone II parts
+     -- google for:
+     ram_clk <= clk6;
+     process (clk6)
+         variable we1 : std_logic;
+         variable we2 : std_logic;
+     begin
+         if rising_edge(clk6) then
+             if clk6en = '1' then
+                 if we2 = '0' and we1 = '1' then
+                     ram_we <= '1';
+                 else
+                     ram_we <= '0';
+                 end if;
+                 we2 := we1;
+                 if pgfd_n = '0' and rnw = '0' and wrg = '1' then
+                     we1 := '1';
+                 else
+                     we1 := '0';
+                 end if;
+             end if;
+         end if;
     end process;
 
     ram_addr <= bank & a;
@@ -180,7 +185,7 @@ begin
             douta => ram_dout,
             -- port B connects to DSP
             clkb  => clk6,
-            web   => '0',
+            web   => not rst_n,    -- write zero to the RAM on reset
             addrb => wave_addr,
             dinb  => (others => '0'),
             doutb => wave_dout
@@ -190,15 +195,9 @@ begin
     -- Controller
     ------------------------------------------------
 
-    controller_sync : process(clk6, rst_n)
+    controller_sync1 : process(clk6)
     begin
-        if rst_n = '0' then
-            addr <= (others => '0');
-            pa <= (others => '0');
-            reg_s0 <= (others => '0');
-            reg_s4  <= (others => '0');
-            index <= '0';
-        elsif rising_edge(clk6) then
+        if rising_edge(clk6) then
             if clk6en = '1' then
                 addr <= std_logic_vector(unsigned(addr) + 1);
                 pa(2 downto 1) <= addr(2 downto 1);
@@ -208,6 +207,16 @@ begin
                 if (s4_n = '0') then
                     reg_s4 <= wave_dout(7 downto 4);
                 end if;
+            end if;
+        end if;
+    end process;
+
+    controller_sync2 : process(clk6, rst_n)
+    begin
+        if rst_n = '0' then
+            index <= '0';
+        elsif rising_edge(clk6) then
+            if clk6en = '1' then
                 if (s7_n = '0') then
                     index <= reg_s0(1) and reg_s0(2);
                 end if;
@@ -352,5 +361,10 @@ begin
         end if;
     end process;
 
+    ------------------------------------------------
+    -- Miscelleneous
+    ------------------------------------------------
+    cycle <= addr;
+    test  <= index;
 
 end Behavioral;

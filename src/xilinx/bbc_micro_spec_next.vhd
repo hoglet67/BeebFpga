@@ -1,6 +1,6 @@
 -- BBC Master / BBC B for the Spectrum Next
 --
--- Copright (c) 2017 David Banks
+-- Copright (c) 2020 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -144,12 +144,21 @@ architecture rtl of bbc_micro_spec_next is
 -- Signals
 -------------
 
-    signal fx_clk_48       : std_logic;
-    signal fx_clk_32       : std_logic;
-    signal clock_24        : std_logic;
+    signal clk0            : std_logic;
+    signal clk1            : std_logic;
+    signal clk2            : std_logic;
+    signal clk3            : std_logic;
+    signal clkfb           : std_logic;
+    signal clkfb_buf       : std_logic;
+    signal clk100          : std_logic;
+    signal fx_clk_27       : std_logic;
+
     signal clock_27        : std_logic;
     signal clock_32        : std_logic;
     signal clock_48        : std_logic;
+    signal clock_96        : std_logic;
+    signal clock_avr       : std_logic;
+
     signal dac_l_in        : std_logic_vector(9 downto 0);
     signal dac_r_in        : std_logic_vector(9 downto 0);
     signal audio_l         : std_logic_vector(15 downto 0);
@@ -235,10 +244,11 @@ begin
         UseAlanDCore       => true
         )
     port map (
-        clock_32       => clock_32,
-        clock_24       => clock_24,
         clock_27       => clock_27,
+        clock_32       => clock_32,
         clock_48       => clock_48,
+        clock_96       => clock_96,
+        clock_avr      => clock_avr,
         hard_reset_n   => hard_reset_n,
         ps2_kbd_clk    => ps2_clk_io,
         ps2_kbd_data   => ps2_data_io,
@@ -316,84 +326,129 @@ begin
     rgb_g_o <= green(3 downto 1);
     rgb_b_o <= blue(3 downto 1);
 
+
 --------------------------------------------------------
 -- Clock Generation
 --------------------------------------------------------
 
-    -- TODO: the 24MHz clock needs to be phase locked to the 32MHz clock
-    -- Not clear the below arrangement will accomplish this
-    -- If MODE 7 is unstable, this is the first place to look!
+    -- 50MHz to 100MHz
 
-    DCM1 : DCM
-    generic map (
-        CLKFX_MULTIPLY  => 16,
-        CLKFX_DIVIDE    => 25,
-        CLK_FEEDBACK    => "NONE"
-        )
+    inst_DCM1 : DCM
+        generic map (
+            CLK_FEEDBACK         => "2X"
+            )
+        port map (
+            CLKIN                => clock_50_i,
+            CLKFB                => clk100,
+            RST                  => '0',
+            DSSEN                => '0',
+            PSINCDEC             => '0',
+            PSEN                 => '0',
+            PSCLK                => '0',
+            CLK2X                => clk100
+            );
+
+
+    -- 100MHz to 96/48/32 MHz
+
+    inst_PLL : PLL_BASE
+        generic map (
+            BANDWIDTH            => "OPTIMIZED",
+            CLK_FEEDBACK         => "CLKFBOUT",
+            COMPENSATION         => "DCM2PLL",
+            DIVCLK_DIVIDE        => 5,
+            CLKFBOUT_MULT        => 24,
+            CLKFBOUT_PHASE       => 0.000,
+            CLKOUT0_DIVIDE       => 5,         -- 100 * (24/5/5) = 96MHz
+            CLKOUT0_PHASE        => 0.000,
+            CLKOUT0_DUTY_CYCLE   => 0.500,
+            CLKOUT1_DIVIDE       => 10,        -- 100 * (24/5/10) = 48MHz
+            CLKOUT1_PHASE        => 0.000,
+            CLKOUT1_DUTY_CYCLE   => 0.500,
+            CLKOUT2_DIVIDE       => 15,        -- 100 * (24/5/15) = 32MHz
+            CLKOUT2_PHASE        => 0.000,
+            CLKOUT2_DUTY_CYCLE   => 0.500,
+            CLKOUT3_DIVIDE       => 30,        -- 100 * (24/5/30) = 16MHz
+            CLKOUT3_PHASE        => 0.000,
+            CLKOUT3_DUTY_CYCLE   => 0.500,
+            CLKIN_PERIOD         => 10.000,
+            REF_JITTER           => 0.010
+            )
+        port map (
+            -- Output clocks
+            CLKFBOUT            => clkfb,
+            CLKOUT0             => clk0,
+            CLKOUT1             => clk1,
+            CLKOUT2             => clk2,
+            RST                 => '0',
+            -- Input clock control
+            CLKFBIN             => clkfb_buf,
+            CLKIN               => clk100
+            );
+
+    inst_clkfb_buf : BUFG
+        port map (
+            I => clkfb,
+            O => clkfb_buf
+            );
+
+    inst_clk0_buf : BUFG
+        port map (
+            I => clk0,
+            O => clock_96
+            );
+
+    inst_clk1_buf : BUFG
+        port map (
+            I => clk1,
+            O => clock_48
+            );
+
+    inst_clk2_buf : BUFG
+        port map (
+            I => clk2,
+            O => clock_32
+            );
+
+    inst_clk3_buf : BUFG
+        port map (
+            I => clk3,
+            O => clock_avr
+            );
+
+    -- 27MHz for the alternative scan doubler
+
+    inst_DCM2 : DCM
+        generic map (
+            CLKFX_MULTIPLY    => 27,
+            CLKFX_DIVIDE      => 25,
+            CLKIN_DIVIDE_BY_2 => TRUE,
+            CLK_FEEDBACK      => "NONE"
+            )
+        port map (
+            CLKIN             => clock_50_i,
+            CLKFB             => '0',
+            RST               => '0',
+            DSSEN             => '0',
+            PSINCDEC          => '0',
+            PSEN              => '0',
+            PSCLK             => '0',
+            CLKFX             => fx_clk_27
+            );
+
+    inst_clk27_bufg : BUFG
     port map (
-        CLKIN           => clock_50_i,
-        CLKFB           => '0',
-        RST             => '0',
-        DSSEN           => '0',
-        PSINCDEC        => '0',
-        PSEN            => '0',
-        PSCLK           => '0',
-        CLKFX           => fx_clk_32
+        I => fx_clk_27,
+        O => clock_27
         );
-
-    BUFG1 : BUFG
-    port map (
-        I => fx_clk_32,
-        O => clock_32
-        );
-
-    DCM2 : DCM
-    generic map (
-        CLKFX_MULTIPLY  => 24,
-        CLKFX_DIVIDE    => 25,
-        CLK_FEEDBACK    => "NONE"
-        )
-    port map (
-        CLKIN           => clock_50_i,
-        CLKFB           => '0',
-        RST             => '0',
-        DSSEN           => '0',
-        PSINCDEC        => '0',
-        PSEN            => '0',
-        PSCLK           => '0',
-        CLKFX           => fx_clk_48
-        );
-
-    BUFG2 : BUFG
-    port map (
-        I => fx_clk_48,
-        O => clock_48
-        );
-
-    clock_27 <= '0';
-
-    -- 24MHz teletext clock, generated from 48MHz intermediate clock
-    --
-    -- Important: this must be phase locked to the 32MHz clock
-    -- i.e. they must be generated from the same clock source
-    --
-    -- This is also the case on a real BBC, where the 6MHz teletext
-    -- clock is generted by some dubious delays from the 16MHz
-    -- system clock.
-    clock_24_gen : process(clock_48)
-    begin
-        if rising_edge(clock_48) then
-            clock_24 <= not clock_24;
-        end if;
-    end process;
 
 --------------------------------------------------------
 -- Power Up Reset Generation
 --------------------------------------------------------
 
-    m128_gen : process(clock_32)
+    m128_gen : process(clock_48)
     begin
-        if rising_edge(clock_32) then
+        if rising_edge(clock_48) then
             if btn_multiface_n_i = '0' then
                 m128_counter <= m128_counter + 1;
             else
@@ -407,9 +462,9 @@ begin
 
     -- Generate a reliable power up reset
     -- Also, perform a power up reset if the master/beeb mode switch is changed
-    reset_gen : process(clock_32)
+    reset_gen : process(clock_48)
     begin
-        if rising_edge(clock_32) then
+        if rising_edge(clock_48) then
             m128_mode_1 <= m128_mode;
             m128_mode_2 <= m128_mode_1;
             if (m128_mode_1 /= m128_mode_2) then
@@ -437,7 +492,7 @@ begin
         msbi_g => 9
     )
     port map (
-        clk_i => clock_32,
+        clk_i => clock_48,
         reset => '0',
         dac_i => dac_l_in,
         dac_o => audioext_l_o
@@ -448,7 +503,7 @@ begin
         msbi_g => 9
     )
     port map (
-        clk_i => clock_32,
+        clk_i => clock_48,
         reset => '0',
         dac_i => dac_r_in,
         dac_o => audioext_r_o
@@ -465,7 +520,7 @@ begin
         user_length     => user_length
     )
     port map(
-        clock           => clock_32,
+        clock           => clock_48,
         powerup_reset_n => powerup_reset_n,
         bootstrap_busy  => bootstrap_busy,
         user_address    => user_address,

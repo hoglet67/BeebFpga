@@ -1,6 +1,6 @@
 -- BBC Master / BBC B for the Papilio Duo
 --
--- Copright (c) 2015 David Banks
+-- Copright (c) 2020 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -48,13 +48,16 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
+library unisim;
+use unisim.vcomponents.all;
+
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
     generic (
         IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := true;
-        IncludeMusic5000   : boolean := true;
-        IncludeICEDebugger : boolean := false;
+        IncludeSID         : boolean := false;
+        IncludeMusic5000   : boolean := false;
+        IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;  -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
         IncludeVideoNuLA   : boolean := true
@@ -108,10 +111,20 @@ architecture rtl of bbc_micro_duo is
 -- Signals
 -------------
 
-    signal clock_24        : std_logic;
+    signal clk0            : std_logic;
+    signal clk1            : std_logic;
+    signal clk2            : std_logic;
+    signal clk3            : std_logic;
+    signal clkfb           : std_logic;
+    signal clkfb_buf       : std_logic;
+    signal fx_clk_27       : std_logic;
+    signal fx_clk_32       : std_logic;
+
     signal clock_27        : std_logic;
     signal clock_32        : std_logic;
     signal clock_48        : std_logic;
+    signal clock_96        : std_logic;
+    signal clock_avr        : std_logic;
     signal dac_l_in        : std_logic_vector(9 downto 0);
     signal dac_r_in        : std_logic_vector(9 downto 0);
     signal audio_l         : std_logic_vector(15 downto 0);
@@ -176,10 +189,11 @@ begin
         UseAlanDCore       => true
     )
     port map (
-        clock_32       => clock_32,
-        clock_24       => clock_24,
         clock_27       => clock_27,
+        clock_32       => clock_32,
         clock_48       => clock_48,
+        clock_96       => clock_96,
+        clock_avr      => clock_avr,
         hard_reset_n   => hard_reset_n,
         ps2_kbd_clk    => ps2_kbd_clk,
         ps2_kbd_data   => ps2_kbd_data,
@@ -239,31 +253,98 @@ begin
 -- Clock Generation
 --------------------------------------------------------
 
-    inst_dcm1: entity work.dcm1 port map(
-        CLKIN_IN  => clk_32M00,
-        CLK0_OUT  => clock_32,
-        CLKFX_OUT => clock_48
-    );
 
-    inst_dcm2: entity work.dcm2 port map (
-        CLKIN_IN  => clk_32M00,
-        CLKFX_OUT => clock_27
-    );
+    inst_PLL : PLL_BASE
+        generic map (
+            BANDWIDTH            => "OPTIMIZED",
+            CLK_FEEDBACK         => "CLKFBOUT",
+            COMPENSATION         => "SYSTEM_SYNCHRONOUS",
+            DIVCLK_DIVIDE        => 1,
+            CLKFBOUT_MULT        => 15,
+            CLKFBOUT_PHASE       => 0.000,
+            CLKOUT0_DIVIDE       => 5,         -- 32 * (15/5) = 96MHz
+            CLKOUT0_PHASE        => 0.000,
+            CLKOUT0_DUTY_CYCLE   => 0.500,
+            CLKOUT1_DIVIDE       => 10,        -- 32 * (15/10) = 48MHz
+            CLKOUT1_PHASE        => 0.000,
+            CLKOUT1_DUTY_CYCLE   => 0.500,
+            CLKOUT2_DIVIDE       => 15,        -- 32 * (15/15) = 32MHz
+            CLKOUT2_PHASE        => 0.000,
+            CLKOUT2_DUTY_CYCLE   => 0.500,
+            CLKOUT3_DIVIDE       => 30,        -- 32 * (15/30) = 16MHz
+            CLKOUT3_PHASE        => 0.000,
+            CLKOUT3_DUTY_CYCLE   => 0.500,
+            CLKIN_PERIOD         => 31.25,
+            REF_JITTER           => 0.010
+            )
+        port map (
+            -- Output clocks
+            CLKFBOUT            => clkfb,
+            CLKOUT0             => clk0,
+            CLKOUT1             => clk1,
+            CLKOUT2             => clk2,
+            CLKOUT3             => clk3,
+            RST                 => '0',
+            -- Input clock control
+            CLKFBIN             => clkfb_buf,
+            CLKIN               => clk_32M00
+            );
 
-    -- 24MHz teletext clock, generated from 48MHz intermediate clock
-    --
-    -- Important: this must be phase locked to the 32MHz clock
-    -- i.e. they must be generated from the same clock source
-    --
-    -- This is also the case on a real BBC, where the 6MHz teletext
-    -- clock is generted by some dubious delays from the 16MHz
-    -- system clock.
-    clock_24_gen : process(clock_48)
-    begin
-        if rising_edge(clock_48) then
-            clock_24 <= not clock_24;
-        end if;
-    end process;
+    inst_clkfb_buf : BUFG
+        port map (
+            I => clkfb,
+            O => clkfb_buf
+            );
+
+    inst_clk0_buf : BUFG
+        port map (
+            I => clk0,
+            O => clock_96
+            );
+
+    inst_clk1_buf : BUFG
+        port map (
+            I => clk1,
+            O => clock_48
+            );
+
+    inst_clk2_buf : BUFG
+        port map (
+            I => clk2,
+            O => clock_32
+            );
+
+    inst_clk3_buf : BUFG
+        port map (
+            I => clk3,
+            O => clock_avr
+            );
+
+    -- 27MHz for the alternative scan doubler
+
+    inst_DCM : DCM
+        generic map (
+            CLKFX_MULTIPLY    => 27,
+            CLKFX_DIVIDE      => 32,
+            CLK_FEEDBACK      => "1X"
+            )
+        port map (
+            CLKIN             => clk_32M00,
+            CLKFB             => fx_clk_32,
+            RST               => '0',
+            DSSEN             => '0',
+            PSINCDEC          => '0',
+            PSEN              => '0',
+            PSCLK             => '0',
+            CLK2X             => fx_clk_32,
+            CLKFX             => fx_clk_27
+            );
+
+    inst_clk27_buf : BUFG
+    port map (
+        I => fx_clk_27,
+        O => clock_27
+        );
 
 --------------------------------------------------------
 -- Power Up Reset Generation

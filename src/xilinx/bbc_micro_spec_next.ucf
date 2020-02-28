@@ -1,135 +1,85 @@
-# 32MHz main clock domain
-NET "clock_32" TNM_NET = clk_period_grp_32;
-TIMESPEC TS_clk_period_32 = PERIOD "clk_period_grp_32" 31.25ns HIGH;
-
 # 27MHz VGA clock domain
 #NET "clock_27" TNM_NET = clk_period_grp_27;
 #TIMESPEC TS_clk_period_27 = PERIOD "clk_period_grp_27" 37.04ns HIGH;
 
-# 24MHz SAA5050 clock domain
-NET "clock_24" TNM_NET = clk_period_grp_24;
-TIMESPEC TS_clk_period_24 = PERIOD "clk_period_grp_24" 41.66ns HIGH;
-
-# 48MHz pixel clock
+# 48MHz main clock
 NET "clock_48" TNM_NET = clk_period_grp_48;
 TIMESPEC TS_clk_period_48 = PERIOD "clk_period_grp_48" 20.83ns HIGH;
 
-# 12MHz Music 5000 clock domain
-# TODO: This should be a PLL generated clock!
-NET "bbc_micro/ttxt_clken" TNM_NET = clk_period_grp_12;
-TIMESPEC TS_clk_period_12 = PERIOD "clk_period_grp_12" 83.33ns HIGH;
+# 96MHz VGA clock
+NET "clock_96" TNM_NET = clk_period_grp_96;
+TIMESPEC TS_clk_period_96 = PERIOD "clk_period_grp_96" 10.41ns HIGH;
 
-# 1MHz SID clock domain
-# TODO: This should be a PLL generated clock!
-NET "bbc_micro/mhz1_clken" TNM_NET = clk_period_grp_01;
-TIMESPEC TS_clk_period_01 = PERIOD "clk_period_grp_01" 1000.00ns HIGH;
+# 16MHz AVR clock
+NET "clock_avr" TNM_NET = clk_period_grp_avr;
+TIMESPEC TS_clk_period_avr = PERIOD "clk_period_grp_avr" 62.5ns HIGH;
 
 # Avoid timing warnings for cross domain signals (which are synchronized anyway)
-NET "clock_32"                  TNM_NET = FFS "clk_domain_32";
-#NET "clock_27"                  TNM_NET = FFS "clk_domain_27";
-NET "clock_24"                  TNM_NET = FFS "clk_domain_24";
-NET "clock_48"                  TNM_NET = FFS "clk_domain_48";
-NET "bbc_micro/ttxt_clken"      TNM_NET = FFS "clk_domain_12";
-NET "bbc_micro/mhz1_clken"      TNM_NET = FFS "clk_domain_01";
+#NET "clock_27"           TNM_NET = FFS "clk_domain_27";
+NET "clock_48"            TNM_NET = FFS "clk_domain_48";
+NET "clock_avr"           TNM_NET = FFS "clk_domain_avr";
 
+# Ignore timing paths from the 48MHz to thew 27MHz domain
+#TIMESPEC "TS_CrossDomain_48_27" = FROM "clk_domain_48" TO "clk_domain_27" TIG;
 
-NET "bbc_micro/ttxt_clken" S;
-NET "bbc_micro/mhz1_clken" S;
-
-#TIMESPEC "TS_CrossDomain_32_27" = FROM "clk_domain_32" TO "clk_domain_27" TIG;
-TIMESPEC "TS_CrossDomain_32_48" = FROM "clk_domain_32" TO "clk_domain_48" TIG;
-TIMESPEC "TS_CrossDomain_32_24" = FROM "clk_domain_32" TO "clk_domain_24" TIG;
-TIMESPEC "TS_CrossDomain_32_12" = FROM "clk_domain_32" TO "clk_domain_12" TIG;
-TIMESPEC "TS_CrossDomain_32_01" = FROM "clk_domain_32" TO "clk_domain_01" TIG;
-TIMESPEC "TS_CrossDomain_12_32" = FROM "clk_domain_12" TO "clk_domain_32" TIG;
-TIMESPEC "TS_CrossDomain_01_32" = FROM "clk_domain_01" TO "clk_domain_32" TIG;
-TIMESPEC "TS_CrossDomain_24_48" = FROM "clk_domain_24" TO "clk_domain_48" TIG;
-TIMESPEC "TS_CrossDomain_48_24" = FROM "clk_domain_48" TO "clk_domain_24" TIG;
+# Ignore timing paths from the 48MHz to thew 27MHz domain
+TIMESPEC "TS_CrossDomain_48_avr" = FROM "clk_domain_48" TO "clk_domain_avr" TIG;
+TIMESPEC "TS_CrossDomain_avr_48" = FROM "clk_domain_avr" TO "clk_domain_48" TIG;
 
 # #####################################
-# # SRAM Interface - runs at 32MHz
+# SRAM Interface - runs over multiple cycles
 # #####################################
-# 
-# NET ram_oe_n_o     OFFSET = OUT 10ns AFTER "clock_32";
-# NET ram_addr_o(18) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(17) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(16) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(15) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(14) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(13) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(12) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(11) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(10) OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(9)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(8)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(7)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(6)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(5)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(4)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(3)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(2)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(1)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# NET ram_addr_o(0)  OFFSET = OUT 10ns AFTER "clock_32"; 
-# 
-# # This is the tightest path
-# # ram_addr_o Offset + Taccess + PCB + SRAM_D Offset In < 31.25ns
-# # 10ns          + 10ns    + 1ns + 10ns             = 31.00ns 
-# NET ram_data_io(*)  OFFSET = IN 10ns VALID 10ns BEFORE "clock_32";
-# 
-# # ram_we_n_o is driven by an IODDR2 register
-# NET ram_we_n_o   OFFSET = OUT  6ns AFTER "clock_32" FALLING;
-# NET ram_we_n_o   OFFSET = OUT  6ns AFTER "clock_32" RISING;
-# 
-# # ram_data_io tristate is driven by an IODDR2 register
-# NET ram_data_io(*)  OFFSET = OUT  6ns AFTER  "clock_32" FALLING;
-# # ram_data_io data includes some fabric logic delays
-# NET ram_data_io(*)  OFFSET = OUT 10ns AFTER  "clock_32" RISING;
-# 
-# #####################################
-# # FLASH Interface runs at 16 MHz
-# #####################################
-# 
-# # Times can be somewhat lax, as there are two cycles to do a read
-# NET flash_cs_n_o   OFFSET = OUT            15ns AFTER  "clock_32";
-# NET flash_mosi_o   OFFSET = OUT            15ns AFTER  "clock_32";
-# NET flash_sclk_o   OFFSET = OUT            15ns AFTER  "clock_32";
-# NET flash_miso_i   OFFSET = IN  15ns VALID 15ns BEFORE "clock_32";
-# 
+
+NET ram_oe_n_o          TIG;
+NET ram_addr_o(*)       TIG;
+NET ram_data_io(*)      TIG;
+NET ram_we_n_o          TIG;
+NET ram_we_n_o          TIG;
+
+#####################################
+# FLASH Interface runs at 24 MHz
+#####################################
+
+NET flash_cs_n_o        TIG;
+NET flash_mosi_o        TIG;
+NET flash_sclk_o        TIG;
+NET flash_miso_i        TIG;
+
 # #####################################
 # # Non critical inputs
 # #####################################
-# 
-# NET ps2_clk_io          TIG;
-# NET ps2_data_io         TIG;
-# NET ps2_pin2_io         TIG;
-# NET ps2_pin6_io         TIG;
-# NET btn_divmmc_n_i	   TIG;
-# NET btn_multiface_n_i	TIG;
-# NET btn_reset_n_i		   TIG;
-# NET sd_miso_i           TIG;
-# NET joyp1_i             TIG;
-# NET joyp2_i             TIG;
-# NET joyp3_i             TIG;
-# NET joyp4_i             TIG;
-# NET joyp6_i             TIG;
-# NET joyp9_i             TIG;
-# NET esp_rx_i            TIG;
-# 
-# #####################################
-# # Non critical outputs
-# #####################################
-# 
-# NET rgb_r_o(*)          TIG;
-# NET rgb_g_o(*)          TIG;
-# NET rgb_b_o(*)          TIG;
-# NET vsync_o             TIG;
-# NET hsync_o             TIG;
-# NET audioext_l_o        TIG;
-# NET audioext_r_o        TIG;
-# NET sd_sclk_o           TIG;
-# NET sd_mosi_o           TIG;
-# NET sd_cs_n_o           TIG;
-# NET esp_tx_o            TIG;
+
+NET ps2_clk_io          TIG;
+NET ps2_data_io         TIG;
+NET ps2_pin2_io         TIG;
+NET ps2_pin6_io         TIG;
+NET btn_divmmc_n_i      TIG;
+NET btn_multiface_n_i   TIG;
+NET btn_reset_n_i       TIG;
+NET sd_miso_i           TIG;
+NET joyp1_i             TIG;
+NET joyp2_i             TIG;
+NET joyp3_i             TIG;
+NET joyp4_i             TIG;
+NET joyp6_i             TIG;
+NET joyp9_i             TIG;
+NET esp_rx_i            TIG;
+
+#####################################
+# Non critical outputs
+#####################################
+
+NET rgb_r_o(*)          TIG;
+NET rgb_g_o(*)          TIG;
+NET rgb_b_o(*)          TIG;
+NET vsync_o             TIG;
+NET hsync_o             TIG;
+NET audioext_l_o        TIG;
+NET audioext_r_o        TIG;
+NET sd_sclk_o           TIG;
+NET sd_mosi_o           TIG;
+NET sd_cs_n_o           TIG;
+NET esp_tx_o            TIG;
 
 #
 # TBBlue / ZX Spectrum Next project
@@ -166,206 +116,206 @@ TIMESPEC "TS_CrossDomain_48_24" = FROM "clk_domain_48" TO "clk_domain_24" TIG;
 # You are responsible for any legal issues arising from your use of this code.
 #
 
-NET 'clock_50_i'			LOC='T8'		| IOSTANDARD = LVCMOS33;
+NET 'clock_50_i'        LOC='T8'    | IOSTANDARD = LVCMOS33;
 
-NET 'ram_addr_o<0>'		LOC='M2'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<1>'		LOC='M1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<2>'		LOC='N1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<3>'		LOC='P2'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<4>'		LOC='P1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<5>'		LOC='L3'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<6>'		LOC='M4'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<7>'		LOC='M3'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<8>'		LOC='N4'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<9>'		LOC='N3'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<10>'		LOC='C4'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<11>'		LOC='C3'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<12>'		LOC='D3'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<13>'		LOC='E4'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<14>'		LOC='E3'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<15>'		LOC='F2'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<16>'		LOC='F1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<17>'		LOC='G1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_addr_o<18>'		LOC='H2'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<0>'		LOC='J6'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<1>'		LOC='L5'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<2>'		LOC='K5'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<3>'		LOC='M6'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<4>'		LOC='P4'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<5>'		LOC='R3'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<6>'		LOC='T4'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<7>'		LOC='N6'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<8>'		LOC='E2'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<9>'		LOC='C1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<10>'	LOC='G5'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<11>'	LOC='F6'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<12>'	LOC='F5'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<13>'	LOC='G6'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<14>'	LOC='D1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_data_io<15>'	LOC='A4'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_oe_n_o'			LOC='E1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_we_n_o'			LOC='M5'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_ce_n_o<0>'		LOC='R2'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_ce_n_o<1>'		LOC='R1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_ce_n_o<2>'		LOC='M10'	| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'ram_ce_n_o<3>'		LOC='B3'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<0>'     LOC='M2'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<1>'     LOC='M1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<2>'     LOC='N1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<3>'     LOC='P2'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<4>'     LOC='P1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<5>'     LOC='L3'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<6>'     LOC='M4'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<7>'     LOC='M3'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<8>'     LOC='N4'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<9>'     LOC='N3'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<10>'    LOC='C4'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<11>'    LOC='C3'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<12>'    LOC='D3'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<13>'    LOC='E4'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<14>'    LOC='E3'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<15>'    LOC='F2'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<16>'    LOC='F1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<17>'    LOC='G1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_addr_o<18>'    LOC='H2'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<0>'    LOC='J6'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<1>'    LOC='L5'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<2>'    LOC='K5'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<3>'    LOC='M6'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<4>'    LOC='P4'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<5>'    LOC='R3'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<6>'    LOC='T4'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<7>'    LOC='N6'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<8>'    LOC='E2'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<9>'    LOC='C1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<10>'   LOC='G5'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<11>'   LOC='F6'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<12>'   LOC='F5'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<13>'   LOC='G6'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<14>'   LOC='D1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_data_io<15>'   LOC='A4'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_oe_n_o'        LOC='E1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_we_n_o'        LOC='M5'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_ce_n_o<0>'     LOC='R2'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_ce_n_o<1>'     LOC='R1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_ce_n_o<2>'     LOC='M10'   | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'ram_ce_n_o<3>'     LOC='B3'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
 
-NET 'ps2_clk_io'			LOC='K3'		| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'ps2_data_io'			LOC='J3'		| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'ps2_pin6_io'			LOC='K6'		| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'ps2_pin2_io'			LOC='J4'		| IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'ps2_clk_io'        LOC='K3'    | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'ps2_data_io'       LOC='J3'    | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'ps2_pin6_io'       LOC='K6'    | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'ps2_pin2_io'       LOC='J4'    | IOSTANDARD = LVCMOS33 | PULLUP;
 
-NET 'sd_cs_n_o'			LOC='L1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'sd_cs2_n_o'			LOC='L4'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'sd_sclk_o'			LOC='K1'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'sd_mosi_o'			LOC='K2'		| IOSTANDARD = LVCMOS33 | DRIVE = 8;
-NET 'sd_miso_i'			LOC='J1'		| IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'sd_cs_n_o'         LOC='L1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'sd_cs2_n_o'        LOC='L4'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'sd_sclk_o'         LOC='K1'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'sd_mosi_o'         LOC='K2'    | IOSTANDARD = LVCMOS33 | DRIVE = 8;
+NET 'sd_miso_i'         LOC='J1'    | IOSTANDARD = LVCMOS33 | PULLUP;
 
-NET 'flash_cs_n_o'		LOC='T3'		| IOSTANDARD = LVCMOS33;
-NET 'flash_sclk_o'		LOC='R11'	| IOSTANDARD = LVCMOS33;
-NET 'flash_mosi_o'		LOC='T10'	| IOSTANDARD = LVCMOS33;
-NET 'flash_miso_i'		LOC='P10'	| IOSTANDARD = LVCMOS33;
-NET 'flash_wp_o'			LOC='N12'	| IOSTANDARD = LVCMOS33;
-NET 'flash_hold_o'		LOC='P12'	| IOSTANDARD = LVCMOS33;
+NET 'flash_cs_n_o'      LOC='T3'    | IOSTANDARD = LVCMOS33;
+NET 'flash_sclk_o'      LOC='R11'   | IOSTANDARD = LVCMOS33;
+NET 'flash_mosi_o'      LOC='T10'   | IOSTANDARD = LVCMOS33;
+NET 'flash_miso_i'      LOC='P10'   | IOSTANDARD = LVCMOS33;
+NET 'flash_wp_o'        LOC='N12'   | IOSTANDARD = LVCMOS33;
+NET 'flash_hold_o'      LOC='P12'   | IOSTANDARD = LVCMOS33;
 
-NET 'joyp1_i'				LOC='R14'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'joyp2_i'				LOC='T14'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'joyp3_i'				LOC='R15'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'joyp4_i'				LOC='P16'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'joyp6_i'				LOC='P11'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'joyp7_o'				LOC='T15'	| IOSTANDARD = LVCMOS33;
-NET 'joyp9_i'				LOC='P15'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'joysel_o'				LOC='P9'		| IOSTANDARD = LVCMOS33;
+NET 'joyp1_i'           LOC='R14'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'joyp2_i'           LOC='T14'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'joyp3_i'           LOC='R15'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'joyp4_i'           LOC='P16'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'joyp6_i'           LOC='P11'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'joyp7_o'           LOC='T15'   | IOSTANDARD = LVCMOS33;
+NET 'joyp9_i'           LOC='P15'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'joysel_o'          LOC='P9'    | IOSTANDARD = LVCMOS33;
 
-NET 'audioext_l_o'		LOC='B2'		| IOSTANDARD = LVCMOS33 | DRIVE = 16;
-NET 'audioext_r_o'		LOC='A2'		| IOSTANDARD = LVCMOS33 | DRIVE = 16;
-NET 'audioint_o'			LOC='R16'	| IOSTANDARD = LVCMOS33 | DRIVE = 16;
+NET 'audioext_l_o'      LOC='B2'    | IOSTANDARD = LVCMOS33 | DRIVE = 16;
+NET 'audioext_r_o'      LOC='A2'    | IOSTANDARD = LVCMOS33 | DRIVE = 16;
+NET 'audioint_o'        LOC='R16'   | IOSTANDARD = LVCMOS33 | DRIVE = 16;
 
-NET 'ear_port_i'			LOC='A3'		| IOSTANDARD = LVCMOS33;
-NET 'mic_port_o'			LOC='R5'		| IOSTANDARD = LVCMOS33;
+NET 'ear_port_i'        LOC='A3'    | IOSTANDARD = LVCMOS33;
+NET 'mic_port_o'        LOC='R5'    | IOSTANDARD = LVCMOS33;
 
-NET 'btn_divmmc_n_i'		LOC='L8'		| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'btn_multiface_n_i'	LOC='M7'		| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'btn_reset_n_i'		LOC='M11'	| IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'btn_divmmc_n_i'    LOC='L8'    | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'btn_multiface_n_i' LOC='M7'    | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'btn_reset_n_i'     LOC='M11'   | IOSTANDARD = LVCMOS33 | PULLUP;
 
-NET 'keyb_row_o<3>'		LOC='H13'	| IOSTANDARD = LVCMOS33;				# 1
-NET 'keyb_row_o<2>'		LOC='L12'	| IOSTANDARD = LVCMOS33;				# 2
-NET 'keyb_row_o<1>'		LOC='K11'	| IOSTANDARD = LVCMOS33;				# 3
-NET 'keyb_row_o<4>'		LOC='J12'	| IOSTANDARD = LVCMOS33;				# 4
-NET 'keyb_row_o<5>'		LOC='K12'	| IOSTANDARD = LVCMOS33;				# 5
-NET 'keyb_row_o<0>'		LOC='H11'	| IOSTANDARD = LVCMOS33;				# 6
-NET 'keyb_row_o<6>'		LOC='J11'	| IOSTANDARD = LVCMOS33;				# 7
-NET 'keyb_row_o<7>'		LOC='G12'	| IOSTANDARD = LVCMOS33;				# 8
+NET 'keyb_row_o<3>'     LOC='H13'   | IOSTANDARD = LVCMOS33;            # 1
+NET 'keyb_row_o<2>'     LOC='L12'   | IOSTANDARD = LVCMOS33;            # 2
+NET 'keyb_row_o<1>'     LOC='K11'   | IOSTANDARD = LVCMOS33;            # 3
+NET 'keyb_row_o<4>'     LOC='J12'   | IOSTANDARD = LVCMOS33;            # 4
+NET 'keyb_row_o<5>'     LOC='K12'   | IOSTANDARD = LVCMOS33;            # 5
+NET 'keyb_row_o<0>'     LOC='H11'   | IOSTANDARD = LVCMOS33;            # 6
+NET 'keyb_row_o<6>'     LOC='J11'   | IOSTANDARD = LVCMOS33;            # 7
+NET 'keyb_row_o<7>'     LOC='G12'   | IOSTANDARD = LVCMOS33;            # 8
 
-NET 'keyb_col_i<4>'		LOC='T5'		| IOSTANDARD = LVCMOS33 | PULLUP;	# 1
-NET 'keyb_col_i<3>'		LOC='P7'		| IOSTANDARD = LVCMOS33 | PULLUP;	# 2
-NET 'keyb_col_i<2>'		LOC='N8'		| IOSTANDARD = LVCMOS33 | PULLUP;	# 3
-NET 'keyb_col_i<1>'		LOC='P8'		| IOSTANDARD = LVCMOS33 | PULLUP;	# 4
-NET 'keyb_col_i<0>'		LOC='L7'		| IOSTANDARD = LVCMOS33 | PULLUP;	# 5
+NET 'keyb_col_i<4>'     LOC='T5'    | IOSTANDARD = LVCMOS33 | PULLUP;   # 1
+NET 'keyb_col_i<3>'     LOC='P7'    | IOSTANDARD = LVCMOS33 | PULLUP;   # 2
+NET 'keyb_col_i<2>'     LOC='N8'    | IOSTANDARD = LVCMOS33 | PULLUP;   # 3
+NET 'keyb_col_i<1>'     LOC='P8'    | IOSTANDARD = LVCMOS33 | PULLUP;   # 4
+NET 'keyb_col_i<0>'     LOC='L7'    | IOSTANDARD = LVCMOS33 | PULLUP;   # 5
 
-NET 'bus_rst_n_io'		LOC='M9'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 16;
-NET 'bus_clk35_o'			LOC='G11'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<0>'		LOC='A8'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<1>'		LOC='A9'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<2>'		LOC='A10'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<3>'		LOC='E8'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<4>'		LOC='A14'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<5>'		LOC='A13'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<6>'		LOC='B12'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<7>'		LOC='A12'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<8>'		LOC='B14'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<9>'		LOC='F9'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<10>'		LOC='D12'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<11>'		LOC='E12'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<12>'		LOC='B8'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<13>'		LOC='A7'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<14>'		LOC='F7'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_addr_o<15>'		LOC='E7'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_data_io<0>'		LOC='D5'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
-NET 'bus_data_io<1>'		LOC='C5'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
-NET 'bus_data_io<2>'		LOC='C6'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
-NET 'bus_data_io<3>'		LOC='C8'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
-NET 'bus_data_io<4>'		LOC='E6'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
-NET 'bus_data_io<5>'		LOC='D8'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
-NET 'bus_data_io<6>'		LOC='C7'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
-NET 'bus_data_io<7>'		LOC='A6'		| IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
-NET 'bus_int_n_i'			LOC='F10'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'bus_nmi_n_i'			LOC='E11'	| IOSTANDARD = LVCMOS33;
-NET 'bus_ramcs_i'			LOC='C16'	| IOSTANDARD = LVCMOS33 | PULLDOWN;
-NET 'bus_romcs_i'			LOC='C15'	| IOSTANDARD = LVCMOS33;
-NET 'bus_wait_n_i'		LOC='B16'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'bus_halt_n_o'		LOC='B15'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_iorq_n_o'		LOC='D9'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_m1_n_o'			LOC='D11'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_mreq_n_o'		LOC='E10'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_rd_n_o'			LOC='C9'		| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_wr_n_o'			LOC='C10'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_rfsh_n_o'		LOC='C11'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_busreq_n_i'		LOC='M12'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'bus_busack_n_o'		LOC='J13'	| IOSTANDARD = LVCMOS33 | DRIVE = 4;
-NET 'bus_iorqula_n_i'	LOC='F12'	| IOSTANDARD = LVCMOS33 | PULLDOWN;
+NET 'bus_rst_n_io'      LOC='M9'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 16;
+NET 'bus_clk35_o'       LOC='G11'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<0>'     LOC='A8'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<1>'     LOC='A9'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<2>'     LOC='A10'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<3>'     LOC='E8'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<4>'     LOC='A14'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<5>'     LOC='A13'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<6>'     LOC='B12'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<7>'     LOC='A12'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<8>'     LOC='B14'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<9>'     LOC='F9'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<10>'    LOC='D12'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<11>'    LOC='E12'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<12>'    LOC='B8'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<13>'    LOC='A7'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<14>'    LOC='F7'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_addr_o<15>'    LOC='E7'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_data_io<0>'    LOC='D5'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
+NET 'bus_data_io<1>'    LOC='C5'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
+NET 'bus_data_io<2>'    LOC='C6'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
+NET 'bus_data_io<3>'    LOC='C8'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
+NET 'bus_data_io<4>'    LOC='E6'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
+NET 'bus_data_io<5>'    LOC='D8'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
+NET 'bus_data_io<6>'    LOC='C7'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
+NET 'bus_data_io<7>'    LOC='A6'    | IOSTANDARD = LVCMOS33 | PULLUP | DRIVE = 4;
+NET 'bus_int_n_i'       LOC='F10'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'bus_nmi_n_i'       LOC='E11'   | IOSTANDARD = LVCMOS33;
+NET 'bus_ramcs_i'       LOC='C16'   | IOSTANDARD = LVCMOS33 | PULLDOWN;
+NET 'bus_romcs_i'       LOC='C15'   | IOSTANDARD = LVCMOS33;
+NET 'bus_wait_n_i'      LOC='B16'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'bus_halt_n_o'      LOC='B15'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_iorq_n_o'      LOC='D9'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_m1_n_o'        LOC='D11'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_mreq_n_o'      LOC='E10'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_rd_n_o'        LOC='C9'    | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_wr_n_o'        LOC='C10'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_rfsh_n_o'      LOC='C11'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_busreq_n_i'    LOC='M12'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'bus_busack_n_o'    LOC='J13'   | IOSTANDARD = LVCMOS33 | DRIVE = 4;
+NET 'bus_iorqula_n_i'   LOC='F12'   | IOSTANDARD = LVCMOS33 | PULLDOWN;
 
-NET 'rgb_r_o<0>'			LOC='H4'		| IOSTANDARD = LVCMOS33;
-NET 'rgb_r_o<1>'			LOC='H3'		| IOSTANDARD = LVCMOS33;
-NET 'rgb_r_o<2>'			LOC='H5'		| IOSTANDARD = LVCMOS33;
-NET 'rgb_g_o<0>'			LOC='F4'		| IOSTANDARD = LVCMOS33;
-NET 'rgb_g_o<1>'			LOC='F3'		| IOSTANDARD = LVCMOS33;
-NET 'rgb_g_o<2>'			LOC='G3'		| IOSTANDARD = LVCMOS33;
-NET 'rgb_b_o<0>'			LOC='B1'		| IOSTANDARD = LVCMOS33;
-NET 'rgb_b_o<1>'			LOC='C2'		| IOSTANDARD = LVCMOS33;
-NET 'rgb_b_o<2>'			LOC='H1'		| IOSTANDARD = LVCMOS33;
-NET 'vsync_o'				LOC='A11'	| IOSTANDARD = LVCMOS33;
-NET 'hsync_o'				LOC='B10'	| IOSTANDARD = LVCMOS33;
-NET 'csync_o'				LOC='D6'		| IOSTANDARD = LVCMOS33;
+NET 'rgb_r_o<0>'        LOC='H4'    | IOSTANDARD = LVCMOS33;
+NET 'rgb_r_o<1>'        LOC='H3'    | IOSTANDARD = LVCMOS33;
+NET 'rgb_r_o<2>'        LOC='H5'    | IOSTANDARD = LVCMOS33;
+NET 'rgb_g_o<0>'        LOC='F4'    | IOSTANDARD = LVCMOS33;
+NET 'rgb_g_o<1>'        LOC='F3'    | IOSTANDARD = LVCMOS33;
+NET 'rgb_g_o<2>'        LOC='G3'    | IOSTANDARD = LVCMOS33;
+NET 'rgb_b_o<0>'        LOC='B1'    | IOSTANDARD = LVCMOS33;
+NET 'rgb_b_o<1>'        LOC='C2'    | IOSTANDARD = LVCMOS33;
+NET 'rgb_b_o<2>'        LOC='H1'    | IOSTANDARD = LVCMOS33;
+NET 'vsync_o'           LOC='A11'   | IOSTANDARD = LVCMOS33;
+NET 'hsync_o'           LOC='B10'   | IOSTANDARD = LVCMOS33;
+NET 'csync_o'           LOC='D6'    | IOSTANDARD = LVCMOS33;
 
-NET 'hdmi_n_o<0>'			LOC='P5'		| IOSTANDARD = TMDS_33;
-NET 'hdmi_p_o<0>'			LOC='N5'		| IOSTANDARD = TMDS_33;
-NET 'hdmi_n_o<1>'			LOC='A5'		| IOSTANDARD = TMDS_33;
-NET 'hdmi_p_o<1>'			LOC='B5'		| IOSTANDARD = TMDS_33;
-NET 'hdmi_n_o<2>'			LOC='T6'		| IOSTANDARD = TMDS_33;
-NET 'hdmi_p_o<2>'			LOC='P6'		| IOSTANDARD = TMDS_33;
-NET 'hdmi_n_o<3>'			LOC='T7'		| IOSTANDARD = TMDS_33;
-NET 'hdmi_p_o<3>'			LOC='R7'		| IOSTANDARD = TMDS_33;
+NET 'hdmi_n_o<0>'       LOC='P5'    | IOSTANDARD = TMDS_33;
+NET 'hdmi_p_o<0>'       LOC='N5'    | IOSTANDARD = TMDS_33;
+NET 'hdmi_n_o<1>'       LOC='A5'    | IOSTANDARD = TMDS_33;
+NET 'hdmi_p_o<1>'       LOC='B5'    | IOSTANDARD = TMDS_33;
+NET 'hdmi_n_o<2>'       LOC='T6'    | IOSTANDARD = TMDS_33;
+NET 'hdmi_p_o<2>'       LOC='P6'    | IOSTANDARD = TMDS_33;
+NET 'hdmi_n_o<3>'       LOC='T7'    | IOSTANDARD = TMDS_33;
+NET 'hdmi_p_o<3>'       LOC='R7'    | IOSTANDARD = TMDS_33;
 
-NET 'i2c_scl_io'			LOC='T9'		| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'i2c_sda_io'			LOC='R9'		| IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'i2c_scl_io'        LOC='T9'    | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'i2c_sda_io'        LOC='R9'    | IOSTANDARD = LVCMOS33 | PULLUP;
 
-NET 'esp_gpio0_io'		LOC='R12'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'esp_gpio2_io'		LOC='T13'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'esp_rx_i'				LOC='N9'	| IOSTANDARD = LVCMOS33 | PULLUP;
-NET 'esp_tx_o'				LOC='T12'		| IOSTANDARD = LVCMOS33;
+NET 'esp_gpio0_io'      LOC='R12'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'esp_gpio2_io'      LOC='T13'   | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'esp_rx_i'          LOC='N9' | IOSTANDARD = LVCMOS33 | PULLUP;
+NET 'esp_tx_o'          LOC='T12'      | IOSTANDARD = LVCMOS33;
 
-NET 'accel_io<0>'			LOC='H14'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<1>'			LOC='G14'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<2>'			LOC='L16'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<3>'			LOC='K15'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<4>'			LOC='K16'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<5>'			LOC='F13'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<6>'			LOC='F14'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<7>'			LOC='F15'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<8>'			LOC='F16'	| IOSTANDARD = LVCMOS33 | PULLDOWN; # (D0) Ensure model B boots if Pi not present
-NET 'accel_io<9>'			LOC='H16'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<10>'		LOC='L10'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<11>'		LOC='G16'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<12>'		LOC='E13'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<13>'		LOC='D14'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<14>'		LOC='J16'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<15>'		LOC='N14'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<16>'		LOC='E16'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<17>'		LOC='M14'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<18>'		LOC='M13'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<19>'		LOC='C13'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<20>'		LOC='D16'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<21>'		LOC='B6'		| IOSTANDARD = LVCMOS33;
-NET 'accel_io<22>'		LOC='L13'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<23>'		LOC='K14'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<24>'		LOC='J14'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<25>'		LOC='H15'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<26>'		LOC='E15'	| IOSTANDARD = LVCMOS33;
-NET 'accel_io<27>'		LOC='L14'	| IOSTANDARD = LVCMOS33;
+NET 'accel_io<0>'       LOC='H14'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<1>'       LOC='G14'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<2>'       LOC='L16'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<3>'       LOC='K15'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<4>'       LOC='K16'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<5>'       LOC='F13'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<6>'       LOC='F14'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<7>'       LOC='F15'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<8>'       LOC='F16'   | IOSTANDARD = LVCMOS33 | PULLDOWN; # (D0) Ensure model B boots if Pi not present
+NET 'accel_io<9>'       LOC='H16'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<10>'      LOC='L10'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<11>'      LOC='G16'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<12>'      LOC='E13'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<13>'      LOC='D14'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<14>'      LOC='J16'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<15>'      LOC='N14'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<16>'      LOC='E16'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<17>'      LOC='M14'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<18>'      LOC='M13'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<19>'      LOC='C13'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<20>'      LOC='D16'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<21>'      LOC='B6'    | IOSTANDARD = LVCMOS33;
+NET 'accel_io<22>'      LOC='L13'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<23>'      LOC='K14'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<24>'      LOC='J14'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<25>'      LOC='H15'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<26>'      LOC='E15'   | IOSTANDARD = LVCMOS33;
+NET 'accel_io<27>'      LOC='L14'   | IOSTANDARD = LVCMOS33;
 
 #vagos: M15, M16, N16
 
 # Timings
 
-NET "clock_50_i" 		 PERIOD = 20 ns;
+NET "clock_50_i"      PERIOD = 20 ns;

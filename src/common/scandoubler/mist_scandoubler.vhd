@@ -32,6 +32,7 @@ entity mist_scandoubler is
     port (
         -- system interface
         clk       : in  std_logic;  -- 32MHz
+        clk_en    : in  std_logic;  -- 32MHz
         clk_16    : in  std_logic;  -- from shifter
         clk_16_en : in  std_logic;
 
@@ -90,11 +91,13 @@ begin
     process(clk)
     begin
         if rising_edge(clk) then
-            hs <= hs_sd;
-            vs <= vs_in;
-            r_out <= sd_out(WIDTH * 3 - 1 downto WIDTH * 2);
-            g_out <= sd_out(WIDTH * 2 - 1 downto WIDTH * 1);
-            b_out <= sd_out(WIDTH * 1 - 1 downto WIDTH * 0);
+            if clk_en = '1' then
+                hs <= hs_sd;
+                vs <= vs_in;
+                r_out <= sd_out(WIDTH * 3 - 1 downto WIDTH * 2);
+                g_out <= sd_out(WIDTH * 2 - 1 downto WIDTH * 1);
+                b_out <= sd_out(WIDTH * 1 - 1 downto WIDTH * 0);
+            end if;
         end if;
     end process;
 
@@ -104,7 +107,7 @@ begin
 
     process(clk_16)
     begin
-        if falling_edge(clk_16) then
+        if rising_edge(clk_16) then
             if clk_16_en = '1' then
                 vsD <= vs_in;
                 if vsD /= vs_in then
@@ -120,7 +123,7 @@ begin
 
     process(clk_16)
     begin
-        if falling_edge(clk_16) then
+        if rising_edge(clk_16) then
             if clk_16_en = '1' then
                 sd_buffer(conv_integer(line_toggle & hcnt)) <= r_in & g_in & b_in;
             end if;
@@ -136,7 +139,7 @@ begin
 
     process(clk_16)
     begin
-        if falling_edge(clk_16) then
+        if rising_edge(clk_16) then
             if clk_16_en = '1' then
                 hsD <= hs_in;
                 -- falling edge of hsync indicates start of line
@@ -163,23 +166,25 @@ begin
     process(clk)
     begin
         if rising_edge(clk) then
-            -- output counter synchronous to input and at twice the rate
-            sd_hcnt <= sd_hcnt + 1;
-            if hsD = '1' and hs_in = '0' then
-                sd_hcnt <= hs_max;
+            if clk_en = '1' then
+                -- output counter synchronous to input and at twice the rate
+                sd_hcnt <= sd_hcnt + 1;
+                if hsD = '1' and hs_in = '0' then
+                    sd_hcnt <= hs_max;
+                end if;
+                if sd_hcnt = hs_max then
+                    sd_hcnt <= (others => '0');
+                end if;
+                -- replicate horizontal sync at twice the speed
+                if sd_hcnt = hs_max then
+                    hs_sd <= '0';
+                end if;
+                if sd_hcnt = hs_rise then
+                    hs_sd <= '1';
+                end if;
+                -- read data from line sd_buffer
+                sd_out <= sd_buffer(conv_integer((not line_toggle) & sd_hcnt));
             end if;
-            if sd_hcnt = hs_max then
-                sd_hcnt <= (others => '0');
-            end if;
-            -- replicate horizontal sync at twice the speed
-            if sd_hcnt = hs_max then
-                hs_sd <= '0';
-            end if;
-            if sd_hcnt = hs_rise then
-                hs_sd <= '1';
-            end if;
-            -- read data from line sd_buffer
-            sd_out <= sd_buffer(conv_integer((not line_toggle) & sd_hcnt));
         end if;
     end process;
 

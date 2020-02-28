@@ -70,10 +70,11 @@ entity bbc_micro_core is
     );
     port (
         -- Clocks
-        clock_32       : in    std_logic;
-        clock_24       : in    std_logic;
         clock_27       : in    std_logic;
+        clock_32       : in    std_logic;
         clock_48       : in    std_logic;
+        clock_96       : in    std_logic;
+        clock_avr      : in    std_logic;
 
         -- Hard reset (active low)
         hard_reset_n   : in    std_logic;
@@ -203,20 +204,21 @@ constant RGB_WIDTH : integer := calc_rgb_width(IncludeVideoNuLA);
 -- Signals
 -------------
 
-signal reset        :   std_logic;
-signal reset_n      :   std_logic;
-signal clock_avr    :   std_logic;
-signal clock_vga    :   std_logic;
-signal clken_pixel  :   std_logic;
-signal clock_32a    :   std_logic;
-signal clock_32b    :   std_logic;
-signal clock_32c    :   std_logic;
+signal reset            :   std_logic;
+signal reset_n          :   std_logic;
+
+-- Clock enables for the scan doubler
+signal clken_pixel      :   std_logic;
+signal clken_vga        :   std_logic;
+
+-- Counter to divide 96MHz down to 32MHz or 24MHz
+signal vga3_counter     :   unsigned(1 downto 0);
 
 -- Counter to divide 48MHz down to 16MHz and 8MHz
-signal div3_counter   :   unsigned(1 downto 0);
+signal div3_counter     :   unsigned(1 downto 0);
 
 -- Counter to divide 48MHz down to 12MHz and 6MHz
-signal div8_counter   :   unsigned(2 downto 0);
+signal div8_counter     :   unsigned(2 downto 0);
 
 -- Clock enable counter
 -- CPU and video cycles are interleaved.  The CPU runs at 2 MHz (every 16th
@@ -550,7 +552,6 @@ begin
         process(clock_48)
         begin
             if rising_edge(clock_48) then
-                clock_avr <= vid_clken; -- 16MHz
                 cpu_clken1 <= cpu_clken;
             end if;
         end process;
@@ -1776,29 +1777,26 @@ begin
 -- Scan Doubler from the MIST project
 -----------------------------------------------
 
-    -- Generate a VGA clock that is twice the speed of the input clock
-    -- (i.e. 24MHz in Mode 7, and 32 MHz in Modes 0..6)
-
-    process(clock_32)
-    begin
-        if rising_edge(clock_32) then
-            clock_32a <= not clock_32a;
-        end if;
-    end process;
-
-    process(clock_32)
-    begin
-        if falling_edge(clock_32) then
-            clock_32b <= not clock_32b;
-        end if;
-    end process;
-
-    clock_32c <= clock_32a xor clock_32b;
-
-    clock_vga <= div8_counter(0) when ttxt = '1' else clock_32c;
-
-    -- Input clock enable (sync to clock_48)
+    -- Input clock enable (for the 48MHz input clock)
+    --   ttxt = 0: 16MHz
+    --   ttxt = 1: 12MHz
     clken_pixel <= mhz12_clken when ttxt = '1' else vid_clken;
+
+    -- Output clock enable (for the 96MHz output clock)
+    -- ttxt = 0: divide by 3 -> 32MHz
+    -- ttxt = 1: divide by 4 -> 24MHz
+    process(clock_96)
+    begin
+        if rising_edge(clock_96) then
+            if (ttxt = '0' and vga3_counter = 2) or (ttxt = '1' and vga3_counter = 3) then
+                vga3_counter <= (others => '0');
+                clken_vga <= '1';
+            else
+                vga3_counter <= vga3_counter + 1;
+                clken_vga <= '0';
+            end if;
+        end if;
+    end process;
 
     inst_mist_scandoubler: entity work.mist_scandoubler
     generic map (
@@ -1806,7 +1804,8 @@ begin
         WIDTH => RGB_WIDTH
     )
     port map (
-        clk => clock_vga,
+        clk => clock_96,
+        clk_en => clken_vga,
         clk_16 => clock_48,
         clk_16_en => clken_pixel,
         hs_in => crtc_hsync_n,

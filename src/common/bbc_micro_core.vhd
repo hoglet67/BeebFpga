@@ -946,8 +946,8 @@ begin
             port map (
                 clk      => clock_48,
                 clken    => mhz1_clken,
-                clk6     => mhz6_clken,
-                clk6en   => '1',
+                clk6     => clock_48,
+                clk6en   => mhz6_clken,
                 rnw      => cpu_r_nw,
                 rst_n    => reset_n,
                 pgfc_n   => io_fred_n,

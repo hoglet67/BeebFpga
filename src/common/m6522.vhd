@@ -39,6 +39,8 @@
 --
 -- Revision list
 --
+--        dmb: Fix timing violations (I_P2_H used as a clock)
+--        dmb: Fix T2 interrupt corner case
 --        dmb: ier bit 7 should read back as '1'
 --        dmb: Fixes to sr_do_shift change that broke MMFS on the Beeb (SR mode 0)
 -- version 005 Many fixes to all areas, VIA now passes all VICE tests
@@ -733,11 +735,15 @@ begin
    -- Ensure we don't start counting until the P2 clock after r_acr is changed
    p_timer2_ena : process
    begin
-      wait until rising_edge(I_P2_H);
-      if r_acr(5) = '0' then
-         t2_cnt_clk <= '1';
-      else
-         t2_cnt_clk <= '0';
+      wait until rising_edge(CLK);
+      if (ENA_4 = '1') then
+         if (p2_h_t1 = '0') and (I_P2_H = '1') then
+             if r_acr(5) = '0' then
+                 t2_cnt_clk <= '1';
+             else
+                 t2_cnt_clk <= '0';
+             end if;
+         end if;
       end if;
    end process;
 

@@ -30,7 +30,7 @@ NET "clock_avr"                 TNM_NET = FFS "clk_domain_avr";
 # Ignore timing paths from the 48MHz to the 27MHz domain
 TIMESPEC "TS_CrossDomain_48_27" = FROM "clk_domain_48" TO "clk_domain_27" TIG;
 
-# Ignore timing paths from the 48MHz to thew 27MHz domain
+# Ignore timing paths between the 48MHz and the AVR domain
 TIMESPEC "TS_CrossDomain_48_avr" = FROM "clk_domain_48" TO "clk_domain_avr" TIG;
 TIMESPEC "TS_CrossDomain_avr_48" = FROM "clk_domain_avr" TO "clk_domain_48" TIG;
 

@@ -1,6 +1,6 @@
 # 27MHz VGA clock domain
-#NET "clock_27" TNM_NET = clk_period_grp_27;
-#TIMESPEC TS_clk_period_27 = PERIOD "clk_period_grp_27" 37.04ns HIGH;
+NET "clock_27" TNM_NET = clk_period_grp_27;
+TIMESPEC TS_clk_period_27 = PERIOD "clk_period_grp_27" 37.04ns HIGH;
 
 # 48MHz main clock
 NET "clock_48" TNM_NET = clk_period_grp_48;
@@ -15,14 +15,14 @@ NET "clock_avr" TNM_NET = clk_period_grp_avr;
 TIMESPEC TS_clk_period_avr = PERIOD "clk_period_grp_avr" 62.5ns HIGH;
 
 # Avoid timing warnings for cross domain signals (which are synchronized anyway)
-#NET "clock_27"           TNM_NET = FFS "clk_domain_27";
+NET "clock_27"           TNM_NET = FFS "clk_domain_27";
 NET "clock_48"            TNM_NET = FFS "clk_domain_48";
 NET "clock_avr"           TNM_NET = FFS "clk_domain_avr";
 
-# Ignore timing paths from the 48MHz to thew 27MHz domain
-#TIMESPEC "TS_CrossDomain_48_27" = FROM "clk_domain_48" TO "clk_domain_27" TIG;
+# Ignore timing paths from the 48MHz to the 27MHz domain
+TIMESPEC "TS_CrossDomain_48_27" = FROM "clk_domain_48" TO "clk_domain_27" TIG;
 
-# Ignore timing paths from the 48MHz to thew 27MHz domain
+# Ignore timing paths between the 48MHz and the AVR domain
 TIMESPEC "TS_CrossDomain_48_avr" = FROM "clk_domain_48" TO "clk_domain_avr" TIG;
 TIMESPEC "TS_CrossDomain_avr_48" = FROM "clk_domain_avr" TO "clk_domain_48" TIG;
 

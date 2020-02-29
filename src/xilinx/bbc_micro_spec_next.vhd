@@ -159,6 +159,12 @@ architecture rtl of bbc_micro_spec_next is
     signal clock_96        : std_logic;
     signal clock_avr       : std_logic;
 
+    attribute S : string;
+    attribute S of clock_avr : signal is "yes";
+    attribute S of clock_27  : signal is "yes";
+    attribute S of clock_32  : signal is "yes";
+    attribute S of clock_96  : signal is "yes";
+
     signal dac_l_in        : std_logic_vector(9 downto 0);
     signal dac_r_in        : std_logic_vector(9 downto 0);
     signal audio_l         : std_logic_vector(15 downto 0);

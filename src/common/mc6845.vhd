@@ -74,6 +74,8 @@ port (
 	CURSOR		:	out	std_logic;
 	LPSTB		:	in	std_logic;
 
+	VGA			:	in	std_logic;
+
 	-- Memory interface
 	MA			:	out	std_logic_vector(13 downto 0);
 	RA			:	out	std_logic_vector(4 downto 0)
@@ -311,10 +313,20 @@ begin
 					-- Compute the max scan line for this row
 					if in_adj = '0' then
 						-- This is a normal row, so use r09_max_scan_line_addr
-						max_scan_line := r09_max_scan_line_addr;
+						if VGA = '1' then
+							-- So Mode 7 value of 18 becomes 19 (giving 20 rows per character)
+							max_scan_line := r09_max_scan_line_addr + 1;
+						else
+							max_scan_line := r09_max_scan_line_addr;
+						end if;
 					else
 						-- This is the "adjust" row, so use r05_v_total_adj
-						max_scan_line := r05_v_total_adj - 1;
+						if VGA = '1' then
+							-- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
+							max_scan_line := r05_v_total_adj + 1;
+						else
+							max_scan_line := r05_v_total_adj - 1;
+						end if;
 						-- If interlaced, the odd field contains an additional scan line
 						if odd_field = '1' then
 							if r08_interlace(1 downto 0) = "11" then
@@ -327,7 +339,7 @@ begin
 
 					-- In interlace sync + video mode mask off the LSb of the
 					-- max scan line address
-					if r08_interlace(1 downto 0) = "11" then
+					if r08_interlace(1 downto 0) = "11" and VGA = '0' then
 						max_scan_line(0) := '0';
 					end if;
 
@@ -339,7 +351,7 @@ begin
 						-- Save on some logic by doing this here rather than at the
 						-- end of v_total_adj - it shouldn't make any difference to the
 						-- output
-						if r08_interlace(0) = '1' then
+						if r08_interlace(0) = '1' and VGA = '0' then
 							odd_field <= not odd_field;
 						else
 							odd_field <= '0';
@@ -371,7 +383,7 @@ begin
 						end if;
 					else
 						-- Next scan line.	Count in twos in interlaced sync+video mode
-						if r08_interlace(1 downto 0) = "11" then
+						if r08_interlace(1 downto 0) = "11" and VGA = '0' then
 							line_counter <= line_counter + 2;
 							line_counter(0) <= '0'; -- Force to even
 						else
@@ -482,9 +494,7 @@ begin
 
 				-- Character row address is just the scan line counter delayed by
 				-- one clock to line up with the syncs.
-				if r08_interlace(1 downto 0) = "11" then
-					-- In interlace sync and video mode the LSb is determined by the
-					-- field number.  The line counter counts up in 2s in this case.
+				if r08_interlace(1 downto 0) = "11" and VGA = '0' then
 					RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field);
 				else
 					RA <= slv_line;

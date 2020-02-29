@@ -57,10 +57,10 @@ entity bbc_micro_duo is
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := true;
-        IncludeCoPro6502   : boolean := true;  -- The co pro options are mutually exclusive
+        IncludeICEDebugger : boolean := false;
+        IncludeCoPro6502   : boolean := false;  -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := true
+        IncludeVideoNuLA   : boolean := false
     );
     port (
         clk_32M00      : in    std_logic;

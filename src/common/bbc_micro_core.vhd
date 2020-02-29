@@ -230,7 +230,7 @@ signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
 -- IO cycles are out of phase with the CPU
 signal vid_clken        :   std_logic; -- 16 MHz video cycles
-signal mhz12_clken      :   std_logic; -- 12 MHz used by SAA 5050
+signal ttxt_clken       :   std_logic; -- 12 MHz used by SAA 5050 (24MHz in VGA mode)
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
@@ -313,6 +313,7 @@ signal vga1_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga1_hs          :   std_logic;
 signal vga1_vs          :   std_logic;
 signal vga1_mode        :   std_logic;
+signal vga2_mode        :   std_logic;
 signal rgbi_out         :   std_logic_vector(RGB_WIDTH * 3 downto 0);
 signal vsync_int        :   std_logic;
 signal hsync_int        :   std_logic;
@@ -623,6 +624,7 @@ begin
         crtc_de,
         crtc_cursor,
         crtc_lpstb,
+        vga2_mode,
         crtc_ma,
         crtc_ra );
 
@@ -666,6 +668,7 @@ begin
                 CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt,
+                VGA             => vga2_mode,
                 ENABLE          => vidproc_enable,
                 A0              => cpu_a(0),
                 DI_CPU          => cpu_do,
@@ -684,8 +687,9 @@ begin
 
     teletext : entity work.saa5050 port map (
         clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
-        mhz12_clken,
+        ttxt_clken,
         hard_reset_n,
+        vga2_mode,
         clock_48, -- Data input is synchronised from the bus clock domain
         vid_clken,
         vid_mem_data(6 downto 0),
@@ -1207,10 +1211,10 @@ begin
             end if;
 
             -- 12MHz clock enable (for SAA5050)
-            if div8_counter(1 downto 0) = 3 then
-                mhz12_clken <= '1';
+            if (vga2_mode = '0' and div8_counter(1 downto 0) = 3) or (vga2_mode = '1' and div8_counter(0) = '1') then
+                ttxt_clken <= '1';
             else
-                mhz12_clken <= '0';
+                ttxt_clken <= '0';
             end if;
 
             -- 6MHz clock enable (for Music 5000)
@@ -1779,8 +1783,8 @@ begin
 
     -- Input clock enable (for the 48MHz input clock)
     --   ttxt = 0: 16MHz
-    --   ttxt = 1: 12MHz
-    clken_pixel <= mhz12_clken when ttxt = '1' else vid_clken;
+    --   ttxt = 1: 12MHz/24MHz
+    clken_pixel <= ttxt_clken when ttxt = '1' else vid_clken;
 
     -- Output clock enable (for the 96MHz output clock)
     -- ttxt = 0: divide by 3 -> 32MHz
@@ -1822,7 +1826,6 @@ begin
     );
     crtc_hsync_n <= not crtc_hsync;
     crtc_vsync_n <= not crtc_vsync;
-    vga0_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '0' else '0';
 
 -----------------------------------------------
 -- Scan Doubler from RGB2VGA project
@@ -1851,19 +1854,24 @@ begin
     vga1_g  <= rgbi_out(RGB_WIDTH * 2 downto RGB_WIDTH * 1 + 1);
     vga1_b  <= rgbi_out(RGB_WIDTH * 1 downto RGB_WIDTH * 0 + 1);
 
-    vga1_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '1' else '0';
 
 -----------------------------------------------
 -- RGBHV Multiplexor
 -----------------------------------------------
 
+    vga0_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '0' else '0';
+    vga1_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '1' else '0';
+    vga2_mode <= '1' when vid_mode(0) = '0' and vid_mode(1) = '1' else '0';
+
     -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
     hsync_int   <= vga0_hs when vga0_mode = '1' else
-                    vga1_hs when vga1_mode = '1' else
-                    not (crtc_hsync or crtc_vsync);
+                   vga1_hs when vga1_mode = '1' else
+            not crtc_hsync when vga2_mode = '1' else
+                   not (crtc_hsync or crtc_vsync);
 
     vsync_int   <= vga0_vs when vga0_mode = '1' else
                    vga1_vs when vga1_mode = '1' else
+            not crtc_vsync when vga2_mode = '1' else
                    '1';
 
     video_hsync <= hsync_int xor vid_mode(2);

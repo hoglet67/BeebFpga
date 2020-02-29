@@ -108,6 +108,9 @@ entity vidproc is
         -- Indicates teletext
         TTXT        :   out std_logic;
 
+        -- Indicates special VGA Mode 7 (720x576p)
+        VGA         :   in  std_logic;
+
         -- Bus interface
         ENABLE      :   in  std_logic;
         A           :   in  std_logic_vector(1 downto 0);
@@ -359,12 +362,12 @@ begin
     -- selected then the CRTC is also enabled in the 7rd cycle
     CLKEN_CRTC <= CLKEN and
                   clken_counter(0) and clken_counter(1) and clken_counter(2) and
-                  (clken_counter(3) or r0_crtc_2mhz);
+                  (clken_counter(3) or r0_crtc_2mhz or (r0_teletext and VGA));
 
     -- To allow for some latency through slow RAM, increment the address earlier
     CLKEN_CRTC_ADR <= CLKEN and
                   clken_counter(0) and clken_counter(1) and (not clken_counter(2)) and
-                  (clken_counter(3) or r0_crtc_2mhz);
+                  (clken_counter(3) or r0_crtc_2mhz or (r0_teletext and VGA));
 
     CLKEN_COUNT <= clken_counter;
 
@@ -372,7 +375,7 @@ begin
     -- mode is selected.  This is used for reloading the shift register as well as
     -- counting cursor pixels
     clken_fetch <= CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2) or
-                                  (clken_counter(3) and not r0_crtc_2mhz));
+                                  (clken_counter(3) and not r0_crtc_2mhz and not (r0_teletext and VGA)));
 
     process(CLOCK,nRESET)
     begin
@@ -414,7 +417,10 @@ begin
 
             -- For 12MHz pixen_prescale counts: 0, 1, 2, 3
             -- For 16MHz pixen_prescale counts: 0, 1,    3
-            if modeIs12Mhz = '0' and pixen_prescale = 1 then
+            if r0_teletext = '1' and VGA = '1' and pixen_prescale = 0 then
+                -- Special case VGA mode, count at twice the rate
+                pixen_prescale <= pixen_prescale + 3;
+            elsif modeIs12MHz = '0' and pixen_prescale = 1 then
                 pixen_prescale <= pixen_prescale + 2;
             else
                 pixen_prescale <= pixen_prescale + 1;

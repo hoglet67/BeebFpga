@@ -1,6 +1,6 @@
 -- BBC Micro Core, designed to be platform independant
 --
--- Copyright (c) 2015 David Banks
+-- Copyright (c) 2020 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -132,8 +132,11 @@ entity bbc_micro_core is
         ext_keyb_pa7   : in    std_logic;
 
         -- Format of Video
-        -- Bit 0 selects 15.625KHz SRGB (0) or 31.5KHz VGA (1)
-        -- Bit 1 selects Mist (0) or RGB2VGA (1) scan doubler is used for VGA
+        -- Bit 1,0 select the video format
+        --   00 - 15.625KHz SRGB
+        --   01 - 31.250KHz VGA using the RGB2VGA Scan Doubler
+        --   10 - 31.250KHz VGA using the Mist Scan Doubler
+        --   11 - 31.250KHz VGA using the Mist Scan Doubler (Modes 0..6) and SAA5050 VGA (Mode 7)
         -- Bit 2 inverts hsync
         -- Bit 3 inverts vsync
         vid_mode       : in    std_logic_vector(3 downto 0);
@@ -641,6 +644,7 @@ begin
                 CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt,
+                VGA             => vga2_mode,
                 ENABLE          => vidproc_enable,
                 A               => cpu_a(1 downto 0),
                 DI_CPU          => cpu_do,
@@ -1783,7 +1787,7 @@ begin
 
     -- Input clock enable (for the 48MHz input clock)
     --   ttxt = 0: 16MHz
-    --   ttxt = 1: 12MHz/24MHz
+    --   ttxt = 1: 12MHz
     clken_pixel <= ttxt_clken when ttxt = '1' else vid_clken;
 
     -- Output clock enable (for the 96MHz output clock)
@@ -1859,9 +1863,21 @@ begin
 -- RGBHV Multiplexor
 -----------------------------------------------
 
-    vga0_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '0' else '0';
-    vga1_mode <= '1' when vid_mode(0) = '1' and vid_mode(1) = '1' else '0';
-    vga2_mode <= '1' when vid_mode(0) = '0' and vid_mode(1) = '1' else '0';
+    -- Video Mode Links
+    --
+    -- 0 0 SCART RGB mode (15.625KHz)
+    -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: RGBtoVGA SD
+    -- 1 0 Mode 0-7: Mist SD,     Mode 7: Mist SD
+    -- 1 1 Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode
+
+    -- The RGBtoVGA Scan Doubler
+    vga1_mode <= '1' when vid_mode(1 downto 0) = "01" else '0';
+
+    -- The Mist Scan Doubler
+    vga0_mode <= '1' when (vid_mode(1 downto 0) = "11" and ttxt = '0') or vid_mode(1 downto 0) = "10" else '0';
+
+    -- The SAA5050 VGA Mode
+    vga2_mode <= '1' when (vid_mode(1 downto 0) = "11" and ttxt = '1') else '0';
 
     -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
     hsync_int   <= vga0_hs when vga0_mode = '1' else

@@ -60,7 +60,7 @@ entity bbc_micro_duo is
         IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := false;  -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := false
+        IncludeVideoNuLA   : boolean := true
     );
     port (
         clk_32M00      : in    std_logic;
@@ -95,10 +95,17 @@ entity bbc_micro_duo is
         FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
         avr_RxD        : in    std_logic;
         avr_TxD        : out   std_logic;
-        -- DIP(0) = Video Mode: sRGB (0) / VGA (1)
-        -- DIP(1) = VGA Scan Doubler: MIST (0) / RGB2VGA (1)
-        -- DIP(2) = Machine: BBC Model B (0) / BBC Master (1)
-        -- DIP(3) = No Boot (0) : Boot (1)
+        -- DIP(1..0) = Video Mode:
+        --             (00) SCART RGB mode (15.625KHz)
+        --             (01) Mode 0-6: RGBtoVGA SD, Mode 7: RGBtoVGA SD
+        --             (10) Mode 0-7: Mist SD,     Mode 7: Mist SD
+        --             (11) Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode
+        -- DIP(2) = Machine:
+        --             (0) BBC Model B
+        --             (1) BBC Master
+        -- DIP(3) = Co Pro:
+        --             (0) Off
+        --             (1) On
         DIP            : in    std_logic_vector(3 downto 0);
         JOYSTICK1      : in    std_logic_vector(4 downto 0);
         JOYSTICK2      : in    std_logic_vector(4 downto 0)

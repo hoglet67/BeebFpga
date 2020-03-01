@@ -182,7 +182,7 @@ architecture rtl of bbc_micro_spec_next is
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_counter    : std_logic_vector(24 downto 0);
-    signal m128_mode       : std_logic := '0';
+    signal m128_mode       : std_logic := '1';
     signal m128_mode_1     : std_logic;
     signal m128_mode_2     : std_logic;
     signal copro_mode      : std_logic;
@@ -204,11 +204,15 @@ architecture rtl of bbc_micro_spec_next is
 -----------------------------------------------
 
     -- Spec Next FLASH is Winbond 25Q128JVSQ (16MB)
+    --  Slot 0: AB Core        (0x000000-0x07FFFF)
+    --  Slot 1: Spec Next Core (0x080000-0x0FFFFF)
+    --  Slot 2: Beeb Core      (0x100000-0x17FFFF)
+    --  Slot 3: Beeb ROMS      (0x180000-0x1FFFFF)
 
     -- start address of user data in FLASH as obtained from bitmerge.py
     -- this is safely beyond the end of the bitstream
-    constant user_address_beeb    : std_logic_vector(23 downto 0) := x"080000";
-    constant user_address_master  : std_logic_vector(23 downto 0) := x"0C0000";
+    constant user_address_beeb    : std_logic_vector(23 downto 0) := x"180000";
+    constant user_address_master  : std_logic_vector(23 downto 0) := x"1C0000";
     signal   user_address         : std_logic_vector(23 downto 0);
 
     -- lenth of user data in FLASH = 256KB (16x 16K ROM) images
@@ -229,11 +233,15 @@ begin
     -- As per the Beeb keyboard DIP switches
     keyb_dip       <= "00000000";
 
-    -- Bit 3 inverts vsync
+    -- Format of Video
+    -- Bit 1,0 select the video format
+    --   00 - 15.625KHz SRGB
+    --   01 - 31.250KHz VGA using the RGB2VGA Scan Doubler
+    --   10 - 31.250KHz VGA using the Mist Scan Doubler
+    --   11 - 31.250KHz VGA using the Mist Scan Doubler (Modes 0..6) and SAA5050 VGA (Mode 7)
     -- Bit 2 inverts hsync
-    -- Bit 1 selects between Mist (0) and RGBtoVGA (1) scan doublers
-    -- Bit 0 selecte between sRGB (0) and VGA (1)
-    vid_mode       <= "0001";
+    -- Bit 3 inverts vsync
+    vid_mode       <= "0011";
 
     bbc_micro : entity work.bbc_micro_core
     generic map (
@@ -331,7 +339,6 @@ begin
     rgb_r_o <= red(3 downto 1);
     rgb_g_o <= green(3 downto 1);
     rgb_b_o <= blue(3 downto 1);
-
 
 --------------------------------------------------------
 -- Clock Generation
@@ -442,7 +449,7 @@ begin
             CLKFX             => fx_clk_27
             );
 
-    inst_clk27_bufg : BUFG
+    inst_clk27_buf : BUFG
     port map (
         I => fx_clk_27,
         O => clock_27
@@ -460,7 +467,7 @@ begin
             else
                 m128_counter <= (others => '0');
             end if;
-            if m128_counter = 32000000 then -- 1s
+            if m128_counter = 32000000 then -- 0.66s
                 m128_mode <= not m128_mode;
             end if;
         end if;
@@ -549,10 +556,9 @@ begin
 
     ram_addr_o <= ram_addr(18 downto 0);
     ram_data_io(15 downto 8) <= "ZZZZZZZZ";
-    ram_ce_n_o(1) <= '0';
-    ram_ce_n_o(2) <= '0';
-    ram_ce_n_o(3) <= '0';
-    ram_data_io(15 downto 8) <= "ZZZZZZZZ";
+    ram_ce_n_o(1) <= '1';
+    ram_ce_n_o(2) <= '1';
+    ram_ce_n_o(3) <= '1';
 
 --------------------------------------------------------
 -- External tube connections

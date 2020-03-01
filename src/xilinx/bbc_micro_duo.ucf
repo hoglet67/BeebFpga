@@ -58,12 +58,9 @@ NET FLASH_SO      TIG;
 
 NET ps2_kbd_clk   TIG;
 NET ps2_kbd_data  TIG;
-NET ps2_mse_clk   TIG;
-NET ps2_mse_data  TIG;
 NET ERST          TIG;
 NET SDMISO        TIG;
 NET JOYSTICK1(*)  TIG;
-NET JOYSTICK2(*)  TIG;
 NET DIP(*)        TIG;
 NET avr_RxD       TIG;
 NET SW1           TIG;
@@ -81,11 +78,10 @@ NET audioL        TIG;
 NET audioR        TIG;
 NET SDCLK         TIG;
 NET SDMOSI        TIG;
-NET LED1          TIG;
-NET LED2          TIG;
 NET avr_TxD       TIG;
 NET ARDUINO_RESET TIG;
 NET SDSS          TIG;
+NET accel_io(*)   TIG;
 
 #####################################
 # Pin placements
@@ -95,8 +91,6 @@ NET clk_32M00       LOC="P94"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # CLK
 NET SDMISO          LOC="P118" | IOSTANDARD=LVTTL;                       # A2
 NET ps2_kbd_data    LOC="P120" | IOSTANDARD=LVTTL | PULLUP ;             # A4
 NET ps2_kbd_clk     LOC="P121" | IOSTANDARD=LVTTL | PULLUP ;             # A5
-NET ps2_mse_clk     LOC="P74"  | IOSTANDARD=LVTTL | PULLUP ;             # D8
-NET ps2_mse_data    LOC="P66"  | IOSTANDARD=LVTTL | PULLUP ;             # D9
 NET SDMOSI          LOC="P115" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # B0
 NET SDCLK           LOC="P114" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # B1
 NET SDSS            LOC="P112" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # B2
@@ -117,8 +111,6 @@ NET red(1)          LOC="P50"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # C14
 NET red(0)          LOC="P47"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # C15
 NET audioL          LOC="P88"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # C3
 NET audioR          LOC="P85"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # C4
-NET LED1            LOC="P56"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # D12
-NET LED2            LOC="P51"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # D13
 
 NET SRAM_A(0)       LOC="P7"   | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=SLOW; # SRAM_ADDR0
 NET SRAM_A(1)       LOC="P8"   | IOSTANDARD=LVTTL | DRIVE=8 | SLEW=SLOW; # SRAM_ADDR1
@@ -178,14 +170,37 @@ NET JOYSTICK1<4>    LOC="P133" | IOSTANDARD=LVTTL;                       # A12
 #NET JOYSTICK1<6>    LOC="P131" | IOSTANDARD=LVTTL;                       # A10
 #NET JOYSTICK1<7>    LOC="P124" | IOSTANDARD=LVTTL;                       # A7
 
-NET JOYSTICK2<0>    LOC="P84"  | IOSTANDARD=LVTTL | PULLUP ;             # D4
-NET JOYSTICK2<1>    LOC="P87"  | IOSTANDARD=LVTTL | PULLUP ;             # D3
-NET JOYSTICK2<2>    LOC="P92"  | IOSTANDARD=LVTTL | PULLUP ;             # D2
-NET JOYSTICK2<3>    LOC="P95"  | IOSTANDARD=LVTTL | PULLUP ;             # D1
-#NET JOYSTICK2<4>    LOC="P98"  | IOSTANDARD=LVTTL | PULLUP ;             # D0
-NET JOYSTICK2<4>    LOC="P82"  | IOSTANDARD=LVTTL | PULLUP ;             # D5
-#NET JOYSTICK2<6>    LOC="P80"  | IOSTANDARD=LVTTL | PULLUP ;             # D6
-#NET JOYSTICK2<7>    LOC="P78"  | IOSTANDARD=LVTTL | PULLUP ;             # D7
+#NET ps2_mse_clk     LOC="P74"  | IOSTANDARD=LVTTL | PULLUP ;             # D8
+#NET ps2_mse_data    LOC="P66"  | IOSTANDARD=LVTTL | PULLUP ;             # D9
+#NET LED1            LOC="P56"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # D12
+#NET LED2            LOC="P51"  | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # D13
+#NET JOYSTICK2<0>    LOC="P84"  | IOSTANDARD=LVTTL | PULLUP ;             # D4
+#NET JOYSTICK2<1>    LOC="P87"  | IOSTANDARD=LVTTL | PULLUP ;             # D3
+#NET JOYSTICK2<2>    LOC="P92"  | IOSTANDARD=LVTTL | PULLUP ;             # D2
+#NET JOYSTICK2<3>    LOC="P95"  | IOSTANDARD=LVTTL | PULLUP ;             # D1
+##NET JOYSTICK2<4>    LOC="P98"  | IOSTANDARD=LVTTL | PULLUP ;             # D0
+#NET JOYSTICK2<4>    LOC="P82"  | IOSTANDARD=LVTTL | PULLUP ;             # D5
+##NET JOYSTICK2<6>    LOC="P80"  | IOSTANDARD=LVTTL | PULLUP ;             # D6
+##NET JOYSTICK2<7>    LOC="P78"  | IOSTANDARD=LVTTL | PULLUP ;             # D7
+
+
+NET "accel_io<0>"   LOC="P98"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<1>"   LOC="P95"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLUP ;
+NET "accel_io<2>"   LOC="P92"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLUP ;
+NET "accel_io<3>"   LOC="P87"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLUP ;
+NET "accel_io<4>"   LOC="P84"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLUP ;
+NET "accel_io<5>"   LOC="P82"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLUP ;
+NET "accel_io<6>"   LOC="P80"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<7>"   LOC="P78"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLDOWN ;
+NET "accel_io<8>"   LOC="P74"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<9>"   LOC="P66"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<10>"  LOC="P61"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<11>"  LOC="P58"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<12>"  LOC="P56"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<13>"  LOC="P51"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<14>"  LOC="P48"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+NET "accel_io<15>"  LOC="P39"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+
 
 #NET uart_RxD           LOC="P116" | IOSTANDARD=LVTTL;                       # A0
 #NET uart_TxD        LOC="P117" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # A1
@@ -212,3 +227,5 @@ NET JOYSTICK2<4>    LOC="P82"  | IOSTANDARD=LVTTL | PULLUP ;             # D5
 #NET JTAG_TCK        LOC="P109" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # JTAG_TCK
 #NET JTAG_TDI        LOC="P110" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # JTAG_TDI
 #NET JTAG_TDO        LOC="P106" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # JTAG_TDO
+
+#

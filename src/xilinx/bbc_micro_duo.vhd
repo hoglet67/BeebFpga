@@ -57,17 +57,15 @@ entity bbc_micro_duo is
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := true;
-        IncludeCoPro6502   : boolean := false;  -- The co pro options are mutually exclusive
+        IncludeICEDebugger : boolean := false;
+        IncludeCoPro6502   : boolean := true;  -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := true
+        IncludeVideoNuLA   : boolean := false
     );
     port (
         clk_32M00      : in    std_logic;
         ps2_kbd_clk    : in    std_logic;
         ps2_kbd_data   : in    std_logic;
-        ps2_mse_clk    : inout std_logic;
-        ps2_mse_data   : inout std_logic;
         ERST           : in    std_logic;
         red            : out   std_logic_vector (3 downto 0);
         green          : out   std_logic_vector (3 downto 0);
@@ -85,8 +83,6 @@ entity bbc_micro_duo is
         SDSS           : out   std_logic;
         SDCLK          : out   std_logic;
         SDMOSI         : out   std_logic;
-        LED1           : out   std_logic;
-        LED2           : out   std_logic;
         ARDUINO_RESET  : out   std_logic;
         SW1            : in    std_logic;
         FLASH_CS       : out   std_logic;                     -- Active low FLASH chip select
@@ -108,7 +104,11 @@ entity bbc_micro_duo is
         --             (1) On
         DIP            : in    std_logic_vector(3 downto 0);
         JOYSTICK1      : in    std_logic_vector(4 downto 0);
-        JOYSTICK2      : in    std_logic_vector(4 downto 0)
+
+        -- This is also used for JOYSTICK2, MOUSE, LED1/2
+        -- when the Co Pro is disabled
+        accel_io       : inout std_logic_vector(15 downto 0)
+
     );
 end entity;
 
@@ -134,7 +134,7 @@ architecture rtl of bbc_micro_duo is
     signal clock_avr       : std_logic;
 
     attribute S : string;
---  attribute S of clock_avr : signal is "yes";
+    attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
     attribute S of clock_32  : signal is "yes";
     attribute S of clock_96  : signal is "yes";
@@ -161,6 +161,20 @@ architecture rtl of bbc_micro_duo is
     signal copro_mode      : std_logic;
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
+
+    signal ext_tube_r_nw   : std_logic;
+    signal ext_tube_nrst   : std_logic;
+    signal ext_tube_ntube  : std_logic;
+    signal ext_tube_phi2   : std_logic;
+    signal ext_tube_a      : std_logic_vector(6 downto 0);
+    signal ext_tube_di     : std_logic_vector(7 downto 0);
+    signal ext_tube_do     : std_logic_vector(7 downto 0);
+
+    signal ps2_mse_clk    : std_logic;
+    signal ps2_mse_data   : std_logic;
+    signal LED1           : std_logic;
+    signal LED2           : std_logic;
+    signal JOYSTICK2      : std_logic_vector(4 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -249,6 +263,13 @@ begin
         p_irq_b        => open,
         p_nmi_b        => open,
         p_rst_b        => open,
+        ext_tube_r_nw  => ext_tube_r_nw,
+        ext_tube_nrst  => ext_tube_nrst,
+        ext_tube_ntube => ext_tube_ntube,
+        ext_tube_phi2  => ext_tube_phi2,
+        ext_tube_a     => ext_tube_a,
+        ext_tube_di    => ext_tube_di,
+        ext_tube_do    => ext_tube_do,
         test           => open,
         -- original keyboard not yet supported on the Duo
         ext_keyb_led1  => open,
@@ -264,10 +285,48 @@ begin
     LED1 <= caps_led;
     LED2 <= shift_led;
 
+
+--------------------------------------------------------
+-- External tube connections
+--------------------------------------------------------
+
+    GenCoProExt: if IncludeCoProExt generate
+    begin
+        ext_tube_do  <= accel_io(15 downto 8);
+        accel_io(0)  <= ext_tube_phi2;
+        accel_io(1)  <= ext_tube_r_nw;
+        accel_io(2)  <= ext_tube_a(0);
+        accel_io(3)  <= ext_tube_a(1);
+        accel_io(4)  <= ext_tube_a(2);
+        accel_io(5)  <= ext_tube_a(3);
+        accel_io(6)  <= ext_tube_nrst;
+        accel_io(7)  <= ext_tube_ntube;
+        accel_io(8)  <= ext_tube_di(0) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(9)  <= ext_tube_di(1) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(10) <= ext_tube_di(2) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(11) <= ext_tube_di(3) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(12) <= ext_tube_di(4) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(13) <= ext_tube_di(5) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(14) <= ext_tube_di(6) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(15) <= ext_tube_di(7) when ext_tube_r_nw = '0' else 'Z';
+        JOYSTICK2 <= (others => '1');
+
+    end generate;
+
+
+    GenCoProNotExt: if not IncludeCoProExt generate
+    begin
+        ext_tube_do  <= x"FE";
+        JOYSTICK2    <= accel_io(4 downto 1) & accel_io(5);
+        accel_io(15 downto 14) <= (others => 'Z');
+        accel_io(13) <= LED2;
+        accel_io(12) <= LED1;
+        accel_io(11 downto 0) <= (others => 'Z');
+    end generate;
+
 --------------------------------------------------------
 -- Clock Generation
 --------------------------------------------------------
-
 
     inst_PLL : PLL_BASE
         generic map (

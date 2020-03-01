@@ -125,14 +125,16 @@ architecture rtl of T80a is
     signal MCycle       : std_logic_vector(2 downto 0);
     signal TState       : std_logic_vector(2 downto 0);
     signal HALT_n_int   : std_logic;
+    signal iack1        : std_logic;
+    signal iack2        : std_logic;
 
 begin
 
 
     BUSAK_n <= BUSAK_n_i;
     MREQ_n_i <= not MREQ or (Req_Inhibit and MReq_Inhibit);
-    RD_n_i <= not RD or Req_Inhibit;
-    WR_n_j <= WR_n_i;					    		-- 0247a
+    RD_n_i <= not RD or (IORQ and IReq_Inhibit) or Req_Inhibit;  -- DMB
+    WR_n_j <= WR_n_i or (IORQ and IReq_Inhibit);                 -- DMB
     HALT_n <= HALT_n_int;
 
 
@@ -145,7 +147,7 @@ begin
     --A <= A_i when BUSAK_n_i = '1' else (others => 'Z');
 
     MREQ_n <= MREQ_n_i;
-    IORQ_n <= IORQ_n_i or IReq_Inhibit;	-- 0247a
+    IORQ_n <= IORQ_n_i or IReq_Inhibit or Req_inhibit; --DMB
     RD_n <= RD_n_i;
     WR_n <= WR_n_j;			-- 0247a
     RFSH_n <= RFSH_n_i;
@@ -212,7 +214,7 @@ begin
     process (CLK_n)		-- 0247a
     begin
         if CLK_n'event and CLK_n = '1' then
-        -- IReq_Inhibit <= not IORQ;
+            IReq_Inhibit <= (not IORQ) and IntCycle_n;
         end if;
     end process;
 
@@ -229,7 +231,7 @@ begin
                         WR_n_i <= '1';
                     end if;
                 else
-                    if TState = "001" and IORQ_n_i = '0' then
+                    if TState = "001" then     -- DMB
                         WR_n_i <= not Write;
                     elsif Tstate = "011" then
                         WR_n_i <= '1';
@@ -275,13 +277,32 @@ begin
             RD <= '0';
             IORQ_n_i <= '1';
             MREQ <= '0';
+            iack1 <= '0';
+            iack2 <= '0';
         elsif CLK_n'event and CLK_n = '0' then
             if CEN = '1' then
                 if MCycle = "001" then
-                    if TState = "001" then
-                        RD <= IntCycle_n;
-                        MREQ <= IntCycle_n;
-                        IORQ_n_i <= IntCycle_n;
+                    if IntCycle_n = '1' then
+                        -- Normal M1 Cycle
+                        if TState = "001" then
+                            RD <= '1';
+                            MREQ <= '1';
+                            IORQ_n_i <= '1';
+                        end if;
+                    else
+                        -- Interupt Ack Cycle
+                        -- 5 T-states: T1 T1 (auto wait) T1 (auto wait) T2 T3
+                        -- Assert IORQ in middle of third T1
+                        if TState = "001" then
+                            iack1 <= '1';
+                            iack2 <= iack1;
+                        else
+                            iack1 <= '0';
+                            iack2 <= '0';
+                        end if;
+                        if iack2 = '1' then
+                            IORQ_n_i <= '0';
+                        end if;
                     end if;
                     if TState = "011" then
                         RD <= '0';
@@ -295,11 +316,7 @@ begin
                     if TState = "001" and NoRead = '0' then
                         IORQ_n_i <= not IORQ;
                         MREQ <= not IORQ;
-                        if IORQ = '0' then
-                            RD <= not Write;
-                        elsif IORQ_n_i = '0' then
-                            RD <= not Write;
-                        end if;
+                        RD <= not Write;    -- DMB
                     end if;
                     if TState = "011" then
                         RD <= '0';

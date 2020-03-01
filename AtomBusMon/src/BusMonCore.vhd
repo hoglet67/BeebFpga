@@ -65,6 +65,7 @@ entity BusMonCore is
         WrMemOut         : out std_logic;
         RdIOOut          : out std_logic;
         WrIOOut          : out std_logic;
+        ExecOut          : out std_logic;
         AddrOut          : out std_logic_vector(15 downto 0);
         DataOut          : out std_logic_vector(7 downto 0);
         DataIn           : in std_logic_vector(7 downto 0);
@@ -151,6 +152,7 @@ architecture behavioral of BusMonCore is
     signal fifo_din        : std_logic_vector(fifo_width - 1 downto 0);
     signal fifo_dout       : std_logic_vector(fifo_width - 1 downto 0);
     signal fifo_empty      : std_logic;
+    signal fifo_full       : std_logic;
     signal fifo_not_empty1 : std_logic;
     signal fifo_not_empty2 : std_logic;
     signal fifo_rd         : std_logic;
@@ -163,6 +165,7 @@ architecture behavioral of BusMonCore is
     signal memory_wr       : std_logic;
     signal io_rd           : std_logic;
     signal io_wr           : std_logic;
+    signal exec            : std_logic;
     signal addr_dout_reg   : std_logic_vector(23 downto 0);
     signal din_reg         : std_logic_vector(7 downto 0);
 
@@ -175,6 +178,8 @@ architecture behavioral of BusMonCore is
     signal cmd_done        : std_logic;
 
     signal reset_counter   : std_logic_vector(9 downto 0);
+
+    signal dropped_counter : std_logic_vector(3 downto 0);
 
 begin
 
@@ -273,7 +278,7 @@ begin
         wr_en  => fifo_wr_en,
         rd_en  => fifo_rd_en,
         dout   => fifo_dout,
-        full   => open,
+        full   => fifo_full,
         empty  => fifo_empty
     );
     fifo_wr_en <= fifo_wr and busmon_clken;
@@ -284,7 +289,27 @@ begin
     -- DataWr1 is the data being written delayed by 1 cycle
     -- DataRd is the data being read, that is already one cycle late
     -- bw_state1(1) is 1 for writes, and 0 for reads
-    fifo_din <= cycleCount_inst & "0000" & bw_status1 & Data1 & Addr1 & addr_inst;
+    fifo_din <= cycleCount_inst & dropped_counter & bw_status1 & Data1 & Addr1 & addr_inst;
+
+    -- Implement a 4-bit saturating counter of the number of dropped events
+    process (busmon_clk)
+    begin
+        if rising_edge(busmon_clk) then
+            if busmon_clken = '1' then
+                if fifo_rst = '1' then
+                    dropped_counter <= x"0";
+                elsif fifo_wr_en = '1' then
+                    if fifo_full = '1' then
+                        if dropped_counter /= x"F" then
+                            dropped_counter <= dropped_counter + 1;
+                        end if;
+                    else
+                        dropped_counter <= x"0";
+                    end if;
+                end if;
+            end if;
+        end if;
+    end process;
 
     led_trig0 <= trig(0);
     led_trig1 <= trig(1);
@@ -421,12 +446,14 @@ begin
     -- 10001 Read Memory and Auto Inc Address
     -- 10010 Write Memory
     -- 10011 Write Memory and Auto Inc Address
-    -- 10000 Read Memory
-    -- 10001 Read Memory and Auto Inc Address
-    -- 10010 Write Memory
-    -- 10011 Write Memory and Auto Inc Address
-    -- 1x1xx Unused
-    -- 11xxx Unused
+    -- 10100 Read IO
+    -- 10101 Read IO and Auto Inc Address
+    -- 10110 Write IO
+    -- 10111 Write IO and Auto Inc Address
+    -- 11000 Execute 6502 instruction
+    -- 111xx Unused
+    -- 11x1x Unused
+    -- 11xx1 Unused
 
     cpuProcess: process (busmon_clk)
     begin
@@ -449,6 +476,7 @@ begin
                 memory_wr <= '0';
                 io_rd     <= '0';
                 io_wr     <= '0';
+                exec      <= '0';
                 SS_Step   <= '0';
                 if (cmd_edge2 /= cmd_edge1) then
                     if (cmd(4 downto 1) = "0000") then
@@ -497,6 +525,10 @@ begin
                     if (cmd(4 downto 1) = "1011") then
                         io_wr <= '1';
                         auto_inc  <= cmd(0);
+                    end if;
+
+                    if (cmd(4 downto 0) = "11000") then
+                        exec <= '1';
                     end if;
 
                     -- Acknowlege certain commands immediately
@@ -573,6 +605,7 @@ begin
     AddrOut <= addr_dout_reg(23 downto 8);
     DataOut <= addr_dout_reg(7 downto 0);
     SS_Single <= single;
+    ExecOut <= exec;
 
     -- Reset Logic
     -- Generate a short (~1ms @ 1MHz) power up reset pulse

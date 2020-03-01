@@ -59,7 +59,7 @@ entity bbc_micro_duo is
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := false;  -- The co pro options are mutually exclusive
-        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
+        IncludeCoProExt    : boolean := true;   -- (i.e. select just one)
         IncludeVideoNuLA   : boolean := false;
         IncludeBootstrap   : boolean := false
     );
@@ -287,45 +287,6 @@ begin
     LED1 <= caps_led;
     LED2 <= shift_led;
 
-
---------------------------------------------------------
--- External tube connections
---------------------------------------------------------
-
-    GenCoProExt: if IncludeCoProExt generate
-    begin
-        ext_tube_do  <= accel_io(15 downto 8);
-        accel_io(0)  <= ext_tube_phi2;
-        accel_io(1)  <= ext_tube_r_nw;
-        accel_io(2)  <= ext_tube_a(0);
-        accel_io(3)  <= ext_tube_a(1);
-        accel_io(4)  <= ext_tube_a(2);
-        accel_io(5)  <= ext_tube_a(3);
-        accel_io(6)  <= ext_tube_nrst;
-        accel_io(7)  <= ext_tube_ntube;
-        accel_io(8)  <= ext_tube_di(0) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(9)  <= ext_tube_di(1) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(10) <= ext_tube_di(2) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(11) <= ext_tube_di(3) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(12) <= ext_tube_di(4) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(13) <= ext_tube_di(5) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(14) <= ext_tube_di(6) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(15) <= ext_tube_di(7) when ext_tube_r_nw = '0' else 'Z';
-        JOYSTICK2 <= (others => '1');
-
-    end generate;
-
-
-    GenCoProNotExt: if not IncludeCoProExt generate
-    begin
-        ext_tube_do  <= x"FE";
-        JOYSTICK2    <= accel_io(4 downto 1) & accel_io(5);
-        accel_io(15 downto 14) <= (others => 'Z');
-        accel_io(13) <= LED2;
-        accel_io(12) <= LED1;
-        accel_io(11 downto 0) <= (others => 'Z');
-    end generate;
-
 --------------------------------------------------------
 -- Clock Generation
 --------------------------------------------------------
@@ -541,5 +502,45 @@ begin
                 );
 
     end generate;
+
+
+--------------------------------------------------------
+-- External tube connections
+--------------------------------------------------------
+
+    GenCoProExt: if IncludeCoProExt generate
+    begin
+        ext_tube_do  <= accel_io(15 downto 8);
+        accel_io(0)  <= ext_tube_phi2;
+        accel_io(1)  <= ext_tube_r_nw;
+        accel_io(2)  <= ext_tube_a(0);
+        accel_io(3)  <= ext_tube_a(1);
+        accel_io(4)  <= ext_tube_a(2);
+        accel_io(5)  <= ext_tube_a(3);
+        accel_io(6)  <= ext_tube_nrst;
+        accel_io(7)  <= ext_tube_ntube;
+        accel_io(8)  <= ext_tube_di(0) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(9)  <= ext_tube_di(1) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(10) <= ext_tube_di(2) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(11) <= ext_tube_di(3) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(12) <= ext_tube_di(4) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(13) <= ext_tube_di(5) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(14) <= ext_tube_di(6) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(15) <= ext_tube_di(7) when ext_tube_r_nw = '0' else 'Z';
+        JOYSTICK2 <= (others => '1');
+
+    end generate;
+
+
+    GenCoProNotExt: if not IncludeCoProExt generate
+    begin
+        ext_tube_do  <= x"FE";
+        JOYSTICK2    <= accel_io(4 downto 1) & accel_io(5);
+        accel_io(15 downto 14) <= (others => 'Z');
+        accel_io(13) <= LED2;
+        accel_io(12) <= LED1;
+        accel_io(11 downto 0) <= (others => 'Z');
+    end generate;
+
 
 end architecture;

@@ -1,77 +1,42 @@
 /*
 	Status.c
-	
+
 	Functions for logging program status to the serial port, to
 	be used for debugging pruposes etc.
-	
+
 	2008-03-21, P.Harvey-Smith.
-	
+
 */
 
-#include <avr/interrupt.h>
 #include <stdio.h>
-#include <ctype.h>
+#include <stdlib.h>
 #include "terminalcodes.h"
 #include "status.h"
 
-#ifdef SERIAL_STATUS
-
 static int StdioSerial_TxByte0(char DataByte, FILE *Stream);
-static int StdioSerial_TxByte1(char DataByte, FILE *Stream);
 
 FILE ser0stream = FDEV_SETUP_STREAM(StdioSerial_TxByte0,NULL,_FDEV_SETUP_WRITE);
-FILE ser1stream = FDEV_SETUP_STREAM(StdioSerial_TxByte1,NULL,_FDEV_SETUP_WRITE);
 
-void StdioSerial_TxByte(char DataByte, uint8_t	Port)
+void StdioSerial_TxByte(char DataByte)
 {
-	#ifdef COOKED_SERIAL	
-		if((DataByte=='\r') || (DataByte=='\n'))
-		{
-			if(Port==1)
-			{
-				Serial_TxByte1('\r');
-				Serial_TxByte1('\n');
-			}
-			else
-			{
-				Serial_TxByte0('\r');
-				Serial_TxByte0('\n');
-			}
-		}
-		else
-	#endif
-	
-	if(Port==1)
-		Serial_TxByte1(DataByte);
-	else
-		Serial_TxByte0(DataByte);
-	
+  if((DataByte=='\r') || (DataByte=='\n')) {
+    Serial_TxByte0('\r');
+    Serial_TxByte0('\n');
+  } else {
+    Serial_TxByte0(DataByte);
+  }
 }
 
 int StdioSerial_TxByte0(char DataByte, FILE *Stream)
 {
-	StdioSerial_TxByte(DataByte,0);
+	StdioSerial_TxByte(DataByte);
 	return 0;
 }
 
-int StdioSerial_TxByte1(char DataByte, FILE *Stream)
+void cls()
 {
-	StdioSerial_TxByte(DataByte,1);
-	return 0;
-}
-
-void cls(uint8_t	Port)
-{
-	if(Port==1)
-	{
-		log1(ESC_ERASE_DISPLAY);
-		log1(ESC_CURSOR_POS(0,0));
-	}
-	else
-	{
-		log0(ESC_ERASE_DISPLAY);
-		log0(ESC_CURSOR_POS(0,0));
-	}
+  logs(ESC_ERASE_DISPLAY);
+  logs(ESC_CURSOR_POS(0,0));
 }
 
 
@@ -81,24 +46,12 @@ void USART_Init0(const uint32_t BaudRate)
 	UCSR0A = 0;
 	UCSR0B = ((1 << RXEN0) | (1 << TXEN0));
 	UCSR0C = ((1 << UCSZ01) | (1 << UCSZ00));
-	
+
 	UBRR0  = SERIAL_UBBRVAL(BaudRate);
 #else
 	UCR = ((1 << RXEN)  | (1 << TXEN));
-	
+
 	UBRR  	= SERIAL_UBBRVAL(BaudRate);
-#endif
-}
-
-
-void USART_Init1(const uint32_t BaudRate)
-{
-#ifdef UCSR1A
-	UCSR1A = 0;
-	UCSR1B = ((1 << RXEN1) | (1 << TXEN1));
-	UCSR1C = ((1 << UCSZ11) | (1 << UCSZ10));
-	
-	UBRR1  = SERIAL_UBBRVAL(BaudRate);
 #endif
 }
 
@@ -117,15 +70,6 @@ void Serial_TxByte0(const char DataByte)
 #endif
 }
 
-void Serial_TxByte1(const char DataByte)
-{
-#ifdef UCSR1A
-	while ( !( UCSR1A & (1<<UDRE1)) )		;
-	UDR1=DataByte;
-#endif
-}
-
-
 /** Receives a byte from the USART.
  *
  *  \return Byte received from the USART
@@ -135,19 +79,9 @@ char Serial_RxByte0(void)
 #ifdef UCSR0A
 	while (!(USR & (1 << RXC0)))	;
 	return UDR0;
-#else 
+#else
 	while (!(USR & (1<<RXC)))	;
 	return UDR;
-#endif
-}
-
-char Serial_RxByte1(void)
-{
-#ifdef UCSR1A
-	while (!(UCSR1A & (1 << RXC1)))	;
-	return UDR1;
-#else
-	return 0;
 #endif
 }
 
@@ -160,134 +94,215 @@ uint8_t Serial_ByteRecieved0(void)
 #endif
 }
 
-uint8_t Serial_ByteRecieved1(void)
-{
-#ifdef UCSR1A
-	return (UCSR1A & (1 << RXC1));
-#else
-	return 0;
-#endif
-}
-
-void Serial_Init(const uint32_t BaudRate0,
-				 const uint32_t BaudRate1)
+void Serial_Init(const uint32_t BaudRate0)
 {
 	if (BaudRate0<=0)
 		USART_Init0(DefaultBaudRate);
 	else
 		USART_Init0(BaudRate0);
 
-	if (BaudRate1<=0)
-		USART_Init1(DefaultBaudRate);
-	else
-		USART_Init1(BaudRate1);
-		
-	cls(0);
-	cls(1);
-	
-	// log0("stdio initialised\n");
-	// log0("SerialPort0\n");
-	// log1("SerialPort1\n");
+	cls();
 }
 
-#ifdef USE_HEXDUMP
-void HexDump(const uint8_t 	*Buff, 
-				   uint16_t Length,
-				   uint8_t	Port)
-{
-	char		LineBuff[80];
-	char		*LineBuffPos;
-	uint16_t	LineOffset;
-	uint16_t	CharOffset;
-	const uint8_t		*BuffPtr;
-	
-	BuffPtr=Buff;
-	
-	for(LineOffset=0;LineOffset<Length;LineOffset+=16, BuffPtr+=16)
-	{
-		LineBuffPos=LineBuff;
-		LineBuffPos+=sprintf(LineBuffPos,"%4.4X ",LineOffset);
-		
-		for(CharOffset=0;CharOffset<16;CharOffset++)
-		{
-			if((LineOffset+CharOffset)<Length)
-				LineBuffPos+=sprintf(LineBuffPos,"%2.2X ",BuffPtr[CharOffset]);
-			else
-			    LineBuffPos+=sprintf(LineBuffPos,"   ");
-		}
-		
-		for(CharOffset=0;CharOffset<16;CharOffset++)
-		{
-			if((LineOffset+CharOffset)<Length)
-			{
-				if(isprint(BuffPtr[CharOffset]))
-					LineBuffPos+=sprintf(LineBuffPos,"%c",BuffPtr[CharOffset]);
-				else
-					LineBuffPos+=sprintf(LineBuffPos," ");
-			}
-			else
-				LineBuffPos+=sprintf(LineBuffPos,".");
-		}
-		switch (Port)
-		{
-			case 0 : log0("%s\n",LineBuff); break;
-			case 1 : log1("%s\n",LineBuff); break;
-		}
-	}
+/********************************************************
+ * Simple string logger, as log0 is expensive
+ ********************************************************/
+
+void logc(char c) {
+  StdioSerial_TxByte(c);
 }
 
-void HexDumpHead(const uint8_t 	*Buff, 
-				       uint16_t Length,
-				       uint8_t	Port) 
-{
-	FILE	*File;
+void logs(const char *s) {
+  while (*s) {
+    logc(*s++);
+  }
+}
 
-	File=&ser0stream;
-	
-	switch (Port)
-	{
-		case 0 : File=&ser0stream; break;
-		case 1 : File=&ser1stream; break;
-	}
-	
-	fprintf_P(File,PSTR("%d\n"),Buff);
+void logpgmstr(const char *s) {
+  char c;
+  do {
+    c = pgm_read_byte(s++);
+    if (c) {
+      logc(c);
+    }
+  } while (c);
+}
 
-	fprintf_P(File,PSTR("Addr 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F ASCII\n"));
-	fprintf_P(File,PSTR("----------------------------------------------------------\n"));
+char hex1(uint8_t i) {
+  i &= 0x0f;
+  if (i < 10) {
+    i += '0';
+  } else {
+    i += ('A' - 10);
+  }
+  return i;
+}
 
-	HexDump(Buff,Length,Port);
-};
-#else
-void HexDump(const uint8_t 	*Buff, 
-				   uint16_t Length,
-				   uint8_t	Port) {};
-void HexDumpHead(const uint8_t 	*Buff, 
-				       uint16_t Length,
-				       uint8_t	Port) {};
-#endif 
+void loghex1(uint8_t i) {
+  logc(hex1(i));
+}
 
-#else
+void loghex2(uint8_t i) {
+  loghex1(i >> 4);
+  loghex1(i);
+}
 
-void USART_Init0(const uint32_t BaudRate) {};
-void Serial_TxByte0(const char DataByte) {};
-char Serial_RxByte0(void) {};
-uint8_t Serial_ByteRecieved0(void) {};
+void loghex4(uint16_t i) {
+  loghex2(i >> 8);
+  loghex2(i);
+}
 
-void USART_Init1(const uint32_t BaudRate) {};
-void Serial_TxByte1(const char DataByte) {};
-char Serial_RxByte1(void) {};
-uint8_t Serial_ByteRecieved1(void) {};
+void logint(int i) {
+  char buffer[16];
+  strint(buffer, i);
+  logs(buffer);
+}
 
-void Serial_Init(const uint32_t BaudRate0,
-				 const uint32_t BaudRate1) {};
+void loglong(long i) {
+  char buffer[16];
+  strlong(buffer, i);
+  logs(buffer);
+}
 
-void cls(uint8_t	Port) {};
+char *strfill(char *buffer, char c, uint8_t i) {
+  while (i-- > 0) {
+    *buffer++ = c;
+  }
+  return buffer;
+}
 
-void HexDump(const uint8_t 	*Buff, 
-				   uint16_t Length,
-				   uint8_t	Port) {};
-void HexDumpHead(const uint8_t 	*Buff, 
-				       uint16_t Length,
-				       uint8_t	Port) {};
+char *strhex1(char *buffer, uint8_t i) {
+  *buffer++ = hex1(i);
+  return buffer;
+}
 
-#endif
+char *strhex2(char *buffer, uint8_t i) {
+  buffer = strhex1(buffer, i >> 4);
+  buffer = strhex1(buffer, i);
+  return buffer;
+}
+
+char *strhex4(char *buffer, uint16_t i) {
+  buffer = strhex2(buffer, i >> 8);
+  buffer = strhex2(buffer, i);
+  return buffer;
+}
+
+char *strint(char *buffer, int i) {
+  return itoa(i, buffer, 10);
+}
+
+char *strlong(char *buffer, long i) {
+  return ltoa(i, buffer, 10);
+}
+
+char *strinsert(char *buffer, const char *s) {
+  while (*s) {
+    *buffer++ = *s++;
+  }
+  return buffer;
+}
+
+int8_t convhex(char c) {
+  // Make range continuous
+  if (c >= 'a' && c <= 'f') {
+    c -= 'a' - '9' - 1;
+  } else if (c >= 'A' && c <= 'F') {
+    c -= 'A' - '9' - 1;
+  }
+  if (c >= '0' && c <= '0' + 15) {
+    return c & 0x0F;
+  } else {
+    return -1;
+  }
+}
+
+int8_t convdec(char c) {
+  if (c >= '0' && c <= '0' + 9) {
+    return c & 0x0F;
+  } else {
+    return -1;
+  }
+}
+
+char *parselong(char *params, long *val) {
+  long ret = 0;
+  int8_t sign = 1;
+  // Skip any spaces
+  if (params) {
+    while (*params == ' ') {
+      params++;
+    }
+    // Note sign
+    if (*params == '-') {
+      sign = -1;
+      params++;
+    }
+    do {
+      int8_t c = convhex(*params);
+      if (c < 0) {
+        break;
+      }
+      ret *= 10;
+      ret += c;
+      if (val) {
+        *val = sign * ret;
+      }
+      params++;
+    } while (1);
+  }
+  return params;
+}
+
+static char *parsehex4common(char *params, uint16_t *val, uint8_t required) {
+  uint16_t ret = 0;
+  if (params) {
+    // Skip any spaces
+    while (*params == ' ') {
+      params++;
+    }
+    char *tmp = params;
+    do {
+      int8_t c = convhex(*params);
+      if (c < 0) {
+        break;
+      }
+      ret <<= 4;
+      ret += c;
+      if (val) {
+        *val = ret;
+      }
+      params++;
+    } while (1);
+    if (required && params == tmp) {
+      return 0;
+    }
+  }
+  return params;
+}
+
+char *parsehex4(char *params, uint16_t *val) {
+  return parsehex4common(params, val, 0);
+}
+
+char *parsehex4required(char *params, uint16_t *val) {
+  return parsehex4common(params, val, 1);
+}
+
+char *parsehex2(char *params, uint8_t *val) {
+  uint16_t tmp = 0xffff;
+  params = parsehex4common(params, &tmp, 0);
+  if (tmp != 0xffff) {
+    *val = (tmp & 0xff);
+  }
+  return params;
+}
+
+char *parsehex2required(char *params, uint8_t *val) {
+  uint16_t tmp = 0xffff;
+  params = parsehex4common(params, &tmp, 1);
+  if (tmp != 0xffff) {
+    *val = (tmp & 0xff);
+  }
+  return params;
+}

@@ -1,14 +1,14 @@
 /*
 	Status.h
-	
+
 	Functions for logging program status to the serial port, to
 	be used for debugging pruposes etc.
-	
+
 	2008-03-21, P.Harvey-Smith.
 
-	Some functions and macros borrowed from Dean Camera's LURFA 
+	Some functions and macros borrowed from Dean Camera's LURFA
 	USB libraries.
-	
+
 */
 
 #include <avr/io.h>
@@ -20,23 +20,46 @@
 #ifndef __STATUS_DEFINES__
 #define __STATUS_DEFINES__
 
-#ifdef SERIAL_STATUS
-#define log0(format,...) fprintf_P(&ser0stream,PSTR(format),##__VA_ARGS__) 
-#define log1(format,...) fprintf_P(&ser1stream,PSTR(format),##__VA_ARGS__)
-#else
-#define log0(format,...) 
-#define log1(format,...) 
-#endif
+
+
+/********************************************************
+ * Simple string logger, as log0 is expensive
+ ********************************************************/
+
+#define logstr(s) logpgmstr(PSTR((s)))
+
+void logc(char c);
+void logs(const char *s);
+void logpgmstr(const char *s);
+void loghex1(uint8_t i);
+void loghex2(uint8_t i);
+void loghex4(uint16_t i);
+void logint(int i);
+void loglong(long i);
+char *strfill(char *buffer, char c, uint8_t i);
+char *strhex1(char *buffer, uint8_t i);
+char *strhex2(char *buffer, uint8_t i);
+char *strhex4(char *buffer, uint16_t i);
+char *strint(char *buffer, int i);
+char *strlong(char *buffer, long i);
+char *strinsert(char *buffer, const char *s);
+
+char *parselong(char *params,     long *val);
+char *parsehex2required(char *params,  uint8_t *val);
+char *parsehex4required(char *params, uint16_t *val);
+char *parsehex2(char *params,  uint8_t *val);
+char *parsehex4(char *params, uint16_t *val);
+
+#define log0(format,...) fprintf_P(&ser0stream,PSTR(format),##__VA_ARGS__)
 
 //
 // For stdio
 //
 
 extern FILE ser0stream;
-extern FILE ser1stream;
 
 /* Default baud rate if 0 passed to Serial_Init */
-  
+
 #define DefaultBaudRate	9600
 
 /** Indicates whether a character has been received through the USART - boolean false if no character
@@ -54,7 +77,7 @@ extern FILE ser1stream;
  */
 #define SERIAL_2X_UBBRVAL(baud) (((F_CPU / 8) / baud) - 1)
 
-#define SerEOL0()	{ Serial_TxByte0('\r'); Serial_TxByte0('\n'); } 
+#define SerEOL0()	{ Serial_TxByte0('\r'); Serial_TxByte0('\n'); }
 
 #ifdef NOUSART1
 #undef UCSR1A
@@ -65,21 +88,8 @@ void Serial_TxByte0(const char DataByte);
 char Serial_RxByte0(void);
 uint8_t Serial_ByteRecieved0(void);
 
-void USART_Init1(const uint32_t BaudRate);
-void Serial_TxByte1(const char DataByte);
-char Serial_RxByte1(void);
-uint8_t Serial_ByteRecieved1(void);
+void Serial_Init(const uint32_t BaudRate0);
 
-void Serial_Init(const uint32_t BaudRate0,
-				 const uint32_t BaudRate1);
-
-void cls(uint8_t	Port);
-
-void HexDump(const uint8_t 	*Buff, 
-				   uint16_t Length,
-				   uint8_t	Port);
-void HexDumpHead(const uint8_t 	*Buff, 
-				       uint16_t Length,
-				       uint8_t	Port);
+void cls();
 
 #endif

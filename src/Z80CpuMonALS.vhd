@@ -95,6 +95,7 @@ architecture behavioral of Z80CpuMonALS is
     signal HALT_n_int   : std_logic;
     signal BUSAK_n_int  : std_logic;
     signal tristate_n   : std_logic;
+    signal tristate_ad_n: std_logic;
 
     signal sw_reset_cpu : std_logic;
     signal sw_reset_avr : std_logic;
@@ -102,6 +103,7 @@ architecture behavioral of Z80CpuMonALS is
     signal led_trig0    : std_logic;
     signal led_trig1    : std_logic;
 
+    signal TState       : std_logic_vector(2 downto 0);
 begin
 
     sw_reset_cpu <= not sw1;
@@ -120,13 +122,13 @@ begin
     BUSAK_n <= BUSAK_n_int;
 
     OEC_n   <= not tristate_n;
-    OEA1_n  <= not tristate_n;
-    OEA2_n  <= not tristate_n;
-    OED_n   <= not tristate_n;
+    OEA1_n  <= not tristate_ad_n;
+    OEA2_n  <= not tristate_ad_n;
+    OED_n   <= not tristate_ad_n;
 
     wrapper : entity work.Z80CpuMon
         generic map (
-            ClkMult           => 8,
+            ClkMult           => 12,
             ClkDiv            => 25,
             ClkPer            => 20.000,
             num_comparators   => num_comparators,
@@ -156,6 +158,7 @@ begin
             -- Buffer Control Signals
             DIRD              => DIRD,
             tristate_n        => tristate_n,
+            tristate_ad_n     => tristate_ad_n,
 
             -- Mode jumper, tie low to generate NOPs when paused
             mode              => mode,
@@ -183,9 +186,9 @@ begin
 
             -- Debugging signals
             test1             => open,
-            test2             => open,
-            test3             => open,
-            test4             => open
+            test2             => TState(0),
+            test3             => TState(1),
+            test4             => TSTate(2)
             );
 
     -- Test outputs
@@ -195,9 +198,9 @@ begin
     test(3) <= MREQ_n_int;
     test(4) <= IORQ_n_int;
     test(5) <= WAIT_n;
-    test(6) <= RESET_n;
-    test(7) <= CLK_n;
-    test(8) <= RFSH_n_int;
-    test(9) <= INT_n;
+    test(6) <= CLK_n;
+    test(7) <= TState(2);
+    test(8) <= TState(1);
+    test(9) <= TState(0);
 
 end behavioral;

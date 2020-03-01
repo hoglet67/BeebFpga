@@ -193,11 +193,9 @@ begin
     clken_fetch <= CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2) or
                                   (clken_counter(3) and not r0_crtc_2mhz and not (r0_teletext and VGA)));
 
-    process(CLOCK,nRESET)
+    process(CLOCK)
     begin
-        if nRESET = '0' then
-            clken_counter <= (others => '0');
-        elsif rising_edge(CLOCK) then
+        if rising_edge(CLOCK) then
             if CLKEN = '1' then
                 -- Increment internal cycle counter during each video clock
                 clken_counter <= clken_counter + 1;

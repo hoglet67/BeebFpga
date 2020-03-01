@@ -582,8 +582,8 @@ begin
         accel_io(11) <= ext_tube_di(3) when ext_tube_r_nw = '0' else 'Z';
         accel_io(12) <= 'Z';
         accel_io(13) <= 'Z';
-        accel_io(14) <= 'Z';
-        accel_io(15) <= 'Z';
+        accel_io(14) <= 'Z'; -- Serial Tx
+        accel_io(15) <= '1'; -- Serial Rx
         accel_io(16) <= 'Z';
         accel_io(17) <= ext_tube_ntube;
         accel_io(18) <= ext_tube_r_nw;

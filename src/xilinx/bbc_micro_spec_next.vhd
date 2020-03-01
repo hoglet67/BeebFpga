@@ -54,12 +54,13 @@ use UNISIM.Vcomponents.all;
 entity bbc_micro_spec_next is
     generic (
         IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := true;
-        IncludeMusic5000   : boolean := true;
-        IncludeICEDebugger : boolean := true;
+        IncludeSID         : boolean := false;
+        IncludeMusic5000   : boolean := false;
+        IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := false; -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := true;  -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := true
+        IncludeVideoNuLA   : boolean := false;
+        IncludeBootstrap   : boolean := false
     );
     port (
         accel_io              : inout std_logic_vector(27 downto 0);
@@ -182,7 +183,7 @@ architecture rtl of bbc_micro_spec_next is
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_counter    : std_logic_vector(24 downto 0);
-    signal m128_mode       : std_logic := '1';
+    signal m128_mode       : std_logic := '0';
     signal m128_mode_1     : std_logic;
     signal m128_mode_2     : std_logic;
     signal copro_mode      : std_logic;
@@ -198,6 +199,7 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_tube_a      : std_logic_vector(6 downto 0);
     signal ext_tube_di     : std_logic_vector(7 downto 0);
     signal ext_tube_do     : std_logic_vector(7 downto 0);
+    signal ROM_D           : std_logic_vector(7 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -394,6 +396,7 @@ begin
             CLKOUT0             => clk0,
             CLKOUT1             => clk1,
             CLKOUT2             => clk2,
+            CLKOUT3             => clk3,
             RST                 => '0',
             -- Input clock control
             CLKFBIN             => clkfb_buf,
@@ -527,35 +530,66 @@ begin
 -- BOOTSTRAP SPI FLASH to SRAM
 --------------------------------------------------------
 
-    user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
+    GenBootstrap: if IncludeBootstrap generate
 
-    inst_bootstrap: entity work.bootstrap
-    generic map (
-        user_length     => user_length
-    )
-    port map(
-        clock           => clock_48,
-        powerup_reset_n => powerup_reset_n,
-        bootstrap_busy  => bootstrap_busy,
-        user_address    => user_address,
-        RAM_nOE         => RAM_nOE,
-        RAM_nWE         => RAM_nWE,
-        RAM_nCS         => RAM_nCS,
-        RAM_A           => RAM_A,
-        RAM_Din         => RAM_Din,
-        RAM_Dout        => RAM_Dout,
-        SRAM_nOE        => ram_oe_n_o,
-        SRAM_nWE        => ram_we_n_o,
-        SRAM_nCS        => ram_ce_n_o(0),
-        SRAM_A          => ram_addr,
-        SRAM_D          => ram_data_io(7 downto 0),
-        FLASH_CS        => flash_cs_n_o,
-        FLASH_SI        => flash_mosi_o,
-        FLASH_CK        => flash_sclk_o,
-        FLASH_SO        => flash_miso_i
-        );
+        user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
 
-    ram_addr_o <= ram_addr(18 downto 0);
+        inst_bootstrap: entity work.bootstrap
+            generic map (
+                user_length     => user_length
+                )
+            port map(
+                clock           => clock_48,
+                powerup_reset_n => powerup_reset_n,
+                bootstrap_busy  => bootstrap_busy,
+                user_address    => user_address,
+                RAM_nOE         => RAM_nOE,
+                RAM_nWE         => RAM_nWE,
+                RAM_nCS         => RAM_nCS,
+                RAM_A           => RAM_A,
+                RAM_Din         => RAM_Din,
+                RAM_Dout        => RAM_Dout,
+                SRAM_nOE        => ram_oe_n_o,
+                SRAM_nWE        => ram_we_n_o,
+                SRAM_nCS        => ram_ce_n_o(0),
+                SRAM_A          => ram_addr,
+                SRAM_D          => ram_data_io(7 downto 0),
+                FLASH_CS        => flash_cs_n_o,
+                FLASH_SI        => flash_mosi_o,
+                FLASH_CK        => flash_sclk_o,
+                FLASH_SO        => flash_miso_i
+                );
+
+        ram_addr_o <= ram_addr(18 downto 0);
+
+    end generate;
+
+    NotGenBootstrap: if not IncludeBootstrap generate
+
+        bootstrap_busy          <= '0';
+        ram_oe_n_o              <= RAM_nOE;
+        ram_we_n_o              <= RAM_nWE;
+        ram_ce_n_o(0)           <= RAM_nCS;
+        ram_addr_o              <= RAM_A(18 downto 0);
+        ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
+
+        RAM_Dout                <= ROM_D when RAM_A(18) = '0' else ram_data_io(7 downto 0);
+
+        flash_cs_n_o            <= '1';
+        flash_mosi_o            <= '1';
+        flash_sclk_o            <= '1';
+
+        -- Minimal Model B ROM set with OS 1.20, Basic II and MMFS
+        inst_rom: entity work.minimal_modelb_rom_set
+            port map (
+                clk => clock_48,
+                addr => RAM_A(17 downto 0),
+                data => ROM_D
+                );
+
+    end generate;
+
+
     ram_data_io(15 downto 8) <= "ZZZZZZZZ";
     ram_ce_n_o(1) <= '1';
     ram_ce_n_o(2) <= '1';

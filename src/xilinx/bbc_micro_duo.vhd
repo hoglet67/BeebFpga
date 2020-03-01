@@ -58,9 +58,10 @@ entity bbc_micro_duo is
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := true;  -- The co pro options are mutually exclusive
+        IncludeCoPro6502   : boolean := false;  -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := false
+        IncludeVideoNuLA   : boolean := false;
+        IncludeBootstrap   : boolean := false
     );
     port (
         clk_32M00      : in    std_logic;
@@ -175,6 +176,7 @@ architecture rtl of bbc_micro_duo is
     signal LED1           : std_logic;
     signal LED2           : std_logic;
     signal JOYSTICK2      : std_logic_vector(4 downto 0);
+    signal ROM_D          : std_logic_vector(7 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -484,32 +486,60 @@ begin
 -- BOOTSTRAP SPI FLASH to SRAM
 --------------------------------------------------------
 
-    user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
+    GenBootstrap: if IncludeBootstrap generate
+        user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
 
-    inst_bootstrap: entity work.bootstrap
-    generic map (
-        user_length     => user_length
-    )
-    port map(
-        clock           => clock_48,
-        powerup_reset_n => powerup_reset_n,
-        bootstrap_busy  => bootstrap_busy,
-        user_address    => user_address,
-        RAM_nOE         => RAM_nOE,
-        RAM_nWE         => RAM_nWE,
-        RAM_nCS         => RAM_nCS,
-        RAM_A           => RAM_A,
-        RAM_Din         => RAM_Din,
-        RAM_Dout        => RAM_Dout,
-        SRAM_nOE        => SRAM_nOE,
-        SRAM_nWE        => SRAM_nWE,
-        SRAM_nCS        => SRAM_nCS,
-        SRAM_A          => SRAM_A,
-        SRAM_D          => SRAM_D,
-        FLASH_CS        => FLASH_CS,
-        FLASH_SI        => FLASH_SI,
-        FLASH_CK        => FLASH_CK,
-        FLASH_SO        => FLASH_SO
-    );
+        inst_bootstrap: entity work.bootstrap
+            generic map (
+                user_length     => user_length
+                )
+            port map(
+                clock           => clock_48,
+                powerup_reset_n => powerup_reset_n,
+                bootstrap_busy  => bootstrap_busy,
+                user_address    => user_address,
+                RAM_nOE         => RAM_nOE,
+                RAM_nWE         => RAM_nWE,
+                RAM_nCS         => RAM_nCS,
+                RAM_A           => RAM_A,
+                RAM_Din         => RAM_Din,
+                RAM_Dout        => RAM_Dout,
+                SRAM_nOE        => SRAM_nOE,
+                SRAM_nWE        => SRAM_nWE,
+                SRAM_nCS        => SRAM_nCS,
+                SRAM_A          => SRAM_A,
+                SRAM_D          => SRAM_D,
+                FLASH_CS        => FLASH_CS,
+                FLASH_SI        => FLASH_SI,
+                FLASH_CK        => FLASH_CK,
+                FLASH_SO        => FLASH_SO
+                );
+
+    end generate;
+
+    NotGenBootstrap: if not IncludeBootstrap generate
+
+        bootstrap_busy <= '0';
+        SRAM_nOE       <= RAM_nOE;
+        SRAM_nWE       <= RAM_nWE;
+        SRAM_nCS       <= RAM_nCS;
+        SRAM_A         <= "00" & RAM_A;
+        SRAM_D         <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
+
+        RAM_Dout       <= ROM_D when RAM_A(18) = '0' else SRAM_D;
+
+        FLASH_CS       <= '1';
+        FLASH_SI       <= '1';
+        FLASH_CK       <= '1';
+
+        -- Minimal Model B ROM set with OS 1.20, Basic II and MMFS
+        inst_rom: entity work.minimal_modelb_rom_set
+            port map (
+                clk => clock_48,
+                addr => RAM_A(17 downto 0),
+                data => ROM_D
+                );
+
+    end generate;
 
 end architecture;

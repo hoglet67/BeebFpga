@@ -57,7 +57,7 @@ entity bbc_micro_duo is
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := false;
+        IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := false;  -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
         IncludeVideoNuLA   : boolean := true
@@ -134,7 +134,7 @@ architecture rtl of bbc_micro_duo is
     signal clock_avr       : std_logic;
 
     attribute S : string;
-    attribute S of clock_avr : signal is "yes";
+--  attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
     attribute S of clock_32  : signal is "yes";
     attribute S of clock_96  : signal is "yes";
@@ -236,6 +236,7 @@ begin
         vid_mode       => vid_mode,
         joystick1      => JOYSTICK1,
         joystick2      => JOYSTICK2,
+        avr_reset      => not hard_reset_n,
         avr_RxD        => avr_RxD,
         avr_TxD        => avr_TxD,
         cpu_addr       => open,
@@ -285,7 +286,7 @@ begin
             CLKOUT2_DIVIDE       => 15,        -- 32 * (15/15) = 32MHz
             CLKOUT2_PHASE        => 0.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
-            CLKOUT3_DIVIDE       => 30,        -- 32 * (15/30) = 16MHz
+            CLKOUT3_DIVIDE       => 20,        -- 32 * (15/20) = 24MHz
             CLKOUT3_PHASE        => 0.000,
             CLKOUT3_DUTY_CYCLE   => 0.500,
             CLKIN_PERIOD         => 31.25,

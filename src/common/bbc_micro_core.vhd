@@ -151,6 +151,7 @@ entity bbc_micro_core is
         joystick2      : in    std_logic_vector(4 downto 0);
 
         -- ICE T65 Deubgger 57600 baud serial
+        avr_reset      : in    std_logic;   -- active high
         avr_RxD        : in    std_logic;
         avr_TxD        : out   std_logic;
 
@@ -544,7 +545,7 @@ begin
                 avr_RxD      => avr_RxD,
                 avr_TxD      => avr_TxD,
                 sw_reset_cpu => '0',
-                sw_reset_avr => not hard_reset_n,
+                sw_reset_avr => avr_reset,
                 led_bkpt     => open,
                 led_trig0    => open,
                 led_trig1    => open,

@@ -291,6 +291,7 @@ begin
         vid_mode       => vid_mode,
         joystick1      => joystick1,
         joystick2      => joystick2,
+        avr_reset      => not hard_reset_n,
         avr_RxD        => esp_rx_i,
         avr_TxD        => esp_tx_o,
         cpu_addr       => open,
@@ -381,7 +382,7 @@ begin
             CLKOUT2_DIVIDE       => 15,        -- 100 * (24/5/15) = 32MHz
             CLKOUT2_PHASE        => 0.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
-            CLKOUT3_DIVIDE       => 30,        -- 100 * (24/5/30) = 16MHz
+            CLKOUT3_DIVIDE       => 20,        -- 100 * (24/5/20) = 24MHz
             CLKOUT3_PHASE        => 0.000,
             CLKOUT3_DUTY_CYCLE   => 0.500,
             CLKIN_PERIOD         => 10.000,

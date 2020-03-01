@@ -497,7 +497,7 @@ begin
 				if r08_interlace(1 downto 0) = "11" and VGA = '0' then
 					RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field);
 				else
-					RA <= slv_line;
+					RA <= slv_line(4 downto 1) & (slv_line(0) xor VGA);
 				end if;
 				-- Internal memory address delayed by one cycle as well
 				MA <= std_logic_vector(ma_i);

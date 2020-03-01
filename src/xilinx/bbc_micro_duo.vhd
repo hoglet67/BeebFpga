@@ -510,24 +510,14 @@ begin
 
     GenCoProExt: if IncludeCoProExt generate
     begin
-        ext_tube_do  <= accel_io(15 downto 8);
-        accel_io(0)  <= ext_tube_phi2;
-        accel_io(1)  <= ext_tube_r_nw;
-        accel_io(2)  <= ext_tube_a(0);
-        accel_io(3)  <= ext_tube_a(1);
-        accel_io(4)  <= ext_tube_a(2);
-        accel_io(5)  <= ext_tube_a(3);
-        accel_io(6)  <= ext_tube_nrst;
-        accel_io(7)  <= ext_tube_ntube;
-        accel_io(8)  <= ext_tube_di(0) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(9)  <= ext_tube_di(1) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(10) <= ext_tube_di(2) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(11) <= ext_tube_di(3) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(12) <= ext_tube_di(4) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(13) <= ext_tube_di(5) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(14) <= ext_tube_di(6) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(15) <= ext_tube_di(7) when ext_tube_r_nw = '0' else 'Z';
-        JOYSTICK2 <= (others => '1');
+        ext_tube_do           <= accel_io(15 downto 8);
+        accel_io(0)           <= ext_tube_phi2;
+        accel_io(1)           <= ext_tube_r_nw;
+        accel_io(5 downto 2)  <= ext_tube_a(3 downto 0);
+        accel_io(6)           <= ext_tube_nrst;
+        accel_io(7)           <= ext_tube_ntube;
+        accel_io(15 downto 8) <= ext_tube_di when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else (others => 'Z');
+        JOYSTICK2             <= (others => '1');
 
     end generate;
 

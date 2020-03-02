@@ -56,12 +56,14 @@ entity bbc_micro_duo is
     generic (
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := false;
+        IncludeMusic5000   : boolean := true;
+        IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := false;  -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := true;   -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := false;
-        IncludeBootstrap   : boolean := false
+        IncludeVideoNuLA   : boolean := true;
+        IncludeBootstrap   : boolean := true;
+        IncludeMinimal     : boolean := true    -- Creates a build to test
+                                                -- 4x16K ROM Images
     );
     port (
         clk_32M00      : in    std_logic;
@@ -135,7 +137,7 @@ architecture rtl of bbc_micro_duo is
     signal clock_avr       : std_logic;
 
     attribute S : string;
-    attribute S of clock_avr : signal is "yes";
+--  attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
     attribute S of clock_32  : signal is "yes";
     attribute S of clock_96  : signal is "yes";
@@ -182,14 +184,42 @@ architecture rtl of bbc_micro_duo is
 -- Bootstrap ROM Image from SPI FLASH into SRAM
 -----------------------------------------------
 
-    -- start address of user data in FLASH as obtained from bitmerge.py
-    -- this is safely beyond the end of the bitstream
-    constant user_address_beeb    : std_logic_vector(23 downto 0) := x"060000";
-    constant user_address_master  : std_logic_vector(23 downto 0) := x"0A0000";
-    signal   user_address         : std_logic_vector(23 downto 0);
+    -- These are settings for use with a minimal 64K ROM config
+    --
+    --        Beeb          Master
+    -- 0 -> 4 MOS 1.20      3 MOS 3.20
+    -- 1 -> 8 MMFS          4 MMFS
+    -- 2 -> E Ram Master    C Basic II
+    -- 3 -> F Basic II      F Terminal
+    constant user_rom_map_beeb_minimal    : std_logic_vector(63 downto 0) := x"000000000000FE84";
+    constant user_rom_map_master_minimal  : std_logic_vector(63 downto 0) := x"000000000000FC43";
+    constant user_rom_map_full            : std_logic_vector(63 downto 0) := x"FEDCBA9876543210";
+    signal   user_rom_map                 : std_logic_vector(63 downto 0);
 
-    -- lenth of user data in FLASH = 256KB (16x 16K ROM) images
-    constant user_length   : std_logic_vector(23 downto 0) := x"040000";
+    -- start address of user data in FLASH as obtained from bitmerge.py
+    -- this mus be beyond the end of the bitstream
+
+    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"060000";
+    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"070000";
+    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"0A0000";
+    signal   user_address                 : std_logic_vector(23 downto 0);
+
+    -- length of user data in FLASH = 256KB (16x 16K ROM) images
+    constant user_length_full             : std_logic_vector(23 downto 0) := x"040000";
+
+    -- length of user data in FLASH = 64KB (4x 16K ROM) images
+    constant user_length_minimal          : std_logic_vector(23 downto 0) := x"010000";
+
+    function calc_user_length (isMinimal : in Boolean) return std_logic_vector is
+        variable tmp : std_logic_vector(23 downto 0);
+    begin
+        if isMinimal then
+            tmp := user_length_minimal;
+        else
+            tmp := user_length_full;
+        end if;
+        return tmp;
+    end calc_user_length;
 
     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
     signal bootstrap_busy  : std_logic;
@@ -448,17 +478,25 @@ begin
 --------------------------------------------------------
 
     GenBootstrap: if IncludeBootstrap generate
-        user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
+
+        user_address <= user_address_master_minimal when m128_mode = '1' and     IncludeMinimal else
+                        user_address_master_full    when m128_mode = '1' and not IncludeMinimal else
+                        user_address_beeb;
+
+        user_rom_map <= user_rom_map_master_minimal when m128_mode = '1' and     IncludeMinimal else
+                        user_rom_map_beeb_minimal   when m128_mode = '0' and     IncludeMinimal else
+                        user_rom_map_full;
 
         inst_bootstrap: entity work.bootstrap
             generic map (
-                user_length     => user_length
+                user_length     => calc_user_length(IncludeMinimal)
                 )
             port map(
                 clock           => clock_48,
                 powerup_reset_n => powerup_reset_n,
                 bootstrap_busy  => bootstrap_busy,
                 user_address    => user_address,
+                user_rom_map    => user_rom_map,
                 RAM_nOE         => RAM_nOE,
                 RAM_nWE         => RAM_nWE,
                 RAM_nCS         => RAM_nCS,

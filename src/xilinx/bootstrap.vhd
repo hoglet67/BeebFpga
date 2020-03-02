@@ -38,7 +38,10 @@ entity bootstrap is
 
         -- start address of user data in FLASH
         user_address    : in std_logic_vector(23 downto 0);
-        
+
+        -- map of where in the SRAM to write each successive ROM chunk
+        user_rom_map    : in std_logic_vector(63 downto 0) := x"FEDCBA9876543210";
+
         -- interface from design
         RAM_nOE         : in   std_logic;
         RAM_nWE         : in   std_logic;
@@ -66,7 +69,7 @@ architecture behavioral of bootstrap is
 
 -- the inverted clock
 signal clock_n          : std_logic;
-  
+
 -- an internal clock enable, avoiding gated clocks
 signal clock_en         : std_logic := '0';
 
@@ -84,6 +87,7 @@ signal flash_data       : std_logic_vector(7 downto 0);
 
 -- bootstrap control of SRAM, these signals connect to SRAM when boostrap_busy = '1'
 signal bs_A             : std_logic_vector(18 downto 0);
+signal bs_A_mapped      : std_logic_vector(3 downto 0);
 signal bs_Din           : std_logic_vector(7 downto 0);
 signal bs_nCS           : std_logic;
 signal bs_nWE           : std_logic;
@@ -106,23 +110,23 @@ begin
 --------------------------------------------------------
 -- SRAM Multiplexor
 --------------------------------------------------------
-   
+
     SRAM_Din            <= bs_Din when bs_busy = '1' else RAM_Din;
-   
-    SRAM_A(18 downto 0) <= bs_A   when bs_busy = '1' else RAM_A;
+
+    SRAM_A(18 downto 0) <= (bs_A(18) & bs_A_mapped & bs_A(13 downto 0))  when bs_busy = '1' else RAM_A;
     SRAM_A(19)          <= '0';
     SRAM_A(20)          <= '0';
-    
+
     SRAM_nCS            <= bs_nCS when bs_busy = '1' else RAM_nCS;
 
     SRAM_nOE            <= bs_nOE when bs_busy = '1' else RAM_nOE;
-    
+
 --------------------------------------------------------
 -- Generate a gated RAM WE and Dout tristate controls
 --------------------------------------------------------
-    
+
     clock_n <= not clock;
-    
+
     -- The point of all this is to avoid conflicts with the SRAM
     -- where the data bus changes direction
 
@@ -166,20 +170,20 @@ begin
             I  => SRAM_Din(i),
             IO => SRAM_D(i),
             T  => SRAM_nDOE(i)
-        );        
-   end generate; 
+        );
+   end generate;
 --------------------------------------------------------
 -- Bootstrap SRAM from SPI FLASH
 --------------------------------------------------------
-        
+
     -- flash clock enable toggles on alternate cycles
     process(clock)
     begin
-        if rising_edge(clock) then        
+        if rising_edge(clock) then
             clock_en <= not clock_en;
         end if;
     end process;
-    
+
     -- bootstrap state machine
     state_bootstrap : process(clock, powerup_reset_n)
         begin
@@ -222,7 +226,7 @@ begin
                         when WAIT7 =>
                             bs_state <= WAIT8;
                         when WAIT8 =>
-                            bs_state <= FLASH0;
+                            bs_state <= WAIT9;
                         when WAIT9 =>
                             bs_state <= WAIT10;
                         when WAIT10 =>
@@ -235,6 +239,7 @@ begin
                             bs_A <= bs_A + 1;                     -- increment SRAM address
                             bs_state <= FLASH1;                   -- idle
                         when FLASH1 =>
+                            bs_A_mapped <= user_rom_map(to_integer(unsigned(bs_A(17 downto 14))) * 4 + 3 downto to_integer(unsigned(bs_A(17 downto 14))) * 4);
                             bs_Din( 7 downto 0) <= flash_data;    -- place byte on SRAM data bus
                             bs_state <= FLASH2;                   -- idle
                         when FLASH2 =>

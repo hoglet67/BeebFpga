@@ -54,13 +54,14 @@ use UNISIM.Vcomponents.all;
 entity bbc_micro_spec_next is
     generic (
         IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := false;
+        IncludeSID         : boolean := true;
+        IncludeMusic5000   : boolean := true;
+        IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := false; -- The co pro options are mutually exclusive
         IncludeCoProExt    : boolean := true;  -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := false;
-        IncludeBootstrap   : boolean := false
+        IncludeVideoNuLA   : boolean := true;
+        IncludeBootstrap   : boolean := true;
+        IncludeMaster      : boolean := true
     );
     port (
         accel_io              : inout std_logic_vector(27 downto 0);
@@ -161,7 +162,7 @@ architecture rtl of bbc_micro_spec_next is
     signal clock_avr       : std_logic;
 
     attribute S : string;
-    attribute S of clock_avr : signal is "yes";
+--  attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
     attribute S of clock_32  : signal is "yes";
     attribute S of clock_96  : signal is "yes";
@@ -181,11 +182,9 @@ architecture rtl of bbc_micro_spec_next is
     signal RAM_nOE         : std_logic;
     signal RAM_nCS         : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0);
-    signal vid_mode        : std_logic_vector(3 downto 0);
-    signal m128_counter    : std_logic_vector(24 downto 0);
-    signal m128_mode       : std_logic := '0';
-    signal m128_mode_1     : std_logic;
-    signal m128_mode_2     : std_logic;
+    signal vid_mode        : std_logic_vector(3 downto 0) := "0011";
+    signal vid_counter     : std_logic_vector(24 downto 0);
+    signal m128_mode       : std_logic;
     signal copro_mode      : std_logic;
     signal red             : std_logic_vector(3 downto 0);
     signal green           : std_logic_vector(3 downto 0);
@@ -205,20 +204,38 @@ architecture rtl of bbc_micro_spec_next is
 -- Bootstrap ROM Image from SPI FLASH into SRAM
 -----------------------------------------------
 
+    -- TODO: When we can span two slots....
+    --
+    --
     -- Spec Next FLASH is Winbond 25Q128JVSQ (16MB)
     --  Slot 0: AB Core        (0x000000-0x07FFFF)
     --  Slot 1: Spec Next Core (0x080000-0x0FFFFF)
     --  Slot 2: Beeb Core      (0x100000-0x17FFFF)
     --  Slot 3: Beeb ROMS      (0x180000-0x1FFFFF)
 
+    -- For now, we have seperate Beeb and Master build, each with just 4 ROMs
+    -- as that's all that will fit at the end of a 512KB Slot
+
     -- start address of user data in FLASH as obtained from bitmerge.py
-    -- this is safely beyond the end of the bitstream
-    constant user_address_beeb    : std_logic_vector(23 downto 0) := x"180000";
-    constant user_address_master  : std_logic_vector(23 downto 0) := x"1C0000";
+    -- this is just beyond the end of the bitstream
+    constant user_address_beeb    : std_logic_vector(23 downto 0) := x"170000";
+    constant user_address_master  : std_logic_vector(23 downto 0) := x"170000";
     signal   user_address         : std_logic_vector(23 downto 0);
 
-    -- lenth of user data in FLASH = 256KB (16x 16K ROM) images
-    constant user_length   : std_logic_vector(23 downto 0) := x"040000";
+    -- lenth of user data in FLASH = 64KB (4x 16K ROM) images
+    constant user_length : std_logic_vector(23 downto 0) := x"010000";
+
+    -- ROM Map
+    --
+    -- FLASH   Beeb            Master
+    -- 0 ->    4 MOS 1.20      3 MOS 3.20
+    -- 1 ->    8 MMFS          4 MMFS
+    -- 2 ->    E Ram Master    C Basic II
+    -- 3 ->    F Basic II      F Terminal
+
+    constant user_rom_map_beeb    : std_logic_vector(63 downto 0) := x"000000000000FE84";
+    constant user_rom_map_master  : std_logic_vector(63 downto 0) := x"000000000000FC43";
+    signal   user_rom_map         : std_logic_vector(63 downto 0);
 
     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
     signal bootstrap_busy  : std_logic;
@@ -243,7 +260,6 @@ begin
     --   11 - 31.250KHz VGA using the Mist Scan Doubler (Modes 0..6) and SAA5050 VGA (Mode 7)
     -- Bit 2 inverts hsync
     -- Bit 3 inverts vsync
-    vid_mode       <= "0011";
 
     bbc_micro : entity work.bbc_micro_core
     generic map (
@@ -256,8 +272,8 @@ begin
         IncludeCoProExt    => IncludeCoProExt,
         IncludeVideoNuLA   => IncludeVideoNuLA,
         UseOrigKeyboard    => false,
-        UseT65Core         => false,
-        UseAlanDCore       => true
+        UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
+        UseAlanDCore       => IncludeMaster       -- select the 65C02 for the Master
         )
     port map (
         clock_27       => clock_27,
@@ -463,30 +479,29 @@ begin
 -- Power Up Reset Generation
 --------------------------------------------------------
 
-    m128_gen : process(clock_48)
+    vid_gen : process(clock_48)
     begin
+        -- Counter is currently 26 bits, so a "toggle" takes 2^25/48MHz = 0.7s
         if rising_edge(clock_48) then
             if btn_multiface_n_i = '0' then
-                m128_counter <= m128_counter + 1;
+                vid_counter <= vid_counter + 1;
             else
-                m128_counter <= (others => '0');
+                vid_counter <= (others => '0');
             end if;
-            if m128_counter = 32000000 then -- 0.66s
-                m128_mode <= not m128_mode;
+            if (not vid_counter) = 0 then
+                vid_mode <= vid_mode xor "0011";
             end if;
         end if;
     end process;
+
+    m128_mode <= '1' when IncludeMaster else '0';
 
     -- Generate a reliable power up reset
     -- Also, perform a power up reset if the master/beeb mode switch is changed
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            m128_mode_1 <= m128_mode;
-            m128_mode_2 <= m128_mode_1;
-            if (m128_mode_1 /= m128_mode_2) then
-                reset_counter <= (others => '0');
-            elsif (reset_counter(reset_counter'high) = '0') then
+            if reset_counter(reset_counter'high) = '0' then
                 reset_counter <= reset_counter + 1;
             end if;
             powerup_reset_n <= btn_reset_n_i and reset_counter(reset_counter'high);
@@ -534,6 +549,8 @@ begin
 
         user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
 
+        user_rom_map <= user_rom_map_master when m128_mode = '1' else user_rom_map_beeb;
+
         inst_bootstrap: entity work.bootstrap
             generic map (
                 user_length     => user_length
@@ -543,6 +560,7 @@ begin
                 powerup_reset_n => powerup_reset_n,
                 bootstrap_busy  => bootstrap_busy,
                 user_address    => user_address,
+                user_rom_map    => user_rom_map,
                 RAM_nOE         => RAM_nOE,
                 RAM_nWE         => RAM_nWE,
                 RAM_nCS         => RAM_nCS,
@@ -588,7 +606,6 @@ begin
                 );
 
     end generate;
-
 
     ram_data_io(15 downto 8) <= "ZZZZZZZZ";
     ram_ce_n_o(1) <= '1';

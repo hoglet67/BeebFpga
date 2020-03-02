@@ -168,6 +168,7 @@ architecture rtl of vidproc is
     signal clken_load       :   std_logic;
     signal clken_fetch      :   std_logic;
     signal clken_counter    :   unsigned(3 downto 0);
+    signal clken_zero       :   std_logic;
     signal pixen_prescale   :   unsigned(1 downto 0);
     signal pixen_counter    :   unsigned(3 downto 0);
 
@@ -455,6 +456,19 @@ begin
                     clken_shift <= '1';
                 end if;
             end if;
+
+            -- Syncronize pixen_prescale and pixen_counter to clken_counter
+            -- (otherwise there is a random shift of the cursor alignment on hard reset)
+            if clken_counter = 0 then
+                if clken_zero <= '0' then
+                    pixen_counter  <= (others => '0');
+                    pixen_prescale <= (others => '0');
+                end if;
+                clken_zero <= '1';
+            else
+                clken_zero <= '0';
+            end if;
+
         end if;
     end process;
 

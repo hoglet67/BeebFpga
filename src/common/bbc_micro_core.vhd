@@ -1620,6 +1620,11 @@ begin
                                     ext_A <= "01" & romsel(2 downto 0) & cpu_a(13 downto 0);
                                 end if;
                         end case;
+                        -- If bit 6 if ACCCON (&FE34) is set, make the ROMs writeable
+                        if acc_tst = '1' then
+                            ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
+                            ext_nOE <= not cpu_r_nw;
+                        end if;
                     end if;
                 elsif mos_enable = '1' then
                     if m128_mode = '1' and cpu_a(15 downto 13) = "110" and acc_y = '1' then

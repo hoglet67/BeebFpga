@@ -19,9 +19,6 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
-library UNISIM;
-use UNISIM.Vcomponents.all;
-
 entity bootstrap is
     generic (
         -- length user data in flash
@@ -122,56 +119,67 @@ begin
     SRAM_nOE            <= bs_nOE when bs_busy = '1' else RAM_nOE;
 
 --------------------------------------------------------
+-- Non-Gated SRAM RAM WE and Dout tristate controls
+--------------------------------------------------------
+
+    SRAM_nWE_int        <= bs_nWE when bs_busy = '1' else RAM_nWE;
+    SRAM_nWE            <= SRAM_nWE_int;
+
+    RAM_Dout            <= SRAM_D;
+    SRAM_D              <= SRAM_Din when SRAM_nWE_int = '0' else (others => 'Z');
+
+--------------------------------------------------------
 -- Generate a gated RAM WE and Dout tristate controls
 --------------------------------------------------------
 
-    clock_n <= not clock;
+--    clock_n <= not clock;
+--
+--    -- The point of all this is to avoid conflicts with the SRAM
+--    -- where the data bus changes direction
+--
+--    -- On the falling edge of clock_32, SRAM_nWE goes low if SRAM_nWE_int is low
+--    -- On the rising edhe of clock_32,  SRAM_nWE goes high again
+--
+--    SRAM_nWE_int <= bs_nWE when bs_busy = '1' else RAM_nWE;
+--
+--    rx_clk_ddr : ODDR2
+--    port map (
+--        Q  => SRAM_nWE,
+--        C0 => clock_n,
+--        C1 => clock,
+--        CE => '1',
+--        D0 => SRAM_nWE_int,
+--        D1 => '1',
+--        R  => '0',
+--        S  => '0'
+--    );
+--
+--    gen_sram_data_io: for i in 0 to 7 generate
+--        -- replicate the ODDR2 for each data bit, because of limited routing
+--        oddr2x : ODDR2
+--        port map (
+--            Q  => SRAM_nDOE(i),
+--            C0 => clock_n,
+--            C1 => clock,
+--            CE => '1',
+--            D0 => SRAM_nWE_int,
+--            D1 => '1',
+--            R  => '0',
+--            S  => '0'
+--        );
+--        -- the active low tristate connects directly to the IOBUFT in the same IOB
+--        iobufx : IOBUF
+--        generic map (
+--            DRIVE => 8
+--        )
+--        port map (
+--            O  => RAM_Dout(i),
+--            I  => SRAM_Din(i),
+--            IO => SRAM_D(i),
+--            T  => SRAM_nDOE(i)
+--        );
+--   end generate;
 
-    -- The point of all this is to avoid conflicts with the SRAM
-    -- where the data bus changes direction
-
-    -- On the falling edge of clock_32, SRAM_nWE goes low if SRAM_nWE_int is low
-    -- On the rising edhe of clock_32,  SRAM_nWE goes high again
-
-    SRAM_nWE_int <= bs_nWE when bs_busy = '1' else RAM_nWE;
-
-    rx_clk_ddr : ODDR2
-    port map (
-        Q  => SRAM_nWE,
-        C0 => clock_n,
-        C1 => clock,
-        CE => '1',
-        D0 => SRAM_nWE_int,
-        D1 => '1',
-        R  => '0',
-        S  => '0'
-    );
-
-    gen_sram_data_io: for i in 0 to 7 generate
-        -- replicate the ODDR2 for each data bit, because of limited routing
-        oddr2x : ODDR2
-        port map (
-            Q  => SRAM_nDOE(i),
-            C0 => clock_n,
-            C1 => clock,
-            CE => '1',
-            D0 => SRAM_nWE_int,
-            D1 => '1',
-            R  => '0',
-            S  => '0'
-        );
-        -- the active low tristate connects directly to the IOBUFT in the same IOB
-        iobufx : IOBUF
-        generic map (
-            DRIVE => 8
-        )
-        port map (
-            O  => RAM_Dout(i),
-            I  => SRAM_Din(i),
-            IO => SRAM_D(i),
-            T  => SRAM_nDOE(i)
-        );
-   end generate;
 --------------------------------------------------------
 -- Bootstrap SRAM from SPI FLASH
 --------------------------------------------------------
@@ -243,9 +251,9 @@ begin
                             bs_Din( 7 downto 0) <= flash_data;    -- place byte on SRAM data bus
                             bs_state <= FLASH2;                   -- idle
                         when FLASH2 =>
-                            bs_nWE <= '0';                        -- SRAM write enable
                             bs_state <= FLASH3;
                         when FLASH3 =>
+                            bs_nWE <= '0';                        -- SRAM write enable
                             bs_state <= FLASH4;                   -- idle
                         when FLASH4 =>
                             bs_state <= FLASH5;                   -- idle

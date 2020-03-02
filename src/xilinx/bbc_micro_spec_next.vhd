@@ -610,10 +610,7 @@ begin
         accel_io(5)  <= 'Z'; -- reserved for ext_tube_a(3);
         accel_io(6)  <= 'Z';
         accel_io(7)  <= ext_tube_phi2;
-        accel_io(8)  <= ext_tube_di(0) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(9)  <= ext_tube_di(1) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(10) <= ext_tube_di(2) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(11) <= ext_tube_di(3) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(11 downto 8) <= ext_tube_di(3 downto 0) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else (others => 'Z');
         accel_io(12) <= 'Z';
         accel_io(13) <= 'Z';
         accel_io(14) <= 'Z'; -- Serial Tx
@@ -624,10 +621,7 @@ begin
         accel_io(19) <= 'Z';
         accel_io(20) <= 'Z';
         accel_io(21) <= 'Z';
-        accel_io(22) <= ext_tube_di(4) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(23) <= ext_tube_di(5) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(24) <= ext_tube_di(6) when ext_tube_r_nw = '0' else 'Z';
-        accel_io(25) <= ext_tube_di(7) when ext_tube_r_nw = '0' else 'Z';
+        accel_io(25 downto 22) <= ext_tube_di(7 downto 4) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else (others => 'Z');
         accel_io(26) <= 'Z';
         accel_io(27) <= ext_tube_a(0);
     end generate;

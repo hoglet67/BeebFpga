@@ -678,8 +678,8 @@ begin
     esp_gpio2_io   <= 'Z';
 
     -- Addtional flash pins; used at IO2 and IO3 in Quad SPI Mode
-    flash_hold_o   <= 'Z';
-    flash_wp_o     <= 'Z';
+    flash_hold_o   <= '1';
+    flash_wp_o     <= '0';
 
     -- TODO: add support for HDMI output
     OBUFDS_c0  : OBUFDS port map ( O  => hdmi_p_o(0), OB => hdmi_n_o(0), I => '1');

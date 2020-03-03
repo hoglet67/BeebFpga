@@ -58,11 +58,11 @@ entity bbc_micro_duo is
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
-        IncludeCoPro6502   : boolean := false;  -- The co pro options are mutually exclusive
-        IncludeCoProExt    : boolean := true;   -- (i.e. select just one)
+        IncludeCoPro6502   : boolean := true;
+        IncludeCoProExt    : boolean := true;
         IncludeVideoNuLA   : boolean := true;
         IncludeBootstrap   : boolean := true;
-        IncludeMinimal     : boolean := true    -- Creates a build to test
+        IncludeMinimal     : boolean := false   -- Creates a build to test
                                                 -- 4x16K ROM Images
     );
     port (

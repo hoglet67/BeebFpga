@@ -470,7 +470,8 @@ signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
 signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F, or FE80-FE9F
 signal mouse_via_enable :   std_logic;      -- 0xFE60-FE7F
 --signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
-signal tube_enable      :   std_logic;      -- 0xFEE0-FEFF
+signal int_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
+signal ext_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
 
 signal adc_enable       :   std_logic;      -- 0xFEC0-FEDF
 signal adc_eoc_n        :   std_logic;
@@ -1001,7 +1002,7 @@ begin
             -- Test signals for debugging
             test         => open
         );
-        tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
+        tube_cs_b <= '0' when int_tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
 
 --------------------------------------------------------
@@ -1036,7 +1037,7 @@ begin
             -- Test signals for debugging
             test        => open
         );
-        tube_cs_b <= '0' when tube_enable = '1' and cpu_clken = '1' else '1';
+        tube_cs_b <= '0' when int_tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
 
 --------------------------------------------------------
@@ -1051,7 +1052,7 @@ begin
                 ext_tube_phi2  <= clken_counter(2); -- TODO, check this
                 ext_tube_r_nw  <= cpu_r_nw;
                 ext_tube_nrst  <= reset_n;
-                ext_tube_ntube <= not tube_enable;
+                ext_tube_ntube <= not ext_tube_enable;
                 ext_tube_a     <= cpu_a(6 downto 0);
                 ext_tube_di    <= cpu_do;
             end if;
@@ -1395,7 +1396,8 @@ begin
         mouse_via_enable <= '0';
  --     adlc_enable <= '0';
         adc_enable <= '0';
-        tube_enable <= '0';
+        int_tube_enable <= '0';
+        ext_tube_enable <= '0';
         acccon_enable <= '0';
         intoff_enable <= '0';
         inton_enable  <= '0';
@@ -1464,9 +1466,28 @@ begin
                     if m128_mode = '0' then
                         adc_enable <= '1';
                     end if;
-                when "111" =>
-                    if copro_mode = '1' and (IncludeCoPro6502 or IncludeCoProSPI or IncludeCoProExt) then
-                        tube_enable <= '1';       -- 0xFEE0
+                when "111" =>                           -- 0xFEE0
+                    if copro_mode = '1' then
+                        if m128_mode = '1' then
+                            -- On the Master the ITU bit in ACCCON selects
+                            -- between internal and external tube
+                            if acc_itu = '0' then
+                                if IncludeCoProExt then
+                                    ext_tube_enable <= '1';
+                                end if;
+                            else
+                                if IncludeCoPro6502 or IncludeCoProSPI  then
+                                    int_tube_enable <= '1';
+                                end if;
+                            end if;
+                        elsif IncludeCoProExt then
+                            -- On the Model B, the external tube takes precesence
+                            ext_tube_enable <= '1';
+                        elsif IncludeCoPro6502 or IncludeCoProSPI then
+                            -- On the Model B, the internal tube can only be
+                            -- used if the external tube is not "compiled in"
+                            int_tube_enable <= '1';
+                        end if;
                     end if;
                 when others =>
                     null;
@@ -1499,8 +1520,8 @@ begin
         -- Optional peripherals
         sid_do         when sid_enable = '1' and IncludeSid else
         music5000_do   when io_jim = '1' and IncludeMusic5000 else
-        tube_do        when tube_enable = '1' and (IncludeCoPro6502 or IncludeCoProSPI) else
-        ext_tube_do    when tube_enable = '1' and IncludeCoProExt else
+        tube_do        when int_tube_enable = '1' and (IncludeCoPro6502 or IncludeCoProSPI) else
+        ext_tube_do    when ext_tube_enable = '1' and IncludeCoProExt else
         -- Master 128 additions
         romsel         when romsel_enable = '1' and m128_mode = '1' else
         acccon         when acccon_enable = '1' and m128_mode = '1' else

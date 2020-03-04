@@ -78,7 +78,7 @@ NET audioext_l_o        TIG;
 NET audioext_r_o        TIG;
 NET sd_sclk_o           TIG;
 NET sd_mosi_o           TIG;
-NET sd_cs_n_o           TIG;
+NET sd_cs0_n_o          TIG;
 NET esp_tx_o            TIG;
 
 # ZX Spectrum Next Issue 2 FPGA Pin Assignemnt and Constraints

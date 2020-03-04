@@ -58,7 +58,7 @@ entity bbc_micro_spec_next is
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := false; -- The co pro options are mutually exclusive
-        IncludeCoProExt    : boolean := true;  -- (i.e. select just one)
+        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
         IncludeVideoNuLA   : boolean := true;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := true
@@ -77,7 +77,7 @@ entity bbc_micro_spec_next is
         bus_clk35_o           : out   std_logic;
         bus_data_io           : inout std_logic_vector(7 downto 0);
         bus_halt_n_o          : out   std_logic;
-        bus_int_n_i           : in    std_logic;
+        bus_int_n_io          : out   std_logic;
         bus_iorq_n_o          : out   std_logic;
         bus_iorqula_n_i       : in    std_logic;
         bus_m1_n_o            : out   std_logic;
@@ -116,7 +116,7 @@ entity bbc_micro_spec_next is
         joyp7_o               : out   std_logic;
         joyp9_i               : in    std_logic;
         joysel_o              : out   std_logic;
-        keyb_col_i            : in    std_logic_vector(4 downto 0);
+        keyb_col_i            : in    std_logic_vector(6 downto 0);
         keyb_row_o            : out   std_logic_vector(7 downto 0);
         mic_port_o            : out   std_logic;
         ps2_clk_io            : inout std_logic;
@@ -131,12 +131,13 @@ entity bbc_micro_spec_next is
         rgb_b_o               : out   std_logic_vector(2 downto 0);
         rgb_g_o               : out   std_logic_vector(2 downto 0);
         rgb_r_o               : out   std_logic_vector(2 downto 0);
-        sd_cs2_n_o            : out   std_logic;
-        sd_cs_n_o             : out   std_logic;
+        sd_cs1_n_o            : out   std_logic;
+        sd_cs0_n_o            : out   std_logic;
         sd_miso_i             : in    std_logic;
         sd_mosi_o             : out   std_logic;
         sd_sclk_o             : out   std_logic;
-        vsync_o               : out   std_logic
+        vsync_o               : out   std_logic;
+        extras_io             : inout std_logic
     );
 end entity;
 
@@ -300,7 +301,7 @@ begin
         ext_Dout       => RAM_Dout,
         ext_Din        => RAM_Din,
         SDMISO         => sd_miso_i,
-        SDSS           => sd_cs_n_o,
+        SDSS           => sd_cs0_n_o,
         SDCLK          => sd_sclk_o,
         SDMOSI         => sd_mosi_o,
         caps_led       => open,
@@ -657,18 +658,20 @@ begin
     audioint_o     <= '0';
 
     -- Spectrum Next Bus
-    bus_addr_o     <= x"0000";
-    bus_busack_n_o <= '1';
-    bus_clk35_o    <= '1';
-    bus_data_io    <= "ZZZZZZZZ";
-    bus_halt_n_o   <= '1';
-    bus_iorq_n_o   <= '1';
-    bus_m1_n_o     <= '1';
-    bus_mreq_n_o   <= '1';
-    bus_rd_n_o     <= '1';
-    bus_rfsh_n_o   <= '1';
+    -- (all these signals have PULLUP set in the .ucf file)
+    bus_addr_o     <= (others => 'Z');
+    bus_busack_n_o <= 'Z';
+    bus_clk35_o    <= 'Z';
+    bus_data_io    <= (others => 'Z');
+    bus_halt_n_o   <= 'Z';
+    bus_iorq_n_o   <= 'Z';
+    bus_m1_n_o     <= 'Z';
+    bus_mreq_n_o   <= 'Z';
+    bus_rd_n_o     <= 'Z';
+    bus_rfsh_n_o   <= 'Z';
     bus_rst_n_io   <= 'Z';
-    bus_wr_n_o     <= '1';
+    bus_wr_n_o     <= 'Z';
+    bus_int_n_io   <= 'Z';
 
     -- TODO: add support for sRGB output
     csync_o        <= '1';
@@ -703,6 +706,9 @@ begin
     mic_port_o <= '0';
 
     -- CS2 is for internal SD socket
-    sd_cs2_n_o <= '1';
+    sd_cs1_n_o <= '1';
+
+    -- Extra unused pin
+    extras_io <= 'Z';
 
 end architecture;

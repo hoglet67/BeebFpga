@@ -1383,7 +1383,7 @@ begin
     -- 0xFEA0 - 0xFEBF = 68B54 ADLC for Econet
     -- 0xFEC0 - 0xFEDF = uPD7002 ADC
     -- 0xFEE0 - 0xFEFF = Tube ULA
-    process(cpu_a,io_sheila,m128_mode,copro_mode,cpu_r_nw)
+    process(cpu_a,io_sheila,m128_mode,copro_mode,cpu_r_nw,acc_itu)
     begin
         -- All regions normally de-selected
         crtc_enable <= '0';

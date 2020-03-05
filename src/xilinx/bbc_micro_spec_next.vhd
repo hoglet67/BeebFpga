@@ -56,9 +56,9 @@ entity bbc_micro_spec_next is
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := true;
         IncludeMusic5000   : boolean := true;
-        IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := false; -- The co pro options are mutually exclusive
-        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
+        IncludeICEDebugger : boolean := true;
+        IncludeCoPro6502   : boolean := true;
+        IncludeCoProExt    : boolean := false;
         IncludeVideoNuLA   : boolean := true;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := true
@@ -163,7 +163,7 @@ architecture rtl of bbc_micro_spec_next is
     signal clock_avr       : std_logic;
 
     attribute S : string;
-    attribute S of clock_avr : signal is "yes";
+--  attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
     attribute S of clock_32  : signal is "yes";
     attribute S of clock_96  : signal is "yes";
@@ -570,9 +570,9 @@ begin
                 RAM_Dout        => RAM_Dout,
                 SRAM_nOE        => ram_oe_n_o,
                 SRAM_nWE        => ram_we_n_o,
-                SRAM_nCS        => ram_ce_n_o(0),
+                SRAM_nCS        => ram_ce_n_o(1),
                 SRAM_A          => ram_addr,
-                SRAM_D          => ram_data_io(7 downto 0),
+                SRAM_D          => ram_data_io(15 downto 8),
                 FLASH_CS        => flash_cs_n_o,
                 FLASH_SI        => flash_mosi_o,
                 FLASH_CK        => flash_sclk_o,
@@ -588,11 +588,11 @@ begin
         bootstrap_busy          <= '0';
         ram_oe_n_o              <= RAM_nOE;
         ram_we_n_o              <= RAM_nWE;
-        ram_ce_n_o(0)           <= RAM_nCS;
+        ram_ce_n_o(1)           <= RAM_nCS;
         ram_addr_o              <= RAM_A(18 downto 0);
-        ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
+        ram_data_io(15 downto 8)<= RAM_Din when RAM_nWE = '0' else (others => 'Z');
 
-        RAM_Dout                <= ROM_D when RAM_A(18) = '0' else ram_data_io(7 downto 0);
+        RAM_Dout                <= ROM_D when RAM_A(18) = '0' else ram_data_io(15 downto 8);
 
         flash_cs_n_o            <= '1';
         flash_mosi_o            <= '1';
@@ -608,8 +608,8 @@ begin
 
     end generate;
 
-    ram_data_io(15 downto 8) <= "ZZZZZZZZ";
-    ram_ce_n_o(1) <= '1';
+    ram_data_io(7 downto 0) <= "ZZZZZZZZ";
+    ram_ce_n_o(0) <= '1';
     ram_ce_n_o(2) <= '1';
     ram_ce_n_o(3) <= '1';
 

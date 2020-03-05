@@ -1,24 +1,33 @@
 #!/bin/bash
-
-run_data2mem=$false
-
-XILINX=/opt/Xilinx/14.7
-DATA2MEM=${XILINX}/ISE_DS/ISE/bin/lin64/data2mem
 IMAGE=tmp/rom_image_64K_master.bin
+OUT=tmp/bbc_master_spec_next.bit
+
+# Address to insert the ROM image
+ADDR=$((16#70000))
 
 # Build a fresh ROM image
 ./make_rom_image_minimal.sh
 
-# Run bitmerge to merge in the ROM images
-gcc -o tmp/bitmerge bitmerge.c
-./tmp/bitmerge ../xilinx/working/bbc_micro_spec_next.bit 70000:$IMAGE tmp/merged.bit
-rm -f ./tmp/bitmerge
+# Start with the bit file
+cp  ../xilinx/working/bbc_micro_spec_next.bit $OUT
 
-# Run data2mem to merge in the AVR Firmware
-if [ $run_data2mem ]; then
-BMM_FILE=../src/xilinx/CpuMon_bd.bmm
-${DATA2MEM} -bm ${BMM_FILE} -bd ../AtomBusMon/firmware/avr_progmem.mem -bt tmp/merged.bit -o b tmp/merged2.bit
-mv tmp/merged2.bit tmp/merged.bit
+# Check length
+
+LEN=$(wc -c < $OUT)
+
+if (( $LEN  > $ADDR )); then
+    echo ".bit file is too long; overlaps with address "$ADDR
+    ls -l $OUT
+    exit
+else
+    echo "Padding .bit file with $(($ADDR - $LEN)) bytes"
 fi
 
-mv tmp/merged.bit tmp/bbc_master_spec_next.bit
+# Extend to the start of the ROM
+truncate -s $ADDR $OUT
+
+# Append image
+cat $IMAGE >> $OUT
+
+# Report after
+ls -l $OUT

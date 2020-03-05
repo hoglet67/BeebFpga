@@ -234,12 +234,12 @@ begin
                         when WAIT7 =>
                             bs_state <= WAIT8;
                         when WAIT8 =>
-                            bs_state <= WAIT9;
-                        when WAIT9 =>
-                            bs_state <= WAIT10;
-                        when WAIT10 =>
-                            bs_state <= WAIT11;
-                        when WAIT11 =>
+--                          bs_state <= WAIT9;
+--                      when WAIT9 =>
+--                          bs_state <= WAIT10;
+--                      when WAIT10 =>
+--                          bs_state <= WAIT11;
+--                      when WAIT11 =>
                             bs_state <= FLASH0;
                         -- every 8 clock cycles (32M/8 = 2Mhz) we have a new byte from FLASH
                         -- use this ample time to write it to SRAM, we just have to toggle nWE

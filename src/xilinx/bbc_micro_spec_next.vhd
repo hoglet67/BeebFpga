@@ -229,8 +229,8 @@ architecture rtl of bbc_micro_spec_next is
     -- ROM Map
     --
     -- FLASH   Beeb            Master
-    -- 0 ->    4 MOS 1.20      3 MOS 3.20
-    -- 1 ->    8 MMFS          4 MMFS
+    -- 0 ->    4 MOS 1.20      3 MMFS
+    -- 1 ->    8 MMFS          4 MOS 3.20
     -- 2 ->    E Ram Master    C Basic II
     -- 3 ->    F Basic II      F Terminal
 

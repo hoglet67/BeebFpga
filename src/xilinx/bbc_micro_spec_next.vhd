@@ -56,7 +56,7 @@ entity bbc_micro_spec_next is
         IncludeAMXMouse    : boolean := false;
         IncludeSID         : boolean := true;
         IncludeMusic5000   : boolean := true;
-        IncludeICEDebugger : boolean := true;
+        IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := false;
         IncludeVideoNuLA   : boolean := true;
@@ -163,7 +163,7 @@ architecture rtl of bbc_micro_spec_next is
     signal clock_avr       : std_logic;
 
     attribute S : string;
---  attribute S of clock_avr : signal is "yes";
+    attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
     attribute S of clock_32  : signal is "yes";
     attribute S of clock_96  : signal is "yes";

@@ -97,7 +97,7 @@ architecture rtl of rtc is
     constant ini10 : std_logic_vector(7 downto 0) := x"F7";
 
     -- bit 4 (noboot/boot) overlaid by DIP switches
-    constant ini16 : std_logic_vector(7 downto 0) := x"82";
+    constant ini16 : std_logic_vector(7 downto 0) := x"80";
 
     signal rtc_ram : rtc_ram_type := (
         x"30", -- RTC Seconds
@@ -121,7 +121,7 @@ architecture rtl of rtc is
         x"00", -- CMOS  4 - Econet print server identity (hi)
         x"C3", -- CMOS  5 - Default Filing System / Language (default file system MMFS)
         x"FF", -- CMOS  6 - ROM frugal bits (*INSERT/*UNPLUG)
-        x"DD", -- CMOS  7 - ROM frugal bits (*INSERT/*UNPLUG) (disable ADFS)
+        x"FF", -- CMOS  7 - ROM frugal bits (*INSERT/*UNPLUG)
         x"00", -- CMOS  8 - Edit startup settings
         x"00", -- CMOS  9 - reserved for telecommunications applications
         ini10, -- CMOS 10 - VDU mode and *TV settings
@@ -129,7 +129,7 @@ architecture rtl of rtc is
         x"20", -- CMOS 12 - Keyboard auto-repeat delay
         x"08", -- CMOS 13 - Keyboard auto-repeat rate
         x"0A", -- CMOS 14 - Printer ignore character
-        x"2D", -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
+        x"2C", -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
         ini16, -- CMOS 16 - Default serial data format, auto boot option, int/ext TUBE, bell amplitude
         x"00", -- CMOS 17 - reserved for ANFS
         x"00", -- CMOS 18 - reserved for ANFS

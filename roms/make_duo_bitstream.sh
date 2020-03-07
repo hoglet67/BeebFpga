@@ -14,7 +14,7 @@ IMAGE=tmp/rom_image.bin
 
 # Run bitmerge to merge in the ROM images
 gcc -o tmp/bitmerge bitmerge.c
-./tmp/bitmerge ../xilinx/working/bbc_micro_duo.bit 60000:$IMAGE tmp/merged.bit
+./tmp/bitmerge ../xilinx/working/bbc_micro_duo/bbc_micro_duo.bit 60000:$IMAGE tmp/merged.bit
 rm -f ./tmp/bitmerge
 
 # Run data2mem to merge in the AVR Firmware
@@ -25,7 +25,7 @@ mv tmp/merged2.bit tmp/merged.bit
 fi
 
 # Program the Papilo Duo
-#sudo ${PROG} -v -f tmp/merged.bit -b ${BSCAN}  -sa -r
+sudo ${PROG} -v -f tmp/merged.bit -b ${BSCAN}  -sa -r
 
 # Reset the Papilio Duo
-#sudo ${PROG} -c
+sudo ${PROG} -c

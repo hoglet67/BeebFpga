@@ -9,7 +9,7 @@ ADDR=$((16#70000))
 ./make_rom_image_minimal.sh
 
 # Start with the bit file
-cp  ../xilinx/working/bbc_micro_spec_next.bit $OUT
+cp  ../xilinx/working/bbc_master_spec_next/bbc_micro_spec_next.bit $OUT
 
 # Check length
 

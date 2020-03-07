@@ -184,9 +184,9 @@ architecture rtl of bbc_micro_spec_next is
     signal RAM_nCS         : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0) := "0011";
-    signal vid_counter     : std_logic_vector(24 downto 0);
+    signal debounce_ctr    : std_logic_vector(19 downto 0);
     signal m128_mode       : std_logic;
-    signal copro_mode      : std_logic;
+    signal copro_mode      : std_logic := '0';
     signal red             : std_logic_vector(3 downto 0);
     signal green           : std_logic_vector(3 downto 0);
     signal blue            : std_logic_vector(3 downto 0);
@@ -241,14 +241,16 @@ architecture rtl of bbc_micro_spec_next is
     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
     signal bootstrap_busy  : std_logic;
 
+    -- Button press detection
+    signal btn_divmmc_n_last      : std_logic;
+    signal btn_multiface_n_last   : std_logic;
+    signal btn_reset_n_last       : std_logic;
+
 begin
 
 --------------------------------------------------------
 -- BBC Micro Core
 --------------------------------------------------------
-
-    -- TODO, make this optional
-    copro_mode     <= '1';
 
     -- As per the Beeb keyboard DIP switches
     keyb_dip       <= "00000000";
@@ -480,17 +482,25 @@ begin
 -- Power Up Reset Generation
 --------------------------------------------------------
 
-    vid_gen : process(clock_48)
+    key_gen : process(clock_48)
     begin
         -- Counter is currently 26 bits, so a "toggle" takes 2^25/48MHz = 0.7s
         if rising_edge(clock_48) then
-            if btn_multiface_n_i = '0' then
-                vid_counter <= vid_counter + 1;
-            else
-                vid_counter <= (others => '0');
-            end if;
-            if (not vid_counter) = 0 then
-                vid_mode <= vid_mode xor "0011";
+            -- Increment the debounce counter (about 20ms)
+            debounce_ctr <= debounce_ctr + 1;
+            if debounce_ctr = 0 then
+                -- Pressing divmmc toggles the Co Pro on and off
+                btn_divmmc_n_last <= btn_divmmc_n_i;
+                if btn_divmmc_n_last = '1' and btn_divmmc_n_i = '0' then
+                    copro_mode <= not copro_mode;
+                end if;
+                -- Pressing multiface increments the video mode
+                btn_multiface_n_last <= btn_multiface_n_i;
+                if btn_multiface_n_last = '1' and btn_multiface_n_i = '0' then
+                    vid_mode(1 downto 0) <= vid_mode(1 downto 0) + 1;
+                end if;
+                -- Pressimng reset does a hard reset
+                btn_reset_n_last <= btn_reset_n_i;
             end if;
         end if;
     end process;
@@ -505,7 +515,7 @@ begin
             if reset_counter(reset_counter'high) = '0' then
                 reset_counter <= reset_counter + 1;
             end if;
-            powerup_reset_n <= btn_reset_n_i and reset_counter(reset_counter'high);
+            powerup_reset_n <= btn_reset_n_last and reset_counter(reset_counter'high);
         end if;
     end process;
 

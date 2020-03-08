@@ -151,11 +151,13 @@ architecture rtl of bbc_micro_spec_next is
     signal clk1            : std_logic;
     signal clk2            : std_logic;
     signal clk3            : std_logic;
+    signal clk4            : std_logic;
     signal clkfb           : std_logic;
     signal clkfb_buf       : std_logic;
     signal clk100          : std_logic;
     signal fx_clk_27       : std_logic;
 
+    signal clock_16        : std_logic; -- for ICAP (flashreboot) only
     signal clock_27        : std_logic;
     signal clock_32        : std_logic;
     signal clock_48        : std_logic;
@@ -185,6 +187,8 @@ architecture rtl of bbc_micro_spec_next is
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0) := "0011";
     signal debounce_ctr    : std_logic_vector(19 downto 0);
+    signal reconfig_ctr    : std_logic_vector(23 downto 0);
+    signal reconfig        : std_logic := '0';
     signal m128_mode       : std_logic;
     signal copro_mode      : std_logic := '0';
     signal red             : std_logic_vector(3 downto 0);
@@ -406,6 +410,9 @@ begin
             CLKOUT3_DIVIDE       => 20,        -- 100 * (24/5/20) = 24MHz
             CLKOUT3_PHASE        => 0.000,
             CLKOUT3_DUTY_CYCLE   => 0.500,
+            CLKOUT4_DIVIDE       => 30,        -- 100 * (24/5/30) = 16MHz
+            CLKOUT4_PHASE        => 0.000,
+            CLKOUT4_DUTY_CYCLE   => 0.500,
             CLKIN_PERIOD         => 10.000,
             REF_JITTER           => 0.010
             )
@@ -416,6 +423,7 @@ begin
             CLKOUT1             => clk1,
             CLKOUT2             => clk2,
             CLKOUT3             => clk3,
+            CLKOUT4             => clk4,
             RST                 => '0',
             -- Input clock control
             CLKFBIN             => clkfb_buf,
@@ -452,6 +460,12 @@ begin
             O => clock_avr
             );
 
+    inst_clk4_buf : BUFG
+        port map (
+            I => clk4,
+            O => clock_16
+            );
+
     -- 27MHz for the alternative scan doubler
 
     inst_DCM2 : DCM
@@ -484,7 +498,7 @@ begin
 
     key_gen : process(clock_48)
     begin
-        -- Counter is currently 26 bits, so a "toggle" takes 2^25/48MHz = 0.7s
+        -- Debounce counter is currently 20 bits, which is 21.8ms
         if rising_edge(clock_48) then
             -- Increment the debounce counter (about 20ms)
             debounce_ctr <= debounce_ctr + 1;
@@ -519,8 +533,34 @@ begin
         end if;
     end process;
 
-   -- extend the version seen by the core to hold the 6502 reset during bootstrap
-   hard_reset_n <= powerup_reset_n and not bootstrap_busy;
+    -- extend the version seen by the core to hold the 6502 reset during bootstrap
+    hard_reset_n <= powerup_reset_n and not bootstrap_busy;
+
+--------------------------------------------------------
+-- Dynamic Reconfiguration
+--------------------------------------------------------
+
+    reconfig_gen : process(clock_16)
+    begin
+        if rising_edge(clock_16) then
+            if btn_reset_n_i = '0' then
+                reconfig_ctr <= reconfig_ctr + 1;
+            else
+                reconfig_ctr <= (others => '0');
+            end if;
+            if reconfig_ctr = 16000000 then
+                reconfig <= '1';
+            end if;
+        end if;
+    end process;
+
+    flash_reboot_inst : entity work.flashboot
+    port map (
+        reset_i    => '0',
+        clock_i    => clock_16,
+        start_i    => reconfig,
+        spiaddr_i  => x"6B" & "00001" & "0000000000000000000"
+        );
 
 --------------------------------------------------------
 -- Audio DACs

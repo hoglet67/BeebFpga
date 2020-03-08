@@ -10,12 +10,16 @@ TIMESPEC TS_clk_period_48 = PERIOD "clk_period_grp_48" 20.83ns HIGH;
 NET "clock_96" TNM_NET = clk_period_grp_96;
 TIMESPEC TS_clk_period_96 = PERIOD "clk_period_grp_96" 10.41ns HIGH;
 
-# 16MHz AVR clock
+# 24MHz AVR clock
 NET "clock_avr" TNM_NET = clk_period_grp_avr;
-TIMESPEC TS_clk_period_avr = PERIOD "clk_period_grp_avr" 62.5ns HIGH;
+TIMESPEC TS_clk_period_avr = PERIOD "clk_period_grp_avr" 41.6ns HIGH;
+
+# 16MHz ICAP Reconfig clock
+NET "clock_16" TNM_NET = clk_period_grp_16;
+TIMESPEC TS_clk_period_16 = PERIOD "clk_period_grp_16" 62.5ns HIGH;
 
 # Avoid timing warnings for cross domain signals (which are synchronized anyway)
-NET "clock_27"           TNM_NET = FFS "clk_domain_27";
+NET "clock_27"            TNM_NET = FFS "clk_domain_27";
 NET "clock_48"            TNM_NET = FFS "clk_domain_48";
 NET "clock_avr"           TNM_NET = FFS "clk_domain_avr";
 

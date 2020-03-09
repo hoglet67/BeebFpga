@@ -205,6 +205,13 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_tube_do     : std_logic_vector(7 downto 0);
     signal ROM_D           : std_logic_vector(7 downto 0);
 
+    signal ext_keyb_1mhz   : std_logic;
+    signal ext_keyb_en_n   : std_logic;
+    signal ext_keyb_pa     : std_logic_vector(6 downto 0);
+    signal ext_keyb_rst_n  : std_logic;
+    signal ext_keyb_ca2    : std_logic;
+    signal ext_keyb_pa7    : std_logic;
+
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
 -----------------------------------------------
@@ -278,7 +285,7 @@ begin
         IncludeCoProSPI    => false,
         IncludeCoProExt    => IncludeCoProExt,
         IncludeVideoNuLA   => IncludeVideoNuLA,
-        UseOrigKeyboard    => false,
+        UseOrigKeyboard    => true,
         UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
         UseAlanDCore       => IncludeMaster       -- select the 65C02 for the Master
         )
@@ -337,16 +344,17 @@ begin
         ext_tube_di    => ext_tube_di,
         ext_tube_do    => ext_tube_do,
         test           => open,
-        -- original keyboard not yet supported on the Spec Next
+
+        -- original keyboard
         ext_keyb_led1  => open,
         ext_keyb_led2  => open,
         ext_keyb_led3  => open,
-        ext_keyb_1mhz  => open,
-        ext_keyb_en_n  => open,
-        ext_keyb_pa    => open,
-        ext_keyb_rst_n => '1',
-        ext_keyb_ca2   => '1',
-        ext_keyb_pa7   => '1'
+        ext_keyb_1mhz  => ext_keyb_1mhz,
+        ext_keyb_en_n  => ext_keyb_en_n,
+        ext_keyb_pa    => ext_keyb_pa,
+        ext_keyb_rst_n => ext_keyb_rst_n,
+        ext_keyb_ca2   => ext_keyb_ca2,
+        ext_keyb_pa7   => ext_keyb_pa7
     );
 
     -- Joystick 1
@@ -563,6 +571,29 @@ begin
         );
 
 --------------------------------------------------------
+-- Membrane Keyboard
+--------------------------------------------------------
+
+    kbd_spec_next_inst : entity work.kbd_spec_next
+    port map (
+        -- Clock
+        clock      => clock_48,
+        reset_n    => hard_reset_n,
+
+        -- Specnext Keboard matrix
+        keyb_col_i => keyb_col_i,
+        keyb_row_o => keyb_row_o,
+
+        -- Beeb Keyboard
+        keyb_1mhz  => ext_keyb_1mhz,
+        keyb_en_n  => ext_keyb_en_n,
+        keyb_pa    => ext_keyb_pa,
+        keyb_rst_n => ext_keyb_rst_n,
+        keyb_ca2   => ext_keyb_ca2,
+        keyb_pa7   => ext_keyb_pa7
+        );
+
+--------------------------------------------------------
 -- Audio DACs
 --------------------------------------------------------
 
@@ -748,9 +779,6 @@ begin
 
     -- Controls a mux to select between two joystick ports
     joysel_o   <= '0';
-
-    -- Keyboard row
-    keyb_row_o <= x"FF";
 
     -- Mic Port (output, as it connects to the mic input on cassette deck)
     mic_port_o <= '0';

@@ -422,6 +422,9 @@ signal keyb_row         :   std_logic_vector(2 downto 0);
 signal keyb_out         :   std_logic;
 signal keyb_int         :   std_logic;
 signal keyb_break       :   std_logic;
+signal ps2_keyb_out     :   std_logic;
+signal ps2_keyb_int     :   std_logic;
+signal ps2_keyb_break   :   std_logic;
 
 -- Sound generator
 signal sound_ready      :   std_logic;
@@ -854,8 +857,7 @@ begin
         mouse_via_irq_n <= '1';
     end generate;
 
-
-    -- Original Keyboard
+    -- Original Keyboard Enabled
     keyboard_orig: if UseOrigKeyboard generate
         ext_keyb_led3  <= '1';     -- motor LED would be driven off serial ULA
         ext_keyb_led2  <= ic32(7); -- caps LED
@@ -863,25 +865,39 @@ begin
         ext_keyb_1mhz  <= mhz1_clken;
         ext_keyb_en_n  <= keyb_enable_n;
         ext_keyb_pa    <= keyb_row & keyb_column;
-        keyb_out       <= ext_keyb_pa7;
-        keyb_int       <= ext_keyb_ca2;
-        keyb_break     <= not ext_keyb_rst_n;
+        keyb_out       <= ext_keyb_pa7 or ps2_keyb_out;
+        keyb_int       <= ext_keyb_ca2 or ps2_keyb_int;
+        keyb_break     <= (not ext_keyb_rst_n) or ps2_keyb_break;
+    end generate;
+
+    -- Original Keyboard Disabled
+    keyboard_ps2: if not UseOrigKeyboard generate
+        ext_keyb_led3  <= '1'; -- motor LED
+        ext_keyb_led2  <= '1'; -- caps LED
+        ext_keyb_led1  <= '1'; -- shift LED
+        ext_keyb_1mhz  <= '1';
+        ext_keyb_en_n  <= '1';
+        ext_keyb_pa    <= (others => '1');
+        keyb_out       <= ps2_keyb_out;
+        keyb_int       <= ps2_keyb_int;
+        keyb_break     <= ps2_keyb_break;
     end generate;
 
     -- PS/2 Keyboard
-    keyboard_ps2: if not UseOrigKeyboard generate
-        keyb : entity work.keyboard port map (
-            clock_48, hard_reset_n, mhz1_clken,
-            ps2_kbd_clk, ps2_kbd_data,
-            keyb_enable_n,
-            keyb_column,
-            keyb_row,
-            keyb_out,
-            keyb_int,
-            keyb_break,
-            keyb_dip
-            );
-    end generate;
+    keyb : entity work.keyboard port map (
+        clock_48,
+        hard_reset_n,
+        mhz1_clken,
+        ps2_kbd_clk,
+        ps2_kbd_data,
+        keyb_enable_n,
+        keyb_column,
+        keyb_row,
+        ps2_keyb_out,
+        ps2_keyb_int,
+        ps2_keyb_break,
+        keyb_dip
+        );
 
     -- Analog to Digital Convertor
     adc: entity work.upd7002 port map (

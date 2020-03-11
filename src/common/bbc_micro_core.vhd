@@ -1909,18 +1909,18 @@ begin
     -- Video Mode Links
     --
     -- 0 0 SCART RGB mode (15.625KHz)
-    -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: RGBtoVGA SD
+    -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: SAA5050 VGA Mode
     -- 1 0 Mode 0-7: Mist SD,     Mode 7: Mist SD
     -- 1 1 Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode
 
-    -- The RGBtoVGA Scan Doubler
-    vga1_mode <= '1' when vid_mode(1 downto 0) = "01" else '0';
+    -- The RGBtoVGA Scan Doubler (27MHz, also used for HDMI)
+    vga1_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt = '0' else '0';
 
     -- The Mist Scan Doubler
     vga0_mode <= '1' when (vid_mode(1 downto 0) = "11" and ttxt = '0') or vid_mode(1 downto 0) = "10" else '0';
 
     -- The SAA5050 VGA Mode
-    vga2_mode <= '1' when (vid_mode(1 downto 0) = "11" and ttxt = '1') else '0';
+    vga2_mode <= '1' when (vid_mode(0) = '1' and ttxt = '1') else '0';
 
     -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
     hsync_int   <= vga0_hs when vga0_mode = '1' else

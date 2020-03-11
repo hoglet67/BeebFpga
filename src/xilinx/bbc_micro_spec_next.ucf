@@ -1,3 +1,6 @@
+# Two PLLs driven of the same input seems to require this...
+NET "clock_50_i" CLOCK_DEDICATED_ROUTE = FALSE;
+
 # 27MHz VGA clock domain
 NET "clock_27" TNM_NET = clk_period_grp_27;
 TIMESPEC TS_clk_period_27 = PERIOD "clk_period_grp_27" 37.04ns HIGH;

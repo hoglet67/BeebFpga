@@ -54,12 +54,12 @@ use UNISIM.Vcomponents.all;
 entity bbc_micro_spec_next is
     generic (
         IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := true;
-        IncludeMusic5000   : boolean := true;
+        IncludeSID         : boolean := false;
+        IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := true;
+        IncludeCoPro6502   : boolean := false;
         IncludeCoProExt    : boolean := false;
-        IncludeVideoNuLA   : boolean := true;
+        IncludeVideoNuLA   : boolean := false;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := true
     );
@@ -155,13 +155,22 @@ architecture rtl of bbc_micro_spec_next is
     signal clkfb           : std_logic;
     signal clkfb_buf       : std_logic;
     signal clk100          : std_logic;
-    signal fx_clk_27       : std_logic;
+
+    signal hclk0            : std_logic;
+    signal hclk1            : std_logic;
+    signal hclk2            : std_logic;
+    signal hclkfb           : std_logic;
+    signal hclkfb_buf       : std_logic;
+
+--  signal fx_clk_27       : std_logic;
 
     signal clock_16        : std_logic; -- for ICAP (flashreboot) only
     signal clock_27        : std_logic;
     signal clock_32        : std_logic;
     signal clock_48        : std_logic;
     signal clock_96        : std_logic;
+    signal clock_135       : std_logic;
+    signal clock_135_n     : std_logic;
     signal clock_avr       : std_logic;
 
     attribute S : string;
@@ -194,6 +203,18 @@ architecture rtl of bbc_micro_spec_next is
     signal red             : std_logic_vector(3 downto 0);
     signal green           : std_logic_vector(3 downto 0);
     signal blue            : std_logic_vector(3 downto 0);
+    signal hdmi_red        : std_logic_vector(3 downto 0);
+    signal hdmi_green      : std_logic_vector(3 downto 0);
+    signal hdmi_blue       : std_logic_vector(3 downto 0);
+    signal hdmi_hsync      : std_logic;
+    signal hdmi_vsync      : std_logic;
+    signal hdmi_blank      : std_logic;
+    signal hsync           : std_logic;
+    signal vsync           : std_logic;
+    signal hsync1          : std_logic;
+    signal vsync1          : std_logic;
+    signal hcnt            : std_logic_vector(9 downto 0);
+    signal vcnt            : std_logic_vector(9 downto 0);
     signal joystick1       : std_logic_vector(4 downto 0);
     signal joystick2       : std_logic_vector(4 downto 0);
     signal ext_tube_r_nw   : std_logic;
@@ -211,6 +232,10 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_keyb_rst_n  : std_logic;
     signal ext_keyb_ca2    : std_logic;
     signal ext_keyb_pa7    : std_logic;
+
+    signal tdms_r          : std_logic_vector(9 downto 0);
+    signal tdms_g          : std_logic_vector(9 downto 0);
+    signal tdms_b          : std_logic_vector(9 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -303,8 +328,8 @@ begin
         video_red      => red,
         video_green    => green,
         video_blue     => blue,
-        video_vsync    => vsync_o,
-        video_hsync    => hsync_o,
+        video_vsync    => vsync,
+        video_hsync    => hsync,
         audio_l        => audio_l,
         audio_r        => audio_r,
         ext_nOE        => RAM_nOE,
@@ -373,6 +398,8 @@ begin
     rgb_r_o <= red(3 downto 1);
     rgb_g_o <= green(3 downto 1);
     rgb_b_o <= blue(3 downto 1);
+    hsync_o <= hsync;
+    vsync_o <= vsync;
 
 --------------------------------------------------------
 -- Clock Generation
@@ -398,7 +425,7 @@ begin
 
     -- 100MHz to 96/48/32 MHz
 
-    inst_PLL : PLL_BASE
+    inst_PLL1 : PLL_BASE
         generic map (
             BANDWIDTH            => "OPTIMIZED",
             CLK_FEEDBACK         => "CLKFBOUT",
@@ -474,31 +501,89 @@ begin
             O => clock_16
             );
 
-    -- 27MHz for the alternative scan doubler
+    -- 27MHz for HDMI (and the alternative scan doubler)
 
-    inst_DCM2 : DCM
+    inst_PLL2 : PLL_BASE
         generic map (
-            CLKFX_MULTIPLY    => 27,
-            CLKFX_DIVIDE      => 25,
-            CLKIN_DIVIDE_BY_2 => TRUE,
-            CLK_FEEDBACK      => "NONE"
+            BANDWIDTH            => "OPTIMIZED",
+            CLK_FEEDBACK         => "CLKFBOUT",
+            COMPENSATION         => "DCM2PLL",
+            DIVCLK_DIVIDE        => 2,
+            CLKFBOUT_MULT        => 27,
+            CLKFBOUT_PHASE       => 0.000,
+            CLKOUT0_DIVIDE       => 25,       -- 50 * (27/2/25) = 27MHz
+            CLKOUT0_PHASE        => 0.000,
+            CLKOUT0_DUTY_CYCLE   => 0.500,
+            CLKOUT1_DIVIDE       => 5,        -- 50 * (27/2/5) = 135MHz
+            CLKOUT1_PHASE        => 0.000,
+            CLKOUT1_DUTY_CYCLE   => 0.500,
+            CLKOUT2_DIVIDE       => 5,        -- 50 * (27/2/5) = 135MHz (inverted)
+            CLKOUT2_PHASE        => 180.000,
+            CLKOUT2_DUTY_CYCLE   => 0.500,
+            CLKIN_PERIOD         => 20.000,
+            REF_JITTER           => 0.010
             )
         port map (
-            CLKIN             => clock_50_i,
-            CLKFB             => '0',
-            RST               => '0',
-            DSSEN             => '0',
-            PSINCDEC          => '0',
-            PSEN              => '0',
-            PSCLK             => '0',
-            CLKFX             => fx_clk_27
+            -- Output clocks
+            CLKFBOUT            => hclkfb,
+            CLKOUT0             => hclk0,
+            CLKOUT1             => hclk1,
+            CLKOUT2             => hclk2,
+            RST                 => '0',
+            -- Input clock control
+            CLKFBIN             => hclkfb_buf,
+            CLKIN               => clock_50_i
             );
 
-    inst_clk27_buf : BUFG
-    port map (
-        I => fx_clk_27,
-        O => clock_27
-        );
+
+    inst_hclkfb_buf : BUFG
+        port map (
+            I => hclkfb,
+            O => hclkfb_buf
+            );
+
+    inst_hclk0_buf : BUFG
+        port map (
+            I => hclk0,
+            O => clock_27
+            );
+
+    inst_hclk1_buf : BUFG
+        port map (
+            I => hclk1,
+            O => clock_135
+            );
+
+    inst_hclk2_buf : BUFG
+        port map (
+            I => hclk2,
+            O => clock_135_n
+            );
+
+
+--    inst_DCM2 : DCM
+--        generic map (
+--            CLKFX_MULTIPLY    => 27,
+--            CLKFX_DIVIDE      => 25,
+--            CLKIN_DIVIDE_BY_2 => TRUE,
+--            CLK_FEEDBACK      => "NONE"
+--            )
+--        port map (
+--            CLKIN             => clock_50_i,
+--            CLKFB             => '0',
+--            RST               => '0',
+--            DSSEN             => '0',
+--            PSINCDEC          => '0',
+--            PSEN              => '0',
+--            PSCLK             => '0',
+--            CLKFX             => fx_clk_27
+--            );
+--
+--    inst_clk27_buf : BUFG
+--    port map (
+--        I => fx_clk_27,
+--        O => clock_27
+--        );
 
 --------------------------------------------------------
 -- Power Up Reset Generation
@@ -732,6 +817,103 @@ begin
     end generate;
 
 --------------------------------------------------------
+-- HDMI
+--------------------------------------------------------
+
+    -- Recreate the video sync/blank signals that match standard HDTV 720x576p
+    --
+    -- Modeline "720x576 @ 50hz"  27    720   732   796   864   576   581   586   625
+    --
+    -- Hcnt is set to 0 on the trailing edge of hsync from the Beeb core
+    -- so the H constants below need to be offset by 864-796=68
+    --
+    -- Vcnt is set to 0 on the trailing edge of vsync from the Beeb core
+    -- so the V constants below need to be offset by 625-586=39
+    --
+    -- This only works because the Beeb core is generating 32us lines
+    --
+    -- The hdmidataencode module inserts a 32 pixel data packet after each of hsync,
+    -- so the hsync pulse needs to be at least this width.
+
+    process(clock_27)
+    begin
+        if rising_edge(clock_27) then
+            hsync1 <= hsync;
+            if hsync1 = '0' and hsync = '1' then
+                hcnt <= (others => '0');
+                vsync1 <= vsync;
+                if vsync1 = '0' and vsync = '1' then
+                    vcnt <= (others => '0');
+                else
+                    vcnt <= vcnt + 1;
+                end if;
+            else
+                hcnt <= hcnt + 1;
+            end if;
+            if hcnt < 68 or hcnt >= 68 + 720 or vcnt < 39 or vcnt >= 39 + 576 then
+                hdmi_blank <= '1';
+                hdmi_red   <= (others => '0');
+                hdmi_green <= (others => '0');
+                hdmi_blue  <= (others => '0');
+            else
+                hdmi_blank <= '0';
+                hdmi_red   <= red;
+                hdmi_green <= green;
+                hdmi_blue  <= blue;
+            end if;
+            if hcnt >= 732 + 68 then -- 800
+                hdmi_hsync <= '0';
+                if vcnt >= 581 + 39 then -- 620
+                    hdmi_vsync <= '0';
+                else
+                    hdmi_vsync <= '1';
+                end if;
+            else
+                hdmi_hsync <= '1';
+            end if;
+        end if;
+    end process;
+
+    inst_hdmi: entity work.hdmi
+    generic map (
+      FREQ => 27000000,  -- pixel clock frequency
+      FS   => 48000,     -- audio sample rate - should be 32000, 44100 or 48000
+      CTS  => 27000,     -- CTS = Freq(pixclk) * N / (128 * Fs)
+      N    => 6144       -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
+    )
+    port map (
+      -- clocks
+      I_CLK_PIXEL      => clock_27,
+      -- components
+      I_R              => hdmi_red   & "0000",
+      I_G              => hdmi_green & "0000",
+      I_B              => hdmi_blue  & "0000",
+      I_BLANK          => hdmi_blank,
+      I_HSYNC          => hdmi_hsync,
+      I_VSYNC          => hdmi_vsync,
+      -- PCM audio
+      I_AUDIO_ENABLE   => copro_mode,
+      I_AUDIO_PCM_L    => audio_l,
+      I_AUDIO_PCM_R    => audio_r,
+      -- TMDS parallel pixel synchronous outputs (serialize LSB first)
+      O_RED            => tdms_r,
+      O_GREEN          => tdms_g,
+      O_BLUE           => tdms_b
+      );
+
+    inst_hdmi_out_xilinx: entity work.hdmi_out_xilinx
+    port map (
+        clock_pixel_i  => clock_27,    -- (x1)
+        clock_tdms_i   => clock_135,   -- (x5)
+        clock_tdms_n_i => clock_135_n, -- (x5)
+        red_i          => tdms_r,
+        green_i        => tdms_g,
+        blue_i         => tdms_b,
+        tmds_out_p     => hdmi_p_o,
+        tmds_out_n     => hdmi_n_o
+   );
+
+--------------------------------------------------------
 -- Unused outputs
 --------------------------------------------------------
 
@@ -766,10 +948,10 @@ begin
     flash_wp_o     <= '0';
 
     -- TODO: add support for HDMI output
-    OBUFDS_c0  : OBUFDS port map ( O  => hdmi_p_o(0), OB => hdmi_n_o(0), I => '1');
-    OBUFDS_c1  : OBUFDS port map ( O  => hdmi_p_o(1), OB => hdmi_n_o(1), I => '1');
-    OBUFDS_c2  : OBUFDS port map ( O  => hdmi_p_o(2), OB => hdmi_n_o(2), I => '1');
-    OBUFDS_clk : OBUFDS port map ( O  => hdmi_p_o(3), OB => hdmi_n_o(3), I => '1');
+    --OBUFDS_c0  : OBUFDS port map ( O  => hdmi_p_o(0), OB => hdmi_n_o(0), I => '1');
+    --OBUFDS_c1  : OBUFDS port map ( O  => hdmi_p_o(1), OB => hdmi_n_o(1), I => '1');
+    --OBUFDS_c2  : OBUFDS port map ( O  => hdmi_p_o(2), OB => hdmi_n_o(2), I => '1');
+    --OBUFDS_clk : OBUFDS port map ( O  => hdmi_p_o(3), OB => hdmi_n_o(3), I => '1');
 
     i2c_scl_io <= 'Z';
     i2c_sda_io <= 'Z';

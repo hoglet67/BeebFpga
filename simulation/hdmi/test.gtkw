@@ -1,0 +1,63 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Thu Mar 12 14:00:58 2020
+[*]
+[dumpfile] "/disk1/home/dmb/atom/BeebFpga/simulation/hdmi/dump.vcd"
+[dumpfile_mtime] "Thu Mar 12 14:00:58 2020"
+[dumpfile_size] 266498048
+[savefile] "/disk1/home/dmb/atom/BeebFpga/simulation/hdmi/test.gtkw"
+[timestart] 3062774000
+[size] 1853 1145
+[pos] -51 -51
+*-19.000000 220000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] test_harness.
+[treeopen] test_harness.hdmi.
+[treeopen] test_harness.hdmi.dataencoder.
+[sst_width] 223
+[signals_width] 214
+[sst_expanded] 1
+[sst_vpaned_height] 343
+@28
+test_harness.hdmi.dataencoder.allowGeneration
+@22
+test_harness.hdmi.dataencoder.audioLAvg[15:0]
+test_harness.hdmi.dataencoder.audioPacketHeader[23:0]
+test_harness.hdmi.dataencoder.audioRAvg[15:0]
+test_harness.hdmi.dataencoder.audioTimer[16:0]
+test_harness.hdmi.dataencoder.bchHdr[7:0]
+test_harness.hdmi.dataencoder.channelStatusIdx[7:0]
+test_harness.hdmi.dataencoder.counterX[15:0]
+test_harness.hdmi.dataencoder.ctsTimer[16:0]
+test_harness.hdmi.dataencoder.dataChannel0[3:0]
+test_harness.hdmi.dataencoder.dataChannel1[3:0]
+test_harness.hdmi.dataencoder.dataChannel2[3:0]
+test_harness.hdmi.dataencoder.dataOffset[4:0]
+@28
+test_harness.hdmi.dataencoder.firstHSyncChange
+@22
+test_harness.hdmi.dataencoder.i_audioL[15:0]
+test_harness.hdmi.dataencoder.i_audioR[15:0]
+@29
+test_harness.hdmi.dataencoder.i_audio_enable
+@28
+test_harness.hdmi.dataencoder.i_blank
+test_harness.hdmi.dataencoder.i_hSync
+test_harness.hdmi.dataencoder.i_pixclk
+test_harness.hdmi.dataencoder.i_vSync
+@22
+test_harness.hdmi.dataencoder.o_d0[3:0]
+test_harness.hdmi.dataencoder.o_d1[3:0]
+test_harness.hdmi.dataencoder.o_d2[3:0]
+@28
+test_harness.hdmi.dataencoder.o_data
+test_harness.hdmi.dataencoder.oddLine
+@22
+test_harness.hdmi.dataencoder.packetHeader[23:0]
+@28
+test_harness.hdmi.dataencoder.prevBlank
+test_harness.hdmi.dataencoder.prevHSync
+test_harness.hdmi.dataencoder.samplesHead[1:0]
+test_harness.hdmi.dataencoder.tercData
+test_harness.hdmi.dataencoder.SendPackets.dataEnable
+[pattern_trace] 1
+[pattern_trace] 0

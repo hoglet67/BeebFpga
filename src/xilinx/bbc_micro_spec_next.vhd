@@ -858,7 +858,11 @@ begin
             else
                 hdmi_blank <= '0';
                 hdmi_red   <= red;
-                hdmi_green <= green;
+                if hcnt = 68 or hcnt = 68 + 719 or vcnt = 39 or vcnt = 39 + 575 then
+                    hdmi_green <= (others => '1');
+                else
+                    hdmi_green <= green;
+                end if;
                 hdmi_blue  <= blue;
             end if;
             if hcnt >= 732 + 68 then -- 800
@@ -877,9 +881,12 @@ begin
     inst_hdmi: entity work.hdmi
     generic map (
       FREQ => 27000000,  -- pixel clock frequency
-      FS   => 48000,     -- audio sample rate - should be 32000, 44100 or 48000
+      --FS   => 48000,   -- audio sample rate - should be 32000, 44100 or 48000
+      --CTS  => 27000,   -- CTS = Freq(pixclk) * N / (128 * Fs)
+      --N    => 6144     -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
+      FS   => 32000,     -- audio sample rate - should be 32000, 44100 or 48000
       CTS  => 27000,     -- CTS = Freq(pixclk) * N / (128 * Fs)
-      N    => 6144       -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
+      N    => 4096       -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
     )
     port map (
       -- clocks
@@ -892,7 +899,7 @@ begin
       I_HSYNC          => hdmi_hsync,
       I_VSYNC          => hdmi_vsync,
       -- PCM audio
-      I_AUDIO_ENABLE   => copro_mode,
+      I_AUDIO_ENABLE   => copro_mode, -- TODO, use something more appropriate
       I_AUDIO_PCM_L    => audio_l,
       I_AUDIO_PCM_R    => audio_r,
       -- TMDS parallel pixel synchronous outputs (serialize LSB first)

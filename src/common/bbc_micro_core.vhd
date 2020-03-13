@@ -141,6 +141,8 @@ entity bbc_micro_core is
         -- Bit 3 inverts vsync
         vid_mode       : in    std_logic_vector(3 downto 0);
 
+        ttxt_mode      : out   std_logic;
+
         -- Main Joystick and Secondary Joystick
         -- Bit 0 - Up (active low)
         -- Bit 1 - Down (active low)
@@ -1948,6 +1950,10 @@ begin
     -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: SAA5050 VGA Mode with retimer
     -- 1 0 Mode 0-7: Mist SD,     Mode 7: Mist SD
     -- 1 1 Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode
+
+    --- Indicate to the parent module when ttxt is active
+    -- e.g. for HDMI aspect ratio switching
+    ttxt_mode <= ttxt;
 
     -- The SAA5050 24MHz VGA mode is enabled
     vga_mode <= '1' when (vid_mode(0) = '1' and ttxt = '1') else '0';

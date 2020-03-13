@@ -199,6 +199,9 @@ architecture rtl of bbc_micro_spec_next is
     signal reconfig        : std_logic := '0';
     signal m128_mode       : std_logic;
     signal copro_mode      : std_logic := '0';
+    signal ttxt_mode       : std_logic;
+    signal hdmi_aspect     : std_logic_vector(1 downto 0) := "00";
+    signal hdmi_aspect_169 : std_logic;
     signal red             : std_logic_vector(3 downto 0);
     signal green           : std_logic_vector(3 downto 0);
     signal blue            : std_logic_vector(3 downto 0);
@@ -345,6 +348,7 @@ begin
         shift_led      => open,
         keyb_dip       => keyb_dip,
         vid_mode       => vid_mode,
+        ttxt_mode      => ttxt_mode,
         joystick1      => joystick1,
         joystick2      => joystick2,
         avr_reset      => not hard_reset_n,
@@ -615,9 +619,7 @@ begin
 
             -- Yellow 1-8 Changes Video Modes and HDMI Audio
 
-            if yellow_config(0) = '1' then
-                hdmi_audio_en <= not hdmi_audio_en;
-            elsif yellow_config(1) = '1' then
+            if yellow_config(1) = '1' then
                 vid_mode      <= "0000";
             elsif yellow_config(2) = '1' then
                 vid_mode      <= "0001";
@@ -625,6 +627,14 @@ begin
                 vid_mode      <= "0010";
             elsif yellow_config(4) = '1' then
                 vid_mode      <= "0011";
+            elsif yellow_config(5) = '1' then
+                hdmi_audio_en <= not hdmi_audio_en;
+            elsif yellow_config(6) = '1' then
+                hdmi_aspect <= "00";
+            elsif yellow_config(7) = '1' then
+                hdmi_aspect <= "01";
+            elsif yellow_config(8) = '1' then
+                hdmi_aspect <= "10";
             end if;
 
             -- Green 1-2 Manages the internal 65C02 Co Processor
@@ -895,6 +905,11 @@ begin
         end if;
     end process;
 
+    hdmi_aspect_169 <= '0' when hdmi_aspect = "01" else -- always 4:3
+                       '1' when hdmi_aspect = "10" else -- always 16:9
+                       ttxt_mode;                       -- 4:3 in modes 0-6;
+                                                        -- 16:9 i mode 7
+
     inst_hdmi: entity work.hdmi
     generic map (
       FREQ => 27000000,  -- pixel clock frequency
@@ -915,6 +930,7 @@ begin
       I_BLANK          => hdmi_blank,
       I_HSYNC          => hdmi_hsync,
       I_VSYNC          => hdmi_vsync,
+      I_ASPECT_169     => hdmi_aspect_169,
       -- PCM audio
       I_AUDIO_ENABLE   => hdmi_audio_en,
       I_AUDIO_PCM_L    => audio_l,

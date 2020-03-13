@@ -30,12 +30,13 @@ entity hdmi is
       -- components
       I_R            : in std_logic_vector(7 downto 0);
       I_G            : in std_logic_vector(7 downto 0);
-      I_B            : in std_logic_vector(7 downto 0);  
+      I_B            : in std_logic_vector(7 downto 0);
       I_BLANK        : in std_logic;
       I_HSYNC        : in std_logic;
       I_VSYNC        : in std_logic;
+      I_ASPECT_169   : in std_logic;
       -- PCM audio
-      I_AUDIO_ENABLE  : in std_logic;
+      I_AUDIO_ENABLE : in std_logic;
       I_AUDIO_PCM_L  : in std_logic_vector(15 downto 0);
       I_AUDIO_PCM_R  : in std_logic_vector(15 downto 0);
       -- TMDS parallel pixel synchronous outputs (serialize LSB first)
@@ -56,70 +57,70 @@ generic
    N: integer := N
 );
 port (
-   i_pixclk : in std_logic;
-   i_hSync     : in std_logic;
-   i_vSync     : in std_logic;
-   i_blank     : in std_logic;
-   i_audio_enable  : in std_logic;
-   i_audioL    : in std_logic_vector(15 downto 0);
-   i_audioR    : in std_logic_vector(15 downto 0);
-   
-   o_d0     : out std_logic_vector(3 downto 0);
-   o_d1     : out std_logic_vector(3 downto 0);
-   o_d2     : out std_logic_vector(3 downto 0);
-   o_data   : out std_logic
+   i_pixclk       : in  std_logic;
+   i_hSync        : in  std_logic;
+   i_vSync        : in  std_logic;
+   i_blank        : in  std_logic;
+   i_audio_enable : in  std_logic;
+   i_aspect_169   : in  std_logic;
+   i_audioL       : in  std_logic_vector(15 downto 0);
+   i_audioR       : in  std_logic_vector(15 downto 0);
+   o_d0           : out std_logic_vector(3 downto 0);
+   o_d1           : out std_logic_vector(3 downto 0);
+   o_d2           : out std_logic_vector(3 downto 0);
+   o_data         : out std_logic
 );
 end component;
 
 
    signal red  : std_logic_vector(9 downto 0);
    signal green   : std_logic_vector(9 downto 0);
-   signal blue : std_logic_vector(9 downto 0);     
+   signal blue : std_logic_vector(9 downto 0);
 
    signal enc0out : std_logic_vector(9 downto 0);
    signal enc1out : std_logic_vector(9 downto 0);
-   signal enc2out : std_logic_vector(9 downto 0);     
-   
-   
+   signal enc2out : std_logic_vector(9 downto 0);
+
+
    signal tx_in   : std_logic_vector(29 downto 0);
    signal tmds_d  : std_logic_vector(3 downto 0);
 
    signal data     : std_logic;
-   signal dataPacket0      : std_logic_vector(3 downto 0);  
-   signal dataPacket1      : std_logic_vector(3 downto 0);  
-   signal dataPacket2      : std_logic_vector(3 downto 0);  
+   signal dataPacket0      : std_logic_vector(3 downto 0);
+   signal dataPacket1      : std_logic_vector(3 downto 0);
+   signal dataPacket2      : std_logic_vector(3 downto 0);
 
    signal delayLineIn: std_logic_vector(39 downto 0);
    signal delayLineOut: std_logic_vector(39 downto 0);
-   
+
    signal ROut: std_logic_vector(7 downto 0);
    signal GOut: std_logic_vector(7 downto 0);
    signal BOut: std_logic_vector(7 downto 0);
-   
+
    signal hSyncOut: std_logic;
    signal vSyncOut: std_logic;
    signal vdeOut: std_logic;
    signal dataOut: std_logic;
    signal vhSyncOut: std_logic_vector(1 downto 0);
-   
+
    signal prevBlank: std_logic;
    signal prevData: std_logic;
 
-   signal dataPacket0Out      : std_logic_vector(3 downto 0);  
-   signal dataPacket1Out      : std_logic_vector(3 downto 0);  
-   signal dataPacket2Out      : std_logic_vector(3 downto 0);  
-   
+   signal dataPacket0Out      : std_logic_vector(3 downto 0);
+   signal dataPacket1Out      : std_logic_vector(3 downto 0);
+   signal dataPacket2Out      : std_logic_vector(3 downto 0);
+
    signal ctl0: std_logic;
    signal ctl1: std_logic;
    signal ctl2: std_logic;
    signal ctl3: std_logic;
-   
+
    signal ctl_10: std_logic_vector(1 downto 0);
    signal ctl_32: std_logic_vector(1 downto 0);
-   
+
    -- states
    type count_state is (
-         videoData, 
+         videoData,
          videoDataPreamble,
          videoDataGuardBand,
          dataIslandPreamble,
@@ -128,12 +129,12 @@ end component;
          dataIsland,
          controlData
    );
-   
-   signal state: count_state; 
+
+   signal state: count_state;
 
    signal clockCounter: integer range 0 to 2047;
-   
-   -- Horizontal Timing constants  
+
+   -- Horizontal Timing constants
    constant h_pixels_across   : integer := 720 - 1;
    constant h_sync_on      : integer := 736 - 1;
    constant h_sync_off     : integer := 798 - 1;
@@ -143,7 +144,7 @@ end component;
    constant v_sync_on      : integer := 489 - 1;
    constant v_sync_off     : integer := 495 - 1;
    constant v_end_count    : integer := 525 - 2;
-   
+
    --signal I_BLANK        :  std_logic;
    --signal I_HSYNC        :  std_logic;
    --signal I_VSYNC        :  std_logic;
@@ -152,7 +153,7 @@ end component;
    signal shift      : std_logic_vector(7 downto 0);
    signal hcnt    : std_logic_vector(11 downto 0) := "000000000000";    -- horizontal pixel counter
    signal vcnt    : std_logic_vector(11 downto 0) := "000000000000";    -- vertical line counter
-   
+
 begin
 
    process (I_CLK_PIXEL, hcnt)
@@ -173,16 +174,16 @@ begin
          end if;
       end if;
    end process;
-   
+
    --I_HSYNC   <= '1' when (hcnt <= h_sync_on) or (hcnt > h_sync_off) else '0';
-   --I_VSYNC   <= '1' when (vcnt <= v_sync_on) or (vcnt > v_sync_off) else '0'; 
+   --I_VSYNC   <= '1' when (vcnt <= v_sync_on) or (vcnt > v_sync_off) else '0';
    --I_BLANK   <= '1' when (hcnt > h_pixels_across) or (vcnt > v_pixels_down) else '0'; -- 1 when blanking
-   
+
 -- I_R   <= "11111111" when hcnt = 0 or hcnt = h_pixels_across or vcnt = 0 or vcnt = v_pixels_down else (hcnt(7 downto 0) + shift) and "11111111";
 -- I_G   <= "11111111" when hcnt = 0 or hcnt = h_pixels_across or vcnt = 0 or vcnt = v_pixels_down else (vcnt(7 downto 0) + shift) and "11111111";
 -- I_B   <= "11111111" when hcnt = 0 or hcnt = h_pixels_across or vcnt = 0 or vcnt = v_pixels_down else (hcnt(7 downto 0) + vcnt(7 downto 0) - shift) and "11111111";
 
-   
+
 
 -- data should be delayed for 11 clocks to allow preamble and guard band generation
 
@@ -215,15 +216,15 @@ vhSyncOut <= vSyncOut & hSyncOut;
 ctl_10 <= ctl1&ctl0;
 ctl_32 <= ctl3&ctl2;
 
-FSA: process(I_CLK_PIXEL) is 
-begin 
+FSA: process(I_CLK_PIXEL) is
+begin
    if(rising_edge(I_CLK_PIXEL)) then
       if(prevBlank = '0' and i_BLANK = '1') then
          state <= controlData;
          clockCounter <= 0;
       else
          case state is
-            when controlData => 
+            when controlData =>
                if prevData = '0' and data = '1' then      -- ok - data stared - needs data preamble
                   state <= dataIslandPreamble;
                   ctl0 <= '1';
@@ -241,7 +242,7 @@ begin
                end if;
             when dataIslandPreamble =>                    -- data island preable needed for 8 clocks
                if clockCounter = 8  then
-                  state <= dataIslandPreGuard;              
+                  state <= dataIslandPreGuard;
                   ctl0 <= '0';
                   ctl1 <= '0';
                   ctl2 <= '0';
@@ -252,15 +253,15 @@ begin
                end if;
             when dataIslandPreGuard =>                    -- data island preguard needed for 2 clocks
                if clockCounter = 1 then
-                  state <= dataIsland;             
+                  state <= dataIsland;
                   clockCounter <= 0;
                else
                   clockCounter <= clockCounter + 1;
                end if;
-            when dataIsland => 
+            when dataIsland =>
                if clockCounter = 11 then                  -- ok we at the end of data island - post guard is needed
-                  state <= dataIslandPostGuard;             
-                  clockCounter <= 0;               
+                  state <= dataIslandPostGuard;
+                  clockCounter <= 0;
                elsif prevBlank = '1' and I_BLANK = '0' then -- something fails - no data were detected but blank os out
                   state <= videoDataPreamble;
                   ctl0 <= '1';
@@ -269,19 +270,19 @@ begin
                   ctl3 <= '0';
                   clockCounter <= 0;
                elsif data = '0' then                         -- start count and count only when data is over
-                  clockCounter <= clockCounter + 1;               
+                  clockCounter <= clockCounter + 1;
                end if;
-               
+
             when dataIslandPostGuard =>                   -- data island postguard needed for 2 clocks
                if clockCounter = 1  then
-                  state <= controlData;               
+                  state <= controlData;
                   clockCounter <= 0;
                else
                   clockCounter <= clockCounter + 1;
                end if;
             when videoDataPreamble =>                     -- video data preable needed for 8 clocks
                if clockCounter = 8  then
-                  state <= videoDataGuardBand;              
+                  state <= videoDataGuardBand;
                   ctl0 <= '0';
                   ctl1 <= '0';
                   ctl2 <= '0';
@@ -292,28 +293,28 @@ begin
                end if;
             when videoDataGuardBand =>                    -- video data guard needed for 2 clocks
                if clockCounter = 1  then
-                  state <= videoData;              
+                  state <= videoData;
                   clockCounter <= 0;
                else
                   clockCounter <= clockCounter + 1;
                end if;
-            when videoData =>                
+            when videoData =>
                if clockCounter = 11  then                 -- ok we at the end of video data - just switch to control
-                  state <= controlData;               
-                  clockCounter <= 0;   
+                  state <= controlData;
+                  clockCounter <= 0;
                elsif I_BLANK = '1' then                         -- start count and count only when video is over
-                  clockCounter <= clockCounter + 1;               
+                  clockCounter <= clockCounter + 1;
                end if;
          end case;
       end if;
       prevBlank <= I_BLANK;
       prevData <= data;
-      
+
    end if;
-end process; 
+end process;
 
 
-blueout: blue <= 
+blueout: blue <=
    "1010001110" when (state = dataIslandPreGuard or state = dataIslandPostGuard) and vhSyncOut = "00" else
    "1001110001" when (state = dataIslandPreGuard or state = dataIslandPostGuard) and vhSyncOut = "01" else
    "0101100011" when (state = dataIslandPreGuard or state = dataIslandPostGuard) and vhSyncOut = "10" else
@@ -321,12 +322,12 @@ blueout: blue <=
    "1011001100" when state = videoDataGuardBand else
    enc0out;
 
-greenout: green <= 
+greenout: green <=
    "0100110011" when state = videoDataGuardBand else
    "0100110011" when state = dataIslandPreGuard or state = dataIslandPostGuard else
    enc1out;
 
-redout: red <= 
+redout: red <=
    "1011001100" when state = videoDataGuardBand else
    "0100110011" when state = dataIslandPreGuard or state = dataIslandPostGuard else
    enc2out;
@@ -346,17 +347,18 @@ generic map (
    N => N
 )
 port map(
-   i_pixclk    => I_CLK_PIXEL,
-   i_blank     => I_BLANK,
-   i_hSync     => I_HSYNC,
-   i_vSync     => I_VSYNC,
-   i_audio_enable  => I_AUDIO_ENABLE,
-   i_audioL    => I_AUDIO_PCM_L,
-   i_audioR    => I_AUDIO_PCM_R,
-   o_d0        => dataPacket0,
-   o_d1        => dataPacket1,
-   o_d2        => dataPacket2,
-   o_data      => data
+   i_pixclk       => I_CLK_PIXEL,
+   i_blank        => I_BLANK,
+   i_hSync        => I_HSYNC,
+   i_vSync        => I_VSYNC,
+   i_audio_enable => I_AUDIO_ENABLE,
+   i_aspect_169   => I_ASPECT_169,
+   i_audioL       => I_AUDIO_PCM_L,
+   i_audioR       => I_AUDIO_PCM_R,
+   o_d0           => dataPacket0,
+   o_d1           => dataPacket1,
+   o_d2           => dataPacket2,
+   o_data         => data
 );
 
 
@@ -389,7 +391,7 @@ port map (
    ADE   => dataOut,
    AUX   => dataPacket2Out,
    ENCODED  => enc2out);
-   
+
 O_RED <= red;
 O_GREEN  <= green;
 O_BLUE   <= blue;

@@ -42,20 +42,29 @@ use ieee.numeric_std.all;
 entity kbd_spec_next is
     port (
         -- Clock
-        clock      : in std_logic;
-        reset_n    : in std_logic;
+        clock             : in  std_logic;
+        reset_n           : in  std_logic;
 
         -- Specnext Keboard matrix
-        keyb_col_i : in  std_logic_vector(6 downto 0);
-        keyb_row_o : out std_logic_vector(7 downto 0);  -- 0 for row active
-                                                        -- Z for row inactive
+        keyb_col_i        : in  std_logic_vector(6 downto 0);
+        keyb_row_o        : out std_logic_vector(7 downto 0);  -- 0 for row active
+                                                               -- Z for row inactive
+        -- Specnext Buttons
+        btn_divmmc_n_i    : in  std_logic;
+        btn_multiface_n_i : in  std_logic;
+
+        -- Debounced configuration outputs
+        -- (pulse high for 1 clock cycle when depressed)
+        green_config      : out std_logic_vector(9 downto 0);  -- Green  / divmmc    / Drive
+        yellow_config     : out std_logic_vector(9 downto 0);  -- Yellow / multiface / NMI
+
         -- Beeb Keyboard
-        keyb_1mhz  : in  std_logic;
-        keyb_en_n  : in  std_logic;
-        keyb_pa    : in  std_logic_vector(6 downto 0);
-        keyb_rst_n : out std_logic := '1';
-        keyb_ca2   : out std_logic;
-        keyb_pa7   : out std_logic
+        keyb_1mhz         : in  std_logic;
+        keyb_en_n         : in  std_logic;
+        keyb_pa           : in  std_logic_vector(6 downto 0);
+        keyb_rst_n        : out std_logic := '1';
+        keyb_ca2          : out std_logic;
+        keyb_pa7          : out std_logic
         );
 end entity;
 
@@ -74,6 +83,14 @@ architecture rtl of kbd_spec_next is
     signal extend      : std_logic;            -- The Extend modifier is active
     signal symshift    : std_logic;            -- The Symbol Shift modifier is active
     signal idle        : std_logic;            -- No keys are pressed (cancels modifiers)
+
+    -- Button press detection
+    signal btn_divmmc_n_last      : std_logic;
+    signal btn_multiface_n_last   : std_logic;
+    signal debounce_ctr           : std_logic_vector(19 downto 0);
+    signal spec_number_keys       : std_logic_vector(9 downto 0);
+    signal spec_number_keys_last  : std_logic_vector(9 downto 0);
+    signal spec_number_keys_last2 : std_logic_vector(9 downto 0);
 
 begin
 
@@ -192,7 +209,11 @@ begin
                 keys(8) <= (others => '0');
                 keys(9) <= (others => '0');
 
-                if extend = '1' then
+                if btn_divmmc_n_i = '0' or btn_multiface_n_i = '0' then
+
+                    -- ignore and key presses during configuration
+
+                elsif extend = '1' then
 
                     -- Extend modifier is used to access function keys
                     -- Only keys 0-9 have any effect in this mode
@@ -416,6 +437,48 @@ begin
             keyb_pa7 <= k(to_integer(unsigned(keyb_pa(6 downto 4))));
         else
             keyb_pa7 <= '0';
+        end if;
+    end process;
+
+
+    -- Config
+    spec_number_keys <=
+        spec_matrix(4)(1) & -- 9
+        spec_matrix(4)(2) & -- 8
+        spec_matrix(4)(3) & -- 7
+        spec_matrix(4)(4) & -- 6
+        spec_matrix(3)(4) & -- 5
+        spec_matrix(3)(3) & -- 4
+        spec_matrix(3)(2) & -- 3
+        spec_matrix(3)(1) & -- 2
+        spec_matrix(3)(0) & -- 1
+        spec_matrix(4)(0) ; -- 0
+
+    key_gen : process(clock)
+    begin
+        -- Debounce counter is currently 20 bits, which is 21.8ms
+        if rising_edge(clock) then
+            debounce_ctr <= debounce_ctr + 1;
+            if debounce_ctr = 0 then
+                -- Sample the keys/buttons once per debounce period
+                spec_number_keys_last <= spec_number_keys;
+                btn_divmmc_n_last     <= btn_divmmc_n_i;
+                btn_multiface_n_last  <= btn_multiface_n_i;
+            end if;
+            -- Edge detection on the number press
+            spec_number_keys_last2 <= spec_number_keys_last;
+            -- Assert green config for one cycle when green + (0-9) pressed
+            if btn_divmmc_n_last <= '0' then
+                green_config <= spec_number_keys_last and not(spec_number_keys_last2);
+            else
+                green_config <= (others => '0');
+            end if;
+            -- Assert yellow config for one cycle when yellow + (0-9) pressed
+            if btn_multiface_n_last <= '0' then
+                yellow_config <= spec_number_keys_last and not(spec_number_keys_last2);
+            else
+                yellow_config <= (others => '0');
+            end if;
         end if;
     end process;
 

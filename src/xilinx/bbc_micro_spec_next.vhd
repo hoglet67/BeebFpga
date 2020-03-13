@@ -195,7 +195,6 @@ architecture rtl of bbc_micro_spec_next is
     signal RAM_nCS         : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0) := "0011";
-    signal debounce_ctr    : std_logic_vector(19 downto 0);
     signal reconfig_ctr    : std_logic_vector(23 downto 0);
     signal reconfig        : std_logic := '0';
     signal m128_mode       : std_logic;
@@ -209,6 +208,7 @@ architecture rtl of bbc_micro_spec_next is
     signal hdmi_hsync      : std_logic;
     signal hdmi_vsync      : std_logic;
     signal hdmi_blank      : std_logic;
+    signal hdmi_audio_en   : std_logic := '1';
     signal hsync           : std_logic;
     signal vsync           : std_logic;
     signal hsync1          : std_logic;
@@ -277,10 +277,9 @@ architecture rtl of bbc_micro_spec_next is
     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
     signal bootstrap_busy  : std_logic;
 
-    -- Button press detection
-    signal btn_divmmc_n_last      : std_logic;
-    signal btn_multiface_n_last   : std_logic;
-    signal btn_reset_n_last       : std_logic;
+    -- Config buttons
+    signal yellow_config             : std_logic_vector(9 downto 0);
+    signal green_config              : std_logic_vector(9 downto 0);
 
 begin
 
@@ -589,29 +588,6 @@ begin
 -- Power Up Reset Generation
 --------------------------------------------------------
 
-    key_gen : process(clock_48)
-    begin
-        -- Debounce counter is currently 20 bits, which is 21.8ms
-        if rising_edge(clock_48) then
-            -- Increment the debounce counter (about 20ms)
-            debounce_ctr <= debounce_ctr + 1;
-            if debounce_ctr = 0 then
-                -- Pressing divmmc toggles the Co Pro on and off
-                btn_divmmc_n_last <= btn_divmmc_n_i;
-                if btn_divmmc_n_last = '1' and btn_divmmc_n_i = '0' then
-                    copro_mode <= not copro_mode;
-                end if;
-                -- Pressing multiface increments the video mode
-                btn_multiface_n_last <= btn_multiface_n_i;
-                if btn_multiface_n_last = '1' and btn_multiface_n_i = '0' then
-                    vid_mode(1 downto 0) <= vid_mode(1 downto 0) + 1;
-                end if;
-                -- Pressimng reset does a hard reset
-                btn_reset_n_last <= btn_reset_n_i;
-            end if;
-        end if;
-    end process;
-
     m128_mode <= '1' when IncludeMaster else '0';
 
     -- Generate a reliable power up reset
@@ -622,12 +598,44 @@ begin
             if reset_counter(reset_counter'high) = '0' then
                 reset_counter <= reset_counter + 1;
             end if;
-            powerup_reset_n <= btn_reset_n_last and reset_counter(reset_counter'high);
+            powerup_reset_n <= btn_reset_n_i and reset_counter(reset_counter'high);
         end if;
     end process;
 
     -- extend the version seen by the core to hold the 6502 reset during bootstrap
     hard_reset_n <= powerup_reset_n and not bootstrap_busy;
+
+--------------------------------------------------------
+-- Configuration toggles
+--------------------------------------------------------
+
+    config: process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+
+            -- Yellow 1-8 Changes Video Modes and HDMI Audio
+
+            if yellow_config(0) = '1' then
+                hdmi_audio_en <= not hdmi_audio_en;
+            elsif yellow_config(1) = '1' then
+                vid_mode      <= "0000";
+            elsif yellow_config(2) = '1' then
+                vid_mode      <= "0001";
+            elsif yellow_config(3) = '1' then
+                vid_mode      <= "0010";
+            elsif yellow_config(4) = '1' then
+                vid_mode      <= "0011";
+            end if;
+
+            -- Green 1-2 Manages the internal 65C02 Co Processor
+            if green_config(1) = '1' then
+                copro_mode <= '1';
+            elsif green_config(2) = '1' then
+                copro_mode <= '0';
+            end if;
+
+        end if;
+    end process;
 
 --------------------------------------------------------
 -- Dynamic Reconfiguration
@@ -662,20 +670,29 @@ begin
     kbd_spec_next_inst : entity work.kbd_spec_next
     port map (
         -- Clock
-        clock      => clock_48,
-        reset_n    => hard_reset_n,
+        clock             => clock_48,
+        reset_n           => hard_reset_n,
 
         -- Specnext Keboard matrix
-        keyb_col_i => keyb_col_i,
-        keyb_row_o => keyb_row_o,
+        keyb_col_i        => keyb_col_i,
+        keyb_row_o        => keyb_row_o,
+
+        -- Specnext Buttons
+        btn_divmmc_n_i    => btn_divmmc_n_i,    -- Green  / divmmc    / Drive
+        btn_multiface_n_i => btn_multiface_n_i, -- Yellow / multiface / NMI
+
+        -- Debounced configuration outputs
+        -- (pulse high for 1 clock cycle when depressed)
+        green_config      => green_config,      -- Green  / divmmc    / Drive
+        yellow_config     => yellow_config,     -- Yellow / multiface / NMI
 
         -- Beeb Keyboard
-        keyb_1mhz  => ext_keyb_1mhz,
-        keyb_en_n  => ext_keyb_en_n,
-        keyb_pa    => ext_keyb_pa,
-        keyb_rst_n => ext_keyb_rst_n,
-        keyb_ca2   => ext_keyb_ca2,
-        keyb_pa7   => ext_keyb_pa7
+        keyb_1mhz         => ext_keyb_1mhz,
+        keyb_en_n         => ext_keyb_en_n,
+        keyb_pa           => ext_keyb_pa,
+        keyb_rst_n        => ext_keyb_rst_n,
+        keyb_ca2          => ext_keyb_ca2,
+        keyb_pa7          => ext_keyb_pa7
         );
 
 --------------------------------------------------------
@@ -899,7 +916,7 @@ begin
       I_HSYNC          => hdmi_hsync,
       I_VSYNC          => hdmi_vsync,
       -- PCM audio
-      I_AUDIO_ENABLE   => copro_mode, -- TODO, use something more appropriate
+      I_AUDIO_ENABLE   => hdmi_audio_en,
       I_AUDIO_PCM_L    => audio_l,
       I_AUDIO_PCM_R    => audio_r,
       -- TMDS parallel pixel synchronous outputs (serialize LSB first)
@@ -953,12 +970,6 @@ begin
     -- Addtional flash pins; used at IO2 and IO3 in Quad SPI Mode
     flash_hold_o   <= '1';
     flash_wp_o     <= '0';
-
-    -- TODO: add support for HDMI output
-    --OBUFDS_c0  : OBUFDS port map ( O  => hdmi_p_o(0), OB => hdmi_n_o(0), I => '1');
-    --OBUFDS_c1  : OBUFDS port map ( O  => hdmi_p_o(1), OB => hdmi_n_o(1), I => '1');
-    --OBUFDS_c2  : OBUFDS port map ( O  => hdmi_p_o(2), OB => hdmi_n_o(2), I => '1');
-    --OBUFDS_clk : OBUFDS port map ( O  => hdmi_p_o(3), OB => hdmi_n_o(3), I => '1');
 
     i2c_scl_io <= 'Z';
     i2c_sda_io <= 'Z';

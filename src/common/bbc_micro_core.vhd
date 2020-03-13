@@ -302,22 +302,31 @@ signal r_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal g_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal b_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
--- Scandoubler signals (Mist)
+-- Scan Doubler signals (Mist)
 signal rgbi_in          :   std_logic_vector(RGB_WIDTH * 3 downto 0);
 signal vga0_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga0_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga0_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga0_hs          :   std_logic;
 signal vga0_vs          :   std_logic;
-signal vga0_mode        :   std_logic;
--- Scandoubler signals (RGB2VGA)
+-- Scan Doubler signals (RGB2VGA)
 signal vga1_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga1_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga1_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga1_hs          :   std_logic;
 signal vga1_vs          :   std_logic;
-signal vga1_mode        :   std_logic;
-signal vga2_mode        :   std_logic;
+-- Scan Retimer (24MHz to 27MHz) signals
+signal vga2_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga2_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga2_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal vga2_hs          :   std_logic;
+signal vga2_vs          :   std_logic;
+
+signal vga_mode         :   std_logic; -- Runs the SAA5050 at 24Mhz
+signal vga0_mode        :   std_logic; -- Use the Mist Scan Doubler
+signal vga1_mode        :   std_logic; -- Use the RGB2VGA Scan Doubler
+signal vga2_mode        :   std_logic; -- Use the 24MHz to 27MHz Retimer
+
 signal rgbi_out         :   std_logic_vector(RGB_WIDTH * 3 downto 0);
 signal vsync_int        :   std_logic;
 signal hsync_int        :   std_logic;
@@ -632,7 +641,7 @@ begin
         crtc_de,
         crtc_cursor,
         crtc_lpstb,
-        vga2_mode,
+        vga_mode,
         crtc_ma,
         crtc_ra );
 
@@ -649,7 +658,7 @@ begin
                 CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt,
-                VGA             => vga2_mode,
+                VGA             => vga_mode,
                 ENABLE          => vidproc_enable,
                 A               => cpu_a(1 downto 0),
                 DI_CPU          => cpu_do,
@@ -677,7 +686,7 @@ begin
                 CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt,
-                VGA             => vga2_mode,
+                VGA             => vga_mode,
                 ENABLE          => vidproc_enable,
                 A0              => cpu_a(0),
                 DI_CPU          => cpu_do,
@@ -698,7 +707,7 @@ begin
         clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
         ttxt_clken,
         hard_reset_n,
-        vga2_mode,
+        vga_mode,
         clock_48, -- Data input is synchronised from the bus clock domain
         vid_clken,
         vid_mem_data(6 downto 0),
@@ -1233,7 +1242,7 @@ begin
             end if;
 
             -- 12MHz clock enable (for SAA5050)
-            if (vga2_mode = '0' and div8_counter(1 downto 0) = 3) or (vga2_mode = '1' and div8_counter(0) = '1') then
+            if (vga_mode = '0' and div8_counter(1 downto 0) = 3) or (vga_mode = '1' and div8_counter(0) = '1') then
                 ttxt_clken <= '1';
             else
                 ttxt_clken <= '0';
@@ -1903,34 +1912,66 @@ begin
 
 
 -----------------------------------------------
+-- 24MHz to 27MHz Scan Retimer (by DMB)
+-----------------------------------------------
+
+    inst_retimer: entity work.retimer
+    generic map (
+        -- WIDTH is width of individual rgb in/out ports
+        WIDTH => RGB_WIDTH
+    )
+    port map (
+        clk_in    => clock_48,
+        clken_in  => ttxt_clken,
+        clk_out   => clock_27,
+        clken_out => '1',
+        hs_in     => crtc_hsync_n,
+        vs_in     => crtc_vsync_n,
+        r_in      => r_out,
+        g_in      => g_out,
+        b_in      => b_out,
+        hs_out    => vga2_hs,
+        vs_out    => vga2_vs,
+        r_out     => vga2_r,
+        g_out     => vga2_g,
+        b_out     => vga2_b
+    );
+
+
+-----------------------------------------------
 -- RGBHV Multiplexor
 -----------------------------------------------
 
     -- Video Mode Links
     --
     -- 0 0 SCART RGB mode (15.625KHz)
-    -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: SAA5050 VGA Mode
+    -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: SAA5050 VGA Mode with retimer
     -- 1 0 Mode 0-7: Mist SD,     Mode 7: Mist SD
     -- 1 1 Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode
 
-    -- The RGBtoVGA Scan Doubler (27MHz, also used for HDMI)
-    vga1_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt = '0' else '0';
+    -- The SAA5050 24MHz VGA mode is enabled
+    vga_mode <= '1' when (vid_mode(0) = '1' and ttxt = '1') else '0';
 
-    -- The Mist Scan Doubler
+    -- The video output is taken from the Mist Scan Doubler
     vga0_mode <= '1' when (vid_mode(1 downto 0) = "11" and ttxt = '0') or vid_mode(1 downto 0) = "10" else '0';
 
-    -- The SAA5050 VGA Mode
-    vga2_mode <= '1' when (vid_mode(0) = '1' and ttxt = '1') else '0';
+    -- The video output is taken from the RGBtoVGA Scan Doubler
+    vga1_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt = '0' else '0';
+
+    -- The video output is taken from the Retimer
+    vga2_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt = '1' else '0';
 
     -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
     hsync_int   <= vga0_hs when vga0_mode = '1' else
                    vga1_hs when vga1_mode = '1' else
-            not crtc_hsync when vga2_mode = '1' else
+                   vga2_hs when vga2_mode = '1' else
+              crtc_hsync_n when  vga_mode = '1' else
                    not (crtc_hsync or crtc_vsync);
 
     vsync_int   <= vga0_vs when vga0_mode = '1' else
                    vga1_vs when vga1_mode = '1' else
-            not crtc_vsync when vga2_mode = '1' else
+                   vga2_vs when vga2_mode = '1' else
+              crtc_vsync_n when  vga_mode = '1' else
                    '1';
 
     video_hsync <= hsync_int xor vid_mode(2);
@@ -1939,14 +1980,17 @@ begin
 
     final_r <= vga0_r when vga0_mode = '1' else
                vga1_r when vga1_mode = '1' else
+               vga2_r when vga2_mode = '1' else
                r_out;
 
     final_g <= vga0_g when vga0_mode = '1' else
                vga1_g when vga1_mode = '1' else
+               vga2_g when vga2_mode = '1' else
                g_out;
 
     final_b <= vga0_b when vga0_mode = '1' else
                vga1_b when vga1_mode = '1' else
+               vga2_b when vga2_mode = '1' else
                b_out;
 
     map_video_nula: if IncludeVideoNuLA generate

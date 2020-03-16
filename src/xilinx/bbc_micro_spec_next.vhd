@@ -195,6 +195,7 @@ architecture rtl of bbc_micro_spec_next is
     signal RAM_nCS         : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0) := "0001";
+    signal vid_debug       : std_logic := '0';
     signal reconfig_ctr    : std_logic_vector(23 downto 0);
     signal reconfig        : std_logic := '0';
     signal m128_mode       : std_logic;
@@ -633,6 +634,7 @@ begin
             -- Yellow 7 - HDMI aspect: 4:3
             -- Yellow 8 - HDMI aspect: 16:9
             -- Yellow 9 - Int Co Pro on/off
+            -- Yellow 0 - Video debug on/off
 
             if yellow_config(1) = '1' then
                 vid_mode      <= "0000";
@@ -652,6 +654,8 @@ begin
                 hdmi_aspect <= "10";
             elsif yellow_config(9) = '1' then
                 copro_mode <= not copro_mode;
+            elsif yellow_config(0) = '1' then
+                vid_debug <= not vid_debug;
             end if;
         end if;
     end process;
@@ -868,8 +872,10 @@ begin
     --
     -- This only works because the Beeb core is generating 32us lines
     --
-    -- The hdmidataencode module inserts a 32 pixel data packet after each of hsync,
-    -- so the hsync pulse needs to be at least this width.
+    -- The hdmidataencode module inserts a two 32 pixel data packets after the
+    -- first edge of hsync. The hsync pluse + back porch needs to be at least
+    -- this width. There are also min requirements on the size of control
+    -- islands of 12 pixels.
 
     process(clock_27)
     begin
@@ -894,7 +900,7 @@ begin
             else
                 hdmi_blank <= '0';
                 hdmi_red   <= red;
-                if hcnt = 68 or hcnt = 68 + 719 or vcnt = 39 or vcnt = 39 + 575 then
+                if vid_debug = '1' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = 39 or vcnt = 39 + 575) then
                     hdmi_green <= (others => '1');
                 else
                     hdmi_green <= green;

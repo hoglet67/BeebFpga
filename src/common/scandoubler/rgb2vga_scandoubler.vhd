@@ -95,22 +95,10 @@ architecture rtl of rgb2vga_scandoubler is
 --  constant HORIZ_DISP    : integer := 656;
 --  constant HORIZ_FP      : integer := 14 + 72;
 
-    -- VSYNC state-machine
-    type VType is (
-        S_WAIT_VSYNC,
-        S_EXTRA1,
-        S_EXTRA2,
-        S_NOEXTRA,
-        S_ASSERT_VSYNC
-        );
 
     -- Registers in the 16MHz clock domain:
-    signal state           : VType := S_WAIT_VSYNC;
-    signal state_next      : VType;
     signal hSync_s16       : std_logic;
-    signal vSync_s16       : std_logic;
     signal hSyncStart      : std_logic;
-    signal vSyncStart      : std_logic;
     signal hCount16        : unsigned(9 downto 0) := (others => '0');
     signal hCount16_next   : unsigned(9 downto 0);
     signal lineToggle      : std_logic := '1';
@@ -175,10 +163,8 @@ begin
         if rising_edge(clock) then
             if clken = '1' then
                 hSync_s16 <= hSync_in;
-                vSync_s16 <= vSync_in;
                 hCount16  <= hCount16_next;
                 lineToggle <= lineToggle_next;
-                state <= state_next;
             end if;
         end if;
     end process;
@@ -186,9 +172,6 @@ begin
     -- Pulses representing the start of incoming HSYNC & VSYNC
     hSyncStart <=
         '1' when hSync_s16 = '0' and hSync_in = '1'
-        else '0';
-    vSyncStart <=
-        '1' when vSync_s16 = '0' and vSync_in = '1'
         else '0';
 
     -- Create horizontal count, aligned to incoming HSYNC
@@ -214,50 +197,6 @@ begin
         ram0Data when lineToggle = '1'
         else ram1Data;
 
-    -- State machine to generate VGA VSYNC
-    process(state, vSyncStart, hSyncStart, hCount16(9))
-    begin
-        state_next <= state;
-        case state is
-            -- Wait for VSYNC start
-            when S_WAIT_VSYNC =>
-                vSync_out <= '1';
-                if ( vSyncStart = '1' ) then
-                    if ( hCount16(9) = '0' ) then
-                        state_next <= S_EXTRA1;
-                    else
-						state_next <= S_NOEXTRA;
-					end if;
-				end if;
-
-			-- Insert an extra 64us scanline
-			when S_EXTRA1 =>
-				vSync_out <= '1';
-				if ( hSyncStart = '1' ) then
-					state_next <= S_EXTRA2;  -- 0.5 lines after VSYNC
-				end if;
-			when S_EXTRA2 =>
-				vSync_out <= '1';
-				if ( hSyncStart = '1' ) then
-					state_next <= S_ASSERT_VSYNC;  -- 1.5 lines after VSYNC
-				end if;
-
-			-- Don't insert an extra 64us scanline
-			when S_NOEXTRA =>
-				vSync_out <= '1';
-				if ( hSyncStart = '1' ) then
-					state_next <= S_ASSERT_VSYNC;  -- 0.5 lines after VSYNC
-				end if;
-
-			-- Assert VGA VSYNC for 64us
-			when S_ASSERT_VSYNC =>
-				vSync_out <= '0';
-				if ( hSyncStart = '1' ) then
-					state_next <= S_WAIT_VSYNC;
-				end if;
-		end case;
-	end process;
-
 	-- 25MHz clock domain ---------------------------------------------------------------------------
 	process(clk25)
 	begin
@@ -265,6 +204,7 @@ begin
 			hCount25  <= hCount25_next;
 			hSync_s25a <= hSync_in;
 			hSync_s25b <= hSync_s25a;
+			vSync_out <= vSync_in;
 		end if;
 	end process;
 

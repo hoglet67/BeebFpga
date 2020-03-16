@@ -19,7 +19,7 @@
 --   specific prior written agreement from the author.
 --
 -- * License is granted for non-commercial use only.  A fee may not be charged
---   for redistributions as source code or in synthesized/hardware form without 
+--   for redistributions as source code or in synthesized/hardware form without
 --   specific prior written agreement from the author.
 --
 -- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -48,27 +48,30 @@ port (
 	CLOCK		:	in	std_logic;
 	nRESET		:	in	std_logic;
 	CLKEN_1MHZ	:	in	std_logic;
-	
+
 	-- PS/2 interface
 	PS2_CLK		:	in	std_logic;
 	PS2_DATA	:	in	std_logic;
-	
+
 	-- If 1 then column is incremented automatically at
 	-- 1 MHz rate
 	AUTOSCAN	:	in	std_logic;
-	
+
 	COLUMN		:	in	std_logic_vector(3 downto 0);
 	ROW			:	in	std_logic_vector(2 downto 0);
-	
+
 	-- 1 when currently selected key is down (AUTOSCAN disabled)
 	KEYPRESS	:	out	std_logic;
 	-- 1 when any key is down (except row 0)
 	INT			:	out	std_logic;
 	-- BREAK key output - 1 when pressed
 	BREAK_OUT	:	out	std_logic;
-	
+
 	-- DIP switch inputs
-	DIP_SWITCH	:	in	std_logic_vector(7 downto 0)
+	DIP_SWITCH	:	in	std_logic_vector(7 downto 0);
+
+    -- Config button outputs
+    CONFIG      :   out std_logic_vector(9 downto 0)
 	);
 end entity;
 
@@ -80,11 +83,11 @@ generic (filter_length : positive := 8);
 port(
 	CLK			:	in	std_logic;
 	nRESET		:	in	std_logic;
-	
+
 	-- PS/2 interface (could be bi-dir)
 	PS2_CLK		:	in	std_logic;
 	PS2_DATA	:	in	std_logic;
-	
+
 	-- Byte-wide data interface - only valid for one clock
 	-- so must be latched externally if required
 	DATA		:	out	std_logic_vector(7 downto 0);
@@ -103,6 +106,9 @@ type key_matrix is array(0 to 15) of std_logic_vector(7 downto 0);
 signal keys			:	key_matrix;
 signal col			:	unsigned(3 downto 0);
 signal release		:	std_logic;
+signal fn_keys      :   std_logic_vector(9 downto 0);
+signal fn_keys_last :   std_logic_vector(9 downto 0);
+
 --signal extended		:	std_logic;
 begin
 
@@ -137,10 +143,10 @@ begin
 	begin
 		-- Shortcut to current key column
 		k := keys(to_integer(col));
-		
+
 		-- Interrupt if any key pressed in rows 1 to 7.
 		INT <= k(7) or k(6) or k(5) or k(4) or k(3) or k(2) or k(1);
-		
+
 		-- Determine which key is pressed
 		-- Inhibit output during auto-scan
 		if AUTOSCAN = '0' then
@@ -149,16 +155,16 @@ begin
 			KEYPRESS <= '0';
 		end if;
 	end process;
-	
+
 	-- Decode PS/2 data
 	process(CLOCK,nRESET)
 	begin
 		if nRESET = '0' then
 			release <= '0';
 			--extended <= '0';
-			
+
 			BREAK_OUT <= '0';
-			
+
 			keys(0) <= (others => '0');
 			keys(1) <= (others => '0');
 			keys(2) <= (others => '0');
@@ -176,8 +182,23 @@ begin
 			keys(13) <= (others => '0');
 			keys(14) <= (others => '0');
 			keys(15) <= (others => '0');
+
+            CONFIG <= (others => '0');
+
 		elsif rising_edge(CLOCK) then
 
+            -- Detect Ctrl-Alt F1..F10
+            if clken_1MHz = '1' then
+                fn_keys_last <= fn_keys;
+                -- If ctrl-alt held down
+                if keys(0)(5) = '1' and keys(1)(0) = '1' then
+                    -- then detect F1..F10 being pressed, assert corresponding
+                    -- config bit for once cycle
+                    CONFIG <= fn_keys and not(fn_keys_last);
+                end if;
+            else
+                CONFIG <= (others => '0');
+            end if;
 
             -- To stop Quartus inferring latches
 			keys(10) <= (others => '0');
@@ -186,7 +207,7 @@ begin
 			keys(13) <= (others => '0');
 			keys(14) <= (others => '0');
 			keys(15) <= (others => '0');
-            
+
 			-- Copy DIP switches through to row 0
 			keys(2)(0) <= DIP_SWITCH(7);
 			keys(3)(0) <= DIP_SWITCH(6);
@@ -196,7 +217,7 @@ begin
 			keys(7)(0) <= DIP_SWITCH(2);
 			keys(8)(0) <= DIP_SWITCH(1);
 			keys(9)(0) <= DIP_SWITCH(0);
-			
+
 			if keyb_valid = '1' then
 				-- Decode keyboard input
 				if keyb_data = X"e0" then
@@ -209,7 +230,7 @@ begin
 					-- Cancel extended/release flags for next time
 					release <= '0';
 					--extended <= '0';
-					
+
 					-- Decode scan codes
 					case keyb_data is
 					when X"12" => keys(0)(0) <= not release; -- Left SHIFT
@@ -285,20 +306,21 @@ begin
 					when X"66" => keys(9)(5) <= not release; -- BACKSPACE (DELETE)
 					when X"69" => keys(9)(6) <= not release; -- END (COPY)
 					when X"74" => keys(9)(7) <= not release; -- RIGHT
-					
+
 					-- F12 is used for the BREAK key, which in the real BBC asserts
 					-- reset.  Here we pass this out to the top level which may
 					-- optionally OR it in to the system reset
 					when X"07" => BREAK_OUT <= not release; -- F12 (BREAK)
-					
+
 					when others => null;
 					end case;
-					
+
 				end if;
 			end if;
 		end if;
 	end process;
 
+    -- F9...F1, F10
+    fn_keys <= keys(7)(7) & keys(6)(7) & keys(6)(1) & keys(5)(7) & keys(4)(7) & keys(4)(1) & keys(3)(7) & keys(2)(7) & keys(1)(7) & keys(0)(2);
+
 end architecture;
-
-

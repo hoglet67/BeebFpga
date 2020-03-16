@@ -281,8 +281,9 @@ architecture rtl of bbc_micro_spec_next is
     signal bootstrap_busy  : std_logic;
 
     -- Config buttons
+    signal yellow_config_ps2         : std_logic_vector(9 downto 0);
+    signal yellow_config_membrane    : std_logic_vector(9 downto 0);
     signal yellow_config             : std_logic_vector(9 downto 0);
-    signal green_config              : std_logic_vector(9 downto 0);
 
 begin
 
@@ -382,7 +383,11 @@ begin
         ext_keyb_pa    => ext_keyb_pa,
         ext_keyb_rst_n => ext_keyb_rst_n,
         ext_keyb_ca2   => ext_keyb_ca2,
-        ext_keyb_pa7   => ext_keyb_pa7
+        ext_keyb_pa7   => ext_keyb_pa7,
+
+        -- config
+        config        => yellow_config_ps2
+
     );
 
     -- Joystick 1
@@ -617,7 +622,17 @@ begin
     begin
         if rising_edge(clock_48) then
 
-            -- Yellow 1-8 Changes Video Modes and HDMI Audio
+            yellow_config <= yellow_config_membrane or yellow_config_ps2;
+
+            -- Yellow 1 - Video: SCART sRGB: Pixel Clock 16MHz/12MHz
+            -- Yellow 2 - Video:   HDMI/VGA: Pixel Clock       27MHz
+            -- Yellow 3 - Video:        VGA: Pixel Clock 32MHz/24MHz
+            -- Yellow 4 - Video:        VGA: Pixel Clock 32MHz/24MHz
+            -- Yellow 5 - HDMI audio/data on/off
+            -- Yellow 6 - HDMI aspect: auto
+            -- Yellow 7 - HDMI aspect: 4:3
+            -- Yellow 8 - HDMI aspect: 16:9
+            -- Yellow 9 - Int Co Pro on/off
 
             if yellow_config(1) = '1' then
                 vid_mode      <= "0000";
@@ -635,15 +650,9 @@ begin
                 hdmi_aspect <= "01";
             elsif yellow_config(8) = '1' then
                 hdmi_aspect <= "10";
+            elsif yellow_config(9) = '1' then
+                copro_mode <= not copro_mode;
             end if;
-
-            -- Green 1-2 Manages the internal 65C02 Co Processor
-            if green_config(1) = '1' then
-                copro_mode <= '1';
-            elsif green_config(2) = '1' then
-                copro_mode <= '0';
-            end if;
-
         end if;
     end process;
 
@@ -693,8 +702,8 @@ begin
 
         -- Debounced configuration outputs
         -- (pulse high for 1 clock cycle when depressed)
-        green_config      => green_config,      -- Green  / divmmc    / Drive
-        yellow_config     => yellow_config,     -- Yellow / multiface / NMI
+        green_config      => open,                       -- Green  / divmmc    / Drive
+        yellow_config     => yellow_config_membrane,     -- Yellow / multiface / NMI
 
         -- Beeb Keyboard
         keyb_1mhz         => ext_keyb_1mhz,

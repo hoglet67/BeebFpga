@@ -131,6 +131,10 @@ entity bbc_micro_core is
         ext_keyb_ca2   : in    std_logic;
         ext_keyb_pa7   : in    std_logic;
 
+
+        -- Config outputs (from PS/2 keyboard)
+        config         : out   std_logic_vector(9 downto 0);
+
         -- Format of Video
         -- Bit 1,0 select the video format
         --   00 - 15.625KHz SRGB
@@ -907,7 +911,8 @@ begin
         ps2_keyb_out,
         ps2_keyb_int,
         ps2_keyb_break,
-        keyb_dip
+        keyb_dip,
+        config
         );
 
     -- Analog to Digital Convertor

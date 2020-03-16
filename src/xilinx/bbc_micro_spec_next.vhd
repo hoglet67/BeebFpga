@@ -194,7 +194,7 @@ architecture rtl of bbc_micro_spec_next is
     signal RAM_nOE         : std_logic;
     signal RAM_nCS         : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0);
-    signal vid_mode        : std_logic_vector(3 downto 0) := "0011";
+    signal vid_mode        : std_logic_vector(3 downto 0) := "0001";
     signal reconfig_ctr    : std_logic_vector(23 downto 0);
     signal reconfig        : std_logic := '0';
     signal m128_mode       : std_logic;

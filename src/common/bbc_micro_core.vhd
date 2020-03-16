@@ -1946,10 +1946,10 @@ begin
 
     -- Video Mode Links
     --
-    -- 0 0 SCART RGB mode (15.625KHz)
-    -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: SAA5050 VGA Mode with retimer
-    -- 1 0 Mode 0-7: Mist SD,     Mode 7: Mist SD
-    -- 1 1 Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode
+    -- 0 0 SCART RGB mode (15.625KHz)                                   (16MHz/12MHz)
+    -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: SAA5050 VGA Mode with retimer (27MHz)
+    -- 1 0 Mode 0-7: Mist SD,     Mode 7: Mist SD                       (32MHz/24MHz)
+    -- 1 1 Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode              (32MHz/24MHz)
 
     --- Indicate to the parent module when ttxt is active
     -- e.g. for HDMI aspect ratio switching

@@ -54,12 +54,12 @@ use UNISIM.Vcomponents.all;
 entity bbc_micro_spec_next is
     generic (
         IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
+        IncludeSID         : boolean := true;
+        IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := false;
+        IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := false;
-        IncludeVideoNuLA   : boolean := false;
+        IncludeVideoNuLA   : boolean := true;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := true
     );

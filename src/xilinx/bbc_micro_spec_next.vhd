@@ -928,12 +928,12 @@ begin
     inst_hdmi: entity work.hdmi
     generic map (
       FREQ => 27000000,  -- pixel clock frequency
-      --FS   => 48000,   -- audio sample rate - should be 32000, 44100 or 48000
-      --CTS  => 27000,   -- CTS = Freq(pixclk) * N / (128 * Fs)
-      --N    => 6144     -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
-      FS   => 32000,     -- audio sample rate - should be 32000, 44100 or 48000
+      FS   => 48000,     -- audio sample rate - should be 32000, 44100 or 48000
       CTS  => 27000,     -- CTS = Freq(pixclk) * N / (128 * Fs)
-      N    => 4096       -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
+      N    => 6144       -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
+      --FS   => 32000,   -- audio sample rate - should be 32000, 44100 or 48000
+      --CTS  => 27000,   -- CTS = Freq(pixclk) * N / (128 * Fs)
+      --N    => 4096     -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
     )
     port map (
       -- clocks

@@ -67,8 +67,8 @@ entity bbc_micro_duo is
     );
     port (
         clk_32M00      : in    std_logic;
-        ps2_kbd_clk    : in    std_logic;
-        ps2_kbd_data   : in    std_logic;
+        ps2_kbd_clk    : inout std_logic;
+        ps2_kbd_data   : inout std_logic;
         ERST           : in    std_logic;
         red            : out   std_logic_vector (3 downto 0);
         green          : out   std_logic_vector (3 downto 0);

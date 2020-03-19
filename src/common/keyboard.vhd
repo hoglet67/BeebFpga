@@ -78,15 +78,15 @@ end entity;
 architecture rtl of keyboard is
 
 -- Interface to PS/2 block
+signal keyb_cmd     :   std_logic_vector(7 downto 0);
 signal keyb_data    :   std_logic_vector(7 downto 0);
 signal keyb_valid   :   std_logic;
 signal keyb_error   :   std_logic;
+signal keyb_busy    :   std_logic;
 signal keyb_write   :   std_logic := '0';
 
--- Delayed versions of reset
+-- Active high version of reset
 signal rst          :   std_logic;
-signal rst1         :   std_logic;
-signal rst2         :   std_logic;
 
 -- Internal signals
 type key_matrix is array(0 to 15) of std_logic_vector(7 downto 0);
@@ -95,6 +95,25 @@ signal col          :   unsigned(3 downto 0);
 signal release      :   std_logic;
 signal fn_keys      :   std_logic_vector(9 downto 0);
 signal fn_keys_last :   std_logic_vector(9 downto 0);
+
+-- Initialization state machine
+type init_state is (
+    reset,
+    send_rst_cmd,
+    ack_rst_cmd,
+    get_bat_result,
+    send_id_cmd,
+    ack_id_cmd,
+    get_id1,
+    get_id2,
+--  send_disable_cmd,
+--  ack_disable_cmd,
+    enabled,
+    disabled,
+    protocol_error
+    );
+
+signal state: init_state;
 
 --signal extended       :   std_logic;
 begin
@@ -118,28 +137,130 @@ begin
            ps2_data => PS2_DATA,
            clk      => CLOCK,
            rst      => rst,
-           tx_data  => x"FF",
+           tx_data  => keyb_cmd,
            write    => keyb_write,
            rx_data  => keyb_data,
            read     => keyb_valid,
-           busy     => open,
+           busy     => keyb_busy,
            err      => keyb_error
         );
 
     rst <= not nRESET;
 
+    -- Initialization State Machine
     process(CLOCK)
     begin
         if rising_edge(CLOCK) then
-            rst1 <= rst;
-            rst2 <= rst1;
-            if rst2 = '1' and rst1 = '0' then
-                keyb_write <= '1';
-            else
+
+            if rst = '1' then
+                state <= reset;
                 keyb_write <= '0';
+            else
+                case state is
+                    when reset =>
+                        if rst = '0' then
+                            state <= send_rst_cmd;
+                        end if;
+                    when send_rst_cmd =>
+                        -- Send the RST command
+                        if keyb_busy = '0' then
+                            keyb_cmd   <= x"FF";
+                            keyb_write <= '1';
+                            state      <= ack_rst_cmd;
+                        end if;
+                    when ack_rst_cmd =>
+                        -- A keyboard/mouse responds with FA (Ack) then AA or FC
+                        keyb_write <= '0';
+                        if keyb_valid = '1' then
+                            if keyb_data = x"FA" then
+                                state <= get_bat_result;
+                            else
+                                state <= protocol_error;
+                            end if;
+                        end if;
+                    when get_bat_result =>
+                        if keyb_valid = '1' then
+                            if keyb_data = x"AA" then
+                                state <= send_id_cmd;
+                            else
+                                state <= protocol_error;
+                            end if;
+                        end if;
+                    when send_id_cmd =>
+                        -- Send the ID command
+                        if keyb_busy = '0' then
+                            keyb_cmd   <= x"F2";
+                            keyb_write <= '1';
+                            state      <= ack_id_cmd;
+                        end if;
+                    when ack_id_cmd =>
+                        -- A keyboard responds with FA (Ack) then AB 83
+                        -- A mouse responds with FA (Ack) then 00
+                        -- Under some circumstances a MS intelli mouse response
+                        -- with FA (Ack) then 03 or 04
+                        keyb_write <= '0';
+                        if keyb_valid = '1' then
+                            if keyb_data = x"FA" then
+                                state <= get_id1;
+                            else
+                                state <= protocol_error;
+                            end if;
+                        end if;
+                    when get_id1 =>
+                        if keyb_valid = '1' then
+                            if keyb_data = x"AB" then
+                                -- Keyboard, skip an additional ID byte (AB)
+                                state <= get_id2;
+                            elsif keyb_data = x"00" or keyb_data = x"03" or keyb_data = x"04" then
+                                -- Mouse, disable data reporting
+--                              state <= send_disable_cmd;
+                                state <= disabled;
+                            else
+                                state <= protocol_error;
+                            end if;
+                        end if;
+                    when get_id2 =>
+                        if keyb_valid = '1' then
+                            if keyb_data = x"83" then
+                                state <= enabled;
+                            else
+                                state <= protocol_error;
+                            end if;
+                        end if;
+
+--                    when send_disable_cmd =>
+--                        if keyb_busy = '0' then
+--                            keyb_cmd   <= x"F5";
+--                            keyb_write <= '1';
+--                            state      <= ack_disable_cmd;
+--                        end if;
+--                    when ack_disable_cmd =>
+--                        keyb_write <= '0';
+--                        if keyb_valid = '1' then
+--                            if keyb_data = x"FA" then
+--                                state <= disabled;
+--                            else
+--                                state <= protocol_error;
+--                            end if;
+--                        end if;
+
+                    when enabled =>
+                        -- Sit in this state until the next reset
+                        keyb_write <= '0';
+
+                    when disabled =>
+                        -- Sit in this state until the next reset
+                        keyb_write <= '0';
+
+                    when protocol_error =>
+                        -- Sit in this state until the next reset
+                        keyb_write <= '0';
+
+                end case;
             end if;
         end if;
     end process;
+
 
     -- Column counts automatically when AUTOSCAN is enabled, otherwise
     -- value is loaded from external input
@@ -241,7 +362,7 @@ begin
             keys(8)(0) <= DIP_SWITCH(1);
             keys(9)(0) <= DIP_SWITCH(0);
 
-            if keyb_valid = '1' then
+            if keyb_valid = '1' and state = enabled then
                 -- Decode keyboard input
                 if keyb_data = X"e0" then
                     -- Extended key code follows

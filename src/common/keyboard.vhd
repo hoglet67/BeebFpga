@@ -50,8 +50,8 @@ port (
     CLKEN_1MHZ  :   in  std_logic;
 
     -- PS/2 interface
-    PS2_CLK     :   in  std_logic;
-    PS2_DATA    :   in  std_logic;
+    PS2_CLK     :   inout std_logic;
+    PS2_DATA    :   inout std_logic;
 
     -- If 1 then column is incremented automatically at
     -- 1 MHz rate
@@ -81,6 +81,12 @@ architecture rtl of keyboard is
 signal keyb_data    :   std_logic_vector(7 downto 0);
 signal keyb_valid   :   std_logic;
 signal keyb_error   :   std_logic;
+signal keyb_write   :   std_logic := '0';
+
+-- Delayed versions of reset
+signal rst          :   std_logic;
+signal rst1         :   std_logic;
+signal rst2         :   std_logic;
 
 -- Internal signals
 type key_matrix is array(0 to 15) of std_logic_vector(7 downto 0);
@@ -93,15 +99,47 @@ signal fn_keys_last :   std_logic_vector(9 downto 0);
 --signal extended       :   std_logic;
 begin
 
-    ps2 : entity work.ps2_intf port map (
-        CLK      => CLOCK,
-        nRESET   => nRESET,
-        PS2_CLK  => PS2_CLK,
-        PS2_DATA => PS2_DATA,
-        DATA     => keyb_data,
-        VALID    => keyb_valid,
-        ERROR    => keyb_error
+--  ps2 : entity work.ps2_intf port map (
+--      CLK      => CLOCK,
+--      nRESET   => nRESET,
+--      PS2_CLK  => PS2_CLK,
+--      PS2_DATA => PS2_DATA,
+--      DATA     => keyb_data,
+--      VALID    => keyb_valid,
+--      ERROR    => keyb_error
+--      );
+
+    ps2 : entity work.ps2interface
+        generic map(
+            MainClockSpeed => 48000000
+        )
+        port map(
+           ps2_clk  => PS2_CLK,
+           ps2_data => PS2_DATA,
+           clk      => CLOCK,
+           rst      => rst,
+           tx_data  => x"FF",
+           write    => keyb_write,
+           rx_data  => keyb_data,
+           read     => keyb_valid,
+           busy     => open,
+           err      => keyb_error
         );
+
+    rst <= not nRESET;
+
+    process(CLOCK)
+    begin
+        if rising_edge(CLOCK) then
+            rst1 <= rst;
+            rst2 <= rst1;
+            if rst2 = '1' and rst1 = '0' then
+                keyb_write <= '1';
+            else
+                keyb_write <= '0';
+            end if;
+        end if;
+    end process;
 
     -- Column counts automatically when AUTOSCAN is enabled, otherwise
     -- value is loaded from external input

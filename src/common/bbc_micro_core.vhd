@@ -80,8 +80,8 @@ entity bbc_micro_core is
         hard_reset_n   : in    std_logic;
 
         -- Keyboard
-        ps2_kbd_clk    : in    std_logic;
-        ps2_kbd_data   : in    std_logic;
+        ps2_kbd_clk    : inout std_logic;
+        ps2_kbd_data   : inout std_logic;
 
         -- Mouse
         ps2_mse_clk    : inout std_logic;
@@ -824,7 +824,7 @@ begin
         );
         mouse_ps2interface: entity work.ps2interface
         generic map(
-            MainClockSpeed => 32000000
+            MainClockSpeed => 48000000
         )
         port map(
            ps2_clk  => ps2_mse_clk,

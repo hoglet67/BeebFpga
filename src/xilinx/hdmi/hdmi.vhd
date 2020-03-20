@@ -319,16 +319,16 @@ blueout: blue <=
    "1001110001" when (state = dataIslandPreGuard or state = dataIslandPostGuard) and vhSyncOut = "01" else
    "0101100011" when (state = dataIslandPreGuard or state = dataIslandPostGuard) and vhSyncOut = "10" else
    "1011000011" when (state = dataIslandPreGuard or state = dataIslandPostGuard) and vhSyncOut = "11" else
-   "1011001100" when state = videoDataGuardBand else
+   "1011001100" when (state = videoDataGuardBand and I_AUDIO_ENABLE = '1') else
    enc0out;
 
 greenout: green <=
-   "0100110011" when state = videoDataGuardBand else
+   "0100110011" when state = videoDataGuardBand and I_AUDIO_ENABLE = '1' else
    "0100110011" when state = dataIslandPreGuard or state = dataIslandPostGuard else
    enc1out;
 
 redout: red <=
-   "1011001100" when state = videoDataGuardBand else
+   "1011001100" when state = videoDataGuardBand and I_AUDIO_ENABLE = '1' else
    "0100110011" when state = dataIslandPreGuard or state = dataIslandPostGuard else
    enc2out;
 

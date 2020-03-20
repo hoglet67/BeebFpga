@@ -53,7 +53,7 @@ use UNISIM.Vcomponents.all;
 -- Generic top-level entity for Spectrum Next board
 entity bbc_micro_spec_next is
     generic (
-        IncludeAMXMouse    : boolean := false;
+        IncludeAMXMouse    : boolean := true;
         IncludeSID         : boolean := true;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := false;

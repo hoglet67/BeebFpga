@@ -878,6 +878,8 @@ begin
     -- islands of 12 pixels.
 
     process(clock_27)
+        variable voffset : integer;
+        variable vsize   : integer;
     begin
         if rising_edge(clock_27) then
             hsync1 <= hsync;
@@ -892,7 +894,14 @@ begin
             else
                 hcnt <= hcnt + 1;
             end if;
-            if hcnt < 68 or hcnt >= 68 + 720 or vcnt < 39 or vcnt >= 39 + 576 then
+            if hdmi_audio_en = '1' then
+                voffset := 39;
+                vsize   := 576;
+            else
+                voffset := 55;
+                vsize   := 540;
+            end if;
+            if hcnt < 68 or hcnt >= 68 + 720 or vcnt < voffset or vcnt >= voffset + vsize then
                 hdmi_blank <= '1';
                 hdmi_red   <= (others => '0');
                 hdmi_green <= (others => '0');
@@ -900,7 +909,7 @@ begin
             else
                 hdmi_blank <= '0';
                 hdmi_red   <= red;
-                if vid_debug = '1' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = 39 or vcnt = 39 + 575) then
+                if vid_debug = '1' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = voffset or vcnt = voffset + vsize - 1) then
                     hdmi_green <= (others => '1');
                 else
                     hdmi_green <= green;

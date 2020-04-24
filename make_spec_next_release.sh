@@ -4,7 +4,7 @@ NAME=beeb_fpga_spec_next_$(date +"%Y%m%d_%H%M")
 
 DIR=releases/$NAME
 
-echo $DIR
+echo "Release name: $NAME"
 
 mkdir -p $DIR
 
@@ -19,22 +19,20 @@ mkdir -p $DIR/machines/$MACH
 cat > $DIR/machines/${MACH}/core.cfg <<EOF
 name=Acorn BBC Model B
 
-; Beeb ROM Slots 0-15 map to Spec Next Pages 16-31
-; Avoid loading ROMs to Spec Next pages 16, 18, 21
-resource=blank.rom,19
-resource=os12.rom,20
-resource=swmmfs2.rom,24
-resource=blank.rom,25
-resource=blank.rom,26
-resource=blank.rom,27
-resource=blank.rom,28
-resource=blank.rom,29
-resource=rammas6.rom,30
-resource=basic2.rom,31
+; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
+resource=blank.rom,3
+resource=os12.rom,4
+resource=swmmfs2.rom,8
+resource=blank.rom,9
+resource=blank.rom,10
+resource=blank.rom,11
+resource=blank.rom,12
+resource=blank.rom,13
+resource=rammas6.rom,14
+resource=basic2.rom,15
 
 config=0,0
 EOF
-
 
 for i in os12 basic2 ram_master_v6 swmmfs2
 do
@@ -60,18 +58,17 @@ mkdir -p $DIR/machines/$MACH
 cat > $DIR/machines/${MACH}/core.cfg <<EOF
 name=Acorn BBC Master
 
-; Beeb ROM Slots 0-15 map to Spec Next Pages 16-31
-; Avoid loading ROMs to Spec Next pages 16, 18, 21
-resource=mammfs2.rom,19
-resource=mos.rom,20
-resource=owl.rom,24
-resource=dfs.rom,25
-resource=viewsht.rom,26
-resource=edit.rom,27
-resource=basic4.rom,28
-resource=adfs.rom,29
-resource=view.rom,30
-resource=terminal.rom,31
+; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
+resource=mammfs2.rom,3
+resource=mos.rom,4
+resource=owl.rom,8
+resource=dfs.rom,9
+resource=viewsht.rom,10
+resource=edit.rom,11
+resource=basic4.rom,12
+resource=adfs.rom,13
+resource=view.rom,14
+resource=terminal.rom,15
 
 config=0,0
 EOF
@@ -87,8 +84,10 @@ cp -a xilinx/working/bbc_master_spec_next/bbc_micro_spec_next.bit $DIR/machines/
 # Zip
 # ====================================================
 
-cd $DIR
+pushd $DIR
 
 zip -qr ../$NAME.zip .
 
-unzip -l ../$NAME.zip
+popd
+
+unzip -l $DIR.zip

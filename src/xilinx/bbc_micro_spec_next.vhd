@@ -824,14 +824,9 @@ begin
         ram_ce_n_o(2)           <= '1';
         ram_ce_n_o(3)           <= '1';
 
-        -- Ideally Beeb ROM slots 0-15 would be mapped to Spec Next Pages 0-15
-        -- (for simplicity for the user). For some reason the Spec Next
-        -- ROM loader crashes when trying to load to page 15. As a temporary
-        -- work around, we invert A(18) to use Pages 16-31. Note, as the
-        -- Spec Next defintely uses pages 16, 18, 21, we cannout currently
-        -- preload ROMs to Beeb slots 0, 2 and 5.
+        -- Beeb ROM slots 0-15 are be mapped to Spec Next Pages 0-15
 
-        ram_addr_o              <= (not RAM_A(18)) & RAM_A(17 downto 0);
+        ram_addr_o              <= RAM_A(18 downto 0);
 
         ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
 

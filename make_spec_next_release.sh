@@ -31,7 +31,7 @@ resource=blank.rom,13
 resource=rammas6.rom,14
 resource=basic2.rom,15
 
-config=0,0
+config=31,0
 EOF
 
 for i in os12 basic2 ram_master_v6 swmmfs2
@@ -70,7 +70,7 @@ resource=adfs.rom,13
 resource=view.rom,14
 resource=terminal.rom,15
 
-config=0,0
+config=31,0
 EOF
 
 for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht

@@ -60,7 +60,7 @@ entity bbc_micro_spec_next is
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := false;
         IncludeVideoNuLA   : boolean := true;
-        IncludeBootstrap   : boolean := true;
+        IncludeBootstrap   : boolean := false;
         IncludeMaster      : boolean := true
     );
     port (
@@ -228,7 +228,6 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_tube_a      : std_logic_vector(6 downto 0);
     signal ext_tube_di     : std_logic_vector(7 downto 0);
     signal ext_tube_do     : std_logic_vector(7 downto 0);
-    signal ROM_D           : std_logic_vector(7 downto 0);
 
     signal ext_keyb_1mhz   : std_logic;
     signal ext_keyb_en_n   : std_logic;
@@ -240,6 +239,8 @@ architecture rtl of bbc_micro_spec_next is
     signal tdms_r          : std_logic_vector(9 downto 0);
     signal tdms_g          : std_logic_vector(9 downto 0);
     signal tdms_b          : std_logic_vector(9 downto 0);
+
+    signal joy_counter     : std_logic_vector(12 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -391,17 +392,28 @@ begin
 
     );
 
-    -- Joystick 1
+    -- Joystick 1/2
     --   Bit 0 - Up (active low)
     --   Bit 1 - Down (active low)
     --   Bit 2 - Left (active low)
     --   Bit 3 - Right (active low)
     --   Bit 4 - Fire (active low)
-    joystick1 <= joyp6_i & joyp4_i & joyp3_i & joyp2_i & joyp1_i;
 
-    -- Joystick 2
-    --   Unused
-    joystick2 <= "11111";
+    process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            -- Counter is currently 13 bits, so wraps every 8192/48 = 170us
+            joy_counter <= joy_counter + 1;
+            -- Sample when bits 11..0 are all '1'
+            if (not joy_counter(joy_counter'high - 1 downto 0)) = 0 then
+                if joy_counter(joy_counter'high) = '1' then
+                    joystick2 <= joyp6_i & joyp4_i & joyp3_i & joyp2_i & joyp1_i;
+                else
+                    joystick1 <= joyp6_i & joyp4_i & joyp3_i & joyp2_i & joyp1_i;
+                end if;
+            end if;
+        end if;
+    end process;
 
     -- VGA RGB outputs
     rgb_r_o <= red(3 downto 1);
@@ -754,6 +766,10 @@ begin
 
     GenBootstrap: if IncludeBootstrap generate
 
+        -- This loads 4 ROM images that are included in the 512KB bitstream file
+
+        -- This mode uses Ram Chip 1
+
         user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
 
         user_rom_map <= user_rom_map_master when m128_mode = '1' else user_rom_map_beeb;
@@ -785,39 +801,49 @@ begin
                 FLASH_SO        => flash_miso_i
                 );
 
-        ram_addr_o <= ram_addr(18 downto 0);
+        ram_ce_n_o(0)           <= '1';
+        ram_ce_n_o(2)           <= '1';
+        ram_ce_n_o(3)           <= '1';
+        ram_addr_o              <= ram_addr(18 downto 0);
+
+        ram_data_io(7 downto 0) <= "ZZZZZZZZ";
 
     end generate;
 
     NotGenBootstrap: if not IncludeBootstrap generate
 
+        -- The latest Spec Next firmware can pre-load ROMs into pages
+
+        -- This mode uses Ram Chip 0
+
         bootstrap_busy          <= '0';
         ram_oe_n_o              <= RAM_nOE;
         ram_we_n_o              <= RAM_nWE;
-        ram_ce_n_o(1)           <= RAM_nCS;
-        ram_addr_o              <= RAM_A(18 downto 0);
-        ram_data_io(15 downto 8)<= RAM_Din when RAM_nWE = '0' else (others => 'Z');
+        ram_ce_n_o(0)           <= RAM_nCS;
+        ram_ce_n_o(1)           <= '1';
+        ram_ce_n_o(2)           <= '1';
+        ram_ce_n_o(3)           <= '1';
 
-        RAM_Dout                <= ROM_D when RAM_A(18) = '0' else ram_data_io(15 downto 8);
+        -- Ideally Beeb ROM slots 0-15 would be mapped to Spec Next Pages 0-15
+        -- (for simplicity for the user). For some reason the Spec Next
+        -- ROM loader crashes when trying to load to page 15. As a temporary
+        -- work around, we invert A(18) to use Pages 16-31. Note, as the
+        -- Spec Next defintely uses pages 16, 18, 21, we cannout currently
+        -- preload ROMs to Beeb slots 0, 2 and 5.
+
+        ram_addr_o              <= (not RAM_A(18)) & RAM_A(17 downto 0);
+
+        ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
+
+        RAM_Dout                <= ram_data_io(7 downto 0);
 
         flash_cs_n_o            <= '1';
         flash_mosi_o            <= '1';
         flash_sclk_o            <= '1';
 
-        -- Minimal Model B ROM set with OS 1.20, Basic II and MMFS
-        inst_rom: entity work.minimal_modelb_rom_set
-            port map (
-                clk => clock_48,
-                addr => RAM_A(17 downto 0),
-                data => ROM_D
-                );
+        ram_data_io(15 downto 8) <= "ZZZZZZZZ";
 
     end generate;
-
-    ram_data_io(7 downto 0) <= "ZZZZZZZZ";
-    ram_ce_n_o(0) <= '1';
-    ram_ce_n_o(2) <= '1';
-    ram_ce_n_o(3) <= '1';
 
 --------------------------------------------------------
 -- External tube connections
@@ -1018,7 +1044,7 @@ begin
     joyp7_o    <= '1';
 
     -- Controls a mux to select between two joystick ports
-    joysel_o   <= '0';
+    joysel_o   <= joy_counter(joy_counter'high);
 
     -- Mic Port (output, as it connects to the mic input on cassette deck)
     mic_port_o <= '0';

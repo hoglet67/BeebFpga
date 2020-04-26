@@ -236,11 +236,14 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_keyb_ca2    : std_logic;
     signal ext_keyb_pa7    : std_logic;
 
+    signal avr_RxD         : std_logic;
+    signal avr_TxD         : std_logic;
+
     signal tdms_r          : std_logic_vector(9 downto 0);
     signal tdms_g          : std_logic_vector(9 downto 0);
     signal tdms_b          : std_logic_vector(9 downto 0);
 
-    signal joy_counter     : std_logic_vector(12 downto 0);
+    signal joy_counter     : std_logic_vector(4 downto 0);
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -355,8 +358,8 @@ begin
         joystick1      => joystick1,
         joystick2      => joystick2,
         avr_reset      => not hard_reset_n,
-        avr_RxD        => esp_rx_i,
-        avr_TxD        => esp_tx_o,
+        avr_RxD        => avr_RxD,
+        avr_TxD        => avr_TxD,
         cpu_addr       => open,
         m128_mode      => m128_mode,
         copro_mode     => copro_mode,
@@ -402,12 +405,21 @@ begin
     process(clock_48)
     begin
         if rising_edge(clock_48) then
-            -- Counter is currently 13 bits, so wraps every 8192/48 = 170us
+            -- Spec Next toggles joy_select every 35ns
+            -- The 74HC157 S->Y is 29ns max @4.5V and 145ns max @2.0V
+            --
+            -- joy_Counter is currently 5 bits
+            -- Beeb Fpga thus toggles joy_select every 16/48 = 333ns
+            --
+            -- At 115200 baud a bit is ~8.7us, so sampling every 0.66us is fine
             joy_counter <= joy_counter + 1;
             -- Sample when bits 11..0 are all '1'
             if (not joy_counter(joy_counter'high - 1 downto 0)) = 0 then
                 if joy_counter(joy_counter'high) = '1' then
                     joystick2 <= joyp6_i & joyp4_i & joyp3_i & joyp2_i & joyp1_i;
+                    if IncludeICEDebugger and vid_debug = '1' then
+                        avr_RxD <= joyp9_i;
+                    end if;
                 else
                     joystick1 <= joyp6_i & joyp4_i & joyp3_i & joyp2_i & joyp1_i;
                 end if;
@@ -1027,6 +1039,7 @@ begin
     -- ESP 8266 module
     esp_gpio0_io   <= 'Z';
     esp_gpio2_io   <= 'Z';
+    esp_tx_o       <= '1';
 
     -- Addtional flash pins; used at IO2 and IO3 in Quad SPI Mode
     flash_hold_o   <= '1';
@@ -1035,8 +1048,8 @@ begin
     i2c_scl_io <= 'Z';
     i2c_sda_io <= 'Z';
 
-    -- Pin 7 on the joystick connecter. TODO: is '1' correct?
-    joyp7_o    <= '1';
+    -- Pin 7 on the joystick connecter
+    joyp7_o    <= avr_TxD when IncludeICEDebugger and vid_debug = '1' else '1';
 
     -- Controls a mux to select between two joystick ports
     joysel_o   <= joy_counter(joy_counter'high);

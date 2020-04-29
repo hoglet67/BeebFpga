@@ -60,7 +60,6 @@ entity bbc_micro_spec_next is
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := false;
         IncludeVideoNuLA   : boolean := true;
-        IncludeBootstrap   : boolean := false;
         IncludeMaster      : boolean := true
     );
     port (
@@ -244,46 +243,6 @@ architecture rtl of bbc_micro_spec_next is
     signal tdms_b          : std_logic_vector(9 downto 0);
 
     signal joy_counter     : std_logic_vector(4 downto 0);
-
------------------------------------------------
--- Bootstrap ROM Image from SPI FLASH into SRAM
------------------------------------------------
-
-    -- TODO: When we can span two slots....
-    --
-    --
-    -- Spec Next FLASH is Winbond 25Q128JVSQ (16MB)
-    --  Slot 0: AB Core        (0x000000-0x07FFFF)
-    --  Slot 1: Spec Next Core (0x080000-0x0FFFFF)
-    --  Slot 2: Beeb Core      (0x100000-0x17FFFF)
-    --  Slot 3: Beeb ROMS      (0x180000-0x1FFFFF)
-
-    -- For now, we have seperate Beeb and Master build, each with just 4 ROMs
-    -- as that's all that will fit at the end of a 512KB Slot
-
-    -- start address of user data in FLASH as obtained from bitmerge.py
-    -- this is just beyond the end of the bitstream
-    constant user_address_beeb    : std_logic_vector(23 downto 0) := x"170000";
-    constant user_address_master  : std_logic_vector(23 downto 0) := x"170000";
-    signal   user_address         : std_logic_vector(23 downto 0);
-
-    -- lenth of user data in FLASH = 64KB (4x 16K ROM) images
-    constant user_length : std_logic_vector(23 downto 0) := x"010000";
-
-    -- ROM Map
-    --
-    -- FLASH   Beeb            Master
-    -- 0 ->    4 MOS 1.20      3 MMFS
-    -- 1 ->    8 MMFS          4 MOS 3.20
-    -- 2 ->    E Ram Master    C Basic II
-    -- 3 ->    F Basic II      F Terminal
-
-    constant user_rom_map_beeb    : std_logic_vector(63 downto 0) := x"000000000000FE84";
-    constant user_rom_map_master  : std_logic_vector(63 downto 0) := x"000000000000FC43";
-    signal   user_rom_map         : std_logic_vector(63 downto 0);
-
-    -- high when FLASH is being copied to SRAM, can be used by user as active high reset
-    signal bootstrap_busy  : std_logic;
 
     -- Config buttons
     signal yellow_config_ps2         : std_logic_vector(9 downto 0);
@@ -636,8 +595,7 @@ begin
         end if;
     end process;
 
-    -- extend the version seen by the core to hold the 6502 reset during bootstrap
-    hard_reset_n <= powerup_reset_n and not bootstrap_busy;
+    hard_reset_n <= powerup_reset_n;
 
 --------------------------------------------------------
 -- Configuration toggles
@@ -773,84 +731,32 @@ begin
     );
 
 --------------------------------------------------------
--- BOOTSTRAP SPI FLASH to SRAM
+-- SRAM INTERFACE
 --------------------------------------------------------
 
-    GenBootstrap: if IncludeBootstrap generate
 
-        -- This loads 4 ROM images that are included in the 512KB bitstream file
+    -- The latest Spec Next firmware can pre-load ROMs into pages
 
-        -- This mode uses Ram Chip 1
+    -- This mode uses Ram Chip 0
 
-        user_address <= user_address_master when m128_mode = '1' else user_address_beeb;
+    ram_oe_n_o              <= RAM_nOE;
+    ram_we_n_o              <= RAM_nWE;
+    ram_ce_n_o(0)           <= RAM_nCS;
+    ram_ce_n_o(1)           <= '1';
+    ram_ce_n_o(2)           <= '1';
+    ram_ce_n_o(3)           <= '1';
 
-        user_rom_map <= user_rom_map_master when m128_mode = '1' else user_rom_map_beeb;
+    -- Beeb ROM slots 0-15 are be mapped to Spec Next Pages 16-31
+    ram_addr_o              <= (not RAM_A(18)) & RAM_A(17 downto 0);
 
-        inst_bootstrap: entity work.bootstrap
-            generic map (
-                user_length     => user_length
-                )
-            port map(
-                clock           => clock_48,
-                powerup_reset_n => powerup_reset_n,
-                bootstrap_busy  => bootstrap_busy,
-                user_address    => user_address,
-                user_rom_map    => user_rom_map,
-                RAM_nOE         => RAM_nOE,
-                RAM_nWE         => RAM_nWE,
-                RAM_nCS         => RAM_nCS,
-                RAM_A           => RAM_A,
-                RAM_Din         => RAM_Din,
-                RAM_Dout        => RAM_Dout,
-                SRAM_nOE        => ram_oe_n_o,
-                SRAM_nWE        => ram_we_n_o,
-                SRAM_nCS        => ram_ce_n_o(1),
-                SRAM_A          => ram_addr,
-                SRAM_D          => ram_data_io(15 downto 8),
-                FLASH_CS        => flash_cs_n_o,
-                FLASH_SI        => flash_mosi_o,
-                FLASH_CK        => flash_sclk_o,
-                FLASH_SO        => flash_miso_i
-                );
+    ram_data_io(15 downto 8)<= "ZZZZZZZZ";
+    ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
 
-        ram_ce_n_o(0)           <= '1';
-        ram_ce_n_o(2)           <= '1';
-        ram_ce_n_o(3)           <= '1';
-        ram_addr_o              <= ram_addr(18 downto 0);
+    RAM_Dout                <= ram_data_io(7 downto 0);
 
-        ram_data_io(7 downto 0) <= "ZZZZZZZZ";
-
-    end generate;
-
-    NotGenBootstrap: if not IncludeBootstrap generate
-
-        -- The latest Spec Next firmware can pre-load ROMs into pages
-
-        -- This mode uses Ram Chip 0
-
-        bootstrap_busy          <= '0';
-        ram_oe_n_o              <= RAM_nOE;
-        ram_we_n_o              <= RAM_nWE;
-        ram_ce_n_o(0)           <= RAM_nCS;
-        ram_ce_n_o(1)           <= '1';
-        ram_ce_n_o(2)           <= '1';
-        ram_ce_n_o(3)           <= '1';
-
-        -- Beeb ROM slots 0-15 are be mapped to Spec Next Pages 16-31
-
-        ram_addr_o              <= (not RAM_A(18)) & RAM_A(17 downto 0);
-
-        ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
-
-        RAM_Dout                <= ram_data_io(7 downto 0);
-
-        flash_cs_n_o            <= '1';
-        flash_mosi_o            <= '1';
-        flash_sclk_o            <= '1';
-
-        ram_data_io(15 downto 8) <= "ZZZZZZZZ";
-
-    end generate;
+    flash_cs_n_o            <= '1';
+    flash_mosi_o            <= '1';
+    flash_sclk_o            <= '1';
 
 --------------------------------------------------------
 -- External tube connections

@@ -1,14 +1,13 @@
     config_reg        = &2FF0
     config_reg_reset  = &2FFF
+    splash            = &3000
 
     config_file       = &C000
 
     cfg               = &80
     tmp               = &82
-
     src               = &84
     dst               = &86
-
 
 org &C000
 .start
@@ -17,7 +16,7 @@ org &C000
 
 org &D000
 
-.splash
+.splash_image
     incbin "splash.bin"
 
 org &F800
@@ -26,19 +25,19 @@ org &F800
 
 .mode012
     EQUB &7F, &50, &62, &28, &26, &00, &20, &23
-    EQUB &01, &07, &67, &08, &06, &00, &06, &00
+    EQUB &00, &07, &6F, &08, &06, &00, &06, &00
 
 .mode3
     EQUB &7F, &50, &62, &28, &1E, &02, &19, &1C
-    EQUB &01, &09, &67, &09, &08, &00, &08, &00
+    EQUB &00, &09, &6F, &09, &08, &00, &08, &00
 
 .mode45
     EQUB &3F, &28, &31, &24, &26, &00, &20, &23
-    EQUB &01, &07, &67, &08, &0B, &00, &0B, &00
+    EQUB &00, &07, &6F, &08, &0B, &00, &0B, &00
 
 .mode6
     EQUB &3F, &28, &31, &24, &1E, &02, &19, &1C
-    EQUB &01, &09, &67, &09, &0C, &00, &0C, &00
+    EQUB &00, &09, &6F, &09, &0C, &00, &0C, &00
 
 .mode7
     EQUB &3F, &28, &33, &24, &1E, &02, &19, &1C
@@ -171,13 +170,6 @@ org &F800
     CPY #&10
     BNE paletteloop
 
-
-    LDX #5
-.beeploop
-    JSR delay100ms
-    DEX
-    BNE beeploop
-
     RTS
 }
 
@@ -267,6 +259,7 @@ org &F800
     EQUB "copro",       0, 3
     EQUB "debug",       0, 4
     EQUB "keydip",      0, 5
+    EQUB "splash",      0, &10
     EQUB "cmos",        0, &80
     EQUB 0,             0, 0
 
@@ -418,11 +411,11 @@ org &F800
 
 .copy_splash
 {
-    LDY #<splash
+    LDY #<splash_image
     STY src
     LDY #&00
     STY dst
-    LDA #>splash
+    LDA #>splash_image
     STA src+1
     LDA #&58
     STA dst+1
@@ -443,19 +436,30 @@ org &F800
     LDX #&FF
     TXS
 
+    ; Default to showing the splash screen
+    LDA #30
+    STA splash
+
     JSR parse_config
+
+    LDA splash
+    BEQ reset
+
+    PHA
 
     JSR copy_splash
 
     LDA #4
     JSR mode
 
-    LDX #20
+    PLA
+    TAX
 .loop
     JSR delay100ms
     DEX
     BNE loop
 
+.reset
     LDA #&00
     STA config_reg_reset
 

@@ -48,6 +48,12 @@ copro = 0
 
 debug = 1
 
+; Show BeebFPGA Splash Screen
+;     0=off
+;    >0=on (value = duration in 100ms units)
+
+splash = 20
+
 EOF
 }
 
@@ -79,7 +85,7 @@ cmos06 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos07 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos09 = 00 ; Edit startup settings
 cmos09 = 00 ; reserved for telecommunications applications
-cmos0A = F3 ; VDU mode and *TV settings
+cmos0A = F7 ; VDU mode and *TV settings
 cmos0B = 63 ; ADFS startup options, keyboard settings, floppy params
 cmos0C = 20 ; Keyboard auto-repeat delay
 cmos0D = 08 ; Keyboard auto-repeat rate

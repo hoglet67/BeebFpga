@@ -38,3 +38,5 @@ altera/output_files/
 altera/bbc_micro_de1.qws
 
 releases/
+
+firmware/config.rom

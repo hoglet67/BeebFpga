@@ -192,7 +192,7 @@ architecture rtl of bbc_micro_spec_next is
     signal RAM_nWE         : std_logic;
     signal RAM_nOE         : std_logic;
     signal RAM_nCS         : std_logic;
-    signal keyb_dip        : std_logic_vector(7 downto 0);
+    signal keyb_dip        : std_logic_vector(7 downto 0) := x"00";
     signal vid_mode        : std_logic_vector(3 downto 0) := "0001";
     signal vid_debug       : std_logic := '0';
     signal reconfig_ctr    : std_logic_vector(23 downto 0);
@@ -249,14 +249,15 @@ architecture rtl of bbc_micro_spec_next is
     signal yellow_config_membrane    : std_logic_vector(9 downto 0);
     signal yellow_config             : std_logic_vector(9 downto 0);
 
+    -- Special Power Up Configuration Mode
+    signal config_mode     : std_logic := '1';
+    signal config_reset    : std_logic := '0';
+
 begin
 
 --------------------------------------------------------
 -- BBC Micro Core
 --------------------------------------------------------
-
-    -- As per the Beeb keyboard DIP switches
-    keyb_dip       <= "00000000";
 
     -- Format of Video
     -- Bit 1,0 select the video format
@@ -583,30 +584,25 @@ begin
 
     m128_mode <= '1' when IncludeMaster else '0';
 
-    -- Generate a reliable power up reset
-    -- Also, perform a power up reset if the master/beeb mode switch is changed
+    -- Generate a reliable power up reset and handle configuration mode
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if reset_counter(reset_counter'high) = '0' then
+            if config_reset = '1' then
+                -- Exit config mode when config_reset register written
+                config_mode <= '0';
+                config_reset <= '0';
+                reset_counter <= (others => '0');
+            elsif btn_reset_n_i = '0' then
+                -- Enter config mode when red button presset
+                config_mode <= '1';
+                reset_counter <= (others => '0');
+            elsif reset_counter(reset_counter'high) = '0' then
                 reset_counter <= reset_counter + 1;
             end if;
-            powerup_reset_n <= btn_reset_n_i and reset_counter(reset_counter'high);
-        end if;
-    end process;
+            powerup_reset_n <= reset_counter(reset_counter'high);
 
-    hard_reset_n <= powerup_reset_n;
-
---------------------------------------------------------
--- Configuration toggles
---------------------------------------------------------
-
-    config: process(clock_48)
-    begin
-        if rising_edge(clock_48) then
-
-            yellow_config <= yellow_config_membrane or yellow_config_ps2;
-
+            -- Configuration toggles
             -- Yellow 1 - Video: SCART sRGB: Pixel Clock 16MHz/12MHz
             -- Yellow 2 - Video:   HDMI/VGA: Pixel Clock       27MHz
             -- Yellow 3 - Video:        VGA: Pixel Clock 32MHz/24MHz
@@ -617,7 +613,7 @@ begin
             -- Yellow 8 - HDMI aspect: 16:9
             -- Yellow 9 - Int Co Pro on/off
             -- Yellow 0 - Video debug on/off
-
+            yellow_config <= yellow_config_membrane or yellow_config_ps2;
             if yellow_config(1) = '1' then
                 vid_mode      <= "0000";
             elsif yellow_config(2) = '1' then
@@ -639,8 +635,32 @@ begin
             elsif yellow_config(0) = '1' then
                 vid_debug <= not vid_debug;
             end if;
+
+            -- Overlay write-only config registers in config mode only at &2FFx
+            config_reset <= '0';
+            if config_mode = '1' and ('0' & RAM_A(18 downto 4)) = x"62FF" and RAM_nCS = '0' and RAM_nWE = '0' then
+                case RAM_A(3 downto 0) is
+					when x"0" =>
+                        vid_mode <= RAM_Din(3 downto 0);
+					when x"1" =>
+                        hdmi_audio_en <= RAM_Din(0);
+					when x"2" =>
+                        hdmi_aspect <= RAM_Din(1 downto 0);
+					when x"3" =>
+                        copro_mode <= RAM_Din(0);
+					when x"4" =>
+                        vid_debug <= RAM_Din(0);
+					when x"5" =>
+                        keyb_dip <= RAM_Din(7 downto 0);
+					when x"F" =>
+                        config_reset <= '1';
+                    when others =>
+                end case;
+            end if;
         end if;
     end process;
+
+    hard_reset_n <= powerup_reset_n;
 
 --------------------------------------------------------
 -- Dynamic Reconfiguration
@@ -734,9 +754,7 @@ begin
 -- SRAM INTERFACE
 --------------------------------------------------------
 
-
     -- The latest Spec Next firmware can pre-load ROMs into pages
-
     -- This mode uses Ram Chip 0
 
     ram_oe_n_o              <= RAM_nOE;
@@ -747,7 +765,9 @@ begin
     ram_ce_n_o(3)           <= '1';
 
     -- Beeb ROM slots 0-15 are be mapped to Spec Next Pages 16-31
-    ram_addr_o              <= (not RAM_A(18)) & RAM_A(17 downto 0);
+    -- (in config mode the OS ROM is mapped to SRAM Page 22 rather than 20
+    ram_addr_o              <= "10110"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00100" else
+                               (not RAM_A(18)) & RAM_A(17 downto 0);
 
     ram_data_io(15 downto 8)<= "ZZZZZZZZ";
     ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');

@@ -1,32 +1,26 @@
-    config_reg = &2FF0
+    config_reg        = &2FF0
+    config_reg_reset  = &2FFF
 
-    config_reg_vid         = config_reg + 0
-    config_reg_hdmi_audio  = config_reg + 1
-    config_reg_hdmi_aspect = config_reg + 2
-    config_reg_copro       = config_reg + 3
-    config_reg_debug       = config_reg + 4
-    config_reg_keyb_dip    = config_reg + 5
-    config_reg_reset       = config_reg + 15
+    config_file       = &C000
 
+    cfg               = &80
+    tmp               = &82
 
-    config_file = &C000
-;   config_slot = &01
+    src               = &84
+    dst               = &86
 
-    src = &80
-    dst = &82
-
-    cfg = &84
-    tmp = &86
 
 org &C000
 .start
 
-org &C800
+    ;; The beeb.cfg is preloaded here
+
+org &D000
 
 .splash
-    INCBIN "splash.bin"
+    incbin "splash.bin"
 
-org &F000
+org &F800
 
 .modebase
 
@@ -94,11 +88,6 @@ org &F000
 .videoula
     EQUB &9c, &d8, &f4, &9c, &88, &c4, &88, &4b
 
-.soundinit
-    EQUB &9F, &82, &3F, &BF
-    EQUB &A1, &3F, &DF, &C0
-    EQUB &3F, &FF, &E0, &00
-
 ;; Delay 100ms or ~200000 cycles
 .delay100ms
 {
@@ -117,20 +106,6 @@ org &F000
     TAY
     PLA
     TAX
-    RTS
-}
-
-.writeSoundByte
-{
-    PHA
-    LDA #&FF
-    STA &FE43
-    PLA
-    STA &FE4F
-    LDA #&00
-    STA &FE40
-    LDA #&08
-    STA &FE40
     RTS
 }
 
@@ -160,16 +135,6 @@ org &F000
     STA &FE40
     LDA modelatchb5,X
     STA &FE40
-
-    ;; Initialize SN76489
-    LDX #&00
-.soundloop
-    LDA soundinit,X
-    BEQ sounddone
-    JSR writeSoundByte
-    INX
-    BNE soundloop
-.sounddone
 
     ;; Initialiaze 6845
     PLA
@@ -206,13 +171,6 @@ org &F000
     CPY #&10
     BNE paletteloop
 
-    ;; Start a ^G beep
-    LDA #&92
-    JSR writeSoundByte
-    LDA #&8F
-    JSR writeSoundByte
-    LDA #&0E
-    JSR writeSoundByte
 
     LDX #5
 .beeploop
@@ -220,24 +178,8 @@ org &F000
     DEX
     BNE beeploop
 
-    ;; Stop the ^G sound
-    LDA #&9F
-    JSR writeSoundByte
-    JSR writeSoundByte
-    JSR writeSoundByte
-
     RTS
 }
-
-
-.keys_table
-    EQUB "video",       0, 0
-    EQUB "hdmi_aspect", 0, 1
-    EQUB "hdmi_audio",  0, 2
-    EQUB "copro",       0, 3
-    EQUB "debug",       0, 4
-    EQUB "keydip",      0, 5
-    EQUB 0,             0, 0
 
 .hex_digit
 {
@@ -245,7 +187,12 @@ org &F000
     BCC bad
     CMP #'9'+1
     BCC good
-    SBC #'A'-'9'-1
+    AND #&DF
+    CMP #'A'
+    BCC bad
+    CMP #'F'+1
+    BCS bad
+    SBC #'A'-'9'-2
     CMP #'0'+&10
     BCS bad
 .good
@@ -254,6 +201,32 @@ org &F000
     RTS
 .bad
     SEC
+    RTS
+}
+
+.read_hex
+{
+
+    LDA #0
+    STA tmp
+
+.loop
+    LDA (cfg), Y
+    JSR hex_digit
+    BCS exit
+
+    INY
+    ASL tmp
+    ASL tmp
+    ASL tmp
+    ASL tmp
+    ORA tmp
+    STA tmp
+
+    JMP loop
+
+.exit
+    LDA tmp
     RTS
 }
 
@@ -276,6 +249,27 @@ org &F000
     BNE loop
 }
 
+.skip_spc
+{
+    DEY
+.loop
+    INY
+    LDA (cfg), Y
+    CMP #' '
+    BEQ loop
+    RTS
+}
+
+.keys_table
+    EQUB "video",       0, 0
+    EQUB "hdmi_audio",  0, 1
+    EQUB "hdmi_aspect", 0, 2
+    EQUB "copro",       0, 3
+    EQUB "debug",       0, 4
+    EQUB "keydip",      0, 5
+    EQUB "cmos",        0, &80
+    EQUB 0,             0, 0
+
 .parse_config
 {
 
@@ -288,22 +282,23 @@ org &F000
 
     ; Skip any whitespace (including newlines)
     JSR skip_whitespace
-    ; (cfg) points to first non-w
+    ; (cfg) points to first non-whitespace, and A holds the value
 
     ; Check for a comment line
     CMP #';'
     BEQ skip_to_eol
 
-    LDX #&FF  ; index into keys table
+    LDX #&00  ; index into keys table
 
 .loop1
     LDY #&FF  ; index into config file
 
     ; run out of keys?
-    LDA keys_table + 1, X
+    LDA keys_table, X
     BEQ skip_to_eol
 
-    ; try to match the cirrent key
+    ; try to match the current key
+    DEX
 .loop2
     INX
     INY
@@ -318,50 +313,40 @@ org &F000
     LDA keys_table, X
     BNE loop3
 
-    ; skip the 00 terminator
+    ; skip the terminator
+    INX
+    ; skip the reg index
     INX
     ; match the next key
     JMP loop1
 
-.skip_spc1
-    INY
 .match
-    LDA (cfg), Y
-    CMP #' '
-    BEQ skip_spc1
-    CMP #'='
-    BNE skip_to_eol
 
-    ;; Prepare the result
-    LDA #0
-    STA tmp
-
-.skip_spc2
-    INY
-    LDA (cfg), Y
-    CMP #' '
-    BEQ skip_spc2
-
-.hex_loop
-    JSR hex_digit
-    BCS write_config_reg
-
-    ASL tmp
-    ASL tmp
-    ASL tmp
-    ASL tmp
-    ORA tmp
-    STA tmp
-
-    INY
-    LDA (cfg), Y
-    JMP hex_loop
-
-.write_config_reg
     INX
     LDA keys_table, X  ; Config Register Index
     TAX
-    LDA tmp
+
+    BPL normal_key     ; b7=1 indicates the cmos key
+    JSR read_hex       ; read a further number XX (cmosXX=YY)
+    CLC
+    ADC #&0E           ; CMOS[00] is stored in RTC[0E]
+    ORA #&80           ; keep b7 set
+    TAX                ; and move to X
+.normal_key
+    JSR skip_spc
+    CMP #'='
+    BNE skip_to_eol
+    INY
+    JSR skip_spc
+    JSR read_hex
+
+    CPX #&80
+    BCC config_write
+
+    JSR cmos_write_data
+    JMP skip_to_eol
+
+.config_write
     STA config_reg, X
 
 .skip_to_eol
@@ -377,9 +362,9 @@ org &F000
     LDA (cfg), Y
     BEQ end_of_file
     CMP #&0A
-    BEQ next_line
+    BEQ start_line
     CMP #&0D
-    BEQ next_line
+    BEQ start_line
     INC cfg
     BNE skip_to_eol_loop
     INC cfg+1
@@ -387,9 +372,48 @@ org &F000
 
 .end_of_file
     RTS
+}
 
-.next_line
-    JMP start_line
+
+; Strobe the address in X in
+.cmos_strobe_addr
+{
+    LDA #&02
+    STA &FE40
+    LDA #&82
+    STA &FE40
+    LDA #&FF
+    STA &FE43
+    TXA
+    AND #&3F   ; masking bit 7,6
+    STA &FE4F
+    LDA #&C2
+    STA &FE40
+    LDA #&42
+    STA &FE40
+    RTS
+}
+
+; Write the data in A to the CMOS address in X
+.cmos_write_data
+{
+    PHA
+    JSR cmos_strobe_addr
+    LDA #&41
+    STA &FE40
+    LDA #&FF
+    STA &FE43
+    LDA #&4A
+    STA &FE40
+    PLA
+    STA &FE4F
+    LDA #&42
+    STA &FE40
+    LDA #&02
+    STA &FE40
+    LDA #&00
+    STA &FE43
+    RTS
 }
 
 .copy_splash
@@ -419,23 +443,7 @@ org &F000
     LDX #&FF
     TXS
 
-;   LDA #config_slot
-;   STA &FE30
-
     JSR parse_config
-
-;   LDA #&01
-;   STA config_reg_vid
-;   LDA #&00
-;   STA config_reg_hdmi_audio
-;   LDA #&00
-;   STA config_reg_hdmi_aspect
-;   LDA #&01
-;   STA config_reg_copro
-;   LDA #&01
-;   STA config_reg_debug
-;   LDA #&00
-;   STA config_reg_keyb_dip
 
     JSR copy_splash
 
@@ -448,9 +456,8 @@ org &F000
     DEX
     BNE loop
 
-; LDA #&00
-
-; STA config_reg_reset
+    LDA #&00
+    STA config_reg_reset
 
 .forever
     JMP forever
@@ -469,3 +476,96 @@ org &FFFA
 .end
 
 SAVE "config.rom",start, end
+
+; *CONFIGURE FILE 9
+
+; Read CMOS [0x13]
+
+; 00.440021 : Mem Wr Watch hit at 9908 writing FE40:02 latch(1) rtc_rnw = 0
+; 00.440027 : Mem Wr Watch hit at 990D writing FE40:82
+; 00.440033 : Mem Wr Watch hit at 9912 writing FE43:FF DDRA = output
+; 00.440037 : Mem Wr Watch hit at 9915 writing FE4F:13 Address = 1E
+; 00.440043 : Mem Wr Watch hit at 991A writing FE40:C2
+; 00.440049 : Mem Wr Watch hit at 991F writing FE40:42
+
+; 00.440061 : Mem Wr Watch hit at 98BE writing FE40:49
+; 00.440065 : Mem Wr Watch hit at 98C1 writing FE43:00 DDRA = input
+; 00.440071 : Mem Wr Watch hit at 98C6 writing FE40:4A
+; 00.440081 : Mem Wr Watch hit at 98CE writing FE40:42
+; 00.440087 : Mem Wr Watch hit at 98D3 writing FE40:02
+; 00.440091 : Mem Wr Watch hit at 98D6 writing FE43:00
+
+; Write CMOS [0x13]
+
+; 00.440134 : Mem Wr Watch hit at 9908 writing FE40:02
+; 00.440140 : Mem Wr Watch hit at 990D writing FE40:82
+; 00.440146 : Mem Wr Watch hit at 9912 writing FE43:FF DDRA = output
+; 00.440150 : Mem Wr Watch hit at 9915 writing FE4F:13
+; 00.440156 : Mem Wr Watch hit at 991A writing FE40:C2
+; 00.440162 : Mem Wr Watch hit at 991F writing FE40:42
+
+; 00.440174 : Mem Wr Watch hit at 98EB writing FE40:41
+; 00.440180 : Mem Wr Watch hit at 98F0 writing FE43:FF DDRA = output
+; 00.440186 : Mem Wr Watch hit at 98F5 writing FE40:4A
+; 00.440190 : Mem Wr Watch hit at 98F8 writing FE4F:C9 <<<< Write
+; 00.440199 : Mem Wr Watch hit at 98CE writing FE40:42
+; 00.440205 : Mem Wr Watch hit at 98D3 writing FE40:02
+; 00.440209 : Mem Wr Watch hit at 98D6 writing FE43:00
+
+; Strobe Address Code
+
+; 9906 : A9 02    : LDA #$02
+; 9908 : 8D 40 FE : STA $FE40
+; 990B : A9 82    : LDA #$82
+; 990D : 8D 40 FE : STA $FE40
+; 9910 : A9 FF    : LDA #$FF
+; 9912 : 8D 43 FE : STA $FE43
+; 9915 : 8E 4F FE : STX $FE4F
+; 9918 : A9 C2    : LDA #$C2
+; 991A : 8D 40 FE : STA $FE40
+; 991D : A9 42    : LDA #$42
+; 991F : 8D 40 FE : STA $FE40
+; 9922 : 60       : RTS
+
+; Read Code
+
+; 98B7 : 08       : PHP
+; 98B8 : 78       : SEI
+; 98B9 : 20 06 99 : JSR $9906
+; 98BC : A9 49    : LDA #$49
+; 98BE : 8D 40 FE : STA $FE40
+; 98C1 : 9C 43 FE : STZ $FE43
+; 98C4 : A9 4A    : LDA #$4A
+; 98C6 : 8D 40 FE : STA $FE40
+; 98C9 : AC 4F FE : LDY $FE4F
+; 98CC : A9 42    : LDA #$42
+; 98CE : 8D 40 FE : STA $FE40
+; 98D1 : A9 02    : LDA #$02
+; 98D3 : 8D 40 FE : STA $FE40
+; 98D6 : 9C 43 FE : STZ $FE43
+; 98D9 : 28       : PLP
+; 98DA : 98       : TYA
+; 98DB : 60       : RTS
+
+; Write CMOS [0x13]
+
+; 98E4 : 08       : PHP
+; 98E5 : 78       : SEI
+; 98E6 : 20 06 99 : JSR $9906
+; 98E9 : A9 41    : LDA #$41
+; 98EB : 8D 40 FE : STA $FE40
+; 98EE : A9 FF    : LDA #$FF
+; 98F0 : 8D 43 FE : STA $FE43
+; 98F3 : A9 4A    : LDA #$4A
+; 98F5 : 8D 40 FE : STA $FE40
+; 98F8 : 8C 4F FE : STY $FE4F
+; 98FB : 80 CF    : BRA $98CC
+
+; 98CC : A9 42    : LDA #$42
+; 98CE : 8D 40 FE : STA $FE40
+; 98D1 : A9 02    : LDA #$02
+; 98D3 : 8D 40 FE : STA $FE40
+; 98D6 : 9C 43 FE : STZ $FE43
+; 98D9 : 28       : PLP
+; 98DA : 98       : TYA
+; 98DB : 60       : RTS

@@ -4,6 +4,9 @@ use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
 entity rtc is
+    generic (
+        OverrideCMOS : boolean -- Overide CMOS/RTC mode settings with keyb_dip
+    );
     port (
         clk          : in  std_logic;
         cpu_clken    : in  std_logic;
@@ -190,7 +193,11 @@ begin
                         as_r <= '0';
                         ds_r <= '0';
                         do <= (others => '0');
-                        rtc_state <= WRITE_10;
+                        if OverrideCMOS then
+                            rtc_state <= WRITE_10;
+                        else
+                            rtc_state <= RUNNING;
+                        end if;
 
                     -- Copy the screen mode from the DIP switches into CMOS on power up
                     when WRITE_10 =>

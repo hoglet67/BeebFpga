@@ -66,7 +66,8 @@ entity bbc_micro_core is
         IncludeVideoNuLA   : boolean := false;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
-        UseAlanDCore       : boolean := true
+        UseAlanDCore       : boolean := true;
+        OverrideCMOS       : boolean := true   -- Overide CMOS/RTC mode settings with keyb_dip
     );
     port (
         -- Clocks
@@ -2023,19 +2024,23 @@ begin
 -----------------------------------------------
 
     -- RTC/CMOS
-    inst_rtc : entity work.rtc port map (
-        clk          => clock_48,
-        cpu_clken    => cpu_clken,
-        hard_reset_n => hard_reset_n,
-        reset_n      => reset_n,
-        ce           => rtc_ce,
-        as           => rtc_as,
-        ds           => rtc_ds,
-        r_nw         => rtc_r_nw,
-        adi          => rtc_adi,
-        do           => rtc_do,
-        keyb_dip     => keyb_dip
-    );
+    inst_rtc : entity work.rtc
+        generic map (
+            OverrideCMOS => OverrideCMOS
+        )
+        port map (
+            clk          => clock_48,
+            cpu_clken    => cpu_clken,
+            hard_reset_n => hard_reset_n,
+            reset_n      => reset_n,
+            ce           => rtc_ce,
+            as           => rtc_as,
+            ds           => rtc_ds,
+            r_nw         => rtc_r_nw,
+            adi          => rtc_adi,
+            do           => rtc_do,
+            keyb_dip     => keyb_dip
+        );
 
     -- RTC/CMOS is controlled from the system
     -- PB7 -> address strobe (AS) active high

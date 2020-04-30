@@ -280,7 +280,8 @@ begin
         IncludeVideoNuLA   => IncludeVideoNuLA,
         UseOrigKeyboard    => true,
         UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
-        UseAlanDCore       => IncludeMaster       -- select the 65C02 for the Master
+        UseAlanDCore       => IncludeMaster,      -- select the 65C02 for the Master
+        OverrideCMOS       => false
         )
     port map (
         clock_27       => clock_27,

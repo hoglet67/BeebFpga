@@ -17,7 +17,7 @@ org &C000
 org &D000
 
 .splash_image
-    incbin "splash.bin"
+    incbin "splash1.bin"
 
 org &F800
 

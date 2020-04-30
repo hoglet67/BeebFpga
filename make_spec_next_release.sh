@@ -52,7 +52,7 @@ debug = 1
 ;     0=off
 ;    >0=on (value = duration in 100ms units)
 
-splash = 20
+splash = 30
 
 EOF
 }

@@ -771,8 +771,14 @@ begin
     ram_ce_n_o(3)           <= '1';
 
     -- Beeb ROM slots 0-15 are be mapped to Spec Next Pages 16-31
-    -- (in config mode the OS ROM is mapped to SRAM Page 22 rather than 20
+    -- In config mode the ROM mapping is changed as follows:
+    --    #C000-#FFFF         => SRAM Page 22 (the config ROM)    (was 20)
+    --    #8000-#BFFF (Rom 0) => SRAM Page 23 (the beeb.cfg file) (was 16)
+    --    #8000-#BFFF (Rom 1) => SRAM Page 20 (the OS ROM)        (was 17)
+    -- (in config mode the OS ROM is mapped to SRAM Page 22 rather than 20)
     ram_addr_o              <= "10110"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00100" else
+                               "10111"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00000" else
+                               "10100"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00001" else
                                (not RAM_A(18)) & RAM_A(17 downto 0);
 
     ram_data_io(15 downto 8)<= "ZZZZZZZZ";

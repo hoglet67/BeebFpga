@@ -52,12 +52,6 @@ copro = 0
 
 debug = 1
 
-; Show BeebFPGA Splash Screen
-;     0=off
-;    >0=on (value = duration in 100ms units)
-
-splash = 20
-
 ; PS/2 Mode
 ;    0=keyboard
 ;    1=mouse
@@ -65,6 +59,19 @@ splash = 20
 ; default is from from config.ini
 
 ; ps2_mode = 0
+
+; Show BeebFPGA Splash Screen
+;     0=off
+;    >0=on (value = duration in 100ms units)
+
+splash = 20
+
+; Whether to check the ROM crcs
+;     0=no
+;     1=yes
+;
+
+romcheck = 1
 
 EOF
 }
@@ -79,6 +86,13 @@ cat >> $1 <<EOF
 ; See p246 of Advanced User Guide
 
 keydip = 00
+
+; ROM CRCs, for checking during boot
+
+crc01 = 5cbf
+crc08 = b4ab
+crc0E = 36b8
+crc0F = 4274
 
 EOF
 }
@@ -104,6 +118,19 @@ cmos0D = 08 ; Keyboard auto-repeat rate
 cmos0E = 0A ; Printer ignore character
 cmos0F = 2D ; Default printer type, serial baud rate, ignore status and TUBE select
 cmos10 = 80 ; Default serial data format, auto boot option, int/ext TUBE, bell amplitude
+
+; ROM CRCs, for checking during boot
+
+crc01  = 9402
+crc03  = dd56
+crc08  = 81db
+crc09  = c433
+crc0A  = e7c4
+crc0B  = b5b6
+crc0C  = 61d7
+crc0D  = b733
+crc0E  = 7621
+crc0F  = 64af
 
 EOF
 }
@@ -131,6 +158,7 @@ name=Acorn BBC Model B
 resource=blank.rom,19
 resource=os12.rom,20
 resource=config.rom,22
+resource=blank.rom,23
 resource=swmmfs2.rom,24
 resource=blank.rom,25
 resource=blank.rom,26
@@ -140,11 +168,11 @@ resource=blank.rom,29
 resource=rammas6.rom,30
 resource=basic2.rom,31
 
-; Beeb Specific Config
-resource=beeb.cfg,22
+; Beeb Config at the start
+resource=beeb.cfg,23
 
-; Spec Next Config
-config=22,3840
+; Spec Next Config and the end (0x3F00)
+config=23,16128
 EOF
 
 for i in os12 basic2 ram_master_v6 swmmfs2
@@ -179,6 +207,7 @@ name=Acorn BBC Master
 resource=mammfs2.rom,19
 resource=mos.rom,20
 resource=config.rom,22
+resource=blank.rom,23
 resource=owl.rom,24
 resource=dfs.rom,25
 resource=viewsht.rom,26
@@ -188,11 +217,11 @@ resource=adfs.rom,29
 resource=view.rom,30
 resource=terminal.rom,31
 
-; Beeb Specific Config
-resource=beeb.cfg,22
+; Beeb Config at the start
+resource=beeb.cfg,23
 
-; Spec Next Config
-config=22,3840
+; Spec Next Config and the end (0x3F00)
+config=23,16128
 EOF
 
 for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht
@@ -200,6 +229,9 @@ do
     cp roms/m128/$i.rom $DIR/machines/${MACH}
 done
 cp firmware/config.rom $DIR/machines/${MACH}
+
+# Add a blank rom
+dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 
 common_settings $DIR/machines/${MACH}/beeb.cfg
 master_settings $DIR/machines/${MACH}/beeb.cfg

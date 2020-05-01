@@ -1,32 +1,51 @@
-    config_reg             = &2FF0
+    config_reg              = &2FF0
 
-    config_reg_video       = config_reg + 0
-    config_reg_hdmi_audio  = config_reg + 1
-    config_reg_hdmi_aspect = config_reg + 2
-    config_reg_copro       = config_reg + 3
-    config_reg_debug       = config_reg + 4
-    config_reg_keydip      = config_reg + 5
-    config_reg_ps2_swap    = config_reg + 6
+    config_reg_video        = config_reg + 0
+    config_reg_hdmi_audio   = config_reg + 1
+    config_reg_hdmi_aspect  = config_reg + 2
+    config_reg_copro        = config_reg + 3
+    config_reg_debug        = config_reg + 4
+    config_reg_keydip       = config_reg + 5
+    config_reg_ps2_swap     = config_reg + 6
 
-    config_reg_reset       = config_reg + 15
+    config_reg_reset        = config_reg + 15
 
-    splash                 = config_reg + 16
+    splash                  = config_reg + &10
+    romcheck                = config_reg + &11
 
-    cfg                    = &80
-    tmp                    = &82
-    src                    = &84
-    dst                    = &86
+    screen_base             = &5800
+    num_cols                = 40
+    num_rows                = 32
 
-org &C000
-.start
+    ptr                     = &70
+    fcrc                    = &72
+    tmpa                    = &74
+    fail                    = &75
+    acc16                   = &76
+
+    cfg                     = &80
+    tmp                     = &82
+    src                     = &84
+    dst                     = &86
+
+    char                    = &88
+    scrn                    = &8A
+    scrntmp                 = &8C
+    cursor_x                = &8E
+    cursor_y                = &8F
+
+    rom_crc_test            = &90
+    rom_crc_value_lo        = &A0
+    rom_crc_value_hi        = &B0
+
+;; The ROM slot used for config data
+   cfg_slot                 = 0
 
 ;; The beeb.cfg text is preloaded here
-.beeb_cfg_data
-
-org &CF00
+   beeb_cfg_data            = &8000
 
 ;; The Spec Next config.ini binary data is loaded here
-.spec_cfg_data
+   spec_cfg_data            = &BF00
 
 ; The first 16 bytes contain generic configuration information (taken from
 ; the Next's config.ini) that the core may optionally take into account
@@ -39,23 +58,14 @@ org &CF00
 ; +5 internal speaker (0=disabled, 1=enabled)
 ; +6 HDMI sound (0=disabled, 1=enabled)
 ; +7..15 RESERVED
-
-.spec_video_timing_mode
-    EQUB 0
-.spec_scandoubler
-    EQUB 0
-.spec_frequency
-    EQUB 0
-.spec_ps2_mode
-    EQUB 0
-.spec_scanline_weight
-    EQUB 0
-.spec_internal_speaker
-    EQUB 0
-.spec_hdmi_audio
-    EQUB 0
-
 ;
+    spec_video_timing_mode  = spec_cfg_data + 0
+    spec_scandoubler        = spec_cfg_data + 1
+    spec_frequency          = spec_cfg_data + 2
+    spec_ps2_mode           = spec_cfg_data + 3
+    spec_scanline_weight    = spec_cfg_data + 4
+    spec_internal_speaker   = spec_cfg_data + 5
+    spec_hdmi_audio         = spec_cfg_data + 6
 ; The next 16 bytes indicate whether the first 16 "userfile" options resulted
 ; in a file being selected. For each byte, 0 means "not selected" and 1 means
 ; "selected".
@@ -66,12 +76,474 @@ org &CF00
 ; The next 192 bytes are reserved for future use.
 
 
-org &D000
+org &C000
+.start
 
 .splash_image
     incbin "splash1.bin"
 
-org &F800
+org &E800
+
+
+; ===============================================================================
+; Fast CRC (using the 16-bit Atom CRC)
+; ===============================================================================
+
+.crcTableLo
+    EQUB &00, &68, &D0, &B8, &A0, &C8, &70, &18
+    EQUB &40, &28, &90, &F8, &E0, &88, &30, &58
+    EQUB &80, &E8, &50, &38, &20, &48, &F0, &98
+    EQUB &C0, &A8, &10, &78, &60, &08, &B0, &D8
+    EQUB &00, &68, &D0, &B8, &A0, &C8, &70, &18
+    EQUB &40, &28, &90, &F8, &E0, &88, &30, &58
+    EQUB &80, &E8, &50, &38, &20, &48, &F0, &98
+    EQUB &C0, &A8, &10, &78, &60, &08, &B0, &D8
+    EQUB &00, &68, &D0, &B8, &A0, &C8, &70, &18
+    EQUB &40, &28, &90, &F8, &E0, &88, &30, &58
+    EQUB &80, &E8, &50, &38, &20, &48, &F0, &98
+    EQUB &C0, &A8, &10, &78, &60, &08, &B0, &D8
+    EQUB &00, &68, &D0, &B8, &A0, &C8, &70, &18
+    EQUB &40, &28, &90, &F8, &E0, &88, &30, &58
+    EQUB &80, &E8, &50, &38, &20, &48, &F0, &98
+    EQUB &C0, &A8, &10, &78, &60, &08, &B0, &D8
+    EQUB &00, &68, &D0, &B8, &A0, &C8, &70, &18
+    EQUB &40, &28, &90, &F8, &E0, &88, &30, &58
+    EQUB &80, &E8, &50, &38, &20, &48, &F0, &98
+    EQUB &C0, &A8, &10, &78, &60, &08, &B0, &D8
+    EQUB &00, &68, &D0, &B8, &A0, &C8, &70, &18
+    EQUB &40, &28, &90, &F8, &E0, &88, &30, &58
+    EQUB &80, &E8, &50, &38, &20, &48, &F0, &98
+    EQUB &C0, &A8, &10, &78, &60, &08, &B0, &D8
+    EQUB &00, &68, &D0, &B8, &A0, &C8, &70, &18
+    EQUB &40, &28, &90, &F8, &E0, &88, &30, &58
+    EQUB &80, &E8, &50, &38, &20, &48, &F0, &98
+    EQUB &C0, &A8, &10, &78, &60, &08, &B0, &D8
+    EQUB &00, &68, &D0, &B8, &A0, &C8, &70, &18
+    EQUB &40, &28, &90, &F8, &E0, &88, &30, &58
+    EQUB &80, &E8, &50, &38, &20, &48, &F0, &98
+    EQUB &C0, &A8, &10, &78, &60, &08, &B0, &D8
+
+.crcTableHi
+    EQUB &00, &01, &02, &03, &05, &04, &07, &06
+    EQUB &0B, &0A, &09, &08, &0E, &0F, &0C, &0D
+    EQUB &16, &17, &14, &15, &13, &12, &11, &10
+    EQUB &1D, &1C, &1F, &1E, &18, &19, &1A, &1B
+    EQUB &2D, &2C, &2F, &2E, &28, &29, &2A, &2B
+    EQUB &26, &27, &24, &25, &23, &22, &21, &20
+    EQUB &3B, &3A, &39, &38, &3E, &3F, &3C, &3D
+    EQUB &30, &31, &32, &33, &35, &34, &37, &36
+    EQUB &5A, &5B, &58, &59, &5F, &5E, &5D, &5C
+    EQUB &51, &50, &53, &52, &54, &55, &56, &57
+    EQUB &4C, &4D, &4E, &4F, &49, &48, &4B, &4A
+    EQUB &47, &46, &45, &44, &42, &43, &40, &41
+    EQUB &77, &76, &75, &74, &72, &73, &70, &71
+    EQUB &7C, &7D, &7E, &7F, &79, &78, &7B, &7A
+    EQUB &61, &60, &63, &62, &64, &65, &66, &67
+    EQUB &6A, &6B, &68, &69, &6F, &6E, &6D, &6C
+    EQUB &B4, &B5, &B6, &B7, &B1, &B0, &B3, &B2
+    EQUB &BF, &BE, &BD, &BC, &BA, &BB, &B8, &B9
+    EQUB &A2, &A3, &A0, &A1, &A7, &A6, &A5, &A4
+    EQUB &A9, &A8, &AB, &AA, &AC, &AD, &AE, &AF
+    EQUB &99, &98, &9B, &9A, &9C, &9D, &9E, &9F
+    EQUB &92, &93, &90, &91, &97, &96, &95, &94
+    EQUB &8F, &8E, &8D, &8C, &8A, &8B, &88, &89
+    EQUB &84, &85, &86, &87, &81, &80, &83, &82
+    EQUB &EE, &EF, &EC, &ED, &EB, &EA, &E9, &E8
+    EQUB &E5, &E4, &E7, &E6, &E0, &E1, &E2, &E3
+    EQUB &F8, &F9, &FA, &FB, &FD, &FC, &FF, &FE
+    EQUB &F3, &F2, &F1, &F0, &F6, &F7, &F4, &F5
+    EQUB &C3, &C2, &C1, &C0, &C6, &C7, &C4, &C5
+    EQUB &C8, &C9, &CA, &CB, &CD, &CC, &CF, &CE
+    EQUB &D5, &D4, &D7, &D6, &D0, &D1, &D2, &D3
+    EQUB &DE, &DF, &DC, &DD, &DB, &DA, &D9, &D8
+
+
+MACRO mirror
+{
+    LDX #7
+.loop
+    ASL A
+    ROR tmpa
+    DEX
+    BPL loop
+    LDA tmpa
+}
+ENDMACRO
+
+.fast_crc
+{
+    PHA
+    TXA
+    PHA
+    TYA
+    PHA
+
+    LDA #&00
+    STA ptr
+    LDA #&80
+    STA ptr + 1
+    LDA #&00
+    STA fcrc
+    STA fcrc + 1
+    LDY #&00
+.fastCRC1
+    ;;  crc = (crc >> 8) ^ CRCtbl[(crc & 0xFF)] ^ ((b & 0xff) << 8);
+    LDX fcrc
+    LDA fcrc + 1
+    EOR crcTableLo, X
+    STA fcrc
+    LDA (ptr),Y
+    EOR crcTableHi, X
+    STA fcrc + 1
+
+    INC ptr
+    BNE fastCRC1
+    INC ptr + 1
+    LDA ptr + 1
+    CMP #&C0
+    BNE fastCRC1
+
+;; reverse the result bits to get the standard Atom CRC
+
+    LDA fcrc
+    mirror
+    PHA
+    LDA fcrc + 1
+    mirror
+    STA fcrc
+    PLA
+    STA fcrc + 1
+
+    PLA
+    TAY
+    PLA
+    TAX
+    PLA
+    RTS
+}
+
+
+; ===============================================================================
+; Simple VDU drivers
+; ===============================================================================
+
+.char_table
+ EQUB &00, &00, &00, &00, &00, &00, &00, &00
+ EQUB &18, &18, &18, &18, &18, &00, &18, &00
+ EQUB &6c, &6c, &6c, &00, &00, &00, &00, &00
+ EQUB &36, &36, &7f, &36, &7f, &36, &36, &00
+ EQUB &0c, &3f, &68, &3e, &0b, &7e, &18, &00
+ EQUB &60, &66, &0c, &18, &30, &66, &06, &00
+ EQUB &38, &6c, &6c, &38, &6d, &66, &3b, &00
+ EQUB &0c, &18, &30, &00, &00, &00, &00, &00
+ EQUB &0c, &18, &30, &30, &30, &18, &0c, &00
+ EQUB &30, &18, &0c, &0c, &0c, &18, &30, &00
+ EQUB &00, &18, &7e, &3c, &7e, &18, &00, &00
+ EQUB &00, &18, &18, &7e, &18, &18, &00, &00
+ EQUB &00, &00, &00, &00, &00, &18, &18, &30
+ EQUB &00, &00, &00, &7e, &00, &00, &00, &00
+ EQUB &00, &00, &00, &00, &00, &18, &18, &00
+ EQUB &00, &06, &0c, &18, &30, &60, &00, &00
+ EQUB &3c, &66, &6e, &7e, &76, &66, &3c, &00
+ EQUB &18, &38, &18, &18, &18, &18, &7e, &00
+ EQUB &3c, &66, &06, &0c, &18, &30, &7e, &00
+ EQUB &3c, &66, &06, &1c, &06, &66, &3c, &00
+ EQUB &0c, &1c, &3c, &6c, &7e, &0c, &0c, &00
+ EQUB &7e, &60, &7c, &06, &06, &66, &3c, &00
+ EQUB &1c, &30, &60, &7c, &66, &66, &3c, &00
+ EQUB &7e, &06, &0c, &18, &30, &30, &30, &00
+ EQUB &3c, &66, &66, &3c, &66, &66, &3c, &00
+ EQUB &3c, &66, &66, &3e, &06, &0c, &38, &00
+ EQUB &00, &00, &18, &18, &00, &18, &18, &00
+ EQUB &00, &00, &18, &18, &00, &18, &18, &30
+ EQUB &0c, &18, &30, &60, &30, &18, &0c, &00
+ EQUB &00, &00, &7e, &00, &7e, &00, &00, &00
+ EQUB &30, &18, &0c, &06, &0c, &18, &30, &00
+ EQUB &3c, &66, &0c, &18, &18, &00, &18, &00
+ EQUB &3c, &66, &6e, &6a, &6e, &60, &3c, &00
+ EQUB &3c, &66, &66, &7e, &66, &66, &66, &00
+ EQUB &7c, &66, &66, &7c, &66, &66, &7c, &00
+ EQUB &3c, &66, &60, &60, &60, &66, &3c, &00
+ EQUB &78, &6c, &66, &66, &66, &6c, &78, &00
+ EQUB &7e, &60, &60, &7c, &60, &60, &7e, &00
+ EQUB &7e, &60, &60, &7c, &60, &60, &60, &00
+ EQUB &3c, &66, &60, &6e, &66, &66, &3c, &00
+ EQUB &66, &66, &66, &7e, &66, &66, &66, &00
+ EQUB &7e, &18, &18, &18, &18, &18, &7e, &00
+ EQUB &3e, &0c, &0c, &0c, &0c, &6c, &38, &00
+ EQUB &66, &6c, &78, &70, &78, &6c, &66, &00
+ EQUB &60, &60, &60, &60, &60, &60, &7e, &00
+ EQUB &63, &77, &7f, &6b, &6b, &63, &63, &00
+ EQUB &66, &66, &76, &7e, &6e, &66, &66, &00
+ EQUB &3c, &66, &66, &66, &66, &66, &3c, &00
+ EQUB &7c, &66, &66, &7c, &60, &60, &60, &00
+ EQUB &3c, &66, &66, &66, &6a, &6c, &36, &00
+ EQUB &7c, &66, &66, &7c, &6c, &66, &66, &00
+ EQUB &3c, &66, &60, &3c, &06, &66, &3c, &00
+ EQUB &7e, &18, &18, &18, &18, &18, &18, &00
+ EQUB &66, &66, &66, &66, &66, &66, &3c, &00
+ EQUB &66, &66, &66, &66, &66, &3c, &18, &00
+ EQUB &63, &63, &6b, &6b, &7f, &77, &63, &00
+ EQUB &66, &66, &3c, &18, &3c, &66, &66, &00
+ EQUB &66, &66, &66, &3c, &18, &18, &18, &00
+ EQUB &7e, &06, &0c, &18, &30, &60, &7e, &00
+ EQUB &7c, &60, &60, &60, &60, &60, &7c, &00
+ EQUB &00, &60, &30, &18, &0c, &06, &00, &00
+ EQUB &3e, &06, &06, &06, &06, &06, &3e, &00
+ EQUB &18, &3c, &66, &42, &00, &00, &00, &00
+ EQUB &00, &00, &00, &00, &00, &00, &00, &ff
+ EQUB &1c, &36, &30, &7c, &30, &30, &7e, &00
+ EQUB &00, &00, &3c, &06, &3e, &66, &3e, &00
+ EQUB &60, &60, &7c, &66, &66, &66, &7c, &00
+ EQUB &00, &00, &3c, &66, &60, &66, &3c, &00
+ EQUB &06, &06, &3e, &66, &66, &66, &3e, &00
+ EQUB &00, &00, &3c, &66, &7e, &60, &3c, &00
+ EQUB &1c, &30, &30, &7c, &30, &30, &30, &00
+ EQUB &00, &00, &3e, &66, &66, &3e, &06, &3c
+ EQUB &60, &60, &7c, &66, &66, &66, &66, &00
+ EQUB &18, &00, &38, &18, &18, &18, &3c, &00
+ EQUB &18, &00, &38, &18, &18, &18, &18, &70
+ EQUB &60, &60, &66, &6c, &78, &6c, &66, &00
+ EQUB &38, &18, &18, &18, &18, &18, &3c, &00
+ EQUB &00, &00, &36, &7f, &6b, &6b, &63, &00
+ EQUB &00, &00, &7c, &66, &66, &66, &66, &00
+ EQUB &00, &00, &3c, &66, &66, &66, &3c, &00
+ EQUB &00, &00, &7c, &66, &66, &7c, &60, &60
+ EQUB &00, &00, &3e, &66, &66, &3e, &06, &07
+ EQUB &00, &00, &6c, &76, &60, &60, &60, &00
+ EQUB &00, &00, &3e, &60, &3c, &06, &7c, &00
+ EQUB &30, &30, &7c, &30, &30, &30, &1c, &00
+ EQUB &00, &00, &66, &66, &66, &66, &3e, &00
+ EQUB &00, &00, &66, &66, &66, &3c, &18, &00
+ EQUB &00, &00, &63, &6b, &6b, &7f, &36, &00
+ EQUB &00, &00, &66, &3c, &18, &3c, &66, &00
+ EQUB &00, &00, &66, &66, &66, &3e, &06, &3c
+ EQUB &00, &00, &7e, &0c, &18, &30, &7e, &00
+ EQUB &0c, &18, &18, &70, &18, &18, &0c, &00
+ EQUB &18, &18, &18, &00, &18, &18, &18, &00
+ EQUB &30, &18, &18, &0e, &18, &18, &30, &00
+ EQUB &31, &6b, &46, &00, &00, &00, &00, &00
+ EQUB &ff, &ff, &ff, &ff, &ff, &ff, &ff, &ff
+
+
+
+.oswrch
+{
+    PHA
+    TXA
+    PHA
+    TYA
+    PHA
+
+    TSX
+    LDA &103, X
+
+    CMP #&08
+    BNE not_8
+    JSR cursor_left
+    JMP exit
+.not_8
+    CMP #&09
+    BNE not_9
+    JSR cursor_right
+    JMP exit
+.not_9
+    CMP #&0A
+    BNE not_a
+    JSR cursor_down
+    JMP exit
+.not_a
+    CMP #&0B
+    BNE not_b
+    JSR cursor_up
+    JMP exit
+.not_b
+    CMP #&0D
+    BNE not_d
+    JSR cursor_sol
+    JMP exit
+
+.not_d
+    AND #&7F
+    CMP #&20
+    BCC exit
+    SBC #&20
+
+    ; Compute the address of the character in the character table
+    LDX #0
+    STX char+1
+    ASL A
+    ROL char+1
+    ASL A
+    ROL char+1
+    ASL A
+    ROL char+1
+    ADC #<char_table
+    STA char
+    LDA char+1
+    ADC #>char_table
+    STA char+1
+
+    ; Compute the screen address of the character
+    ; screen_base + 320 * cursor_y + 8 * cursor_x
+
+    ; 8 * cursor_x => scrntmp
+    LDA #0
+    STA scrntmp+1
+    LDA cursor_x
+    ASL A
+    ROL scrntmp+1
+    ASL A
+    ROL scrntmp+1
+    ASL A
+    ROL scrntmp+1
+    STA scrntmp
+
+    ; 320 * cursor_y => scrn
+    LDA #0
+    STA scrn
+    LDA cursor_y
+    STA scrn+1
+    LSR A
+    ROR scrn
+    LSR A
+    ROR scrn
+    CLC
+    ADC scrn+1
+    STA scrn+1
+
+    ; scrn = scrn + scrntmp + screen_base
+    CLC
+    LDA #<screen_base
+    ADC scrntmp
+    ADC scrn
+    STA scrn
+    LDA #>screen_base
+    ADC scrntmp+1
+    ADC scrn+1
+    STA scrn+1
+
+    ; Copy the character
+    LDY #7
+.copy
+    LDA (char), Y
+    STA (scrn), Y
+    DEY
+    BPL copy
+
+    JSR cursor_right
+
+.exit
+    PLA
+    TAY
+    PLA
+    TAX
+    PLA
+    RTS
+}
+
+.cursor_sol
+{
+    LDA #0
+    STA cursor_x
+    RTS
+}
+
+.cursor_left
+{
+    LDA cursor_x
+    BNE normal
+    LDA #num_cols-1
+    STA cursor_x
+    JMP cursor_up
+.normal
+    DEC cursor_x
+    RTS
+}
+
+.cursor_right
+{
+    LDA cursor_x
+    CMP #num_cols-1
+    BNE normal
+    LDA #0
+    STA cursor_x
+    JMP cursor_down
+.normal
+    INC cursor_x
+    RTS
+}
+
+.cursor_up
+{
+    LDA cursor_y
+    BNE normal
+    LDA #num_rows-1
+    STA cursor_y
+    RTS
+.normal
+    DEC cursor_y
+    RTS
+}
+
+.cursor_down
+{
+    LDA cursor_y
+    CMP #num_rows-1
+    BNE normal
+    LDA #0
+    STA cursor_y
+    RTS
+.normal
+    INC cursor_y
+    RTS
+}
+
+.print_hex
+{
+    PHA
+    PHA
+    LSR A
+    LSR A
+    LSR A
+    LSR A
+    JSR hex1
+    PLA
+    JSR hex1
+    PLA
+    RTS
+.hex1
+    AND #&F
+    CMP #&A
+    BCC toascii
+    ADC #&6
+.toascii
+    ADC #'0'
+    JMP oswrch
+}
+
+.print_string
+{
+
+    PLA
+    STA tmp
+    PLA
+    STA tmp+1
+    LDY #0
+.loop
+    INC tmp
+    BNE nocarry
+    INC tmp+1
+.nocarry
+    LDA (tmp),Y
+    BMI exit
+    JSR oswrch
+    JMP loop
+.exit
+    JMP (tmp)
+}
+
+
 
 .process_spec_cfg
 {
@@ -82,7 +554,6 @@ org &F800
     ; Copy the HDMI Audio setting
     LDA spec_hdmi_audio
     STA config_reg_hdmi_audio
-
 
     ; Map the Video related settings as best we can
 
@@ -213,6 +684,11 @@ org &F800
     ;; Stack the mode
     PHA
 
+    ;; Set the cursor to the top left
+    LDA #0
+    STA cursor_x
+    STA cursor_y
+
     ;; Initialize System VIA
     LDA #&0F
     STA &FE42
@@ -300,7 +776,8 @@ org &F800
 {
 
     LDA #0
-    STA tmp
+    STA acc16
+    STA acc16+1
 
 .loop
     LDA (cfg), Y
@@ -308,17 +785,22 @@ org &F800
     BCS exit
 
     INY
-    ASL tmp
-    ASL tmp
-    ASL tmp
-    ASL tmp
-    ORA tmp
-    STA tmp
+
+    ASL acc16
+    ROL acc16+1
+    ASL acc16
+    ROL acc16+1
+    ASL acc16
+    ROL acc16+1
+    ASL acc16
+    ROL acc16+1
+    ORA acc16
+    STA acc16
 
     JMP loop
 
 .exit
-    LDA tmp
+    LDA acc16
     RTS
 }
 
@@ -361,7 +843,9 @@ org &F800
     EQUB "keydip",      0, 5
     EQUB "ps2_mode",    0, 6
     EQUB "splash",      0, &10
+    EQUB "romcheck",    0, &11
     EQUB "cmos",        0, &80
+    EQUB "crc",         0, &C0
     EQUB 0,             0, 0
 
 .process_beeb_cfg
@@ -418,15 +902,13 @@ org &F800
 
     INX
     LDA keys_table, X  ; Config Register Index
-    TAX
+    BPL normal_key     ; b7=1 indicates the cmos or crc keys
 
-    BPL normal_key     ; b7=1 indicates the cmos key
     JSR read_hex       ; read a further number XX (cmosXX=YY)
-    CLC
-    ADC #&0E           ; CMOS[00] is stored in RTC[0E]
-    ORA #&80           ; keep b7 set
-    TAX                ; and move to X
+    ORA keys_table,X   ; keep b7/b6 set
+
 .normal_key
+    TAX                ; and move to X
     JSR skip_spc
     CMP #'='
     BNE skip_to_eol
@@ -437,7 +919,30 @@ org &F800
     CPX #&80
     BCC config_write
 
+    CPX #&C0
+    BCS crc_write
+
+    PHA
+    TXA
+    CLC
+    ADC #&0E           ; CMOS[00] is stored in RTC[0E]
+    TAX
+    PLA
     JSR cmos_write_data
+    JMP skip_to_eol
+
+.crc_write
+    PHA
+    TXA
+    AND #&3F
+    TAX
+    PLA
+    LDA acc16
+    STA rom_crc_value_lo, X
+    LDA acc16+1
+    STA rom_crc_value_hi, X
+    LDA #1
+    STA rom_crc_test, X
     JMP skip_to_eol
 
 .config_write
@@ -456,13 +961,16 @@ org &F800
     LDA (cfg), Y
     BEQ end_of_file
     CMP #&0A
-    BEQ start_line
+    BEQ next_line
     CMP #&0D
-    BEQ start_line
+    BEQ next_line
     INC cfg
     BNE skip_to_eol_loop
     INC cfg+1
     BNE skip_to_eol_loop
+
+.next_line
+    JMP start_line
 
 .end_of_file
     RTS
@@ -514,11 +1022,11 @@ org &F800
 {
     LDY #<splash_image
     STY src
-    LDY #&00
+    LDY #<screen_base
     STY dst
     LDA #>splash_image
     STA src+1
-    LDA #&58
+    LDA #>screen_base
     STA dst+1
 
 .loop
@@ -532,10 +1040,112 @@ org &F800
     RTS
 }
 
+.init_crc_checks
+{
+    LDA #0
+
+    ; Clear the ROM test table
+    LDY #15
+.loop1
+    STA rom_crc_test, Y
+    DEY
+    BPL loop1
+
+    ; Page on ROM 8 (that's split RAM/ROM)
+    LDY #8
+    STY &FE30
+
+    ; Clear the RAM region of ROM 8
+    LDY #0
+.loop2
+    STA &B600, Y
+    STA &B700, Y
+    STA &B800, Y
+    STA &B900, Y
+    STA &BA00, Y
+    STA &BB00, Y
+    STA &BC00, Y
+    STA &BD00, Y
+    STA &BE00, Y
+    STA &BF00, Y
+    DEY
+    BNE loop2
+
+    ; Page on ROM 8 (that's split RAM/ROM)
+    LDY #cfg_slot
+    STY &FE30
+
+    RTS
+}
+
+.perform_crc_checks
+{
+    ; Checksum the ROM data
+    LDA #18
+    STA cursor_y
+    JSR print_string
+    EQUB 9,9,"Checking ROM CRCs....",10,10,13
+    NOP
+
+    LDX #0
+.loop
+    LDA rom_crc_test, X
+    BEQ next_rom
+
+    JSR print_string
+    EQUB 9,9,"ROM "
+    NOP
+    TXA
+    JSR print_hex
+    JSR print_string
+    EQUB " CRC = "
+    NOP
+
+    STX &FE30
+    JSR fast_crc
+
+    LDA fcrc+1
+    JSR print_hex
+    LDA fcrc
+    JSR print_hex
+
+    LDA fcrc
+    CMP rom_crc_value_lo, X
+    BNE crc_fail
+    LDA fcrc+1
+    CMP rom_crc_value_hi, X
+    BEQ crc_ok
+
+.crc_fail
+    INC fail
+    JSR print_string
+    EQUB " (fail)", 10, 13
+    NOP
+    JMP next_rom
+
+.crc_ok
+    JSR print_string
+    EQUB " (pass)", 10, 13
+    NOP
+    JMP next_rom
+
+.next_rom
+    INX
+    CPX #16
+    BNE loop
+    RTS
+}
+
 .rst_handler
 {
-    LDX #&FF
+    LDX #&00
+    STX fail
+    DEX
     TXS
+
+    ; Page in the slot with the config data
+    LDA #cfg_slot
+    STA &FE30
 
     ; Process the Spec Next Config.ini
     JSR process_spec_cfg
@@ -544,12 +1154,15 @@ org &F800
     LDA #30
     STA splash
 
+    ; Clear the crc test flags
+    JSR init_crc_checks
+
     ; Parse and process the Beeb beeb.cfg file
     JSR process_beeb_cfg
 
     LDA splash
-    BEQ reset
-
+    PHA
+    LDA romcheck
     PHA
 
     JSR copy_splash
@@ -558,11 +1171,21 @@ org &F800
     JSR mode
 
     PLA
+    BEQ skip_crc_checks
+
+    JSR perform_crc_checks
+
+.skip_crc_checks
+
+    PLA
     TAX
 .loop
     JSR delay100ms
     DEX
-    BNE loop
+    BPL loop
+
+    LDA fail
+    BNE forever
 
 .reset
     LDA #&00

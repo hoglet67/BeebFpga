@@ -1,18 +1,70 @@
-    config_reg        = &2FF0
-    config_reg_reset  = &2FFF
-    splash            = &3000
+    config_reg             = &2FF0
 
-    config_file       = &C000
+    config_reg_video       = config_reg + 0
+    config_reg_hdmi_audio  = config_reg + 1
+    config_reg_hdmi_aspect = config_reg + 2
+    config_reg_copro       = config_reg + 3
+    config_reg_debug       = config_reg + 4
+    config_reg_keydip      = config_reg + 5
+    config_reg_ps2_swap    = config_reg + 6
 
-    cfg               = &80
-    tmp               = &82
-    src               = &84
-    dst               = &86
+    config_reg_reset       = config_reg + 15
+
+    splash                 = config_reg + 16
+
+    cfg                    = &80
+    tmp                    = &82
+    src                    = &84
+    dst                    = &86
 
 org &C000
 .start
 
-    ;; The beeb.cfg is preloaded here
+;; The beeb.cfg text is preloaded here
+.beeb_cfg_data
+
+org &CF00
+
+;; The Spec Next config.ini binary data is loaded here
+.spec_cfg_data
+
+; The first 16 bytes contain generic configuration information (taken from
+; the Next's config.ini) that the core may optionally take into account
+; when starting:
+; +0 video timing mode (0..7)
+; +1 scandoubler (0=off, 1=on)
+; +2 frequency (0=50Hz, 1=60Hz)
+; +3 PS/2 mode (0=keyboard, 1=mouse)
+; +4 scanline weight (0=off, 1=75%, 2=50%, 3=25%)
+; +5 internal speaker (0=disabled, 1=enabled)
+; +6 HDMI sound (0=disabled, 1=enabled)
+; +7..15 RESERVED
+
+.spec_video_timing_mode
+    EQUB 0
+.spec_scandoubler
+    EQUB 0
+.spec_frequency
+    EQUB 0
+.spec_ps2_mode
+    EQUB 0
+.spec_scanline_weight
+    EQUB 0
+.spec_internal_speaker
+    EQUB 0
+.spec_hdmi_audio
+    EQUB 0
+
+;
+; The next 16 bytes indicate whether the first 16 "userfile" options resulted
+; in a file being selected. For each byte, 0 means "not selected" and 1 means
+; "selected".
+;
+; The next 32 bytes contain the null-terminated path of the core
+; (eg "/MACHINES/CORENAME",0)
+;
+; The next 192 bytes are reserved for future use.
+
 
 org &D000
 
@@ -20,6 +72,54 @@ org &D000
     incbin "splash1.bin"
 
 org &F800
+
+.process_spec_cfg
+{
+    ; Copy the PS/2 Mode setting
+    LDA spec_ps2_mode
+    STA config_reg_ps2_swap
+
+    ; Copy the HDMI Audio setting
+    LDA spec_hdmi_audio
+    STA config_reg_hdmi_audio
+
+
+    ; Map the Video related settings as best we can
+
+    ; Video Mode = 7 suggests HDMI is being used (scan doubler ignored)
+    LDA spec_video_timing_mode
+    CMP #7
+    BEQ video_mode_1
+
+    ; Scan Doubler = 0 suggests RGB is being
+    LDA spec_scandoubler
+    BEQ video_mode_0
+
+    ; Otherwise try VGA (which should also output on HDMI)
+
+; VGA (sub-optional for HDMI)
+.video_mode_3
+    LDA #3
+    BNE exit
+
+; VGA (sub-optional for HDMI)
+.video_mode_2
+    LDA #2
+    BNE exit
+
+; HDMI (sub-optimal for VGA)
+.video_mode_1
+    LDA #1
+    BNE exit
+
+; sRGB
+.video_mode_0
+    LDA #0
+
+.exit
+    STA config_reg_video
+    RTS
+}
 
 .modebase
 
@@ -259,16 +359,17 @@ org &F800
     EQUB "copro",       0, 3
     EQUB "debug",       0, 4
     EQUB "keydip",      0, 5
+    EQUB "ps2_mode",    0, 6
     EQUB "splash",      0, &10
     EQUB "cmos",        0, &80
     EQUB 0,             0, 0
 
-.parse_config
+.process_beeb_cfg
 {
 
-    LDA #<config_file
+    LDA #<beeb_cfg_data
     STA cfg
-    LDA #>config_file
+    LDA #>beeb_cfg_data
     STA cfg+1
 
 .start_line
@@ -436,11 +537,15 @@ org &F800
     LDX #&FF
     TXS
 
+    ; Process the Spec Next Config.ini
+    JSR process_spec_cfg
+
     ; Default to showing the splash screen
     LDA #30
     STA splash
 
-    JSR parse_config
+    ; Parse and process the Beeb beeb.cfg file
+    JSR process_beeb_cfg
 
     LDA splash
     BEQ reset

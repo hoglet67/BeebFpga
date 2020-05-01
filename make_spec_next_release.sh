@@ -20,14 +20,18 @@ cat > $1 <<EOF
 ;     1 = HDMI/VGA (best)
 ;     2 = HDMI/VGA
 ;     3 = HDMI/VGA
+;
+; default is from from config.ini
 
-video = 1
+; video = 1
 
 ; HDMI Audio
 ;     0=off
 ;     1=on
+;
+; default is from from config.ini
 
-hdmi_audio = 1
+; hdmi_audio = 1
 
 ; HDMI Aspect Ratio
 ;     0=auto
@@ -52,7 +56,15 @@ debug = 1
 ;     0=off
 ;    >0=on (value = duration in 100ms units)
 
-splash = 30
+splash = 20
+
+; PS/2 Mode
+;    0=keyboard
+;    1=mouse
+;
+; default is from from config.ini
+
+; ps2_mode = 0
 
 EOF
 }
@@ -131,7 +143,8 @@ resource=basic2.rom,31
 ; Beeb Specific Config
 resource=beeb.cfg,22
 
-;config=0,0
+; Spec Next Config
+config=22,3840
 EOF
 
 for i in os12 basic2 ram_master_v6 swmmfs2
@@ -178,7 +191,8 @@ resource=terminal.rom,31
 ; Beeb Specific Config
 resource=beeb.cfg,22
 
-;config=0,0
+; Spec Next Config
+config=22,3840
 EOF
 
 for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht

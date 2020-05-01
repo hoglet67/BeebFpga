@@ -49,9 +49,15 @@ port (
     nRESET      :   in  std_logic;
     CLKEN_1MHZ  :   in  std_logic;
 
-    -- PS/2 interface
-    PS2_CLK     :   inout std_logic;
-    PS2_DATA    :   inout std_logic;
+    -- to PS/2 interface
+    KEYB_CMD     :  out std_logic_vector(7 downto 0);
+    KEYB_WRITE   :  out std_logic := '0';
+
+    -- from PS/2 interface
+    KEYB_DATA    :  in std_logic_vector(7 downto 0);
+    KEYB_VALID   :  in std_logic;
+    KEYB_ERROR   :  in std_logic;
+    KEYB_BUSY    :  in std_logic;
 
     -- If 1 then column is incremented automatically at
     -- 1 MHz rate
@@ -76,14 +82,6 @@ port (
 end entity;
 
 architecture rtl of keyboard is
-
--- Interface to PS/2 block
-signal keyb_cmd     :   std_logic_vector(7 downto 0);
-signal keyb_data    :   std_logic_vector(7 downto 0);
-signal keyb_valid   :   std_logic;
-signal keyb_error   :   std_logic;
-signal keyb_busy    :   std_logic;
-signal keyb_write   :   std_logic := '0';
 
 -- Active high version of reset
 signal rst          :   std_logic;
@@ -115,35 +113,7 @@ type init_state is (
 
 signal state: init_state;
 
---signal extended       :   std_logic;
 begin
-
---  ps2 : entity work.ps2_intf port map (
---      CLK      => CLOCK,
---      nRESET   => nRESET,
---      PS2_CLK  => PS2_CLK,
---      PS2_DATA => PS2_DATA,
---      DATA     => keyb_data,
---      VALID    => keyb_valid,
---      ERROR    => keyb_error
---      );
-
-    ps2 : entity work.ps2interface
-        generic map(
-            MainClockSpeed => 48000000
-        )
-        port map(
-           ps2_clk  => PS2_CLK,
-           ps2_data => PS2_DATA,
-           clk      => CLOCK,
-           rst      => rst,
-           tx_data  => keyb_cmd,
-           write    => keyb_write,
-           rx_data  => keyb_data,
-           read     => keyb_valid,
-           busy     => keyb_busy,
-           err      => keyb_error
-        );
 
     rst <= not nRESET;
 

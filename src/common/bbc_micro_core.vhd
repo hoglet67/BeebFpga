@@ -88,6 +88,9 @@ entity bbc_micro_core is
         ps2_mse_clk    : inout std_logic;
         ps2_mse_data   : inout std_logic;
 
+        -- Control input to exchange Keyboard and Mouse connections
+        ps2_swap       : in    std_logic := '0';
+
         -- Video
         video_red      : out   std_logic_vector (3 downto 0);
         video_green    : out   std_logic_vector (3 downto 0);
@@ -441,6 +444,14 @@ signal keyb_break       :   std_logic;
 signal ps2_keyb_out     :   std_logic;
 signal ps2_keyb_int     :   std_logic;
 signal ps2_keyb_break   :   std_logic;
+
+-- Interface between PS/2 decoder and Keyboard Controller
+signal ps2_keyb_cmd     :   std_logic_vector(7 downto 0);
+signal ps2_keyb_data    :   std_logic_vector(7 downto 0);
+signal ps2_keyb_valid   :   std_logic;
+signal ps2_keyb_error   :   std_logic;
+signal ps2_keyb_busy    :   std_logic;
+signal ps2_keyb_write   :   std_logic;
 
 -- Sound generator
 signal sound_ready      :   std_logic;
@@ -899,21 +910,44 @@ begin
         keyb_break     <= ps2_keyb_break;
     end generate;
 
-    -- PS/2 Keyboard
-    keyb : entity work.keyboard port map (
-        clock_48,
-        hard_reset_n,
-        mhz1_clken,
-        ps2_kbd_clk,
-        ps2_kbd_data,
-        keyb_enable_n,
-        keyb_column,
-        keyb_row,
-        ps2_keyb_out,
-        ps2_keyb_int,
-        ps2_keyb_break,
-        keyb_dip,
-        config
+    -- PS/2 Keyboard Interface
+    keyboard_ps2interface : entity work.ps2interface
+        generic map(
+            MainClockSpeed => 48000000
+        )
+        port map(
+           ps2_clk  => ps2_kbd_clk,
+           ps2_data => ps2_kbd_data,
+           clk      => clock_48,
+           rst      => not hard_reset_n,
+           tx_data  => ps2_keyb_cmd,
+           write    => ps2_keyb_write,
+           rx_data  => ps2_keyb_data,
+           read     => ps2_keyb_valid,
+           busy     => ps2_keyb_busy,
+           err      => ps2_keyb_error
+        );
+
+    -- PS/2 Keyboard Controller
+    keyboard_controller : entity work.keyboard
+        port map (
+            CLOCK      => clock_48,
+            nRESET     => hard_reset_n,
+            CLKEN_1MHZ => mhz1_clken,
+            KEYB_CMD   => ps2_keyb_cmd,
+            KEYB_WRITE => ps2_keyb_write,
+            KEYB_DATA  => ps2_keyb_data,
+            KEYB_VALID => ps2_keyb_valid,
+            KEYB_ERROR => ps2_keyb_error,
+            KEYB_BUSY  => ps2_keyb_busy,
+            AUTOSCAN   => keyb_enable_n,
+            COLUMN     => keyb_column,
+            ROW        => keyb_row,
+            KEYPRESS   => ps2_keyb_out,
+            INT        => ps2_keyb_int,
+            BREAK_OUT  => ps2_keyb_break,
+            DIP_SWITCH => keyb_dip,
+            CONFIG     => config
         );
 
     -- Analog to Digital Convertor

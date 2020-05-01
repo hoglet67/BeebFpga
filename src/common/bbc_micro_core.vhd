@@ -453,6 +453,16 @@ signal ps2_keyb_error   :   std_logic;
 signal ps2_keyb_busy    :   std_logic;
 signal ps2_keyb_write   :   std_logic;
 
+-- Seperate (i.e. non open collector) keyboard and mouse signals
+signal ps2_kbd_clk_in   :   std_logic;
+signal ps2_kbd_clk_out  :   std_logic;
+signal ps2_kbd_data_in  :   std_logic;
+signal ps2_kbd_data_out :   std_logic;
+signal ps2_mse_clk_in   :   std_logic;
+signal ps2_mse_clk_out  :   std_logic;
+signal ps2_mse_data_in  :   std_logic;
+signal ps2_mse_data_out :   std_logic;
+
 -- Sound generator
 signal sound_ready      :   std_logic;
 signal sound_di         :   std_logic_vector(7 downto 0);
@@ -839,16 +849,18 @@ begin
             MainClockSpeed => 48000000
         )
         port map(
-           ps2_clk  => ps2_mse_clk,
-           ps2_data => ps2_mse_data,
-           clk      => clock_48,
-           rst      => reset,
-           tx_data  => mouse_tx_data,
-           write    => mouse_write,
-           rx_data  => mouse_rx_data,
-           read     => mouse_read,
-           busy     => open,
-           err      => mouse_err
+           ps2_clk      => ps2_mse_clk_in,
+           ps2_clk_out  => ps2_mse_clk_out,
+           ps2_data     => ps2_mse_data_in,
+           ps2_data_out => ps2_mse_data_out,
+           clk          => clock_48,
+           rst          => reset,
+           tx_data      => mouse_tx_data,
+           write        => mouse_write,
+           rx_data      => mouse_rx_data,
+           read         => mouse_read,
+           busy         => open,
+           err          => mouse_err
         );
         -- BBC Micro User Port (Mouse use)
         --  2 - CB1 - X Axis
@@ -880,8 +892,10 @@ begin
         mouse_via_pb_in(1) <= '1';
     end generate;
     GenNotMouse: if not IncludeAMXMouse generate
-        mouse_via_do <= x"FE";
-        mouse_via_irq_n <= '1';
+        mouse_via_do     <= x"FE";
+        mouse_via_irq_n  <= '1';
+        ps2_mse_clk_out  <= '1';
+        ps2_mse_data_out <= '1';
     end generate;
 
     -- Original Keyboard Enabled
@@ -916,16 +930,18 @@ begin
             MainClockSpeed => 48000000
         )
         port map(
-           ps2_clk  => ps2_kbd_clk,
-           ps2_data => ps2_kbd_data,
-           clk      => clock_48,
-           rst      => not hard_reset_n,
-           tx_data  => ps2_keyb_cmd,
-           write    => ps2_keyb_write,
-           rx_data  => ps2_keyb_data,
-           read     => ps2_keyb_valid,
-           busy     => ps2_keyb_busy,
-           err      => ps2_keyb_error
+           ps2_clk      => ps2_kbd_clk_in,
+           ps2_clk_out  => ps2_kbd_clk_out,
+           ps2_data     => ps2_kbd_data_in,
+           ps2_data_out => ps2_kbd_data_out,
+           clk          => clock_48,
+           rst          => not hard_reset_n,
+           tx_data      => ps2_keyb_cmd,
+           write        => ps2_keyb_write,
+           rx_data      => ps2_keyb_data,
+           read         => ps2_keyb_valid,
+           busy         => ps2_keyb_busy,
+           err          => ps2_keyb_error
         );
 
     -- PS/2 Keyboard Controller
@@ -948,7 +964,27 @@ begin
             BREAK_OUT  => ps2_keyb_break,
             DIP_SWITCH => keyb_dip,
             CONFIG     => config
-        );
+            );
+
+    -- Logic to swap the mouse and keyboard, and handle open collector driving
+
+    ps2_kbd_clk_in  <= ps2_kbd_clk  when ps2_swap = '0' else ps2_mse_clk;
+    ps2_mse_clk_in  <= ps2_mse_clk  when ps2_swap = '0' else ps2_kbd_clk;
+    ps2_kbd_data_in <= ps2_kbd_data when ps2_swap = '0' else ps2_mse_data;
+    ps2_mse_data_in <= ps2_mse_data when ps2_swap = '0' else ps2_kbd_data;
+
+    ps2_kbd_clk  <= '0' when ps2_kbd_clk_out = '0' and ps2_swap = '0' else
+                    '0' when ps2_mse_clk_out = '0' and ps2_swap = '1' else
+                    'Z';
+    ps2_mse_clk  <= '0' when ps2_mse_clk_out = '0' and ps2_swap = '0' else
+                    '0' when ps2_kbd_clk_out = '0' and ps2_swap = '1' else
+                    'Z';
+    ps2_kbd_data <= '0' when ps2_kbd_data_out = '0' and ps2_swap = '0' else
+                    '0' when ps2_mse_data_out = '0' and ps2_swap = '1' else
+                    'Z';
+    ps2_mse_data <= '0' when ps2_mse_data_out = '0' and ps2_swap = '0' else
+                    '0' when ps2_kbd_data_out = '0' and ps2_swap = '1' else
+                    'Z';
 
     -- Analog to Digital Convertor
     adc: entity work.upd7002 port map (

@@ -30,7 +30,7 @@
 -- a resend command to the device.
 
 -- The physical ps/2 interface uses 4 lines
--- For the 6-pin connector pins are assigned as follows: 
+-- For the 6-pin connector pins are assigned as follows:
 -- 1 - Data
 -- 2 - Not Implemented
 -- 3 - Ground
@@ -38,7 +38,7 @@
 -- 5 - Clock
 -- 6 - Not Implemented
 
--- The clock line carries the device generated clock which has a 
+-- The clock line carries the device generated clock which has a
 -- frequency in range 10 - 16.7 kHz (30 to 50us). When line is idle
 -- it is placed in high impedance. The clock is only generated when
 -- device is sending or receiving data.
@@ -155,15 +155,17 @@ generic (
     MainClockSpeed : integer
 );
 port(
-    ps2_clk  : inout std_logic;
-    ps2_data : inout std_logic;
+    ps2_clk      : in  std_logic;
+    ps2_clk_out  : out std_logic;
+    ps2_data     : in  std_logic;
+    ps2_data_out : out std_logic;
 
     clk      : in std_logic;
     rst      : in std_logic;
 
     tx_data  : in std_logic_vector(7 downto 0);
     write    : in std_logic;
-    
+
     rx_data  : out std_logic_vector(7 downto 0);
     read     : out std_logic;
     busy     : out std_logic;
@@ -400,7 +402,7 @@ begin
             end if;
         end if;
     end process;
-    
+
     -- Synchronize ps2 entries
     ps2_clk_s <= ps2_clk_clean when rising_edge(clk);
     ps2_data_s <= ps2_data_clean when rising_edge(clk);
@@ -412,13 +414,9 @@ begin
     -- The parity for the data to be sent
     tx_parity <= parityrom(conv_integer(tx_data)) when rising_edge(clk);
 
-    -- Force ps2_clk to '0' if ps2_clk_h = '0', else release the line
-    -- ('Z' = +5Vcc because of pull-ups)
-    ps2_clk <= 'Z' when ps2_clk_h = '1' else '0';
-
-    -- Force ps2_data to '0' if ps2_data_h = '0', else release the line
-    -- ('Z' = +5Vcc because of pull-ups)
-    ps2_data <= 'Z' when ps2_data_h = '1' else '0';
+    -- The open collector drivers have been moved up a level
+    ps2_clk_out  <= ps2_clk_h;
+    ps2_data_out <= ps2_data_h;
 
     -- Control busy flag. Interface is not busy while in idle state.
     busy <= '0' when state = idle else '1';
@@ -449,7 +447,7 @@ begin
         if(rst = '1') then
             state <= idle;
         elsif(rising_edge(clk)) then
-                
+
             -- default values for these signals
             -- ensures signals are reset to default value
             -- when coditions for their activation are no
@@ -464,7 +462,7 @@ begin
             err <= '0';
 
             case state is
-    
+
                 -- wait for the device to begin a transmission
                 -- by pulling the clock line low and go to state
                 -- rx_down_edge or, if write is high, the
@@ -475,11 +473,11 @@ begin
                     if(ps2_clk_s = '0') then
                         state <= rx_down_edge;
                     elsif(write = '1') then
-                        state <= tx_force_clk_l;                    
+                        state <= tx_force_clk_l;
                     else
                         state <= idle;
                     end if;
-    
+
                 -- ps2_clk is high, check if all the bits have been read
                 -- if, last bit read, check parity, and if parity ok
                 -- load received data into rx_data.
@@ -498,12 +496,12 @@ begin
                     else
                         state <= rx_clk_h;
                     end if;
-    
+
                 -- data must be read into frame in this state
                 -- the ps2_clk just transitioned from high to low
                 when rx_down_edge =>
                     state <= rx_clk_l;
-    
+
                 -- ps2_clk line is low, wait for it to go high
                 when rx_clk_l =>
                     if(ps2_clk_s = '1') then
@@ -511,20 +509,20 @@ begin
                     else
                         state <= rx_clk_l;
                     end if;
-    
+
                 -- parity bit received is invalid
                 -- signal error and go back to idle.
                 when rx_error_parity =>
                     err <= '1';
                     state <= idle;
-    
+
                 -- parity bit received was good
                 -- set read signal for the client to know
                 -- a new byte was received and is available on rx_data
                 when rx_data_ready =>
                     read <= '1';
                     state <= idle;
-    
+
                 -- the client wishes to transmit a byte to the device
                 -- this is done by holding ps2_clk down for at least 100us
                 -- bringing down ps2_data, wait 20us and then releasing
@@ -542,7 +540,7 @@ begin
                     else
                         state <= tx_force_clk_l;
                     end if;
-    
+
                 -- with the ps2_clk line low bring ps2_data low
                 -- wait for 20us and then go to tx_release_clk
                 when tx_bring_data_down =>
@@ -558,7 +556,7 @@ begin
                     else
                         state <= tx_bring_data_down;
                     end if;
-    
+
                 -- release the ps2_clk line
                 -- keep holding data line low
                 when tx_release_clk =>
@@ -567,7 +565,7 @@ begin
                     -- otherwise will be released by default value
                     ps2_data_h <= '0';
                     state <= tx_first_wait_down_edge;
-    
+
                 -- state is necessary because the clock signal
                 -- is not released instantaneously and, because of debounce,
                 -- delay is even greater.
@@ -585,7 +583,7 @@ begin
                     else
                         state <= tx_first_wait_down_edge;
                     end if;
-    
+
                 -- place the least significant bit from frame
                 -- on the data line
                 -- During this state the frame is shifted one
@@ -616,7 +614,7 @@ begin
                     else
                         state <= tx_wait_up_edge;
                     end if;
-    
+
                 -- ps2_clk is released, wait for down edge
                 -- and go to tx_clk_l when arrived
                 when tx_clk_h =>
@@ -626,7 +624,7 @@ begin
                     else
                         state <= tx_clk_h;
                     end if;
-    
+
                 -- release ps2_data and wait for rising edge of ps2_clk
                 -- once this occurs, transition to tx_wait_ack
                 when tx_wait_up_edge_before_ack =>
@@ -636,7 +634,7 @@ begin
                     else
                         state <= tx_wait_up_edge_before_ack;
                     end if;
-                
+
                 -- wait for the falling edge of the clock line
                 -- if data line is low when this occurs, the
                 -- ack is received
@@ -654,7 +652,7 @@ begin
                     else
                         state <= tx_wait_ack;
                     end if;
-    
+
                 -- wait for ps2_clk to be released together with ps2_data
                 -- (bus to be idle) and go back to idle state
                 when tx_received_ack =>
@@ -663,7 +661,7 @@ begin
                     else
                         state <= tx_received_ack;
                     end if;
-    
+
                 -- wait for ps2_clk to be released together with ps2_data
                 -- (bus to be idle) and go back to idle state
                 -- signal error for not receiving ack
@@ -674,13 +672,13 @@ begin
                     else
                         state <= tx_error_no_ack;
                     end if;
-    
+
                 -- if invalid transition occurred, signal error and
                 -- go back to idle state
                 when others =>
                     err <= '1';
                     state    <= idle;
-    
+
             end case;
         end if;
     end process manage_fsm;
@@ -714,7 +712,7 @@ begin
     end process delay_100us_counter;
 
     -- Enable the 20us counter only when state is tx_bring_data_down
-    delay_20us_counter_enable <= '1' when state = tx_bring_data_down else '0'; 
+    delay_20us_counter_enable <= '1' when state = tx_bring_data_down else '0';
 
     -- Counter for a 20us delay
     -- after done counting, done signal remains active until

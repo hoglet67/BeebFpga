@@ -235,6 +235,8 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_keyb_ca2    : std_logic;
     signal ext_keyb_pa7    : std_logic;
 
+    signal ps2_swap        : std_logic := '0';
+
     signal avr_RxD         : std_logic;
     signal avr_TxD         : std_logic;
 
@@ -294,6 +296,7 @@ begin
         ps2_kbd_data   => ps2_data_io,
         ps2_mse_clk    => ps2_pin6_io,
         ps2_mse_data   => ps2_pin2_io,
+        ps2_swap       => ps2_swap,
         video_red      => red,
         video_green    => green,
         video_blue     => blue,
@@ -653,6 +656,8 @@ begin
                         vid_debug <= RAM_Din(0);
 					when x"5" =>
                         keyb_dip <= RAM_Din(7 downto 0);
+					when x"6" =>
+                        ps2_swap <= RAM_Din(0);
 					when x"F" =>
                         config_reset <= '1';
                     when others =>

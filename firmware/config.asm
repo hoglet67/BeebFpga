@@ -80,7 +80,7 @@ org &C000
 .start
 
 .splash_image
-    incbin "splash1.bin"
+    incbin "splash2.bin"
 
 org &E800
 

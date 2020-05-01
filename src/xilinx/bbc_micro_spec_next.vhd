@@ -60,6 +60,7 @@ entity bbc_micro_spec_next is
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := false;
         IncludeVideoNuLA   : boolean := true;
+        IncludeConfigRom   : boolean := true;
         IncludeMaster      : boolean := true
     );
     port (
@@ -234,6 +235,8 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_keyb_rst_n  : std_logic;
     signal ext_keyb_ca2    : std_logic;
     signal ext_keyb_pa7    : std_logic;
+
+    signal config_data     : std_logic_vector(7 downto 0);
 
     signal ps2_swap        : std_logic := '0';
 
@@ -773,10 +776,11 @@ begin
     -- Beeb ROM slots 0-15 are be mapped to Spec Next Pages 16-31
     -- In config mode the ROM mapping is changed as follows:
     --    #C000-#FFFF         => SRAM Page 22 (the config ROM)    (was 20)
+    --                           or a local config rom if IncludeConfigRom is true
     --    #8000-#BFFF (Rom 0) => SRAM Page 23 (the beeb.cfg file) (was 16)
     --    #8000-#BFFF (Rom 1) => SRAM Page 20 (the OS ROM)        (was 17)
     -- (in config mode the OS ROM is mapped to SRAM Page 22 rather than 20)
-    ram_addr_o              <= "10110"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00100" else
+    ram_addr_o              <= "10110"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00100" and not IncludeConfigRom else
                                "10111"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00000" else
                                "10100"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00001" else
                                (not RAM_A(18)) & RAM_A(17 downto 0);
@@ -784,11 +788,22 @@ begin
     ram_data_io(15 downto 8)<= "ZZZZZZZZ";
     ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
 
-    RAM_Dout                <= ram_data_io(7 downto 0);
+    RAM_Dout                <= config_data when IncludeConfigRom and config_mode = '1' and RAM_A(18 downto 14) = "00100" else
+                               ram_data_io(7 downto 0);
 
     flash_cs_n_o            <= '1';
     flash_mosi_o            <= '1';
     flash_sclk_o            <= '1';
+
+    -- Embedded Config ROM replaces the MOS in config mode
+    GenConfigRom: if IncludeConfigRom generate
+        config_rom_inst : entity work.config_rom port map (
+            clk  => clock_48,
+            addr => RAM_A(13 downto 0),
+            data => config_data
+            );
+    end generate;
+
 
 --------------------------------------------------------
 -- External tube connections

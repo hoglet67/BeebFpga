@@ -3,10 +3,13 @@
 #NAME=beeb_fpga_spec_next_$(date +"%Y%m%d_%H%M")
 NAME=beeb_fpga_spec_next_$(date +"%Y%m%d")_dev
 
+PRELOAD_CONFIG=0
+
 DIR=releases/$NAME
 
 echo "Release name: $NAME"
 
+rm -rf $DIR
 mkdir -p $DIR
 
 function common_settings {
@@ -141,6 +144,7 @@ EOF
 
 pushd firmware
 beebasm -v -i config.asm -o config.rom
+od -An -tx1 -w1 -v config.rom > ../src/xilinx/config.dat
 popd
 
 # ====================================================
@@ -157,7 +161,14 @@ name=Acorn BBC Model B
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 16-31
 resource=blank.rom,19
 resource=os12.rom,20
+EOF
+if  (( $PRELOAD_CONFIG == 1 )); then
+cp firmware/config.rom $DIR/machines/${MACH}
+cat >> $DIR/machines/${MACH}/core.cfg <<EOF
 resource=config.rom,22
+EOF
+fi
+cat >> $DIR/machines/${MACH}/core.cfg <<EOF
 resource=blank.rom,23
 resource=swmmfs2.rom,24
 resource=blank.rom,25
@@ -179,7 +190,6 @@ for i in os12 basic2 ram_master_v6 swmmfs2
 do
     cp roms/bbcb/$i.rom $DIR/machines/${MACH}
 done
-cp firmware/config.rom $DIR/machines/${MACH}
 
 # Add a blank rom
 dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
@@ -206,7 +216,14 @@ name=Acorn BBC Master
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
 resource=mammfs2.rom,19
 resource=mos.rom,20
+EOF
+if  (( $PRELOAD_CONFIG == 1 )); then
+cp firmware/config.rom $DIR/machines/${MACH}
+cat >> $DIR/machines/${MACH}/core.cfg <<EOF
 resource=config.rom,22
+EOF
+fi
+cat >> $DIR/machines/${MACH}/core.cfg <<EOF
 resource=blank.rom,23
 resource=owl.rom,24
 resource=dfs.rom,25
@@ -228,7 +245,6 @@ for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht
 do
     cp roms/m128/$i.rom $DIR/machines/${MACH}
 done
-cp firmware/config.rom $DIR/machines/${MACH}
 
 # Add a blank rom
 dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16

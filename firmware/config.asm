@@ -196,7 +196,7 @@ ENDMACRO
     EOR crcTableHi, X
     STA fcrc + 1
 
-    INC ptr
+    INY
     BNE fastCRC1
     INC ptr + 1
     LDA ptr + 1

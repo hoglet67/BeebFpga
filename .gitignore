@@ -31,6 +31,8 @@ src/xilinx/ipcore_dir/gen_WatchEvents.tcl
 src/xilinx/ipcore_dir/tmp/
 src/xilinx/ipcore_dir/update_WatchEvents.tcl
 
+xilinx/spec_next_config_master_bd.bmm
+xilinx/spec_next_config_modelb_bd.bmm
 
 altera/db/
 altera/incremental_db/
@@ -40,3 +42,4 @@ altera/bbc_micro_de1.qws
 releases/
 
 firmware/config.rom
+firmware/config.mem

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+PATH=/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin64:$PATH
+
 #NAME=beeb_fpga_spec_next_$(date +"%Y%m%d_%H%M")
 NAME=beeb_fpga_spec_next_$(date +"%Y%m%d")_dev
 
@@ -142,7 +144,7 @@ EOF
 
 pushd firmware
 beebasm -v -i config.asm -o config.rom
-od -An -tx1 -w1 -v config.rom > ../src/xilinx/config.dat
+od -An -tx1 -w16 -v config.rom > config.mem
 popd
 
 # ====================================================
@@ -187,10 +189,10 @@ dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 # Rename to keep filenames sensible
 mv $DIR/machines/${MACH}/ram_master_v6.rom $DIR/machines/${MACH}/rammas6.rom
 
-cp -a xilinx/working/bbc_micro_spec_next/bbc_micro_spec_next.bit $DIR/machines/${MACH}/core.bit
-
 common_settings $DIR/machines/${MACH}/beeb.cfg
 modelb_settings $DIR/machines/${MACH}/beeb.cfg
+
+data2mem -bm xilinx/spec_next_config_modelb_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_micro_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
 
 # ====================================================
 # Acorn BBC Master
@@ -234,7 +236,7 @@ dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 common_settings $DIR/machines/${MACH}/beeb.cfg
 master_settings $DIR/machines/${MACH}/beeb.cfg
 
-cp -a xilinx/working/bbc_master_spec_next/bbc_micro_spec_next.bit $DIR/machines/${MACH}/core.bit
+data2mem -bm xilinx/spec_next_config_master_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_master_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
 
 # ====================================================
 # Zip

@@ -3,8 +3,6 @@
 #NAME=beeb_fpga_spec_next_$(date +"%Y%m%d_%H%M")
 NAME=beeb_fpga_spec_next_$(date +"%Y%m%d")_dev
 
-PRELOAD_CONFIG=0
-
 DIR=releases/$NAME
 
 echo "Release name: $NAME"
@@ -67,7 +65,7 @@ debug = 1
 ;     0=off
 ;    >0=on (value = duration in 100ms units)
 
-splash = 20
+splash = 14 ; hex!
 
 ; Whether to check the ROM crcs
 ;     0=no
@@ -160,16 +158,8 @@ name=Acorn BBC Model B
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 16-31
 resource=blank.rom,19
-resource=os12.rom,20
-EOF
-if  (( $PRELOAD_CONFIG == 1 )); then
-cp firmware/config.rom $DIR/machines/${MACH}
-cat >> $DIR/machines/${MACH}/core.cfg <<EOF
-resource=config.rom,22
-EOF
-fi
-cat >> $DIR/machines/${MACH}/core.cfg <<EOF
-resource=blank.rom,23
+resource=blank.rom,22
+resource=os12.rom,23
 resource=swmmfs2.rom,24
 resource=blank.rom,25
 resource=blank.rom,26
@@ -180,10 +170,10 @@ resource=rammas6.rom,30
 resource=basic2.rom,31
 
 ; Beeb Config at the start
-resource=beeb.cfg,23
+resource=beeb.cfg,22
 
 ; Spec Next Config and the end (0x3F00)
-config=23,16128
+config=22,16128
 EOF
 
 for i in os12 basic2 ram_master_v6 swmmfs2
@@ -215,16 +205,8 @@ name=Acorn BBC Master
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
 resource=mammfs2.rom,19
-resource=mos.rom,20
-EOF
-if  (( $PRELOAD_CONFIG == 1 )); then
-cp firmware/config.rom $DIR/machines/${MACH}
-cat >> $DIR/machines/${MACH}/core.cfg <<EOF
-resource=config.rom,22
-EOF
-fi
-cat >> $DIR/machines/${MACH}/core.cfg <<EOF
-resource=blank.rom,23
+resource=blank.rom,22
+resource=mos.rom,23
 resource=owl.rom,24
 resource=dfs.rom,25
 resource=viewsht.rom,26
@@ -235,10 +217,10 @@ resource=view.rom,30
 resource=terminal.rom,31
 
 ; Beeb Config at the start
-resource=beeb.cfg,23
+resource=beeb.cfg,22
 
 ; Spec Next Config and the end (0x3F00)
-config=23,16128
+config=22,16128
 EOF
 
 for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht

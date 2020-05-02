@@ -1040,6 +1040,40 @@ ENDMACRO
     RTS
 }
 
+.validate_config
+{
+    LDA #cfg_slot
+    STA &FE30
+    JSR print_string
+    EQUB 9, 9, "beeb.cfg config   "
+    NOP
+    LDY #0
+    STY tmp
+    LDA #&80
+    STA tmp+1
+.loop
+    LDA (tmp),Y
+    BMI config_error
+    INY
+    BNE loop
+    INC tmp+1
+    LDA tmp+1
+    CMP #&BF
+    BNE loop
+    JSR print_string
+    EQUB "(clean)"
+    NOP
+    RTS
+.config_error
+    JSR print_string
+    EQUB "(dirty)"
+    NOP
+    LDA fail
+    ORA #2
+    STA fail
+    RTS
+}
+
 .init_crc_checks
 {
     LDA #0
@@ -1081,7 +1115,7 @@ ENDMACRO
 .perform_crc_checks
 {
     ; Checksum the ROM data
-    LDA #18
+    LDA #17
     STA cursor_y
     JSR print_string
     EQUB 9,9,"Checking ROM CRCs....",10,10,13
@@ -1174,6 +1208,9 @@ ENDMACRO
     BEQ skip_crc_checks
 
     JSR perform_crc_checks
+
+    ; Currently this just looks for chars >= 0x80
+    JSR validate_config
 
 .skip_crc_checks
 

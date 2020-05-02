@@ -2,8 +2,18 @@
 
 PATH=/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin64:$PATH
 
-#NAME=beeb_fpga_spec_next_$(date +"%Y%m%d_%H%M")
-NAME=beeb_fpga_spec_next_$(date +"%Y%m%d")_dev
+# Lookup the last commit ID
+GITVERSION="$(git rev-parse --short HEAD)"
+
+# Check if any uncommitted changes in tracked files
+if [ -n "$(git status --untracked-files=no --porcelain)" ]; then
+  GITVERSION="${GITVERSION}?"
+fi
+
+BUILD=$(date +"%Y%m%d_%H%M")
+#BUILD=dev
+
+NAME=beeb_fpga_spec_next_$BUILD
 
 DIR=releases/$NAME
 
@@ -143,6 +153,8 @@ EOF
 # ====================================================
 
 pushd firmware
+
+echo EQUB \"Version: $BUILD $GITVERSION\" > version.asm
 beebasm -v -i config.asm -o config.rom
 od -An -tx1 -w16 -v config.rom > config.mem
 popd

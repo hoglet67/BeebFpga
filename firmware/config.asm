@@ -1119,10 +1119,8 @@ ENDMACRO
 .perform_crc_checks
 {
     ; Checksum the ROM data
-    LDA #17
-    STA cursor_y
     JSR print_string
-    EQUB 9,9,"Checking ROM CRCs....",10,10,13
+    EQUB 9,9,"Checking ROM CRCs....",10,13
     NOP
 
     LDX #0
@@ -1178,7 +1176,6 @@ ENDMACRO
 }
 
 .rst_handler
-{
     LDX #&00
     STX flags
     DEX
@@ -1211,9 +1208,25 @@ ENDMACRO
     LDA #4
     JSR mode
 
+    ; Update the version
+    LDA #2
+    STA cursor_x
+    LDA #29
+    STA cursor_y
+    JSR print_string
+INCLUDE "version.asm"
+    NOP
+
     PLA
     BEQ skip_crc_checks
 
+    ; Set the cursor to just below the splash screen
+    LDA #0
+    STA cursor_x
+    LDA #16
+    STA cursor_y
+
+    ; Validate the CRCs of the ROMs
     JSR perform_crc_checks
 
     ; Currently this just looks for chars >= 0x80
@@ -1261,7 +1274,6 @@ ENDMACRO
 
 .forever
     JMP forever
-}
 
 .irq_handler
 .nmi_handler

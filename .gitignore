@@ -43,3 +43,4 @@ releases/
 
 firmware/config.rom
 firmware/config.mem
+firmware/version.asm

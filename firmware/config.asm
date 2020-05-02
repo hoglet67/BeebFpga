@@ -17,10 +17,14 @@
     num_cols                = 40
     num_rows                = 32
 
+    FLAG_CRC_ERROR          = &01
+    FLAG_CONFIG_ERROR       = &02
+    FLAG_PAUSE              = &80
+
     ptr                     = &70
     fcrc                    = &72
     tmpa                    = &74
-    fail                    = &75
+    flags                   = &75
     acc16                   = &76
 
     cfg                     = &80
@@ -1068,9 +1072,9 @@ ENDMACRO
     JSR print_string
     EQUB "(dirty)"
     NOP
-    LDA fail
-    ORA #2
-    STA fail
+    LDA flags
+    ORA #FLAG_CONFIG_ERROR
+    STA flags
     RTS
 }
 
@@ -1151,7 +1155,10 @@ ENDMACRO
     BEQ crc_ok
 
 .crc_fail
-    INC fail
+    LDA flags
+    ORA #FLAG_CRC_ERROR
+    STA flags
+
     JSR print_string
     EQUB " (fail)", 10, 13
     NOP
@@ -1173,7 +1180,7 @@ ENDMACRO
 .rst_handler
 {
     LDX #&00
-    STX fail
+    STX flags
     DEX
     TXS
 
@@ -1216,13 +1223,37 @@ ENDMACRO
 
     PLA
     TAX
-.loop
+
+    ; Delay for a short period
+.delay_loop
     JSR delay100ms
     DEX
-    BPL loop
+    BPL delay_loop
 
-    LDA fail
-    BNE forever
+    ; Has a key been pressed?
+    LDA &FE4D
+    AND #&01
+    BEQ continue
+
+    ; Yes, set the pause flag
+    LDA #FLAG_PAUSE
+    ORA flags
+    STA flags
+
+    ; Clear the interrupt flag
+    LDA &FE41
+
+.continue
+
+    ; Are any flags set?
+    LDA flags
+    BEQ reset
+
+    ; Yes, then wait for another key press
+.key_loop
+    LDA &FE4D
+    AND #&01
+    BEQ key_loop
 
 .reset
     LDA #&00

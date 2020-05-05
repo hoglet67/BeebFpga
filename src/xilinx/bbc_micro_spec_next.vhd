@@ -772,18 +772,23 @@ begin
     ram_ce_n_o(2)           <= '1';
     ram_ce_n_o(3)           <= '1';
 
-    -- Beeb ROM slots 0-15 are be mapped to Spec Next Pages 16-31
-    -- In normal mode the ROM mapping is changed as follows:
-    --    #C000-#FFFF         => SRAM Page 23 (the OS ROM) (was 20)
+    -- In all modes:
+    --    8000-BFFF slots 0-3 => SRAM Pages 00-03
+    --    8000-BFFF slots 8-F => SRAM Pages 08-0F
+    --
+    -- In normal mode the ROM mapping is:
+    --    C000-FFFF           => SRAM Page 04 (the OS ROM)
+    --    8000-BFFF slots 4-7 => SRAM Pages 14-17
     --
     -- In config mode the ROM mapping is changed as follows:
-    --    #C000-#FFFF         => local config rom (see RAM_Dout below)
-    --    #8000-#BFFF (Rom 0) => SRAM Page 22 (the beeb.cfg file)
-    --    #8000-#BFFF (Rom 1) => SRAM Page 23 (the OS ROM)
-    ram_addr_o              <= "00110"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00000" else
-                               "00111"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00001" else
-                               "00111"         & RAM_A(13 downto 0) when config_mode = '0' and RAM_A(18 downto 14) = "00100" else
-                                RAM_A(18)      & RAM_A(17 downto 0);
+    --    C000-FFFF           => local config rom (see RAM_Dout below)
+    --    8000-BFFF slots 4-7 => SRAM Pages 04-07
+    --
+    -- SRAM Page 04 holds the OS ROM
+    -- SRAM Page 05 holds the beeb.cfg file
+
+    ram_addr_o              <= "001"      & RAM_A(15 downto 0) when config_mode = '1' and RAM_A(18 downto 16) = "101" else
+                                RAM_A(18) & RAM_A(17 downto 0);
 
     ram_data_io(15 downto 8)<= "ZZZZZZZZ";
     ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');

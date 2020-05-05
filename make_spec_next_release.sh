@@ -102,8 +102,19 @@ keydip = 00
 
 ; ROM CRCs, for checking during boot
 
-crc01 = 5cbf
+crc00 = 0000
+crc01 = 0000
+crc02 = 0000
+crc03 = 0000
+crc04 = 5cbf
+crc06 = 0000
+crc07 = 0000
 crc08 = b4ab
+crc09 = 0000
+crc0A = 0000
+crc0B = 0000
+crc0C = 0000
+crc0D = 0000
 crc0E = 36b8
 crc0F = 4274
 
@@ -134,16 +145,21 @@ cmos10 = 80 ; Default serial data format, auto boot option, int/ext TUBE, bell a
 
 ; ROM CRCs, for checking during boot
 
-crc01  = 9402
-crc03  = dd56
-crc08  = 81db
-crc09  = c433
-crc0A  = e7c4
-crc0B  = b5b6
-crc0C  = 61d7
-crc0D  = b733
-crc0E  = 7621
-crc0F  = 64af
+crc00 = 0000
+crc01 = 0000
+crc02 = 0000
+crc03 = dd56
+crc04 = 9402
+crc06 = 0000
+crc07 = 0000
+crc08 = 81db
+crc09 = c433
+crc0A = e7c4
+crc0B = b5b6
+crc0C = 61d7
+crc0D = b733
+crc0E = 7621
+crc0F = 64af
 
 EOF
 }
@@ -171,9 +187,14 @@ cat > $DIR/machines/${MACH}/core.cfg <<EOF
 name=Acorn BBC Model B
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
+resource=blank.rom,0
+resource=blank.rom,1
+resource=blank.rom,2
 resource=blank.rom,3
+resource=os12.rom,4
+resource=blank.rom,5
 resource=blank.rom,6
-resource=os12.rom,7
+resource=blank.rom,7
 resource=swmmfs2.rom,8
 resource=blank.rom,9
 resource=blank.rom,10
@@ -184,10 +205,10 @@ resource=rammas6.rom,14
 resource=basic2.rom,15
 
 ; Beeb Config at the start
-resource=beeb.cfg,6
+resource=beeb.cfg,5
 
 ; Spec Next Config and the end (0x3F00)
-config=6,16128
+config=5,16128
 EOF
 
 for i in os12 basic2 ram_master_v6 swmmfs2
@@ -218,9 +239,14 @@ cat > $DIR/machines/${MACH}/core.cfg <<EOF
 name=Acorn BBC Master
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
+resource=blank.rom,0
+resource=blank.rom,1
+resource=blank.rom,2
 resource=mammfs2.rom,3
+resource=mos.rom,4
+resource=blank.rom,5
 resource=blank.rom,6
-resource=mos.rom,7
+resource=blank.rom,7
 resource=owl.rom,8
 resource=dfs.rom,9
 resource=viewsht.rom,10
@@ -231,10 +257,10 @@ resource=view.rom,14
 resource=terminal.rom,15
 
 ; Beeb Config at the start
-resource=beeb.cfg,6
+resource=beeb.cfg,5
 
 ; Spec Next Config and the end (0x3F00)
-config=6,16128
+config=5,16128
 EOF
 
 for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht

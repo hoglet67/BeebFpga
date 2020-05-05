@@ -43,7 +43,7 @@
     rom_crc_value_hi        = &B0
 
 ;; The ROM slot used for config data
-   cfg_slot                 = 0
+   cfg_slot                 = 5
 
 ;; The beeb.cfg text is preloaded here
    beeb_cfg_data            = &8000

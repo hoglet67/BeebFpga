@@ -170,24 +170,24 @@ mkdir -p $DIR/machines/$MACH
 cat > $DIR/machines/${MACH}/core.cfg <<EOF
 name=Acorn BBC Model B
 
-; Beeb ROM Slots 0-15 map to Spec Next Pages 16-31
-resource=blank.rom,19
-resource=blank.rom,22
-resource=os12.rom,23
-resource=swmmfs2.rom,24
-resource=blank.rom,25
-resource=blank.rom,26
-resource=blank.rom,27
-resource=blank.rom,28
-resource=blank.rom,29
-resource=rammas6.rom,30
-resource=basic2.rom,31
+; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
+resource=blank.rom,3
+resource=blank.rom,6
+resource=os12.rom,7
+resource=swmmfs2.rom,8
+resource=blank.rom,9
+resource=blank.rom,10
+resource=blank.rom,11
+resource=blank.rom,12
+resource=blank.rom,13
+resource=rammas6.rom,14
+resource=basic2.rom,15
 
 ; Beeb Config at the start
-resource=beeb.cfg,22
+resource=beeb.cfg,6
 
 ; Spec Next Config and the end (0x3F00)
-config=22,16128
+config=6,16128
 EOF
 
 for i in os12 basic2 ram_master_v6 swmmfs2
@@ -218,23 +218,23 @@ cat > $DIR/machines/${MACH}/core.cfg <<EOF
 name=Acorn BBC Master
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
-resource=mammfs2.rom,19
-resource=blank.rom,22
-resource=mos.rom,23
-resource=owl.rom,24
-resource=dfs.rom,25
-resource=viewsht.rom,26
-resource=edit.rom,27
-resource=basic4.rom,28
-resource=adfs.rom,29
-resource=view.rom,30
-resource=terminal.rom,31
+resource=mammfs2.rom,3
+resource=blank.rom,6
+resource=mos.rom,7
+resource=owl.rom,8
+resource=dfs.rom,9
+resource=viewsht.rom,10
+resource=edit.rom,11
+resource=basic4.rom,12
+resource=adfs.rom,13
+resource=view.rom,14
+resource=terminal.rom,15
 
 ; Beeb Config at the start
-resource=beeb.cfg,22
+resource=beeb.cfg,6
 
 ; Spec Next Config and the end (0x3F00)
-config=22,16128
+config=6,16128
 EOF
 
 for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht

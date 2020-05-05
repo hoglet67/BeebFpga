@@ -136,7 +136,7 @@ NET 'ram_addr_o<6>'     LOC='M4'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW =
 NET 'ram_addr_o<7>'     LOC='M3'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
 NET 'ram_addr_o<8>'     LOC='N4'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
 NET 'ram_addr_o<9>'     LOC='N3'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
-NET 'ram_addr_o<10>'    LOC='C4'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
+NET 'ram_addr_o<10>'    LOC='H2'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY; # Swapped with A18
 NET 'ram_addr_o<11>'    LOC='C3'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
 NET 'ram_addr_o<12>'    LOC='D3'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
 NET 'ram_addr_o<13>'    LOC='E4'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
@@ -144,7 +144,7 @@ NET 'ram_addr_o<14>'    LOC='E3'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW =
 NET 'ram_addr_o<15>'    LOC='F2'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
 NET 'ram_addr_o<16>'    LOC='F1'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
 NET 'ram_addr_o<17>'    LOC='G1'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
-NET 'ram_addr_o<18>'    LOC='H2'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
+NET 'ram_addr_o<18>'    LOC='C4'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY; # Swapped with A10
 NET 'ram_data_io<0>'    LOC='J6'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
 NET 'ram_data_io<1>'    LOC='L5'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;
 NET 'ram_data_io<2>'    LOC='K5'    | IOSTANDARD = LVCMOS33 | DRIVE = 4 | SLEW = "FAST" | NODELAY;

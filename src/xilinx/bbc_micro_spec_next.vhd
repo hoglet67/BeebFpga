@@ -780,10 +780,10 @@ begin
     --    #C000-#FFFF         => local config rom (see RAM_Dout below)
     --    #8000-#BFFF (Rom 0) => SRAM Page 22 (the beeb.cfg file)
     --    #8000-#BFFF (Rom 1) => SRAM Page 23 (the OS ROM)
-    ram_addr_o              <= "10110"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00000" else
-                               "10111"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00001" else
-                               "10111"         & RAM_A(13 downto 0) when config_mode = '0' and RAM_A(18 downto 14) = "00100" else
-                               (not RAM_A(18)) & RAM_A(17 downto 0);
+    ram_addr_o              <= "00110"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00000" else
+                               "00111"         & RAM_A(13 downto 0) when config_mode = '1' and RAM_A(18 downto 14) = "00001" else
+                               "00111"         & RAM_A(13 downto 0) when config_mode = '0' and RAM_A(18 downto 14) = "00100" else
+                                RAM_A(18)      & RAM_A(17 downto 0);
 
     ram_data_io(15 downto 8)<= "ZZZZZZZZ";
     ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');

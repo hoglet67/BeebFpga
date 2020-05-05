@@ -1048,8 +1048,12 @@ ENDMACRO
 {
     LDA #cfg_slot
     STA &FE30
+    LDA #2
+    STA cursor_x
+    LDA #27
+    STA cursor_y
     JSR print_string
-    EQUB 9, 9, "beeb.cfg config   "
+    EQUB "beeb.cfg config "
     NOP
     LDY #0
     STY tmp
@@ -1065,12 +1069,12 @@ ENDMACRO
     CMP #&BF
     BNE loop
     JSR print_string
-    EQUB "(clean)"
+    EQUB "clean"
     NOP
     RTS
 .config_error
     JSR print_string
-    EQUB "(dirty)"
+    EQUB "dirty"
     NOP
     LDA flags
     ORA #FLAG_CONFIG_ERROR
@@ -1119,22 +1123,64 @@ ENDMACRO
 .perform_crc_checks
 {
     ; Checksum the ROM data
+
+    ; Set the cursor to just below the splash screen
+    LDA #2
+    STA cursor_x
+    LDA #16
+    STA cursor_y
+
     JSR print_string
-    EQUB 9,9,"Checking ROM CRCs....",10,13
+    EQUB "Checking ROM CRCs...."
     NOP
+
+    ;    0123456789012345678901234567890123456789
+    ; 16 | Checking ROM CRCs...                 |
+    ; 17 |                                      |
+    ; 18 | 00:CRC=0000:OK     08:CRC=0000:OK    |
+    ; 19 | 01:CRC=0000:FAIL   09:CRC=0000:FAIL  |
+    ; 20 | 02:CRC=0000:OK     0A:CRC=0000:OK    |
+    ; 21 | 03:CRC=0000:OK     0B:CRC=0000:OK    |
+    ; 22 | 04:CRC=0000:OK     0C:CRC=0000:OK    |
+    ; 23 | 05:--------:--     0D:--------:--    |
+    ; 24 | 06:CRC=0000:OK     0E:CRC=0000:OK    |
+    ; 25 | 07:CRC=0000:OK     0F:CRC=0000:OK    |
+    ; 26 |                                      |
+    ; 27 | beeb.cfg config clean                |
+    ; 28 |                                      |
+    ; 29 | Version: 20200505_1954 abcdef12?     |
+    ; 30 |                                      |
+    ; 31 +--------------------------------------+
 
     LDX #0
 .loop
-    LDA rom_crc_test, X
-    BEQ next_rom
 
-    JSR print_string
-    EQUB 9,9,"ROM "
-    NOP
+    ; Calculate Cursor X
+    TXA
+    AND #8
+    BNE l1
+    LDA #2
+    BNE l2
+.l1
+    LDA #21
+.l2
+    STA cursor_x
+
+    ; Calculate Cursor Y
+    TXA
+    AND #7
+    CLC
+    ADC #18
+    STA cursor_y
+
     TXA
     JSR print_hex
+
+    LDA rom_crc_test, X
+    BEQ unused_rom
+
     JSR print_string
-    EQUB " CRC = "
+    EQUB ":CRC="
     NOP
 
     STX &FE30
@@ -1158,15 +1204,20 @@ ENDMACRO
     STA flags
 
     JSR print_string
-    EQUB " (fail)", 10, 13
+    EQUB ":FAIL"
     NOP
     JMP next_rom
 
 .crc_ok
     JSR print_string
-    EQUB " (pass)", 10, 13
+    EQUB ":OK"
     NOP
     JMP next_rom
+
+.unused_rom
+    JSR print_string
+    EQUB ":--------:--"
+    NOP
 
 .next_rom
     INX
@@ -1219,12 +1270,6 @@ INCLUDE "version.asm"
 
     PLA
     BEQ skip_crc_checks
-
-    ; Set the cursor to just below the splash screen
-    LDA #0
-    STA cursor_x
-    LDA #16
-    STA cursor_y
 
     ; Validate the CRCs of the ROMs
     JSR perform_crc_checks

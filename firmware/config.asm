@@ -8,7 +8,10 @@
     config_reg_keydip       = config_reg + 5
     config_reg_ps2_swap     = config_reg + 6
 
-    config_reg_reset        = config_reg + 15
+    config_reg_control      = config_reg + 15
+
+    CONTROL_REMAP           = &01
+    CONTROL_RESET           = &80
 
     splash                  = config_reg + &10
     romcheck                = config_reg + &11
@@ -1226,11 +1229,40 @@ ENDMACRO
     RTS
 }
 
+.wipe_sideways_ram
+{
+    LDA #&00
+    TAY
+    LDX #&04
+.loop1
+    STX &FE30
+.loop2
+    STA &8000, Y
+    DEY
+    BNE loop2
+    INX
+    CPX #8
+    BNE loop1
+    RTS
+}
+
 .rst_handler
     LDX #&00
     STX flags
     DEX
     TXS
+
+    ; Map the sideways RAM into slots 4-7
+    LDA #&00
+    STA config_reg_control
+
+    ; Wipe the first page of each sideways RAM bank, as these get corrupted across
+    ; reconfigurations, which causes the system to hang.
+    JSR wipe_sideways_ram
+
+    ; Map the OS Rom and beeb.cfg file into slots 4-7
+    LDA #CONTROL_REMAP
+    STA config_reg_control
 
     ; Page in the slot with the config data
     LDA #cfg_slot
@@ -1314,8 +1346,8 @@ INCLUDE "version.asm"
     BEQ key_loop
 
 .reset
-    LDA #&00
-    STA config_reg_reset
+    LDA #CONTROL_RESET
+    STA config_reg_control
 
 .forever
     JMP forever

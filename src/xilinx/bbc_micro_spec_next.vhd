@@ -255,6 +255,7 @@ architecture rtl of bbc_micro_spec_next is
 
     -- Special Power Up Configuration Mode
     signal config_mode     : std_logic := '1';
+    signal config_remap    : std_logic := '0';
     signal config_reset    : std_logic := '0';
 
 begin
@@ -597,6 +598,7 @@ begin
             if config_reset = '1' then
                 -- Exit config mode when config_reset register written
                 config_mode <= '0';
+                config_remap <= '0';
                 config_reset <= '0';
                 reset_counter <= (others => '0');
             elsif btn_reset_n_i = '0' then
@@ -661,7 +663,8 @@ begin
 					when x"6" =>
                         ps2_swap <= RAM_Din(0);
 					when x"F" =>
-                        config_reset <= '1';
+                        config_remap <= RAM_Din(0);
+                        config_reset <= RAM_Din(7);
                     when others =>
                 end case;
             end if;
@@ -787,7 +790,7 @@ begin
     -- SRAM Page 04 holds the OS ROM
     -- SRAM Page 05 holds the beeb.cfg file
 
-    ram_addr_o              <= "001"      & RAM_A(15 downto 0) when config_mode = '1' and RAM_A(18 downto 16) = "101" else
+    ram_addr_o              <= "001"      & RAM_A(15 downto 0) when config_remap = '1' and RAM_A(18 downto 16) = "101" else
                                 RAM_A(18) & RAM_A(17 downto 0);
 
     ram_data_io(15 downto 8)<= "ZZZZZZZZ";

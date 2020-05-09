@@ -149,7 +149,8 @@ entity bbc_micro_core is
         -- Bit 3 inverts vsync
         vid_mode       : in    std_logic_vector(3 downto 0);
 
-        ttxt_mode      : out   std_logic;
+        -- Hint that a wide aspect ratio should be used (e.g to stretch mode 7)
+        aspect_wide    : out   std_logic;
 
         -- Main Joystick and Secondary Joystick
         -- Bit 0 - Up (active low)
@@ -354,7 +355,8 @@ signal ttxt_r           :   std_logic;
 signal ttxt_g           :   std_logic;
 signal ttxt_b           :   std_logic;
 signal ttxt_y           :   std_logic;
-signal ttxt             :   std_logic;
+signal ttxt_active      :   std_logic;
+signal mhz12_active     :   std_logic;
 
 -- System VIA signals
 signal sys_via_do       :   std_logic_vector(7 downto 0);
@@ -685,7 +687,8 @@ begin
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
-                TTXT            => ttxt,
+                TTXT            => ttxt_active,
+                MHZ12           => mhz12_active,
                 VGA             => vga_mode,
                 ENABLE          => vidproc_enable,
                 A               => cpu_a(1 downto 0),
@@ -713,7 +716,7 @@ begin
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
-                TTXT            => ttxt,
+                TTXT            => ttxt_active,
                 VGA             => vga_mode,
                 ENABLE          => vidproc_enable,
                 A0              => cpu_a(0),
@@ -729,6 +732,7 @@ begin
                 G               => g_out,
                 B               => b_out
                 );
+        mhz12_active <= ttxt_active;
     end generate;
 
     teletext : entity work.saa5050 port map (
@@ -1916,17 +1920,17 @@ begin
 -----------------------------------------------
 
     -- Input clock enable (for the 48MHz input clock)
-    --   ttxt = 0: 16MHz
-    --   ttxt = 1: 12MHz
-    clken_pixel <= ttxt_clken when ttxt = '1' else vid_clken;
+    --   mhz12_active = 0: 16MHz
+    --   mhz12_active = 1: 12MHz
+    clken_pixel <= ttxt_clken when mhz12_active = '1' else vid_clken;
 
     -- Output clock enable (for the 96MHz output clock)
-    -- ttxt = 0: divide by 3 -> 32MHz
-    -- ttxt = 1: divide by 4 -> 24MHz
+    -- mhz12_active = 0: divide by 3 -> 32MHz
+    -- mhz12_active = 1: divide by 4 -> 24MHz
     process(clock_96)
     begin
         if rising_edge(clock_96) then
-            if (ttxt = '0' and vga3_counter = 2) or (ttxt = '1' and vga3_counter = 3) then
+            if (mhz12_active = '0' and vga3_counter = 2) or (mhz12_active = '1' and vga3_counter = 3) then
                 vga3_counter <= (others => '0');
                 clken_vga <= '1';
             else
@@ -1974,8 +1978,9 @@ begin
     )
     port map (
         clock => clock_48,
-        clken => vid_clken,
+        clken => clken_pixel,
         clk25 => clock_27,
+        mode => mhz12_active,
         rgbi_in => rgbi_in,
         hSync_in => crtc_hsync,
         vSync_in => crtc_vsync,
@@ -1987,7 +1992,6 @@ begin
     vga1_r  <= rgbi_out(RGB_WIDTH * 3 downto RGB_WIDTH * 2 + 1);
     vga1_g  <= rgbi_out(RGB_WIDTH * 2 downto RGB_WIDTH * 1 + 1);
     vga1_b  <= rgbi_out(RGB_WIDTH * 1 downto RGB_WIDTH * 0 + 1);
-
 
 -----------------------------------------------
 -- 24MHz to 27MHz Scan Retimer (by DMB)
@@ -2020,28 +2024,28 @@ begin
 -- RGBHV Multiplexor
 -----------------------------------------------
 
-    -- Video Mode Links
-    --
-    -- 0 0 SCART RGB mode (15.625KHz)                                   (16MHz/12MHz)
-    -- 0 1 Mode 0-6: RGBtoVGA SD, Mode 7: SAA5050 VGA Mode with retimer (27MHz)
-    -- 1 0 Mode 0-7: Mist SD,     Mode 7: Mist SD                       (32MHz/24MHz)
-    -- 1 1 Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode              (32MHz/24MHz)
+    -- Video Mode:  -------------------Scan Doubling Approach-----------------------
+    --              Mode 0-6@16MHz      Mode 0-6@12Mhz      Mode7
+    -- 00 (SRGB)    direct    (16MHz)   Direct    (12MHz)   Direct             (12MHz)
+    -- 01 (HDMI)    RGB2VGASD (27MHz)   RGB2VGASD (27MHz)   SAA5050VGA/retimer (27MHz)
+    -- 10 (VGA)     MistSD    (32MHz)   MistSD    (24MHz)   Mist SD            (24MHz)
+    -- 11 (VGA)     MistSD    (32Mhz)   MistSD    (24MHz)   SAA5050VGA         (24MHz)
 
-    --- Indicate to the parent module when ttxt is active
+    --- Indicate to the parent module when a 12MHz Pixel Clock is being used
     -- e.g. for HDMI aspect ratio switching
-    ttxt_mode <= ttxt;
+    aspect_wide <= mhz12_active;
 
     -- The SAA5050 24MHz VGA mode is enabled
-    vga_mode <= '1' when (vid_mode(0) = '1' and ttxt = '1') else '0';
+    vga_mode <= '1' when (vid_mode(0) = '1' and ttxt_active = '1') else '0';
 
     -- The video output is taken from the Mist Scan Doubler
-    vga0_mode <= '1' when (vid_mode(1 downto 0) = "11" and ttxt = '0') or vid_mode(1 downto 0) = "10" else '0';
+    vga0_mode <= '1' when (vid_mode(1 downto 0) = "11" and ttxt_active = '0') or vid_mode(1 downto 0) = "10" else '0';
 
-    -- The video output is taken from the RGBtoVGA Scan Doubler
-    vga1_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt = '0' else '0';
+    -- The video output is taken from the RGB2VGA Scan Doubler
+    vga1_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt_active = '0' else '0';
 
     -- The video output is taken from the Retimer
-    vga2_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt = '1' else '0';
+    vga2_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt_active = '1' else '0';
 
     -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
     hsync_int   <= vga0_hs when vga0_mode = '1' else

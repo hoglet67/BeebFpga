@@ -108,6 +108,9 @@ entity vidproc is
         -- Indicates teletext
         TTXT        :   out std_logic;
 
+        -- Indicates a 12MHz pixel clock (ttxt or Nula Attr mode)
+        MHZ12       :   out std_logic;
+
         -- Indicates special VGA Mode 7 (720x576p)
         VGA         :   in  std_logic;
 
@@ -689,5 +692,8 @@ begin
 
     -- Indicate mode 7 teletext is selected
     TTXT <= r0_teletext;
+
+    -- Indicate a 12MHz pixel clock (ttxt or Nula Attr mode)
+    MHZ12 <= modeIs12MHz;
 
 end architecture;

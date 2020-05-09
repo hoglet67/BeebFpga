@@ -33,6 +33,10 @@ entity rgb2vga_scandoubler is
         -- 25MHz VGA clock
         clk25 : in  std_logic;
 
+        -- Selects between two different choices of sampling parms
+        -- Use mode=0 at 16MHz and mode=1 at 12MHz
+        mode : in std_logic;
+
         -- Input 15.625kHz RGB signals
         rgbi_in   : in  std_logic_vector(WIDTH - 1 downto 0);
         hSync_in  : in  std_logic;
@@ -47,8 +51,9 @@ end entity;
 
 architecture rtl of rgb2vga_scandoubler is
     -- Config parameters
-    constant SAMPLE_OFFSET : integer := 240;
-    constant SAMPLE_WIDTH  : integer := 656;
+    constant SAMPLE_OFFSET0 : integer := 240;
+    constant SAMPLE_OFFSET1 : integer := 96;
+    constant SAMPLE_WIDTH   : integer := 656;
 
 --    -- original values
 --  constant width25       : integer := 10;
@@ -176,8 +181,9 @@ begin
 
     -- Create horizontal count, aligned to incoming HSYNC
     hCount16_next <=
-        to_unsigned(2**10 - SAMPLE_OFFSET + 1, 10) when hSyncStart = '1'
-        else hCount16 + 1;
+        to_unsigned(2**10 - SAMPLE_OFFSET0 + 1, 10) when hSyncStart = '1' and mode = '0' else
+        to_unsigned(2**10 - SAMPLE_OFFSET1 + 1, 10) when hSyncStart = '1' and mode = '1' else
+        hCount16 + 1;
 
     -- Toggle every incoming HSYNC
     lineToggle_next <=

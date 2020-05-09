@@ -199,7 +199,7 @@ architecture rtl of bbc_micro_spec_next is
     signal reconfig        : std_logic := '0';
     signal m128_mode       : std_logic;
     signal copro_mode      : std_logic := '0';
-    signal ttxt_mode       : std_logic;
+    signal aspect_wide     : std_logic;
     signal hdmi_aspect     : std_logic_vector(1 downto 0) := "00";
     signal hdmi_aspect_169 : std_logic;
     signal red             : std_logic_vector(3 downto 0);
@@ -320,7 +320,7 @@ begin
         shift_led      => open,
         keyb_dip       => keyb_dip,
         vid_mode       => vid_mode,
-        ttxt_mode      => ttxt_mode,
+        aspect_wide    => aspect_wide,
         joystick1      => joystick1,
         joystick2      => joystick2,
         avr_reset      => not hard_reset_n,
@@ -919,7 +919,7 @@ begin
 
     hdmi_aspect_169 <= '0' when hdmi_aspect = "01" else -- always 4:3
                        '1' when hdmi_aspect = "10" else -- always 16:9
-                       ttxt_mode;                       -- 4:3 in modes 0-6;
+                       aspect_wide;                     -- 4:3 in modes 0-6;
                                                         -- 16:9 i mode 7
 
     inst_hdmi: entity work.hdmi

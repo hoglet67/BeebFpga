@@ -770,8 +770,8 @@ begin
 
     ram_oe_n_o              <= RAM_nOE;
     ram_we_n_o              <= RAM_nWE;
-    ram_ce_n_o(0)           <= RAM_nCS;
-    ram_ce_n_o(1)           <= '1';
+    ram_ce_n_o(0)           <= RAM_nCS when RAM_A(0) = '0' else '1';
+    ram_ce_n_o(1)           <= RAM_nCS when RAM_A(0) = '1' else '1';
     ram_ce_n_o(2)           <= '1';
     ram_ce_n_o(3)           <= '1';
 
@@ -790,14 +790,17 @@ begin
     -- SRAM Page 04 holds the OS ROM
     -- SRAM Page 05 holds the beeb.cfg file
 
-    ram_addr_o              <= "001"      & RAM_A(15 downto 0) when config_remap = '1' and RAM_A(18 downto 16) = "101" else
-                                RAM_A(18) & RAM_A(17 downto 0);
+    -- In the 3.01.06 Spec Next Core the memory becomes 16-bits wide
+    -- and A(0) selects between the lower and upper bytes
 
-    ram_data_io(15 downto 8)<= "ZZZZZZZZ";
-    ram_data_io(7 downto 0) <= RAM_Din when RAM_nWE = '0' else (others => 'Z');
+    ram_addr_o              <= "0001" & RAM_A(15 downto 1) when config_remap = '1' and RAM_A(18 downto 16) = "101" else
+                               "0"    & RAM_A(18 downto 1);
+
+    ram_data_io             <= RAM_Din & RAM_Din when RAM_nWE = '0' else (others => 'Z');
 
     RAM_Dout                <= config_data when config_mode = '1' and RAM_A(18 downto 14) = "00100" else
-                               ram_data_io(7 downto 0);
+                               ram_data_io(7 downto 0) when RAM_A(0) = '0'                          else
+                               ram_data_io(15 downto 8);
 
     flash_cs_n_o            <= '1';
     flash_mosi_o            <= '1';

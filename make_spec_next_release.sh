@@ -63,7 +63,7 @@ copro = 0
 ;     0=off
 ;     1=on
 
-debug = 1
+debug = 0
 
 ; PS/2 Mode
 ;    0=keyboard

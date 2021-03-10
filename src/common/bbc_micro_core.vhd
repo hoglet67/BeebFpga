@@ -1218,17 +1218,17 @@ begin
         variable l : std_logic_vector(15 downto 0);
         variable r : std_logic_vector(15 downto 0);
     begin
-          -- SN76489 output is 8-bit unsigned
-          -- attenuate by one bit as to try to match level with other sources
-        l := std_logic_vector(not sound_ao(7) & not sound_ao(7) & sound_ao(6 downto 0)) & "0000000";
-        r := std_logic_vector(not sound_ao(7) & not sound_ao(7) & sound_ao(6 downto 0)) & "0000000";
+        -- SN76489 output is 8-bit unsigned and is 0x00 when no sound is playing
+        -- attenuate by one bit as to try to match level with other sources
+        l := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
+        r := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
         if IncludeSID then
-                -- SID output is 16-bit unsigned
+            -- SID output is 16-bit unsigned
             l := l + (sid_ao(17 downto 2) - x"8000");
             r := r + (sid_ao(17 downto 2) - x"8000");
         end if;
         if IncludeMusic5000 then
-                -- Music 5000 output is 16-bit signed
+            -- Music 5000 output is 16-bit signed
             l := l + music5000_ao_l;
             r := r + music5000_ao_r;
         end if;

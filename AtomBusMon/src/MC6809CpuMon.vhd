@@ -101,6 +101,7 @@ architecture behavioral of MC6809CpuMon is
     signal Addr_int       : std_logic_vector(15 downto 0);
     signal Din            : std_logic_vector(7 downto 0);
     signal Dout           : std_logic_vector(7 downto 0);
+    signal Dbusmon        : std_logic_vector(7 downto 0);
     signal Sync_int       : std_logic;
     signal hold           : std_logic;
 
@@ -123,7 +124,7 @@ architecture behavioral of MC6809CpuMon is
     signal SS_Single      : std_logic;
     signal SS_Step        : std_logic;
     signal CountCycle     : std_logic;
-    signal special        : std_logic_vector(1 downto 0);
+    signal special        : std_logic_vector(2 downto 0);
 
     signal LIC_int        : std_logic;
 
@@ -176,7 +177,7 @@ begin
         cpu_clk      => cpu_clk,
         cpu_clken    => '1',
         Addr         => Addr_int,
-        Data         => Data,
+        Data         => Dbusmon,
         Rd_n         => not R_W_n_int,
         Wr_n         => R_W_n_int,
         RdIO_n       => '1',
@@ -211,8 +212,8 @@ begin
         SS_Single    => SS_Single
     );
 
+    FIRQ_n_masked <= FIRQ_n or special(2);
     NMI_n_masked  <= NMI_n  or special(1);
-    FIRQ_n_masked <= FIRQ_n or special(1);
     IRQ_n_masked  <= IRQ_n  or special(0);
 
     -- The CPU is slightly pipelined and the register update of the last
@@ -338,6 +339,13 @@ begin
     Data       <= memory_dout when TSC = '0' and data_wr = '1' and memory_wr1 = '1' else
                          Dout when TSC = '0' and data_wr = '1' and R_W_n_int = '0' and memory_rd1 = '0' else
                   (others => 'Z');
+
+    -- Version of data seen by the Bus Mon need to use Din rather than the
+    -- external bus value as by the rising edge of cpu_clk we will have stopped driving
+    -- the external bus. On the ALS version we get away way this, but on the GODIL
+    -- version, due to the pullups, we don't. So all write watch breakpoints see
+    -- the data bus as 0xFF.
+    Dbusmon   <= Din when R_W_n_int = '1' else Dout;
 
     memory_done <= memory_rd1 or memory_wr1;
 

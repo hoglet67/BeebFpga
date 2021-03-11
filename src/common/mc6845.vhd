@@ -276,6 +276,11 @@ begin
     variable adj_scan_line : unsigned(4 downto 0);
     variable in_adj : std_logic;
     variable need_adj : std_logic;
+    variable sof1 : std_logic;
+    variable sof2 : std_logic;
+    variable eom_latched : std_logic;
+    variable eof_latched : std_logic;
+
     begin
         if nRESET = '0' then
             -- H
@@ -297,53 +302,55 @@ begin
 
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
+
+                -- This is a normal row, so use r09_max_scan_line_addr
+                if VGA = '1' then
+                    -- So Mode 7 value of 18 becomes 19 (giving 20 rows per character)
+                    max_scan_line := r09_max_scan_line_addr + 1;
+                else
+                    max_scan_line := r09_max_scan_line_addr;
+                end if;
+                -- In interlace sync + video mode mask off the LSb of the
+                -- max scan line address
+                if r08_interlace(1 downto 0) = "11" and VGA = '0' then
+                    max_scan_line(0) := '0';
+                end if;
+
+                -- This is the "adjust" row, so use r05_v_total_adj
+                if VGA = '1' then
+                    -- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
+                    adj_scan_line := r05_v_total_adj + 1;
+                else
+                    adj_scan_line := r05_v_total_adj - 1;
+                end if;
+                -- If interlaced, the odd field contains an additional scan line
+                if odd_field = '1' then
+                    if r08_interlace(1 downto 0) = "11" then
+                        adj_scan_line := adj_scan_line + 2;
+                    else
+                        adj_scan_line := adj_scan_line + 1;
+                    end if;
+                end if;
+                -- In interlace sync + video mode mask off the LSb of the
+                -- max scan line address
+                if r08_interlace(1 downto 0) = "11" and VGA = '0' then
+                    adj_scan_line(0) := '0';
+                end if;
+
+                -- Compute
+                if r05_v_total_adj /= 0 or odd_field = '1' then
+                    need_adj := '1';
+                else
+                    need_adj := '0';
+                end if;
+
                 -- Horizontal counter increments on each clock, wrapping at
                 -- h_total
                 if h_counter = r00_h_total then
                     -- h_total reached
                     h_counter <= (others => '0');
 
-                    -- Compute
-                    if r05_v_total_adj /= 0 or odd_field = '1' then
-                        need_adj := '1';
-                    else
-                        need_adj := '0';
-                    end if;
-
-                    -- Compute the max scan line for this row
-                    if in_adj = '0' then
-                        -- This is a normal row, so use r09_max_scan_line_addr
-                        if VGA = '1' then
-                            -- So Mode 7 value of 18 becomes 19 (giving 20 rows per character)
-                            max_scan_line := r09_max_scan_line_addr + 1;
-                        else
-                            max_scan_line := r09_max_scan_line_addr;
-                        end if;
-                    else
-                        -- This is the "adjust" row, so use r05_v_total_adj
-                        if VGA = '1' then
-                            -- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
-                            max_scan_line := r05_v_total_adj + 1;
-                        else
-                            max_scan_line := r05_v_total_adj - 1;
-                        end if;
-                        -- If interlaced, the odd field contains an additional scan line
-                        if odd_field = '1' then
-                            if r08_interlace(1 downto 0) = "11" then
-                                max_scan_line := max_scan_line + 2;
-                            else
-                                max_scan_line := max_scan_line + 1;
-                            end if;
-                        end if;
-                    end if;
-
-                    -- In interlace sync + video mode mask off the LSb of the
-                    -- max scan line address
-                    if r08_interlace(1 downto 0) = "11" and VGA = '0' then
-                        max_scan_line(0) := '0';
-                    end if;
-
-                    if line_counter = max_scan_line and ((need_adj = '0' and row_counter = r04_v_total) or in_adj = '1') then
+                    if (need_adj = '0' and eom_latched = '1') or (in_adj = '1' and eof_latched = '1') then
 
                         line_counter <= (others => '0');
 
@@ -378,7 +385,7 @@ begin
                         row_counter <= row_counter + 1;
                         -- Test if we are entering the adjust phase, and set
                         -- in_adj accordingly
-                        if row_counter = r04_v_total and need_adj = '1' then
+                        if eom_latched = '1' and need_adj = '1' then
                             in_adj := '1';
                         end if;
                     else
@@ -400,6 +407,33 @@ begin
                     -- Increment memory address
                     ma_i <= ma_i + 1;
                 end if;
+
+                -- One clock after the start of frame, latch the max scanline
+                if sof1 = '1' then
+                    if line_counter = max_scan_line and row_counter = r04_v_total then
+                        eom_latched := '1';
+                    else
+                        eom_latched := '0';
+                    end if;
+                end if;
+
+                -- Two clocks after the start of frame, latch the adj scanline
+                if sof2 = '1' then
+                    if line_counter = adj_scan_line then
+                        eof_latched := '1';
+                    else
+                        eof_latched := '0';
+                    end if;
+                end if;
+
+                -- Maintain start of frame state
+                sof2 := sof1;
+                if h_counter = 0 then
+                    sof1 := '1';
+                else
+                    sof1 := '0';
+                end if;
+
             end if;
         end if;
     end process;

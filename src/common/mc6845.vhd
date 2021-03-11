@@ -120,6 +120,8 @@ signal h_sync_counter   :   unsigned(3 downto 0);
 signal row_counter      :   unsigned(6 downto 0);
 -- Line counter counts current line within each character row
 signal line_counter     :   unsigned(4 downto 0);
+-- Vertical adjust counter counts lines within the vertical adjust period
+signal vadjust_counter  :   unsigned(4 downto 0);
 -- VSYNC counter counts duration of sync pulse
 signal v_sync_counter   :   unsigned(3 downto 0);
 -- Field counter counts number of complete fields for cursor flash
@@ -178,7 +180,7 @@ begin
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
-            -- Reset registers to defaults
+           -- Reset registers to defaults
             addr_reg <= (others => '0');
             r00_h_total <= (others => '0');
             r01_h_displayed <= (others => '0');
@@ -288,6 +290,7 @@ begin
 
             -- V
             line_counter <= (others => '0');
+            vadjust_counter <= (others => '0');
             row_counter <= (others => '0');
             odd_field <= '0';
 
@@ -299,6 +302,8 @@ begin
             ma_i <= (others => '0');
 
             in_adj := '0';
+            eom_latched := '0';
+            eof_latched := '0';
 
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
@@ -317,31 +322,14 @@ begin
                 end if;
 
                 -- This is the "adjust" row, so use r05_v_total_adj
-                if VGA = '1' then
+                if r08_interlace(1 downto 0) = "11" and VGA = '1' then
                     -- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
+                    adj_scan_line := r05_v_total_adj + 2;
+                elsif r08_interlace(1 downto 0) = "11" and odd_field = '1' then
+                    -- If interlaced, the odd field contains an additional scan line
                     adj_scan_line := r05_v_total_adj + 1;
                 else
-                    adj_scan_line := r05_v_total_adj - 1;
-                end if;
-                -- If interlaced, the odd field contains an additional scan line
-                if odd_field = '1' then
-                    if r08_interlace(1 downto 0) = "11" then
-                        adj_scan_line := adj_scan_line + 2;
-                    else
-                        adj_scan_line := adj_scan_line + 1;
-                    end if;
-                end if;
-                -- In interlace sync + video mode mask off the LSb of the
-                -- max scan line address
-                if r08_interlace(1 downto 0) = "11" and VGA = '0' then
-                    adj_scan_line(0) := '0';
-                end if;
-
-                -- Compute
-                if r05_v_total_adj /= 0 or odd_field = '1' then
-                    need_adj := '1';
-                else
-                    need_adj := '0';
+                    adj_scan_line := r05_v_total_adj;
                 end if;
 
                 -- Horizontal counter increments on each clock, wrapping at
@@ -350,9 +338,10 @@ begin
                     -- h_total reached
                     h_counter <= (others => '0');
 
-                    if (need_adj = '0' and eom_latched = '1') or (in_adj = '1' and eof_latched = '1') then
+                    if eof_latched = '1' then
 
                         line_counter <= (others => '0');
+                        vadjust_counter <= (others => '0');
 
                         -- If in interlace mode we toggle to the opposite field.
                         -- Save on some logic by doing this here rather than at the
@@ -374,8 +363,14 @@ begin
 
                         -- Reset the in extra time flag
                         in_adj := '0';
+                        eom_latched := '0';
+                        eof_latched := '0';
 
-                    elsif in_adj = '0' and line_counter = max_scan_line then
+                    elsif in_adj = '1' then
+                        -- In vertical adjust, just increment the vadjust counter
+                        vadjust_counter <= vadjust_counter + 1;
+
+                    elsif line_counter = max_scan_line then
                         -- Scan line counter increments, wrapping at max_scan_line_addr
                         -- Next character row
                         line_counter <= (others => '0');
@@ -383,11 +378,7 @@ begin
                         -- increased by h_displayed and the row counter is incremented
                         ma_row_start := ma_row_start + r01_h_displayed;
                         row_counter <= row_counter + 1;
-                        -- Test if we are entering the adjust phase, and set
-                        -- in_adj accordingly
-                        if eom_latched = '1' and need_adj = '1' then
-                            in_adj := '1';
-                        end if;
+
                     else
                         -- Next scan line.  Count in twos in interlaced sync+video mode
                         if r08_interlace(1 downto 0) = "11" and VGA = '0' then
@@ -396,6 +387,7 @@ begin
                         else
                             line_counter <= line_counter + 1;
                         end if;
+
                     end if;
 
                     -- Memory address preset to row start at the beginning of each
@@ -408,21 +400,21 @@ begin
                     ma_i <= ma_i + 1;
                 end if;
 
+                -- Two clocks after the start of frame, latch the adj scanline
+                if sof2 = '1' then
+                    if eom_latched = '1' then
+                        if vadjust_counter = adj_scan_line then
+                            eof_latched := '1';
+                        else
+                            in_adj := '1';
+                        end if;
+                    end if;
+                end if;
+
                 -- One clock after the start of frame, latch the max scanline
                 if sof1 = '1' then
                     if line_counter = max_scan_line and row_counter = r04_v_total then
                         eom_latched := '1';
-                    else
-                        eom_latched := '0';
-                    end if;
-                end if;
-
-                -- Two clocks after the start of frame, latch the adj scanline
-                if sof2 = '1' then
-                    if line_counter = adj_scan_line then
-                        eof_latched := '1';
-                    else
-                        eof_latched := '0';
                     end if;
                 end if;
 

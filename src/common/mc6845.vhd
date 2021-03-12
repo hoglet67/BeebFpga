@@ -400,7 +400,9 @@ begin
                     ma_i <= ma_i + 1;
                 end if;
 
-                -- Two clocks after the start of frame, latch the adj scanline
+                -- Two clocks after the start of frame, detect the end of frae
+                -- (i.e. on last scanline including the vertical adjust, which
+                -- may be zero)
                 if sof2 = '1' then
                     if eom_latched = '1' then
                         if vadjust_counter = adj_scan_line then
@@ -411,7 +413,8 @@ begin
                     end if;
                 end if;
 
-                -- One clock after the start of frame, latch the max scanline
+                -- One clock after the start of frame, detect the end of main
+                -- (i.e. on last scanline in last row)
                 if sof1 = '1' then
                     if line_counter = max_scan_line and row_counter = r04_v_total then
                         eom_latched := '1';
@@ -419,6 +422,7 @@ begin
                 end if;
 
                 -- Maintain start of frame state
+                -- (sof1 is usually when C0=1 and sof2 is usually when C0=2)
                 sof2 := sof1;
                 if h_counter = 0 then
                     sof1 := '1';

@@ -222,7 +222,7 @@ begin
                     when others =>
                         DO <= (others => '0');
                     end case;
-                else
+                elsif CLKEN = '1' then
                     -- Write
                     if RS = '0' then
                         addr_reg <= DI(4 downto 0);

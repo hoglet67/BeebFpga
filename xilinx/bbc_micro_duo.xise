@@ -62,7 +62,7 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="46"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>
     </file>
-    <file xil_pn:name="../src/common/AlanD/R65Cx2.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="../AtomBusMon/src/AlanD/R65Cx2.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="77"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="76"/>
     </file>

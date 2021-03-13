@@ -277,7 +277,6 @@ begin
     variable max_scan_line : unsigned(4 downto 0);
     variable adj_scan_line : unsigned(4 downto 0);
     variable in_adj : std_logic;
-    variable need_adj : std_logic;
     variable sof1 : std_logic;
     variable sof2 : std_logic;
     variable eom_latched : std_logic;
@@ -501,7 +500,7 @@ begin
                     else
                         v_sync_counter <= (others => '0');
                     end if;
-                    if v_sync_counter = r03_v_sync_width and vs = '1' then
+                    if v_sync_counter = r03_v_sync_width then
                         -- Terminate vsync after v_sync_width (0 means 16 lines so this is
                         -- masked by 'vs' to ensure a full turn of the counter in this case)
                         vs <= '0';

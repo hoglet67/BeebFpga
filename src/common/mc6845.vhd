@@ -138,7 +138,6 @@ signal v_display_early  :   std_logic;
 signal vs               :   std_logic;
 signal odd_field        :   std_logic;
 signal ma_i             :   unsigned(13 downto 0);
-signal ma_row_start     :   unsigned(13 downto 0); -- Start address of current character row
 signal cursor_i         :   std_logic;
 signal lpstb_i          :   std_logic;
 signal de0              :   std_logic;
@@ -274,6 +273,7 @@ begin
     -- Horizontal, vertical and address counters
     process(CLOCK,nRESET)
     variable ma_row_start : unsigned(13 downto 0);
+    variable ma_row_next  : unsigned(13 downto 0);
     variable max_scan_line : unsigned(4 downto 0);
     variable adj_scan_line : unsigned(4 downto 0);
     variable in_adj : std_logic;
@@ -298,6 +298,7 @@ begin
 
             -- Addressing
             ma_row_start := (others => '0');
+            ma_row_next  := (others => '0');
             ma_i <= (others => '0');
 
             in_adj := '0';
@@ -331,6 +332,10 @@ begin
                     adj_scan_line := r05_v_total_adj;
                 end if;
 
+                if h_counter = r01_h_displayed then
+                    ma_row_next := ma_i;
+                end if;
+
                 -- Horizontal counter increments on each clock, wrapping at
                 -- h_total
                 if h_counter = r00_h_total then
@@ -355,6 +360,7 @@ begin
                         -- Address is loaded from start address register at the top of
                         -- each field and the row counter is reset
                         ma_row_start := r12_start_addr_h & r13_start_addr_l;
+                        ma_row_next  := r12_start_addr_h & r13_start_addr_l;
                         row_counter <= (others => '0');
 
                         -- Increment field counter
@@ -375,7 +381,7 @@ begin
                         line_counter <= (others => '0');
                         -- On all other character rows within the field the row start address is
                         -- increased by h_displayed and the row counter is incremented
-                        ma_row_start := ma_row_start + r01_h_displayed;
+                        ma_row_start := ma_row_next;
                         row_counter <= row_counter + 1;
 
                     else

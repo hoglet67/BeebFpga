@@ -153,7 +153,7 @@ begin
     HSYNC <= hs; -- External HSYNC driven directly from internal signal
     VSYNC <= vs; -- External VSYNC driven directly from internal signal
 
-    de0 <= '1' when h_counter /= r00_h_total and h_display = '1' and v_display = '1' and r08_interlace(5 downto 4) /= "11" else '0';
+    de0 <= '1' when h_display = '1' and v_display = '1' and r08_interlace(5 downto 4) /= "11" else '0';
 
     -- In Mode 7 DE Delay is set to 01, but in our implementation no delay is needed
     -- TODO: Fix SAA5050
@@ -452,7 +452,7 @@ begin
         end if;
     end process;
 
-    h_display_early <= '1' when h_counter   < r01_h_displayed else '0';
+    h_display_early <= '1' when h_counter   < r01_h_displayed and h_counter /= r00_h_total else '0';
     v_display_early <= '1' when row_counter < r06_v_displayed else '0';
 
     -- Video timing and sync counters

@@ -342,6 +342,13 @@ begin
                     -- h_total reached
                     h_counter <= (others => '0');
 
+                    -- In vertical adjust, start incrementing the vadjust counter,
+                    -- everything else is the same
+
+                    if in_adj = '1' then
+                        vadjust_counter <= vadjust_counter + 1;
+                    end if;
+
                     if eof_latched = '1' then
 
                         line_counter <= (others => '0');
@@ -370,10 +377,6 @@ begin
                         in_adj := '0';
                         eom_latched := '0';
                         eof_latched := '0';
-
-                    elsif in_adj = '1' then
-                        -- In vertical adjust, just increment the vadjust counter
-                        vadjust_counter <= vadjust_counter + 1;
 
                     elsif line_counter = max_scan_line then
                         -- Scan line counter increments, wrapping at max_scan_line_addr

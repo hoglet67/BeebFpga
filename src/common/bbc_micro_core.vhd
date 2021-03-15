@@ -1678,9 +1678,9 @@ begin
     -- 101 11xx xxxx xxxx xxxx = RAM Slot 7
     -- 110 00xx xxxx xxxx xxxx = Main memory
     -- 110 01xx xxxx xxxx xxxx = Main memory
-    -- 110 1000 xxxx xxxx xxxx = Filing System RAM (4K, at C000-CFFF) (unused in Beeb Mode)
-    -- 110 1001 xxxx xxxx xxxx = Filing System RAM (4K, at D000-DFFF) (unused in Beeb Mode)
-    -- 110 1010 xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF)       (unused in Beeb Mode)
+    -- 110 1000 xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF)       (unused in Beeb Mode)
+    -- 110 1001 xxxx xxxx xxxx = Filing System RAM (4K, at C000-CFFF) (unused in Beeb Mode)
+    -- 110 1010 xxxx xxxx xxxx = Filing System RAM (4K, at D000-DFFF) (unused in Beeb Mode)
     -- 110 1011 xxxx xxxx xxxx = Shadow memory (4K, at 3000-3FFF)     (unused in Beeb Mode)
     -- 110 11xx xxxx xxxx xxxx = Shadow memory (16K, at 4000-7FFF)    (unused in Beeb Mode)
     -- 111 00xx xxxx xxxx xxxx = RAM Slot 8 (B600-BFFF)
@@ -1723,7 +1723,7 @@ begin
                 if rom_enable = '1' then
                     if m128_mode = '1' and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
                         -- Master 128, RAM bit maps 8000-8FFF as private RAM
-                        ext_A   <= "1101010" & cpu_a(11 downto 0);
+                        ext_A   <= "1101000" & cpu_a(11 downto 0);
                         ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                         ext_nOE <= not cpu_r_nw;
                     else
@@ -1757,7 +1757,7 @@ begin
                 elsif mos_enable = '1' then
                     if m128_mode = '1' and cpu_a(15 downto 13) = "110" and acc_y = '1' then
                         -- Master 128, Y bit maps C000-DFFF as filing system RAM
-                        ext_A   <= "110100" &  cpu_a(12 downto 0);
+                        ext_A   <= "11010" & cpu_a(12) & not cpu_a(12) & cpu_a(11 downto 0);
                         ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                         ext_nOE <= not cpu_r_nw;
                     else

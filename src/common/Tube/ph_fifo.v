@@ -51,7 +51,7 @@ assign fifo_wr_clk = p_phi2;
 assign fifo_wr_en = p_selectData & ~p_rdnw;
 
 // Host
-assign fifo_rd_clk = ~h_phi2;
+assign fifo_rd_clk = h_phi2;
 assign fifo_rd_en = h_selectData & h_rd;
 assign h_data = fifo_empty ? 8'hAA : fifo_dout;
 assign h_data_available = ~fifo_empty;

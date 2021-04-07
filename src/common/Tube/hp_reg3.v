@@ -94,7 +94,7 @@ module hp_reg3 (
                        .p1_full(h_full_w[1])
                        );
 
-   always @ ( negedge h_phi2 or negedge h_rst_b )
+   always @ ( posedge h_phi2 or negedge h_rst_b )
      begin
         if ( ! h_rst_b)
           begin

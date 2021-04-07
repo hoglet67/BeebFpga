@@ -108,7 +108,7 @@ begin
         h_cs_b          => h_cs_b,
         h_data_in       => h_data_in,
         h_data_out      => h_data_out,
-        h_phi2          => not h_clk,
+        h_phi2          => h_clk,
         h_rdnw          => h_rdnw,
         h_rst_b         => h_rst_b,
         h_irq_b         => h_irq_b,

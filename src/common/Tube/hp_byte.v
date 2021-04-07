@@ -60,7 +60,7 @@ module hp_byte (
                        );
 
    // All state inferences
-   always @ ( negedge h_phi2 or negedge h_rst_b )
+   always @ ( posedge h_phi2 or negedge h_rst_b )
      begin
         if ( ! h_rst_b)
           fifo_q_r <= 8'b0;

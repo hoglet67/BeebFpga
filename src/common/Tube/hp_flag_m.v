@@ -1,6 +1,6 @@
 `timescale 1ns / 1ns
 
-`define p1edge negedge
+`define p1edge posedge
 `define p2edge posedge
 
 module hp_flag_m

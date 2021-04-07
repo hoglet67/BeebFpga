@@ -338,7 +338,7 @@ module tube (
                          );
 
    // Remaining state for host side reg 0, note that FIFO is unaffected by soft reset
-   always @ ( negedge h_phi2 or negedge h_rst_b )
+   always @ ( posedge h_phi2 or negedge h_rst_b )
      if ( ! h_rst_b )
        h_reg0_q_r <= 7'b0;
      else
@@ -346,7 +346,7 @@ module tube (
 
    // Latch host side register select signals on phi2 - found that the L1B CPLD was
    // more robust when this was done avoiding bus hold issues ?
-   always @ (posedge h_phi2 or negedge h_rst_b)
+   always @ (negedge h_phi2 or negedge h_rst_b)
      begin
         if ( ! h_rst_b )
           begin
@@ -363,7 +363,7 @@ module tube (
              h_select_fifo_q_r[2] <= h_select_fifo_d_w[2];
              h_select_fifo_q_r[3] <= h_select_fifo_d_w[3];
           end
-     end // always @ ( posedge h_phi2 or negedge h_rst_b )
+     end // always @ ( negedge h_phi2 or negedge h_rst_b )
 
 
    // Provide option for retiming read of status/command reg from host to parasite

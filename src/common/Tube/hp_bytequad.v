@@ -1,10 +1,10 @@
 //**************************************************************************
 //    hp_bytequad.v - wrapper for 4 FIFOs in the host to parasite direction.
-//   
+//
 //    COPYRIGHT 2010 Richard Evans, Ed Spittles
-// 
+//
 //    This file is part of tube - an Acorn Tube ULA compatible system.
-//   
+//
 //    tube is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as published by
 //    the Free Software Foundation, either version 3 of the License, or
@@ -26,7 +26,7 @@ module hp_bytequad (
                   input h_we_b,
                   input [3:0] h_selectData,
                   input h_phi2,
-                  input [7:0] h_data,                  
+                  input [7:0] h_data,
                   input [3:0] p_selectData,
                   input p_phi2,
                   input p_rdnw,
@@ -38,16 +38,16 @@ module hp_bytequad (
                   );
 
    // Declare registers and wires
-   reg [7:0]  p_datamux_r;        
+   reg [7:0]  p_datamux_r;
    wire [3:0] h_full_pre_w;
    wire [7:0] fifo0_w,
               fifo1_w,
               fifo2_w,
-              fifo3_w;   
+              fifo3_w;
 
-   
+
    // assign primary IOs
-   assign p_data = p_datamux_r;   
+   assign p_data = p_datamux_r;
    assign h_full = h_full_pre_w;
 
    // Combinatorial code for the data output
@@ -64,7 +64,7 @@ module hp_bytequad (
        4'b1xxx: p_datamux_r = fifo3_w;
        default: p_datamux_r = 8'bx;
      endcase // case p_selectData
-   
+
 
    // module instances
    hp_byte    reg1 (
@@ -80,7 +80,7 @@ module hp_bytequad (
                     .p_data_available(p_data_available[0]),
                     .h_full(h_full_pre_w[0])
                     );
-   
+
    hp_byte    reg2 (
                     .h_rst_b(h_rst_b),
                     .h_we_b(h_we_b),
@@ -100,10 +100,10 @@ module hp_bytequad (
                  .h_we_b(h_we_b),
                  .h_selectData( h_selectData[2]),
                  .h_phi2(h_phi2),
-                 .h_data( h_data ),                 
+                 .h_data( h_data ),
                  .p_selectData( p_selectData[2]),
                  .p_phi2(p_phi2),
-                 .p_rdnw(p_rdnw), 
+                 .p_rdnw(p_rdnw),
                  .one_byte_mode(one_byte_mode),
                  .p_data(fifo2_w),
                  .p_data_available(p_data_available[2]),
@@ -125,7 +125,5 @@ module hp_bytequad (
                     .h_full(h_full_pre_w[3])
                     );
 
-   
-endmodule // hp_byte
 
-   
+endmodule // hp_byte

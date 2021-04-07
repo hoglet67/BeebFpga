@@ -5,22 +5,22 @@ module ph_fifo (
                 input h_rd,
                 input h_selectData,
                 input h_phi2,
-                input [7:0] p_data,                  
+                input [7:0] p_data,
                 input p_selectData,
                 input p_phi2,
                 input p_rdnw,
-                output [7:0] h_data,                  
+                output [7:0] h_data,
                 output h_data_available,
                 output p_full
                 );
-   
+
 wire fifo_rst;
-wire fifo_wr_clk; 
-wire fifo_rd_clk; 
-wire [7:0] fifo_din; 
-wire fifo_wr_en; 
-wire fifo_rd_en; 
-wire [7:0] fifo_dout; 
+wire fifo_wr_clk;
+wire fifo_rd_clk;
+wire [7:0] fifo_din;
+wire fifo_wr_en;
+wire fifo_rd_en;
+wire [7:0] fifo_dout;
 wire fifo_full;
 wire fifo_empty;
 
@@ -57,5 +57,3 @@ assign h_data = fifo_empty ? 8'hAA : fifo_dout;
 assign h_data_available = ~fifo_empty;
 
 endmodule // ph_fifo
-
-   

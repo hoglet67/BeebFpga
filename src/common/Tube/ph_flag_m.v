@@ -4,5 +4,5 @@
 `define p2edge negedge
 
 module ph_flag_m
-		  
+
 `include "gen_flag_v3.v"

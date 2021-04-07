@@ -1,10 +1,10 @@
 //**************************************************************************
 //    ph_bytequad.v - wrapper for 4 FIFOs in the parasite to host direction
-//   
+//
 //    COPYRIGHT 2010 Richard Evans, Ed Spittles
-// 
+//
 //    This file is part of tube - an Acorn Tube ULA compatible system.
-//   
+//
 //    tube is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as published by
 //    the Free Software Foundation, either version 3 of the License, or
@@ -26,27 +26,27 @@ module ph_bytequad (
                     input h_rd,
                     input [3:0] h_selectData,
                     input h_phi2,
-                    
-                    input [7:0] p_data,                  
+
+                    input [7:0] p_data,
                     input [3:0] p_selectData,
                     input p_phi2,
                     input p_rdnw,
                     input one_byte_mode,
                     output h_zero_bytes_available,
-                    output [7:0] h_data,                  
+                    output [7:0] h_data,
                     output [3:0] h_data_available,
                     output [3:0] p_full
                     );
-   
-   reg [7:0]  h_datamux_r;           
+
+   reg [7:0]  h_datamux_r;
    wire [3:0] p_full_pre_w;
    wire [7:0] fifo0_w,
               fifo1_w,
               fifo2_w,
-              fifo3_w;   
-   
+              fifo3_w;
+
    // assign primary IOs
-   assign h_data = h_datamux_r;   
+   assign h_data = h_datamux_r;
    assign p_full = p_full_pre_w;
 
    // Combinatorial selection of data output
@@ -63,12 +63,12 @@ module ph_bytequad (
        4'b1xxx: h_datamux_r = fifo3_w;
        default: h_datamux_r = 8'bx;
      endcase // case h_selectData
-   
+
 `ifdef USE_FIFO_FOR_PH_REG1
    ph_fifo    ph_reg1 (
-`else                       
+`else
    ph_byte    ph_reg1 (
-`endif 
+`endif
                         .h_rst_b(h_rst_b),
                         .h_rd(h_rd),
                         .h_selectData(h_selectData[0]),
@@ -80,9 +80,9 @@ module ph_bytequad (
                         .h_data(fifo0_w),
                         .h_data_available(h_data_available[0]),
                         .p_full(p_full_pre_w[0])
-                       ); 
-   
-   
+                       );
+
+
    ph_byte    ph_reg2 (
                        .h_rst_b(h_rst_b),
                        .h_rd(h_rd),
@@ -95,8 +95,8 @@ module ph_bytequad (
                        .h_data(fifo1_w),
                        .h_data_available(h_data_available[1]),
                        .p_full(p_full_pre_w[1])
-                       ); 
-   
+                       );
+
    ph_reg3    ph_reg3 (
                        .h_rst_b(h_rst_b),
                        .h_rd(h_rd),
@@ -125,9 +125,7 @@ module ph_bytequad (
                        .h_data(fifo3_w),
                        .h_data_available(h_data_available[3]),
                        .p_full(p_full_pre_w[3])
-                       ); 
+                       );
 
-   
+
 endmodule // ph_byte
-
-   

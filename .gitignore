@@ -31,6 +31,18 @@ src/xilinx/ipcore_dir/gen_WatchEvents.tcl
 src/xilinx/ipcore_dir/tmp/
 src/xilinx/ipcore_dir/update_WatchEvents.tcl
 
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6.asy
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6.gise
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6.ncf
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6.sym
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6.vhd
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6.vho
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6/
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6_flist.txt
+src/xilinx/ipcore_dir/ph_fifo_core_spartan6_xmdf.tcl
+src/xilinx/ipcore_dir/gen_ph_fifo_core_spartan6.tcl
+src/xilinx/ipcore_dir/update_ph_fifo_core_spartan6.tcl
+
 xilinx/spec_next_config_master_bd.bmm
 xilinx/spec_next_config_modelb_bd.bmm
 

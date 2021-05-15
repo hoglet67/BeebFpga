@@ -1765,7 +1765,7 @@ begin
                         ext_A <= "00100" & cpu_a(13 downto 0);
                     end if;
                 elsif ram_enable = '1' then
-                    if m128_mode = '1' and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and (acc_x = '1' or (acc_e = '1' and vdu_op = '1' and cpu_sync = '0')) then
+                    if m128_mode = '1' and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and ((vdu_op = '0' and acc_x = '1') or (vdu_op = '1' and acc_e = '1' and cpu_sync = '0')) then
                         -- Shadow RAM
                         ext_A   <= "1101" & cpu_a(14 downto 0);
                     else
@@ -2139,9 +2139,10 @@ begin
                 if acccon_enable = '1' and cpu_r_nw = '0' then
                     acccon <= cpu_do;
                 end if;
-                -- vdu op indicates the last opcode fetch in 0xC000-0xDFFF
+                -- vdu op indicates the last opcode fetch in 0xC000-0xDFFF and
+                -- the VDU driver is paged in (rather than Hazel RAM)
                 if cpu_sync = '1' then
-                    if cpu_a(15 downto 13) = "110" then
+                    if cpu_a(15 downto 13) = "110" and acc_y = '0' then
                         vdu_op <= '1';
                     else
                         vdu_op <= '0';

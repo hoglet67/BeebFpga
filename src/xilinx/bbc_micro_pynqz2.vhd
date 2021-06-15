@@ -113,37 +113,25 @@ architecture rtl of bbc_micro_pynqz2 is
 -- Signals
 -------------
 
+    -- PLL 1
     signal clk0            : std_logic;
     signal clk1            : std_logic;
     signal clk2            : std_logic;
-    signal clk3            : std_logic;
-    signal clk4            : std_logic;
     signal clkfb           : std_logic;
     signal clkfb_buf       : std_logic;
-    signal clk100          : std_logic;
-
-    signal hclk0            : std_logic;
-    signal hclk1            : std_logic;
-    signal hclk2            : std_logic;
-    signal hclkfb           : std_logic;
-    signal hclkfb_buf       : std_logic;
-
---  signal fx_clk_27       : std_logic;
-
-    signal clock_16        : std_logic; -- for ICAP (flashreboot) only
-    signal clock_27        : std_logic;
-    signal clock_32        : std_logic;
+    signal clock_avr       : std_logic;
     signal clock_48        : std_logic;
     signal clock_96        : std_logic;
+
+    -- PLL 2
+    signal hclk0           : std_logic;
+    signal hclk1           : std_logic;
+    signal hclk2           : std_logic;
+    signal hclkfb          : std_logic;
+    signal hclkfb_buf      : std_logic;
+    signal clock_27        : std_logic;
     signal clock_135       : std_logic;
     signal clock_135_n     : std_logic;
-    signal clock_avr       : std_logic;
-
-    attribute S : string;
-    attribute S of clock_avr : signal is "yes";
-    attribute S of clock_27  : signal is "yes";
-    attribute S of clock_32  : signal is "yes";
-    attribute S of clock_96  : signal is "yes";
 
     signal audio_l         : std_logic_vector(15 downto 0);
     signal audio_r         : std_logic_vector(15 downto 0);
@@ -232,9 +220,9 @@ begin
         )
     port map (
         clock_27       => clock_27,
-        clock_32       => clock_32,
+        clock_32       => '0',                    -- no longer used
         clock_48       => clock_48,
-        clock_96       => clock_96,
+        clock_96       => clock_96,               -- used by myst scan doubler which is optimised away
         clock_avr      => clock_avr,
         hard_reset_n   => hard_reset_n,
         ps2_kbd_clk    => ps2_clk_io,
@@ -325,15 +313,9 @@ begin
             CLKOUT1_DIVIDE       => 18,        -- 864 / 18 = 48MHz
             CLKOUT1_PHASE        => 0.000,
             CLKOUT1_DUTY_CYCLE   => 0.500,
-            CLKOUT2_DIVIDE       => 27,        -- 864 / 27 = 32MHz
+            CLKOUT2_DIVIDE       => 36,        -- 864 / 36 = 24MHz
             CLKOUT2_PHASE        => 0.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
-            CLKOUT3_DIVIDE       => 36,        -- 864 / 36 = 24MHz
-            CLKOUT3_PHASE        => 0.000,
-            CLKOUT3_DUTY_CYCLE   => 0.500,
-            CLKOUT4_DIVIDE       => 54,        -- 864 / 54 = 16MHz
-            CLKOUT4_PHASE        => 0.000,
-            CLKOUT4_DUTY_CYCLE   => 0.500,
             CLKIN_PERIOD         => 37.037,
             REF_JITTER           => 0.010
             )
@@ -343,8 +325,6 @@ begin
             CLKOUT0             => clk0,
             CLKOUT1             => clk1,
             CLKOUT2             => clk2,
-            CLKOUT3             => clk3,
-            CLKOUT4             => clk4,
             RST                 => '0',
             -- Input clock control
             CLKFBIN             => clkfb_buf,
@@ -372,20 +352,9 @@ begin
     inst_clk2_buf : BUFG
         port map (
             I => clk2,
-            O => clock_32
-            );
-
-    inst_clk3_buf : BUFG
-        port map (
-            I => clk3,
             O => clock_avr
             );
 
-    inst_clk4_buf : BUFG
-        port map (
-            I => clk4,
-            O => clock_16
-            );
 
     -- 27MHz for HDMI (and the alternative scan doubler)
 

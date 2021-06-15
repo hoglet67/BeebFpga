@@ -13,6 +13,8 @@ set_property -dict { PACKAGE_PIN U10   IOSTANDARD LVCMOS33 } [get_ports { clock 
 
 set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets {clock_IBUF}]
 
+set_clock_groups -asynchronous -group {clk1 clk2} -group {hclk0 hclk1}
+
 # ICE Debugger
 set_property -dict { PACKAGE_PIN Y11   IOSTANDARD LVCMOS33 } [get_ports { avr_TxD }]; #IO_L18N_T2_13 Sch=a[0]
 set_property -dict { PACKAGE_PIN Y12   IOSTANDARD LVCMOS33 } [get_ports { avr_RxD }]; #IO_L20P_T3_13 Sch=a[1]

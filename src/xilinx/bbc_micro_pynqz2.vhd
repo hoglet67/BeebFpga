@@ -297,27 +297,24 @@ begin
 --------------------------------------------------------
 
 
-    -- 100MHz to 96/48/32 MHz
+    -- 50MHz to 96/48/32 MHz
 
-    inst_PLL1 : PLL_BASE
+    inst_PLL1 : MMCM_BASE
         generic map (
             BANDWIDTH            => "OPTIMIZED",
-            CLK_FEEDBACK         => "CLKFBOUT",
-            COMPENSATION         => "DCM2PLL",
             DIVCLK_DIVIDE        => 1,
-            CLKFBOUT_MULT        => 32,        -- PLL 864MHz
+            CLKFBOUT_MULT_F      => 24.0,      -- VCO 1200
             CLKFBOUT_PHASE       => 0.000,
-            CLKOUT0_DIVIDE       => 9,         -- 864 / 9 = 96MHz
+            CLKOUT0_DIVIDE_F     => 12.5,      -- 1200 / 12.5 = 96MHz
             CLKOUT0_PHASE        => 0.000,
             CLKOUT0_DUTY_CYCLE   => 0.500,
-            CLKOUT1_DIVIDE       => 18,        -- 864 / 18 = 48MHz
+            CLKOUT1_DIVIDE       => 25,        -- 1200 / 25 = 48MHz
             CLKOUT1_PHASE        => 0.000,
             CLKOUT1_DUTY_CYCLE   => 0.500,
-            CLKOUT2_DIVIDE       => 36,        -- 864 / 36 = 24MHz
+            CLKOUT2_DIVIDE       => 50,        -- 1200 / 50 = 24MHz
             CLKOUT2_PHASE        => 0.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
-            CLKIN_PERIOD         => 37.037,
-            REF_JITTER           => 0.010
+            CLKIN1_PERIOD        => 20.000
             )
         port map (
             -- Output clocks
@@ -326,9 +323,10 @@ begin
             CLKOUT1             => clk1,
             CLKOUT2             => clk2,
             RST                 => '0',
+            PWRDWN              => '0',
             -- Input clock control
             CLKFBIN             => clkfb_buf,
-            CLKIN               => clock
+            CLKIN1              => clock
             );
 
     inst_clkfb_buf : BUFG
@@ -356,17 +354,15 @@ begin
             );
 
 
-    -- 27MHz for HDMI (and the alternative scan doubler)
+    -- 50MHz to 27MHz/135MHz for HDMI (and the alternative scan doubler)
 
-    inst_PLL2 : PLL_BASE
+    inst_PLL2 : MMCM_BASE
         generic map (
             BANDWIDTH            => "OPTIMIZED",
-            CLK_FEEDBACK         => "CLKFBOUT",
-            COMPENSATION         => "DCM2PLL",
             DIVCLK_DIVIDE        => 1,
-            CLKFBOUT_MULT        => 25,        -- PLL 675 MHz
+            CLKFBOUT_MULT_F      => 13.5,      -- VCO 675 MHz
             CLKFBOUT_PHASE       => 0.000,
-            CLKOUT0_DIVIDE       => 25,        -- 675 / 25 = 27MHz
+            CLKOUT0_DIVIDE_F     => 25.0,      -- 675 / 25 = 27MHz
             CLKOUT0_PHASE        => 0.000,
             CLKOUT0_DUTY_CYCLE   => 0.500,
             CLKOUT1_DIVIDE       => 5,         -- 675 / 5 = 135MHz
@@ -375,8 +371,7 @@ begin
             CLKOUT2_DIVIDE       => 5,         -- 675 / 5 = 135MHz (inverted)
             CLKOUT2_PHASE        => 180.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
-            CLKIN_PERIOD         => 37.037,
-            REF_JITTER           => 0.010
+            CLKIN1_PERIOD        => 20.000
             )
         port map (
             -- Output clocks
@@ -385,9 +380,10 @@ begin
             CLKOUT1             => hclk1,
             CLKOUT2             => hclk2,
             RST                 => '0',
+            PWRDWN              => '0',            
             -- Input clock control
             CLKFBIN             => hclkfb_buf,
-            CLKIN               => clock
+            CLKIN1              => clock
             );
 
 

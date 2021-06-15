@@ -3,11 +3,9 @@
 ## - uncomment the lines corresponding to used pins
 ## - rename the used ports (in each line, after get_ports) according to the top level signal names in the project
 
-## Clock signal 125 MHz
+## Clock signal 50 MHz
 
-#set_property -dict { PACKAGE_PIN H16   IOSTANDARD LVCMOS33 } [get_ports { clk }]; #IO_L13P_T2_MRCC_35 Sch=sysclk
-
-create_clock -add -name clock  -period 37.037 -waveform {0 18.5185} [get_ports { clock }];
+create_clock -add -name clock  -period 20 -waveform {0 10} [get_ports { clock }];
 
 set_property -dict { PACKAGE_PIN U10   IOSTANDARD LVCMOS33 } [get_ports { clock }]; #IO_L12N_T1_MRCC_13 Sch=a[5]
 

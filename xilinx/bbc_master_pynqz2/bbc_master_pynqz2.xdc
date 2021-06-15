@@ -13,13 +13,21 @@ set_property -dict { PACKAGE_PIN U10   IOSTANDARD LVCMOS33 } [get_ports { clock 
 
 set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets {clock_IBUF}]
 
+# ICE Debugger
+set_property -dict { PACKAGE_PIN Y11   IOSTANDARD LVCMOS33 } [get_ports { avr_TxD }]; #IO_L18N_T2_13 Sch=a[0]
+set_property -dict { PACKAGE_PIN Y12   IOSTANDARD LVCMOS33 } [get_ports { avr_RxD }]; #IO_L20P_T3_13 Sch=a[1]
+
 ##LEDs
 
-#set_property -dict { PACKAGE_PIN R14   IOSTANDARD LVCMOS33 } [get_ports {              }]; #IO_L6N_T0_VREF_34 Sch=led[0]
+set_property -dict { PACKAGE_PIN R14   IOSTANDARD LVCMOS33 } [get_ports { led[0] }]; #IO_L6N_T0_VREF_34 Sch=led[0]
+set_property -dict { PACKAGE_PIN P14   IOSTANDARD LVCMOS33 } [get_ports { led[1] }]; #IO_L6P_T0_34 Sch=led[1]
+set_property -dict { PACKAGE_PIN N16   IOSTANDARD LVCMOS33 } [get_ports { led[2] }]; #IO_L21N_T3_DQS_AD14N_35 Sch=led[2]
+set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { led[3] }]; #IO_L23P_T3_35 Sch=led[3]
 
-set_property -dict { PACKAGE_PIN P14   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led1 }]; #IO_L6P_T0_34 Sch=led[1]
-set_property -dict { PACKAGE_PIN N16   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led2 }]; #IO_L21N_T3_DQS_AD14N_35 Sch=led[2]
-set_property -dict { PACKAGE_PIN M14   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led3 }]; #IO_L23P_T3_35 Sch=led[3]
+##Switches
+
+set_property -dict { PACKAGE_PIN M20   IOSTANDARD LVCMOS33 } [get_ports { sw[0] }]; #IO_L7N_T1_AD2N_35 Sch=sw[0]
+set_property -dict { PACKAGE_PIN M19   IOSTANDARD LVCMOS33 } [get_ports { sw[1] }]; #IO_L7P_T1_AD2P_35 Sch=sw[1]
 
 ##Buttons
 
@@ -105,10 +113,10 @@ set_property -dict { PACKAGE_PIN U17   IOSTANDARD LVCMOS33 } [get_ports { ext_ke
 set_property -dict { PACKAGE_PIN V17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[2] }]; #IO_L21P_T3_DQS_34 Sch=ar[8]
 set_property -dict { PACKAGE_PIN V18   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[3] }]; #IO_L21N_T3_DQS_34 Sch=ar[9]
 set_property -dict { PACKAGE_PIN T16   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa7   }]; #IO_L9P_T1_DQS_34 Sch=ar[10]
-#set_property -dict { PACKAGE_PIN R17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led3  }]; #IO_L19N_T3_VREF_34 Sch=ar[11]
+set_property -dict { PACKAGE_PIN R17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led3  }]; #IO_L19N_T3_VREF_34 Sch=ar[11]
 set_property -dict { PACKAGE_PIN P18   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_ca2   }]; #IO_L23N_T3_34 Sch=ar[12]
-#set_property -dict { PACKAGE_PIN N17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led2  }]; #IO_L23P_T3_34 Sch=ar[13]
-#set_property -dict { PACKAGE_PIN Y13   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led1  }]; #IO_L20N_T3_13 Sch=a
+set_property -dict { PACKAGE_PIN N17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led2  }]; #IO_L23P_T3_34 Sch=ar[13]
+set_property -dict { PACKAGE_PIN Y13   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led1  }]; #IO_L20N_T3_13 Sch=a
 
 ##HDMI Tx
 
@@ -208,11 +216,6 @@ set_property -dict { PACKAGE_PIN U15   IOSTANDARD LVCMOS33 } [get_ports { hdmi_s
 
 #set_property -dict { PACKAGE_PIN J15   IOSTANDARD LVCMOS33 } [get_ports { crypto_sda }]; #IO_25_35 Sch=crypto_sda
 
-
-##Switches
-
-#set_property -dict { PACKAGE_PIN M20   IOSTANDARD LVCMOS33 } [get_ports { sw[0] }]; #IO_L7N_T1_AD2N_35 Sch=sw[0]
-#set_property -dict { PACKAGE_PIN M19   IOSTANDARD LVCMOS33 } [get_ports { sw[1] }]; #IO_L7P_T1_AD2P_35 Sch=sw[1]
 
 ##RGB LEDs
 

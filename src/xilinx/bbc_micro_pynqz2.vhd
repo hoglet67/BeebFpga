@@ -54,9 +54,9 @@ use UNISIM.Vcomponents.all;
 entity bbc_micro_pynqz2 is
     generic (
         IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := false;
+        IncludeSID         : boolean := true;
+        IncludeMusic5000   : boolean := true;
+        IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := true;
         IncludeVideoNuLA   : boolean := true;
@@ -73,6 +73,12 @@ entity bbc_micro_pynqz2 is
         sd_mosi_o          : out   std_logic;
         sd_sclk_o          : out   std_logic;
 
+        -- LEDs
+        led                : out   std_logic_vector(3 downto 0);
+
+        -- Switches
+        sw                 : in    std_logic_vector(1 downto 0);
+
         -- HDMI
         hdmi_n             : out   std_logic_vector(3 downto 0);
         hdmi_p             : out   std_logic_vector(3 downto 0);
@@ -80,6 +86,10 @@ entity bbc_micro_pynqz2 is
         hdmi_sda           : inout std_logic;
         hdmi_cec           : inout std_logic;
         hdmi_hpdn          : in    std_logic;
+
+        -- ICE Debugger
+        avr_RxD            : in    std_logic;
+        avr_TxD            : out   std_logic;
 
         -- PiTubeDirect connects to the Raspberry Pi Connector
         accel_io           : inout std_logic_vector(27 downto 0);
@@ -130,7 +140,7 @@ architecture rtl of bbc_micro_pynqz2 is
     signal clock_avr       : std_logic;
 
     attribute S : string;
---  attribute S of clock_avr : signal is "yes";
+    attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
     attribute S of clock_32  : signal is "yes";
     attribute S of clock_96  : signal is "yes";
@@ -151,11 +161,11 @@ architecture rtl of bbc_micro_pynqz2 is
     signal RAM_WE          : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0) := x"00";
     signal vid_mode        : std_logic_vector(3 downto 0) := "0001";
-    signal vid_debug       : std_logic := '0';
+    signal vid_debug       : std_logic;
     signal m128_mode       : std_logic;
-    signal copro_mode      : std_logic := '0';
+    signal copro_mode      : std_logic;
     signal aspect_wide     : std_logic;
-    signal hdmi_aspect     : std_logic_vector(1 downto 0) := "00";
+    signal hdmi_aspect     : std_logic_vector(1 downto 0);
     signal hdmi_aspect_169 : std_logic;
     signal red             : std_logic_vector(3 downto 0);
     signal green           : std_logic_vector(3 downto 0);
@@ -166,7 +176,7 @@ architecture rtl of bbc_micro_pynqz2 is
     signal hdmi_hsync      : std_logic;
     signal hdmi_vsync      : std_logic;
     signal hdmi_blank      : std_logic;
-    signal hdmi_audio_en   : std_logic := '1';
+    signal hdmi_audio_en   : std_logic;
     signal hsync           : std_logic;
     signal vsync           : std_logic;
     signal hsync1          : std_logic;
@@ -181,21 +191,14 @@ architecture rtl of bbc_micro_pynqz2 is
     signal ext_tube_di     : std_logic_vector(7 downto 0);
     signal ext_tube_do     : std_logic_vector(7 downto 0);
 
-
-    signal avr_RxD         : std_logic;
-    signal avr_TxD         : std_logic;
-
     signal tdms_r          : std_logic_vector(9 downto 0);
     signal tdms_g          : std_logic_vector(9 downto 0);
     signal tdms_b          : std_logic_vector(9 downto 0);
 
-
     signal config          : std_logic_vector(9 downto 0);
 
-    -- Special Power Up Configuration Mode
-    signal config_mode     : std_logic := '1';
-    signal config_remap    : std_logic := '0';
-    signal config_reset    : std_logic := '0';
+    signal caps_led        : std_logic;
+    signal shift_led       : std_logic;
 
 begin
 
@@ -256,8 +259,8 @@ begin
         SDSS           => sd_cs_n_o,
         SDCLK          => sd_sclk_o,
         SDMOSI         => sd_mosi_o,
-        caps_led       => open,
-        shift_led      => open,
+        caps_led       => caps_led,
+        shift_led      => shift_led,
         keyb_dip       => keyb_dip,
         vid_mode       => vid_mode,
         aspect_wide    => aspect_wide,
@@ -453,48 +456,44 @@ begin
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if config_reset = '1' then
-                reset_counter <= (others => '0');
-            elsif btn_reset = '1' then
+            if btn_reset = '1' then
                 reset_counter <= (others => '0');
             elsif reset_counter(reset_counter'high) = '0' then
                 reset_counter <= reset_counter + 1;
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
-
             -- Configuration toggles
-            -- Yellow 1 - Video: SCART sRGB: Pixel Clock 16MHz/12MHz
-            -- Yellow 2 - Video:   HDMI/VGA: Pixel Clock       27MHz
-            -- Yellow 3 - Video:        VGA: Pixel Clock 32MHz/24MHz
-            -- Yellow 4 - Video:        VGA: Pixel Clock 32MHz/24MHz
             -- Yellow 5 - HDMI audio/data on/off
             -- Yellow 6 - HDMI aspect: auto
             -- Yellow 7 - HDMI aspect: 4:3
             -- Yellow 8 - HDMI aspect: 16:9
             -- Yellow 9 - Int Co Pro on/off
             -- Yellow 0 - Video debug on/off
-            if config(1) = '1' then
-                vid_mode      <= "0000";
-            elsif config(2) = '1' then
-                vid_mode      <= "0001";
-            elsif config(3) = '1' then
-                vid_mode      <= "0010";
-            elsif config(4) = '1' then
-                vid_mode      <= "0011";
-            elsif config(5) = '1' then
-                hdmi_audio_en <= not hdmi_audio_en;
-            elsif config(6) = '1' then
+            if powerup_reset_n = '0' then
+                hdmi_audio_en <= '1';
                 hdmi_aspect <= "00";
-            elsif config(7) = '1' then
-                hdmi_aspect <= "01";
-            elsif config(8) = '1' then
-                hdmi_aspect <= "10";
-            elsif config(9) = '1' then
-                copro_mode <= not copro_mode;
-            elsif config(0) = '1' then
-                vid_debug <= not vid_debug;
+                copro_mode <= sw(0);
+                vid_debug <= sw(1);
+            else
+                if config(5) = '1' then
+                    hdmi_audio_en <= not hdmi_audio_en;
+                end if;
+                if config(6) = '1' then
+                    hdmi_aspect <= "00";
+                end if;
+                if config(7) = '1' then
+                    hdmi_aspect <= "01";
+                end if;
+                if config(8) = '1' then
+                    hdmi_aspect <= "10";
+                end if;
+                if config(9) = '1' then
+                    copro_mode <= not copro_mode;
+                end if;
+                if config(0) = '1' then
+                    vid_debug <= not vid_debug;
+                end if;
             end if;
-
         end if;
     end process;
 
@@ -681,9 +680,13 @@ begin
    );
 
 --------------------------------------------------------
--- Unused outputs
+-- Miscellaneous outputs
 --------------------------------------------------------
 
+    led(0) <= btn_reset;
+    led(1) <= caps_led;
+    led(2) <= shift_led;
+    led(3) <= copro_mode;
 
     hdmi_scl <= 'Z';
     hdmi_sda <= 'Z';

@@ -103,7 +103,32 @@ entity bbc_micro_pynqz2 is
         ext_keyb_pa        : out   std_logic_vector(6 downto 0);
         ext_keyb_rst_n     : in    std_logic;
         ext_keyb_ca2       : in    std_logic;
-        ext_keyb_pa7       : in    std_logic
+        ext_keyb_pa7       : in    std_logic;
+
+
+        -- Zynq Processing System
+
+        DDR_addr : inout STD_LOGIC_VECTOR ( 14 downto 0 );
+        DDR_ba : inout STD_LOGIC_VECTOR ( 2 downto 0 );
+        DDR_cas_n : inout STD_LOGIC;
+        DDR_ck_n : inout STD_LOGIC;
+        DDR_ck_p : inout STD_LOGIC;
+        DDR_cke : inout STD_LOGIC;
+        DDR_cs_n : inout STD_LOGIC;
+        DDR_dm : inout STD_LOGIC_VECTOR ( 3 downto 0 );
+        DDR_dq : inout STD_LOGIC_VECTOR ( 31 downto 0 );
+        DDR_dqs_n : inout STD_LOGIC_VECTOR ( 3 downto 0 );
+        DDR_dqs_p : inout STD_LOGIC_VECTOR ( 3 downto 0 );
+        DDR_odt : inout STD_LOGIC;
+        DDR_ras_n : inout STD_LOGIC;
+        DDR_reset_n : inout STD_LOGIC;
+        DDR_we_n : inout STD_LOGIC;
+        FIXED_IO_ddr_vrn : inout STD_LOGIC;
+        FIXED_IO_ddr_vrp : inout STD_LOGIC;
+        FIXED_IO_mio : inout STD_LOGIC_VECTOR ( 53 downto 0 );
+        FIXED_IO_ps_clk : inout STD_LOGIC;
+        FIXED_IO_ps_porb : inout STD_LOGIC;
+        FIXED_IO_ps_srstb : inout STD_LOGIC
         );
 end entity;
 
@@ -187,6 +212,9 @@ architecture rtl of bbc_micro_pynqz2 is
 
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
+
+    signal FCLK_CLK0_0     : std_logic;
+    signal FCLK_RESET0_N_0 : std_logic;
 
 begin
 
@@ -289,7 +317,39 @@ begin
 
         -- config
         config        => config
+    );
 
+
+
+--------------------------------------------------------
+-- Zynq Processing System
+--------------------------------------------------------
+
+    inst_PS : entity work.ProcessingSystemOnly_wrapper
+     port map (
+      DDR_addr(14 downto 0) => DDR_addr(14 downto 0),
+      DDR_ba(2 downto 0) => DDR_ba(2 downto 0),
+      DDR_cas_n => DDR_cas_n,
+      DDR_ck_n => DDR_ck_n,
+      DDR_ck_p => DDR_ck_p,
+      DDR_cke => DDR_cke,
+      DDR_cs_n => DDR_cs_n,
+      DDR_dm(3 downto 0) => DDR_dm(3 downto 0),
+      DDR_dq(31 downto 0) => DDR_dq(31 downto 0),
+      DDR_dqs_n(3 downto 0) => DDR_dqs_n(3 downto 0),
+      DDR_dqs_p(3 downto 0) => DDR_dqs_p(3 downto 0),
+      DDR_odt => DDR_odt,
+      DDR_ras_n => DDR_ras_n,
+      DDR_reset_n => DDR_reset_n,
+      DDR_we_n => DDR_we_n,
+      FCLK_CLK0_0 => FCLK_CLK0_0,
+      FCLK_RESET0_N_0 => FCLK_RESET0_N_0,
+      FIXED_IO_ddr_vrn => FIXED_IO_ddr_vrn,
+      FIXED_IO_ddr_vrp => FIXED_IO_ddr_vrp,
+      FIXED_IO_mio(53 downto 0) => FIXED_IO_mio(53 downto 0),
+      FIXED_IO_ps_clk => FIXED_IO_ps_clk,
+      FIXED_IO_ps_porb => FIXED_IO_ps_porb,
+      FIXED_IO_ps_srstb => FIXED_IO_ps_srstb
     );
 
 --------------------------------------------------------
@@ -326,7 +386,7 @@ begin
             PWRDWN              => '0',
             -- Input clock control
             CLKFBIN             => clkfb_buf,
-            CLKIN1              => clock
+            CLKIN1              => FCLK_CLK0_0
             );
 
     inst_clkfb_buf : BUFG
@@ -380,10 +440,10 @@ begin
             CLKOUT1             => hclk1,
             CLKOUT2             => hclk2,
             RST                 => '0',
-            PWRDWN              => '0',            
+            PWRDWN              => '0',
             -- Input clock control
             CLKFBIN             => hclkfb_buf,
-            CLKIN1              => clock
+            CLKIN1              => FCLK_CLK0_0
             );
 
 

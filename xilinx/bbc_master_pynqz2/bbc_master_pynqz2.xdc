@@ -5,13 +5,18 @@
 
 ## Clock signal 50 MHz
 
-create_clock -add -name clock  -period 20 -waveform {0 10} [get_ports { clock }];
-
-set_property -dict { PACKAGE_PIN U10   IOSTANDARD LVCMOS33 } [get_ports { clock }]; #IO_L12N_T1_MRCC_13 Sch=a[5]
-
-set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets {clock_IBUF}]
+#create_clock -add -name clock  -period 20 -waveform {0 10} [get_ports { clock }];
+#set_property -dict { PACKAGE_PIN U10   IOSTANDARD LVCMOS33 } [get_ports { clock }]; #IO_L12N_T1_MRCC_13 Sch=a[5]
+#set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets {clock_IBUF}]
 
 set_clock_groups -asynchronous -group {clk1 clk2} -group {hclk0 hclk1}
+
+# Test Pins
+set_property -dict { PACKAGE_PIN W11   IOSTANDARD LVCMOS33 } [get_ports { test[0] }]; #IO_L18P_T2_13 Sch=a[2]
+set_property -dict { PACKAGE_PIN V11   IOSTANDARD LVCMOS33 } [get_ports { test[1] }]; #IO_L21P_T3_DQS_13 Sch=a[3]
+set_property -dict { PACKAGE_PIN T5    IOSTANDARD LVCMOS33 } [get_ports { test[2] }]; #IO_L19P_T3_13 Sch=a[4]
+set_property -dict { PACKAGE_PIN U10   IOSTANDARD LVCMOS33 } [get_ports { test[3] }]; #IO_L12N_T1_MRCC_13 Sch=a[5]
+
 
 # ICE Debugger
 set_property -dict { PACKAGE_PIN Y11   IOSTANDARD LVCMOS33 } [get_ports { avr_TxD }]; #IO_L18N_T2_13 Sch=a[0]
@@ -133,24 +138,19 @@ set_property -dict { PACKAGE_PIN R19   IOSTANDARD LVCMOS33 } [get_ports { hdmi_h
 set_property -dict { PACKAGE_PIN U14   IOSTANDARD LVCMOS33 } [get_ports { hdmi_scl }]; #IO_L11P_T1_SRCC_34 Sch=hdmi_rx_scl
 set_property -dict { PACKAGE_PIN U15   IOSTANDARD LVCMOS33 } [get_ports { hdmi_sda }]; #IO_L11N_T1_SRCC_34 Sch=hdmi_rx_sda
 
-
-
-## UNUSED BELOW THIS POINT
-
-
 ##Audio
 
-#set_property -dict { PACKAGE_PIN M17   IOSTANDARD LVCMOS33 } [get_ports { adr0 }]; #IO_L8P_T1_AD10P_35 Sch=adr0
-#set_property -dict { PACKAGE_PIN M18   IOSTANDARD LVCMOS33 } [get_ports { adr1 }]; #IO_L8N_T1_AD10N_35 Sch=adr1
+set_property -dict { PACKAGE_PIN M17   IOSTANDARD LVCMOS33 } [get_ports { au_adr0  }]; #IO_L8P_T1_AD10P_35 Sch=adr0
+set_property -dict { PACKAGE_PIN M18   IOSTANDARD LVCMOS33 } [get_ports { au_adr1  }]; #IO_L8N_T1_AD10N_35 Sch=adr1
+set_property -dict { PACKAGE_PIN U5    IOSTANDARD LVCMOS33 } [get_ports { au_mclk  }]; #IO_L19N_T3_VREF_13 Sch=au_mclk_r
+set_property -dict { PACKAGE_PIN T9    IOSTANDARD LVCMOS33 } [get_ports { au_sda   }]; #IO_L12P_T1_MRCC_13 Sch=au_sda_r
+set_property -dict { PACKAGE_PIN U9    IOSTANDARD LVCMOS33 } [get_ports { au_scl   }]; #IO_L17P_T2_13 Sch= au_scl_r
+set_property -dict { PACKAGE_PIN F17   IOSTANDARD LVCMOS33 } [get_ports { au_dout  }]; #IO_L6N_T0_VREF_35 Sch=au_dout_r
+set_property -dict { PACKAGE_PIN G18   IOSTANDARD LVCMOS33 } [get_ports { au_din   }]; #IO_L16N_T2_35 Sch=au_din_r
+set_property -dict { PACKAGE_PIN T17   IOSTANDARD LVCMOS33 } [get_ports { au_lrclk }]; #IO_L20P_T3_34 Sch=au_wclk_r
+set_property -dict { PACKAGE_PIN R18   IOSTANDARD LVCMOS33 } [get_ports { au_bclk  }]; #IO_L20N_T3_34 Sch=au_bclk_r
 
-#set_property -dict { PACKAGE_PIN U5    IOSTANDARD LVCMOS33 } [get_ports { au_mclk_r }]; #IO_L19N_T3_VREF_13 Sch=au_mclk_r
-#set_property -dict { PACKAGE_PIN T9    IOSTANDARD LVCMOS33 } [get_ports { au_sda_r  }]; #IO_L12P_T1_MRCC_13 Sch=au_sda_r
-#set_property -dict { PACKAGE_PIN U9    IOSTANDARD LVCMOS33 } [get_ports { au_scl_r  }]; #IO_L17P_T2_13 Sch= au_scl_r
-#set_property -dict { PACKAGE_PIN F17   IOSTANDARD LVCMOS33 } [get_ports { au_dout_r }]; #IO_L6N_T0_VREF_35 Sch=au_dout_r
-#set_property -dict { PACKAGE_PIN G18   IOSTANDARD LVCMOS33 } [get_ports { au_din_r  }]; #IO_L16N_T2_35 Sch=au_din_r
-#set_property -dict { PACKAGE_PIN T17   IOSTANDARD LVCMOS33 } [get_ports { au_wclk_r }]; #IO_L20P_T3_34 Sch=au_wclk_r
-#set_property -dict { PACKAGE_PIN R18   IOSTANDARD LVCMOS33 } [get_ports { au_bclk_r }]; #IO_L20N_T3_34 Sch=au_bclk_r
-
+## UNUSED BELOW THIS POINT
 
 ## Single Ended Analog Inputs
 ##NOTE: The ar_an_p pins can be used as single ended analog inputs with voltages from 0-3.3V (Arduino Analog pins a[0]-a[5]).

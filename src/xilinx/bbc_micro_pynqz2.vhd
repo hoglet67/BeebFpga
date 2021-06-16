@@ -64,7 +64,6 @@ entity bbc_micro_pynqz2 is
     );
     port (
         -- PMOD B
-        clock              : in    std_logic;
         btn_reset          : in    std_logic;
         ps2_clk_io         : inout std_logic;
         ps2_data_io        : inout std_logic;
@@ -78,6 +77,17 @@ entity bbc_micro_pynqz2 is
 
         -- Switches
         sw                 : in    std_logic_vector(1 downto 0);
+
+        -- Audio
+        au_adr0            : out   std_logic;
+        au_adr1            : out   std_logic;
+        au_mclk            : out   std_logic;
+        au_sda             : inout std_logic;
+        au_scl             : out   std_logic;
+        au_dout            : in    std_logic;
+        au_din             : out   std_logic;
+        au_lrclk           : in    std_logic;
+        au_bclk            : in    std_logic;
 
         -- HDMI
         hdmi_n             : out   std_logic_vector(3 downto 0);
@@ -105,6 +115,8 @@ entity bbc_micro_pynqz2 is
         ext_keyb_ca2       : in    std_logic;
         ext_keyb_pa7       : in    std_logic;
 
+        -- Test pins
+        test               : out   std_logic_vector(3 downto 0);
 
         -- Zynq Processing System
 
@@ -145,8 +157,8 @@ architecture rtl of bbc_micro_pynqz2 is
     signal clkfb           : std_logic;
     signal clkfb_buf       : std_logic;
     signal clock_avr       : std_logic;
+    signal clock_codec     : std_logic;
     signal clock_48        : std_logic;
-    signal clock_96        : std_logic;
 
     -- PLL 2
     signal hclk0           : std_logic;
@@ -158,8 +170,16 @@ architecture rtl of bbc_micro_pynqz2 is
     signal clock_135       : std_logic;
     signal clock_135_n     : std_logic;
 
+    signal au_mclk_int     : std_logic;
+    signal au_din_int      : std_logic;
     signal audio_l         : std_logic_vector(15 downto 0);
     signal audio_r         : std_logic_vector(15 downto 0);
+    signal audio_24_l      : std_logic_vector(23 downto 0);
+    signal audio_24_r      : std_logic_vector(23 downto 0);
+    signal audio_24_sample : std_logic;
+    signal debug_scl       : std_logic;
+    signal debug_sda       : std_logic;
+
     signal powerup_reset_n : std_logic;
     signal hard_reset_n    : std_logic;
     signal hard_reset      : std_logic;
@@ -250,7 +270,7 @@ begin
         clock_27       => clock_27,
         clock_32       => '0',                    -- no longer used
         clock_48       => clock_48,
-        clock_96       => clock_96,               -- used by myst scan doubler which is optimised away
+        clock_96       => '0',                    -- used by myst scan doubler which is optimised away
         clock_avr      => clock_avr,
         hard_reset_n   => hard_reset_n,
         ps2_kbd_clk    => ps2_clk_io,
@@ -356,8 +376,7 @@ begin
 -- Clock Generation
 --------------------------------------------------------
 
-
-    -- 50MHz to 96/48/32 MHz
+    -- 50MHz to 48/32/24 MHz
 
     inst_PLL1 : MMCM_BASE
         generic map (
@@ -365,7 +384,7 @@ begin
             DIVCLK_DIVIDE        => 1,
             CLKFBOUT_MULT_F      => 24.0,      -- VCO 1200
             CLKFBOUT_PHASE       => 0.000,
-            CLKOUT0_DIVIDE_F     => 12.5,      -- 1200 / 12.5 = 96MHz
+            CLKOUT0_DIVIDE_F     => 37.5,      -- 1200 / 37.5 = 32MHz
             CLKOUT0_PHASE        => 0.000,
             CLKOUT0_DUTY_CYCLE   => 0.500,
             CLKOUT1_DIVIDE       => 25,        -- 1200 / 25 = 48MHz
@@ -398,7 +417,7 @@ begin
     inst_clk0_buf : BUFG
         port map (
             I => clk0,
-            O => clock_96
+            O => clock_codec
             );
 
     inst_clk1_buf : BUFG
@@ -412,7 +431,6 @@ begin
             I => clk2,
             O => clock_avr
             );
-
 
     -- 50MHz to 27MHz/135MHz for HDMI (and the alternative scan doubler)
 
@@ -545,6 +563,55 @@ begin
         din  => RAM_Din,
         dout => RAM_Dout
     );
+
+--------------------------------------------------------
+-- 24-bit Audio
+--------------------------------------------------------
+
+    process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            if (audio_24_sample = '1') then
+                audio_24_l <= audio_l & x"00";
+                audio_24_r <= audio_r & x"00";
+            end if;
+        end if;
+    end process;
+
+    adau1761 : entity work.adau1761
+    port map (
+        -- Clocks
+        clk_48     => clock_48,
+        clk_codec  => clock_codec,
+
+        -- Internal interface
+        audio_l_in  => audio_24_l,
+        audio_r_in  => audio_24_r,
+        audio_l_out => open,
+        audio_r_out => open,
+        new_sample  => audio_24_sample,
+
+        -- ADAU1761 I2C control interface
+        adr0  => au_adr0,
+        adr1  => au_adr1,
+        scl   => au_scl,
+        sda   => au_sda,
+
+        -- ADAU1761 I2S data interface
+        mclk  => au_mclk_int,
+        bclk  => au_bclk,
+        lrclk => au_lrclk,
+        din   => au_dout, -- au_dout is the data out from the ADC
+        dout  => au_din_int,  -- au_din is the data in to the DAC
+
+        debug_scl => debug_scl,
+        debug_sda => debug_sda
+
+        );
+
+    au_mclk <= au_mclk_int;
+    au_din  <= au_din_int;
+    test <= au_mclk_int & au_bclk & au_lrclk & au_din_int;
 
 --------------------------------------------------------
 -- External tube connections

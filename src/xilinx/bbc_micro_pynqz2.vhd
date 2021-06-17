@@ -60,7 +60,8 @@ entity bbc_micro_pynqz2 is
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := true;
         IncludeVideoNuLA   : boolean := true;
-        IncludeMaster      : boolean := true
+        IncludeMaster      : boolean := true;
+        UseOrigKeyboard    : boolean := true
     );
     port (
         -- PMOD B
@@ -261,7 +262,7 @@ begin
         IncludeCoProSPI    => false,
         IncludeCoProExt    => IncludeCoProExt,
         IncludeVideoNuLA   => IncludeVideoNuLA,
-        UseOrigKeyboard    => false,
+        UseOrigKeyboard    => UseOrigKeyboard,
         UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
         UseAlanDCore       => IncludeMaster,      -- select the 65C02 for the Master
         OverrideCMOS       => false

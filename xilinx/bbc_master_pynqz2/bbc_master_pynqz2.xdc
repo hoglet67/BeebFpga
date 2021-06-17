@@ -89,39 +89,39 @@ set_property -dict { PACKAGE_PIN V7    IOSTANDARD LVCMOS33 } [get_ports { accel_
 
 # BBC Keyboard Pinout
 #
-#  1 0V
-#  2 nRST  -> AR[0]
-#  3 1MHz  -> AR[1]
-#  4 nKBEN -> AR[2]
-#  5 PA4   -> AR[3]
-#  6 PA5   -> AR[4]
-#  7 PA6   -> AR[5]
-#  8 PA0   -> AR[6]
-#  9 PA1   -> AR[7]
-# 10 PA2   -> AR[8]
-# 11 PA3   -> AR[9]
-# 12 PA7   -> AR[10]
-# 13 LED3  -> AR[11]
-# 14 CA2   -> AR[12]
+# 17 LED2  -> A     (Caps  Lock)
+# 16 LED1  -> AR[0] (Shift Lock)
 # 15 +5V
-# 16 LED1  -> AR[13]
-# 17 LED2  -> A
+# 14 CA2   -> AR[1]
+# 13 LED3  -> AR[2] (Motor)
+# 12 PA7   -> AR[3]
+# 11 PA3   -> AR[4]
+# 10 PA2   -> AR[5]
+#  9 PA1   -> AR[6]
+#  8 PA0   -> AR[7]
+#  7 PA6   -> AR[8]
+#  6 PA5   -> AR[9]
+#  5 PA4   -> AR[10]
+#  4 nKBEN -> AR[11]
+#  3 1MHz  -> AR[12]
+#  2 nRST  -> AR[13]
+#  1 0V    -> G
 
-set_property -dict { PACKAGE_PIN T14   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_rst_n }]; #IO_L5P_T0_34 Sch=ar[0]
-set_property -dict { PACKAGE_PIN U12   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_1mhz  }]; #IO_L2N_T0_34 Sch=ar[1]
-set_property -dict { PACKAGE_PIN U13   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_en_n  }]; #IO_L3P_T0_DQS_PUDC_B_34 Sch=ar[2]
-set_property -dict { PACKAGE_PIN V13   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[4] }]; #IO_L3N_T0_DQS_34 Sch=ar[3]
-set_property -dict { PACKAGE_PIN V15   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[5] }]; #IO_L10P_T1_34 Sch=ar[4]
-set_property -dict { PACKAGE_PIN T15   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[6] }]; #IO_L5N_T0_34 Sch=ar[5]
-set_property -dict { PACKAGE_PIN R16   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[0] }]; #IO_L19P_T3_34 Sch=ar[6]
-set_property -dict { PACKAGE_PIN U17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[1] }]; #IO_L9N_T1_DQS_34 Sch=ar[7]
-set_property -dict { PACKAGE_PIN V17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[2] }]; #IO_L21P_T3_DQS_34 Sch=ar[8]
-set_property -dict { PACKAGE_PIN V18   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa[3] }]; #IO_L21N_T3_DQS_34 Sch=ar[9]
-set_property -dict { PACKAGE_PIN T16   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_pa7   }]; #IO_L9P_T1_DQS_34 Sch=ar[10]
-set_property -dict { PACKAGE_PIN R17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led3  }]; #IO_L19N_T3_VREF_34 Sch=ar[11]
-set_property -dict { PACKAGE_PIN P18   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_ca2   }]; #IO_L23N_T3_34 Sch=ar[12]
-set_property -dict { PACKAGE_PIN N17   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led2  }]; #IO_L23P_T3_34 Sch=ar[13]
-set_property -dict { PACKAGE_PIN Y13   IOSTANDARD LVCMOS33 } [get_ports { ext_keyb_led1  }]; #IO_L20N_T3_13 Sch=a
+set_property -dict { PACKAGE_PIN Y13   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_led1  }]; #IO_L20N_T3_13 Sch=a
+set_property -dict { PACKAGE_PIN T14   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_led2  }]; #IO_L5P_T0_34 Sch=ar[0]
+set_property -dict { PACKAGE_PIN U12   IOSTANDARD LVCMOS33 PULLTYPE PULLDOWN } [get_ports { ext_keyb_ca2   }]; #IO_L2N_T0_34 Sch=ar[1]
+set_property -dict { PACKAGE_PIN U13   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_led3  }]; #IO_L3P_T0_DQS_PUDC_B_34 Sch=ar[2]
+set_property -dict { PACKAGE_PIN V13   IOSTANDARD LVCMOS33 PULLTYPE PULLDOWN } [get_ports { ext_keyb_pa7   }]; #IO_L3N_T0_DQS_34 Sch=ar[3]
+set_property -dict { PACKAGE_PIN V15   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_pa[3] }]; #IO_L10P_T1_34 Sch=ar[4]
+set_property -dict { PACKAGE_PIN T15   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_pa[2] }]; #IO_L5N_T0_34 Sch=ar[5]
+set_property -dict { PACKAGE_PIN R16   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_pa[1] }]; #IO_L19P_T3_34 Sch=ar[6]
+set_property -dict { PACKAGE_PIN U17   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_pa[0] }]; #IO_L9N_T1_DQS_34 Sch=ar[7]
+set_property -dict { PACKAGE_PIN V17   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_pa[6] }]; #IO_L21P_T3_DQS_34 Sch=ar[8]
+set_property -dict { PACKAGE_PIN V18   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_pa[5] }]; #IO_L21N_T3_DQS_34 Sch=ar[9]
+set_property -dict { PACKAGE_PIN T16   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_pa[4] }]; #IO_L9P_T1_DQS_34 Sch=ar[10]
+set_property -dict { PACKAGE_PIN R17   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_en_n  }]; #IO_L19N_T3_VREF_34 Sch=ar[11]
+set_property -dict { PACKAGE_PIN P18   IOSTANDARD LVCMOS33                   } [get_ports { ext_keyb_1mhz  }]; #IO_L23N_T3_34 Sch=ar[12]
+set_property -dict { PACKAGE_PIN N17   IOSTANDARD LVCMOS33 PULLTYPE PULLUP   } [get_ports { ext_keyb_rst_n }]; #IO_L23P_T3_34 Sch=ar[13]
 
 ##HDMI Tx
 

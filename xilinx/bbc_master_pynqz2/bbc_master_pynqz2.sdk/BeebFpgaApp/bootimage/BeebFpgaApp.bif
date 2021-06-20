@@ -1,0 +1,7 @@
+//arch = zynq; split = false; format = BIN
+the_ROM_image:
+{
+	[bootloader]/disk1/home/dmb/atom/BeebFpga/xilinx/bbc_master_pynqz2/bbc_master_pynqz2.sdk/BeebFpgaLoader/Debug/BeebFpgaLoader.elf
+	/disk1/home/dmb/atom/BeebFpga/xilinx/bbc_master_pynqz2/bbc_master_pynqz2.sdk/bbc_micro_pynqz2_hw_platform_0/bbc_micro_pynqz2.bit
+	/disk1/home/dmb/atom/BeebFpga/xilinx/bbc_master_pynqz2/bbc_master_pynqz2.sdk/BeebFpgaApp/Debug/BeebFpgaApp.elf
+}

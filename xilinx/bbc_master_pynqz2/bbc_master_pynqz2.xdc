@@ -19,8 +19,8 @@ set_property -dict { PACKAGE_PIN U10   IOSTANDARD LVCMOS33 } [get_ports { test[3
 
 
 # ICE Debugger
-set_property -dict { PACKAGE_PIN Y11   IOSTANDARD LVCMOS33 } [get_ports { avr_TxD }]; #IO_L18N_T2_13 Sch=a[0]
-set_property -dict { PACKAGE_PIN Y12   IOSTANDARD LVCMOS33 } [get_ports { avr_RxD }]; #IO_L20P_T3_13 Sch=a[1]
+#set_property -dict { PACKAGE_PIN Y11   IOSTANDARD LVCMOS33 } [get_ports { avr_TxD }]; #IO_L18N_T2_13 Sch=a[0]
+#set_property -dict { PACKAGE_PIN Y12   IOSTANDARD LVCMOS33 } [get_ports { avr_RxD }]; #IO_L20P_T3_13 Sch=a[1]
 
 ##LEDs
 

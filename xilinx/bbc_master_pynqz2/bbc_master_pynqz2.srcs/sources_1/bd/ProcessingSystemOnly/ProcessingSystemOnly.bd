@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0x4F375A516987FB44",
+      "boundary_crc": "0x13D3D4BF3756E0A3",
       "device": "xc7z020clg400-1",
       "name": "ProcessingSystemOnly",
       "synth_flow_mode": "Hierarchical",
@@ -113,6 +113,12 @@
             "value_src": "default"
           }
         }
+      },
+      "UART1_RX_0": {
+        "direction": "I"
+      },
+      "UART1_TX_0": {
+        "direction": "O"
       }
     },
     "components": {
@@ -415,7 +421,7 @@
             "value": "0"
           },
           "PCW_EN_EMIO_UART1": {
-            "value": "0"
+            "value": "1"
           },
           "PCW_EN_EMIO_WDT": {
             "value": "0"
@@ -499,7 +505,7 @@
             "value": "1"
           },
           "PCW_EN_UART1": {
-            "value": "0"
+            "value": "1"
           },
           "PCW_EN_USB0": {
             "value": "1"
@@ -1201,7 +1207,7 @@
             "value": "200"
           },
           "PCW_PERIPHERAL_BOARD_PRESET": {
-            "value": "None"
+            "value": "part0"
           },
           "PCW_PLL_BYPASSMODE_ENABLE": {
             "value": "0"
@@ -1383,8 +1389,14 @@
           "PCW_UART0_UART0_IO": {
             "value": "MIO 14 .. 15"
           },
-          "PCW_UART1_PERIPHERAL_ENABLE": {
+          "PCW_UART1_GRP_FULL_ENABLE": {
             "value": "0"
+          },
+          "PCW_UART1_PERIPHERAL_ENABLE": {
+            "value": "1"
+          },
+          "PCW_UART1_UART1_IO": {
+            "value": "EMIO"
           },
           "PCW_UART_PERIPHERAL_CLKSRC": {
             "value": "IO PLL"
@@ -1717,6 +1729,18 @@
         "ports": [
           "processing_system7_0/FCLK_RESET0_N",
           "FCLK_RESET0_N_0"
+        ]
+      },
+      "UART1_RX_0_1": {
+        "ports": [
+          "UART1_RX_0",
+          "processing_system7_0/UART1_RX"
+        ]
+      },
+      "processing_system7_0_UART1_TX": {
+        "ports": [
+          "processing_system7_0/UART1_TX",
+          "UART1_TX_0"
         ]
       },
       "processing_system7_0_FCLK_CLK0": {

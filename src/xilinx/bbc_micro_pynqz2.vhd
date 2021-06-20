@@ -99,8 +99,8 @@ entity bbc_micro_pynqz2 is
         hdmi_hpdn          : in    std_logic;
 
         -- ICE Debugger
-        avr_RxD            : in    std_logic;
-        avr_TxD            : out   std_logic;
+        --avr_RxD            : in    std_logic;
+        --avr_TxD            : out   std_logic;
 
         -- PiTubeDirect connects to the Raspberry Pi Connector
         accel_io           : inout std_logic_vector(27 downto 0);
@@ -236,6 +236,10 @@ architecture rtl of bbc_micro_pynqz2 is
 
     signal FCLK_CLK0_0     : std_logic;
     signal FCLK_RESET0_N_0 : std_logic;
+    
+    signal avr_RxD         : std_logic;
+    signal avr_TxD         : std_logic;
+    
 
 begin
 
@@ -370,7 +374,9 @@ begin
       FIXED_IO_mio(53 downto 0) => FIXED_IO_mio(53 downto 0),
       FIXED_IO_ps_clk => FIXED_IO_ps_clk,
       FIXED_IO_ps_porb => FIXED_IO_ps_porb,
-      FIXED_IO_ps_srstb => FIXED_IO_ps_srstb
+      FIXED_IO_ps_srstb => FIXED_IO_ps_srstb,
+      UART1_RX_0 => avr_TxD,
+      UART1_TX_0 => avr_RxD      
     );
 
 --------------------------------------------------------

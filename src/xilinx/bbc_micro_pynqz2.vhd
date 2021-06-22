@@ -236,10 +236,23 @@ architecture rtl of bbc_micro_pynqz2 is
 
     signal FCLK_CLK0_0     : std_logic;
     signal FCLK_RESET0_N_0 : std_logic;
-    
+
     signal avr_RxD         : std_logic;
     signal avr_TxD         : std_logic;
-    
+
+    signal usb_kb_matrix   : std_logic_vector(127 downto 0);
+    signal usb_kb_col      : std_logic_vector(7 downto 0);
+    signal usb_kb_counter  : std_logic_vector(3 downto 0);
+    signal usb_kb_ca2      : std_logic;
+    signal usb_kb_pa7      : std_logic;
+
+    signal keyb_1mhz       : std_logic;
+    signal keyb_1mhz_last  : std_logic;
+    signal keyb_en_n       : std_logic;
+    signal keyb_pa         : std_logic_vector(6 downto 0);
+    signal keyb_rst_n      : std_logic;
+    signal keyb_ca2        : std_logic;
+    signal keyb_pa7        : std_logic;
 
 begin
 
@@ -333,18 +346,47 @@ begin
         ext_keyb_led1  => ext_keyb_led1,
         ext_keyb_led2  => ext_keyb_led2,
         ext_keyb_led3  => ext_keyb_led3,
-        ext_keyb_1mhz  => ext_keyb_1mhz,
-        ext_keyb_en_n  => ext_keyb_en_n,
-        ext_keyb_pa    => ext_keyb_pa,
-        ext_keyb_rst_n => ext_keyb_rst_n,
-        ext_keyb_ca2   => ext_keyb_ca2,
-        ext_keyb_pa7   => ext_keyb_pa7,
+        ext_keyb_1mhz  => keyb_1mhz,
+        ext_keyb_en_n  => keyb_en_n,
+        ext_keyb_pa    => keyb_pa,
+
+        ext_keyb_rst_n => keyb_rst_n,
+        ext_keyb_ca2   => keyb_ca2,
+        ext_keyb_pa7   => keyb_pa7,
 
         -- config
         config        => config
     );
 
+--------------------------------------------------------
+-- USB Keyboard Matrix
+--------------------------------------------------------
 
+    ext_keyb_1mhz <= keyb_1mhz;
+    ext_keyb_en_n <= keyb_en_n;
+    ext_keyb_pa   <= keyb_pa;
+
+    process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            if keyb_1mhz = '1' and keyb_1mhz_last = '0' then
+                if keyb_en_n = '0' then
+                    usb_kb_counter <= keyb_pa(3 downto 0);
+                else
+                    usb_kb_counter <= usb_kb_counter + 1;
+                end if;
+            end if;
+            keyb_1mhz_last <= keyb_1mhz;
+        end if;
+    end process;
+
+    usb_kb_col <= usb_kb_matrix(to_integer(unsigned(usb_kb_counter)) * 8 + 7 downto to_integer(unsigned(usb_kb_counter)) * 8);
+    usb_kb_ca2 <= usb_kb_col(0) or usb_kb_col(1) or usb_kb_col(2) or usb_kb_col(3) or usb_kb_col(4) or usb_kb_col(5) or usb_kb_col(6) or usb_kb_col(7);
+    usb_kb_pa7 <= '0' when keyb_en_n = '1' else usb_kb_col(to_integer(unsigned(keyb_pa(6 downto 4))));
+
+    keyb_rst_n <= ext_keyb_rst_n and not (usb_kb_matrix(127));
+    keyb_ca2   <= ext_keyb_ca2   or usb_kb_ca2;
+    keyb_pa7   <= ext_keyb_pa7   or usb_kb_pa7;
 
 --------------------------------------------------------
 -- Zynq Processing System
@@ -376,7 +418,11 @@ begin
       FIXED_IO_ps_porb => FIXED_IO_ps_porb,
       FIXED_IO_ps_srstb => FIXED_IO_ps_srstb,
       UART1_RX_0 => avr_TxD,
-      UART1_TX_0 => avr_RxD      
+      UART1_TX_0 => avr_RxD,
+      gpio_io_o_0 => usb_kb_matrix(31 downto  0),
+      gpio_io_o_1 => usb_kb_matrix(63 downto 32),
+      gpio_io_o_2 => usb_kb_matrix(95 downto 64),
+      gpio_io_o_3 => usb_kb_matrix(127 downto 96)
     );
 
 --------------------------------------------------------
@@ -785,7 +831,7 @@ begin
     led(0) <= btn_reset;
     led(1) <= caps_led;
     led(2) <= shift_led;
-    led(3) <= copro_mode;
+    led(3) <= usb_kb_matrix(127);
 
     hdmi_scl <= 'Z';
     hdmi_sda <= 'Z';

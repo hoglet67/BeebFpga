@@ -381,7 +381,7 @@ begin
     end process;
 
     usb_kb_col <= usb_kb_matrix(to_integer(unsigned(usb_kb_counter)) * 8 + 7 downto to_integer(unsigned(usb_kb_counter)) * 8);
-    usb_kb_ca2 <= usb_kb_col(0) or usb_kb_col(1) or usb_kb_col(2) or usb_kb_col(3) or usb_kb_col(4) or usb_kb_col(5) or usb_kb_col(6) or usb_kb_col(7);
+    usb_kb_ca2 <= usb_kb_col(1) or usb_kb_col(2) or usb_kb_col(3) or usb_kb_col(4) or usb_kb_col(5) or usb_kb_col(6) or usb_kb_col(7);
     usb_kb_pa7 <= '0' when keyb_en_n = '1' else usb_kb_col(to_integer(unsigned(keyb_pa(6 downto 4))));
 
     keyb_rst_n <= ext_keyb_rst_n and not (usb_kb_matrix(127));

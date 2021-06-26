@@ -66,6 +66,17 @@ int currentTD = 0;
 
 #define QH_LINK(p) ((qh_type *)(((u32) p) | 2))
 
+enum {
+	ST_INITIAL,
+	ST_RESET,
+	ST_SET_ADDRESS,
+	ST_DELAY,
+	ST_SET_CONFIGURATION,
+	ST_SETUP_PERIODIC,
+	ST_PERIODIC,
+};
+
+
 typedef struct qtd_struct {
 	struct qtd_struct *next;
 	struct qtd_struct *altnext;
@@ -674,44 +685,44 @@ void state_machine() {
 	u32 in2 = Xil_In32(USB0_ISR) | (1 << 24) | (1 << 18);
 	Xil_Out32(USB0_ISR, in2); //clear
 
-	if (status == 0) {
+	if (status == ST_INITIAL) {
 		set_port_reset_state(1);
 		scheduleTimer(12000);
-		status = 1;
+		status = ST_RESET;
 		return;
-	} else if (status == 1) {
+	} else if (status == ST_RESET) {
 		set_port_reset_state(0);
-		status = 2;
 		scheduleTimer(12000);
+		status = ST_SET_ADDRESS;
 		return;
-	} else if (status == 2) {
+	} else if (status == ST_SET_ADDRESS) {
 		//set address
 		USB_ASYNC_DATA0[0] = 0x00030500;
 		USB_ASYNC_DATA0[1] = 0x00000000;
 		schedTransfer(1, 0, 0, USB_ASYNC_QH);
-		status = 3;
+		status = ST_DELAY;
 		return;
-	} else if (status == 3) {
+	} else if (status == ST_DELAY) {
 		scheduleTimer(3000);
-		status = 4;
+		status = ST_SET_CONFIGURATION;
 		return;
-	} else if (status == 4) {
+	} else if (status == ST_SET_CONFIGURATION) {
 		USB_ASYNC_QH->qh_endpt1 |= 3;
 		//set configuration
 		USB_ASYNC_DATA0[0] = 0x00010900;
 		USB_ASYNC_DATA0[1] = 0x00000000;
 		schedTransfer(1, 0, 0, USB_ASYNC_QH);
-		status = 5;
+		status = ST_SETUP_PERIODIC;
 		return;
-	} else if (status == 5) {
+	} else if (status == ST_SETUP_PERIODIC) {
 		//enable periodic scheduling
 		setup_periodic();
 		in2 = Xil_In32(USB0_CMD) | 16;
 		Xil_Out32(USB0_CMD, in2);
-		status = 6;
+		status = ST_PERIODIC;
 		scheduleTimer(10000);
 		return;
-	} else if (status == 6) {
+	} else if (status == ST_PERIODIC) {
 		qtd_type *qTDAddress = currentTD ? USB_PERIODIC_QTD1 : USB_PERIODIC_QTD2;
 		qtd_type *qTDAddressCheck = currentTD ? USB_PERIODIC_QTD2 : USB_PERIODIC_QTD1;
 
@@ -802,7 +813,7 @@ int main() {
 
 	initint();
 	initUsb();
-	status = 0;
+	status = ST_INITIAL;
 	state_machine();
 
 	//	dump_ulpi();

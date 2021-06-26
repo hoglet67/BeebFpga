@@ -39,6 +39,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
 #include "xil_exception.h"
 #include "xparameters.h"
 #include "platform.h"
@@ -87,6 +88,11 @@ void state_machine();
 #define USB0_VIEWPORT      0xE0002170
 #define USB0_PORTSCR1      0xE0002184
 #define USB0_MODE          0xE00021A8
+
+#define USB_QH             ((struct QStruct *)0x300000)
+#define USB_QTD            ((struct QStruct *)0x300040)
+
+#define NUM_QTD            0x10
 
 struct ulpi_regs *ulpi = (struct ulpi_regs *)0;
 
@@ -467,12 +473,12 @@ void processKeyboardInfo(u32 usbWord0, u32 usbWord1) {
 	}
 }
 
-u32 calNextPointer(u32 currentpointer) {
-	currentpointer = currentpointer - 0x300040;
-	currentpointer = currentpointer + 0x20;
-	if (currentpointer > 0x200)
-		currentpointer = 0;
-	return currentpointer + (u32) 0x300040;
+struct QStruct * calNextPointer(struct QStruct * currentpointer) {
+	currentpointer++;
+	if (currentpointer >= USB_QTD + NUM_QTD) {
+		currentpointer = USB_QTD;
+	}
+	return currentpointer;
 }
 
 void set_port_reset_state(int do_reset) {
@@ -487,16 +493,12 @@ void set_port_reset_state(int do_reset) {
 
 }
 
-void schedTransfer(int setup, int direction, int size, u32 qh_add) {
-	struct QStruct *qh;
-	qh = qh_add;
-	u32 first_qtd = qh->word4;
-	struct QStruct *firstTD;
-	struct QStruct *nextTD;
-	firstTD = first_qtd;
-	nextTD = first_qtd;
+void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
+	struct QStruct *first_qtd = (struct QStruct *)(qh->word4);
+	struct QStruct *firstTD = first_qtd;
+	struct QStruct *nextTD = first_qtd;
 	if (setup) {
-		firstTD->word0 = calNextPointer(first_qtd); //next qtd + terminate
+		firstTD->word0 = (u32) calNextPointer(first_qtd); //next qtd + terminate
 		firstTD->word1 = 1; // alternate pointer
 		firstTD->word2 = 0x00080240; //with setup keep haleted/non active till everything setup
 		firstTD->word3 = 0x301000; //buffer for setup command
@@ -506,7 +508,7 @@ void schedTransfer(int setup, int direction, int size, u32 qh_add) {
 		if (setup)
 			nextTD = calNextPointer(first_qtd);
 
-		nextTD->word0 = calNextPointer(nextTD); //next qtd + terminate
+		nextTD->word0 = (u32) calNextPointer(nextTD); //next qtd + terminate
 		nextTD->word1 = 1; // alternate pointer
 
 		nextTD->word2 = (size << 16) | (direction << 8)
@@ -519,7 +521,7 @@ void schedTransfer(int setup, int direction, int size, u32 qh_add) {
 		nextTD = calNextPointer(nextTD);
 
 		if (direction == 1) {
-			nextTD->word0 = calNextPointer(nextTD); //next qtd + terminate
+			nextTD->word0 = (u32) calNextPointer(nextTD); //next qtd + terminate
 			nextTD->word1 = 1; // alternate pointer
 			nextTD->word2 = 0x80008080; //with setup keep haleted/non active till everything setup
 			nextTD->word3 = 0x301000; //buffer for setup command
@@ -527,7 +529,7 @@ void schedTransfer(int setup, int direction, int size, u32 qh_add) {
 	} else {
 		//size = 0
 		nextTD = calNextPointer(first_qtd);
-		nextTD->word0 = calNextPointer(nextTD); //next qtd + terminate
+		nextTD->word0 = (u32) calNextPointer(nextTD); //next qtd + terminate
 		nextTD->word1 = 1; // alternate pointer
 		nextTD->word2 = (0 << 16) | (1 << 8) | (nextTD == firstTD ? 0x40 : 0x80)
 				| 0x80000000 | 0x8000;
@@ -564,24 +566,19 @@ void initUsb() {
 
 	usleep(1000000);
 
-	for (int i = 0; i < 1000000; i = i + 4) {
-		u32 current = 0x300000 + i;
-		u32 *currentword;
-		currentword = current;
-		*currentword = 0;
-	}
+	memset(USB_QH, 1000000, 1);
 
 	struct QStruct *qh;
-	qh = 0x300000;
-	qh->word0 = 0x300002;
+	qh = USB_QH;
+	qh->word0 = ((u32) USB_QH) + 2;
 	qh->word1 = 0xf808d000; //enable H bit -> head of reclamation
 	qh->word2 = 0x40000000;
 	qh->word3 = 0;
-	qh->word4 = 0x300040; // pointer to halt qtd
+	qh->word4 = (u32) USB_QTD; // pointer to halt qtd
 	qh->word5 = 1; // no alternate
 
 	struct QStruct *qTD;
-	qTD = 0x300040;
+	qTD = USB_QTD;
 	qTD->word0 = 1; //next qtd + terminate
 	qTD->word1 = 0; // alternate pointer
 	qTD->word2 = 0x40; //halt value// setup packet 80 to activate
@@ -608,6 +605,7 @@ void initint() {
 }
 
 void setup_periodic() {
+	struct QStruct *qh;
 	u32 in2 = Xil_In32(USB0_CMD) | (1 << 15) | 8;
 	Xil_Out32(USB0_CMD, in2);
 
@@ -629,8 +627,8 @@ void setup_periodic() {
 	Xil_Out32(0x30403c, 1);
 
 	Xil_Out32(USB0_LISTBASE, 0x304000);
-	struct QStruct *qh;
-	qh = 0x304040;
+
+	qh = (struct QStruct *) 0x304040;
 	qh->word0 = 0x304082;
 	qh->word1 = 0;
 	qh->word2 = 0;
@@ -638,7 +636,7 @@ void setup_periodic() {
 	qh->word4 = 1;
 	qh->word5 = 1;
 
-	qh = 0x304080;
+	qh = (struct QStruct *) 0x304080;
 	qh->word0 = 1;
 	qh->word1 = 0x00085103;
 	qh->word2 = 0x40000001;
@@ -647,7 +645,7 @@ void setup_periodic() {
 	qh->word5 = 1;
 
 	struct QStruct *qTD;
-	qTD = 0x304100;
+	qTD = (struct QStruct *) 0x304100;
 	qTD->word0 = 1;
 	qTD->word1 = 1;
 	qTD->word2 = 0x00080180;
@@ -675,7 +673,7 @@ void state_machine() {
 		//set address
 		Xil_Out32(0x301000, 0x00030500);
 		Xil_Out32(0x301004, 0x00000000);
-		schedTransfer(1, 0, 0x0, 0x300000);
+		schedTransfer(1, 0, 0x0, USB_QH);
 		status = 3;
 		return;
 	} else if (status == 3) {
@@ -689,7 +687,7 @@ void state_machine() {
 		//set configuration
 		Xil_Out32(0x301000, 0x00010900);
 		Xil_Out32(0x301004, 0x00000000);
-		schedTransfer(1, 0, 0, 0x300000);
+		schedTransfer(1, 0, 0, USB_QH);
 		status = 5;
 		return;
 	} else if (status == 5) {
@@ -710,12 +708,10 @@ void state_machine() {
 			u32 word1 = Xil_In32(0x305004);
             processKeyboardInfo(word0, word1);
 
-			struct QStruct *qh;
-			qh = 0x304040;
+			struct QStruct *qh = (struct QStruct *) 0x304040;
 			qh->word0 = 1;
 
-			struct QStruct *qh2;
-			qh2 = currentTD ? 0x304080 : 0x3040c0;
+			struct QStruct *qh2 = (struct QStruct *) (currentTD ? 0x304080 : 0x3040c0);
 
 			qh2->word0 = 1;
 			qh2->word1 = 0x00085103;
@@ -724,15 +720,12 @@ void state_machine() {
 			qh2->word4 = qTDAddress;
 			qh2->word5 = 1;
 
-			struct QStruct *qTD;
-			qTD = qTDAddress;
+			struct QStruct *qTD = (struct QStruct *) qTDAddress;
 			qTD->word0 = 1;
 			qTD->word1 = 1;
 			qTD->word2 = 0x00080180 | toggle; //halt value// setup packet 80 to activate
 			qTD->word3 = 0x305000;
-			u32 temp = qh2;
-			temp = temp | 2;
-			qh->word0 = temp;
+			qh->word0 = ((u32) qh2) | 2;
 
 			currentTD = ~currentTD;
 		}

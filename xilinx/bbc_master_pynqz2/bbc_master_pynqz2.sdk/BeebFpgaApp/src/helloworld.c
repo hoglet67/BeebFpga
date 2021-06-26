@@ -60,20 +60,13 @@ XScuGic INTCInst;
 int status;
 int currentTD = 0;
 
-struct QStruct {
-	u32 word0;
-	u32 word1;
-	u32 word2;
-	u32 word3;
-	u32 word4;
-	u32 word5;
-	u32 word6;
-	u32 word7;
-};
+#define QTD_TERMINATOR ((qtd_type *)1)
+
+#define QH_TERMINATOR ((qh_type *)1)
 
 typedef struct qtd_struct {
 	struct qtd_struct *next;
-	u32 word1;
+	struct qtd_struct *alternate;
 	u32 word2;
 	u32 *data;
 	u32 word4;
@@ -81,6 +74,18 @@ typedef struct qtd_struct {
 	u32 word6;
 	u32 word7;
 } qtd_type;
+
+typedef struct qh_struct {
+	struct qh_struct *word0;
+	u32 word1;
+	u32 word2;
+	qtd_type *word3;
+	qtd_type *word4;
+	u32 word5;
+	u32 word6;
+	u32 word7;
+} qh_type;
+
 
 void state_machine();
 
@@ -100,7 +105,7 @@ void state_machine();
 #define USB0_PORTSCR1      0xE0002184
 #define USB0_MODE          0xE00021A8
 
-#define USB_ASYNC_QH       ((struct QStruct *)0x300000)
+#define USB_ASYNC_QH       ((qh_type  *)0x300000)
 #define USB_ASYNC_QTD      ((qtd_type *)0x300040)
 #define USB_ASYNC_DATA0    ((u32 *)0x301000)
 #define USB_ASYNC_DATA1    ((u32 *)0x302000)
@@ -506,13 +511,13 @@ void set_port_reset_state(int do_reset) {
 
 }
 
-void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
-	qtd_type *first_qtd = (qtd_type *)(qh->word4);
+void schedTransfer(int setup, int direction, int size, qh_type *qh) {
+	qtd_type *first_qtd = qh->word4;
 	qtd_type *firstTD = first_qtd;
 	qtd_type *nextTD = first_qtd;
 	if (setup) {
 		firstTD->next = calNextPointer(first_qtd); //next qtd + terminate
-		firstTD->word1 = 1; // alternate pointer
+		firstTD->alternate = QTD_TERMINATOR; // alternate pointer
 		firstTD->word2 = 0x00080240; //with setup keep haleted/non active till everything setup
 		firstTD->data = USB_ASYNC_DATA0; //buffer for setup command
 
@@ -522,7 +527,7 @@ void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
 			nextTD = calNextPointer(first_qtd);
 
 		nextTD->next = calNextPointer(nextTD); //next qtd + terminate
-		nextTD->word1 = 1; // alternate pointer
+		nextTD->alternate = QTD_TERMINATOR; // alternate pointer
 
 		nextTD->word2 = (size << 16) | (direction << 8)
 				| (nextTD == firstTD ? 0x40 : 0x80) | 0x80000000;
@@ -535,7 +540,7 @@ void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
 
 		if (direction == 1) {
 			nextTD->next = calNextPointer(nextTD); //next qtd + terminate
-			nextTD->word1 = 1; // alternate pointer
+			nextTD->alternate = QTD_TERMINATOR; // alternate pointer
 			nextTD->word2 = 0x80008080; //with setup keep haleted/non active till everything setup
 			nextTD->data = USB_ASYNC_DATA0; //buffer for setup command
 		}
@@ -543,7 +548,7 @@ void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
 		//size = 0
 		nextTD = calNextPointer(first_qtd);
 		nextTD->next = calNextPointer(nextTD); //next qtd + terminate
-		nextTD->word1 = 1; // alternate pointer
+		nextTD->alternate = QTD_TERMINATOR; // alternate pointer
 		nextTD->word2 = (0 << 16) | (1 << 8) | (nextTD == firstTD ? 0x40 : 0x80)
 				| 0x80000000 | 0x8000;
 
@@ -551,8 +556,8 @@ void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
 	if (nextTD == firstTD)
 		nextTD->word2 = nextTD->word2 | 0x8000;
 	nextTD = calNextPointer(nextTD);
-	nextTD->next = (qtd_type *)1; //next qtd + terminate
-	nextTD->word1 = 1; // alternate pointer
+	nextTD->next = QTD_TERMINATOR; //next qtd + terminate
+	nextTD->alternate = QTD_TERMINATOR; // alternate pointer
 	nextTD->word2 = 0x40; //with setup keep haleted/non active till everything setup
 	nextTD->data = USB_ASYNC_DATA0; //buffer for setup command
 	firstTD->word2 = (firstTD->word2 & (~0x40)) | 0x80;
@@ -581,19 +586,19 @@ void initUsb() {
 
 	memset(USB_ASYNC_QH, 1000000, 1);
 
-	struct QStruct *qh;
+	qh_type *qh;
 	qh = USB_ASYNC_QH;
-	qh->word0 = ((u32) USB_ASYNC_QH) + 2;
+	qh->word0 = (qh_type *) (((u32) USB_ASYNC_QH) | 2);
 	qh->word1 = 0xf808d000; //enable H bit -> head of reclamation
 	qh->word2 = 0x40000000;
 	qh->word3 = 0;
-	qh->word4 = (u32) USB_ASYNC_QTD; // pointer to halt qtd
+	qh->word4 = USB_ASYNC_QTD; // pointer to halt qtd
 	qh->word5 = 1; // no alternate
 
 	qtd_type *qTD;
 	qTD = USB_ASYNC_QTD;
-	qTD->next = (qtd_type *)1; //next qtd + terminate
-	qTD->word1 = 0; // alternate pointer
+	qTD->next = QTD_TERMINATOR; //next qtd + terminate
+	qTD->alternate = 0; // alternate pointer
 	qTD->word2 = 0x40; //halt value// setup packet 80 to activate
 
 	Xil_Out32(USB0_ASYNCLISTADDR, (u32) USB_ASYNC_QH); // set async base
@@ -618,7 +623,7 @@ void initint() {
 }
 
 void setup_periodic() {
-	struct QStruct *qh;
+	qh_type *qh;
 	u32 in2 = Xil_In32(USB0_CMD) | (1 << 15) | 8;
 	Xil_Out32(USB0_CMD, in2);
 
@@ -641,28 +646,27 @@ void setup_periodic() {
 
 	Xil_Out32(USB0_LISTBASE, 0x304000);
 
-	qh = (struct QStruct *) 0x304040;
-	qh->word0 = 0x304082;
+	qh = (qh_type *) 0x304040;
+	qh->word0 = (qh_type *) 0x304082;
 	qh->word1 = 0;
 	qh->word2 = 0;
 	qh->word3 = 0;
-	qh->word4 = 1;
+	qh->word4 = QTD_TERMINATOR;
 	qh->word5 = 1;
 
-	qh = (struct QStruct *) 0x304080;
-	qh->word0 = 1;
+	qh = (qh_type *) 0x304080;
+	qh->word0 = QH_TERMINATOR;
 	qh->word1 = 0x00085103;
 	qh->word2 = 0x40000001;
 	qh->word3 = 0;
-	qh->word4 = 0x304100;
+	qh->word4 = (qtd_type *) 0x304100;
 	qh->word5 = 1;
 
-	struct QStruct *qTD;
-	qTD = (struct QStruct *) 0x304100;
-	qTD->word0 = 1;
-	qTD->word1 = 1;
+	qtd_type *qTD = (qtd_type *)0x304100;
+	qTD->next = QTD_TERMINATOR;
+	qTD->alternate = QTD_TERMINATOR;
 	qTD->word2 = 0x00080180;
-	qTD->word3 = 0x305000;
+	qTD->data = (u32 *)0x305000;
 
 	//set first frame to qh
 	Xil_Out32(0x304000, 0x304042);
@@ -710,7 +714,7 @@ void state_machine() {
 		scheduleTimer(10000);
 		return;
 	} else if (status == 6) {
-		u32 qTDAddress = currentTD ? 0x304100 : 0x304120;
+		qtd_type *qTDAddress = (qtd_type *)(currentTD ? 0x304100 : 0x304120);
 		u32 qTDAddressCheck = currentTD ? 0x304120 : 0x304100;
 
 		u32 toggle = Xil_In32(qTDAddressCheck + 8) & 0x80000000;
@@ -719,25 +723,25 @@ void state_machine() {
 			u32 word1 = Xil_In32(0x305004);
             processKeyboardInfo(word0, word1);
 
-			struct QStruct *qh = (struct QStruct *) 0x304040;
-			qh->word0 = 1;
+			qh_type *qh = (qh_type *) 0x304040;
+			qh->word0 = QH_TERMINATOR;
 
-			struct QStruct *qh2 = (struct QStruct *) (currentTD ? 0x304080 : 0x3040c0);
+			qh_type *qh2 = (qh_type *) (currentTD ? 0x304080 : 0x3040c0);
 
-			qh2->word0 = 1;
+			qh2->word0 = QH_TERMINATOR;
 			qh2->word1 = 0x00085103;
 			qh2->word2 = 0x40000001;
 			qh2->word3 = 0;
 			qh2->word4 = qTDAddress;
 			qh2->word5 = 1;
 
-			struct QStruct *qTD = (struct QStruct *) qTDAddress;
-			qTD->word0 = 1;
-			qTD->word1 = 1;
+			qtd_type *qTD = (qtd_type *) qTDAddress;
+			qTD->next = QTD_TERMINATOR;
+			qTD->alternate = QTD_TERMINATOR;
 			qTD->word2 = 0x00080180 | toggle; //halt value// setup packet 80 to activate
-			qTD->word3 = 0x305000;
-			qh->word0 = ((u32) qh2) | 2;
+			qTD->data = (u32 *)0x305000;
 
+			qh->word0 = (qh_type *) (((u32) qh2) | 2);
 			currentTD = ~currentTD;
 		}
 		scheduleTimer(10000);

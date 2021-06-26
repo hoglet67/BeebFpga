@@ -64,7 +64,7 @@ int currentTD = 0;
 
 #define QH_TERMINATOR ((qh_type *)1)
 
-#define QH_REF(p) ((qh_type *)(((u32) p) | 2))
+#define QH_LINK(p) ((qh_type *)(((u32) p) | 2))
 
 typedef struct qtd_struct {
 	struct qtd_struct *next;
@@ -88,11 +88,13 @@ typedef struct qh_struct {
 
 void state_machine();
 
+// AXI Registers that implement the 128-bit keyboard matrix
 #define GPIO_REG0          0x41200000
 #define GPIO_REG1          0x41200008
 #define GPIO_REG2          0x41210000
 #define GPIO_REG3          0x41210008
 
+// USB0 Periperal Registers
 #define USB0_GPTIMER0LD    0xE0002080
 #define USB0_GPTIMER0CTRL  0xE0002084
 #define USB0_CMD           0xE0002140
@@ -104,15 +106,16 @@ void state_machine();
 #define USB0_PORTSCR1      0xE0002184
 #define USB0_MODE          0xE00021A8
 
-
-// Fixed USB Async Buffers
+// Fixed USB Async Buffers, used for device setup phase
+// TODO: Place these in un-cached RAM, or add cache control
 #define USB_ASYNC_QH       ((qh_type  *)0x300000)
 #define USB_ASYNC_QTD      ((qtd_type *)0x300040)
 #define USB_ASYNC_DATA0    ((u32 *)0x301000)
 #define USB_ASYNC_DATA1    ((u32 *)0x302000)
 #define NUM_QTD            0x10
 
-// Fixex USB Periodic Buffers
+// Fixed USB Periodic Buffers, used for periodic device polling
+// TODO: Place these in un-cached RAM, or add cache control
 #define USB_LISTBASE       ((qh_type **)0x304000)
 #define USB_PERIODIC_QH    ((qh_type  *)0x304040)
 #define USB_PERIODIC_QH1   ((qh_type  *)0x304080)
@@ -532,17 +535,16 @@ void schedTransfer(int setup, int direction, int size, qh_type *qh) {
 
 	}
 	if (size > 0) {
-		if (setup)
+		if (setup) {
 			nextTD = calNextPointer(first_qtd);
+		}
 
 		nextTD->next = calNextPointer(nextTD); //next qtd + terminate
 		nextTD->altnext = QTD_TERMINATOR; // alternate pointer
-
-		nextTD->token = (size << 16) | (direction << 8)
-				| (nextTD == firstTD ? 0x40 : 0x80) | 0x80000000;
-
-		if (direction == 0)
-			nextTD->token = nextTD->token | 0x8000;
+		nextTD->token = (size << 16) | (direction << 8)	| (nextTD == firstTD ? 0x40 : 0x80) | 0x80000000;
+		if (direction == 0) {
+			nextTD->token |= 0x8000;
+		}
 		nextTD->buffer = setup ? USB_ASYNC_DATA1 : USB_ASYNC_DATA0; //buffer for setup command
 
 		nextTD = calNextPointer(nextTD);
@@ -558,12 +560,12 @@ void schedTransfer(int setup, int direction, int size, qh_type *qh) {
 		nextTD = calNextPointer(first_qtd);
 		nextTD->next = calNextPointer(nextTD); //next qtd + terminate
 		nextTD->altnext = QTD_TERMINATOR; // alternate pointer
-		nextTD->token = (0 << 16) | (1 << 8) | (nextTD == firstTD ? 0x40 : 0x80)
-				| 0x80000000 | 0x8000;
+		nextTD->token = (0 << 16) | (1 << 8) | (nextTD == firstTD ? 0x40 : 0x80) | 0x80008000;
 
 	}
-	if (nextTD == firstTD)
-		nextTD->token = nextTD->token | 0x8000;
+	if (nextTD == firstTD) {
+		nextTD->token |= 0x8000;
+	}
 	nextTD = calNextPointer(nextTD);
 	nextTD->next = QTD_TERMINATOR; //next qtd + terminate
 	nextTD->altnext = QTD_TERMINATOR; // alternate pointer
@@ -597,7 +599,7 @@ void initUsb() {
 
 	qh_type *qh;
 	qh = USB_ASYNC_QH;
-	qh->qh_link = QH_REF(USB_ASYNC_QH);
+	qh->qh_link = QH_LINK(USB_ASYNC_QH);
 	qh->qh_endpt1 = 0xf808d000; //enable H bit -> head of reclamation
 	qh->qh_endpt2 = 0x40000000;
 	qh->current_qtd = 0;
@@ -643,7 +645,7 @@ void setup_periodic() {
 	Xil_Out32(USB0_LISTBASE, (u32) USB_LISTBASE);
 
 	qh = USB_PERIODIC_QH;
-	qh->qh_link = QH_REF(USB_PERIODIC_QH1);
+	qh->qh_link = QH_LINK(USB_PERIODIC_QH1);
 	qh->qh_endpt1 = 0;
 	qh->qh_endpt2 = 0;
 	qh->current_qtd = 0;
@@ -651,7 +653,7 @@ void setup_periodic() {
 	qh->qtd.altnext = QTD_TERMINATOR;
 
 	qh = USB_PERIODIC_QH1;
-	qh->qh_link = QH_TERMINATOR;
+	qh->qh_link = QH_LINK(QH_TERMINATOR);
 	qh->qh_endpt1 = 0x00085103;
 	qh->qh_endpt2 = 0x40000001;
 	qh->current_qtd = 0;
@@ -665,7 +667,7 @@ void setup_periodic() {
 	qTD->buffer = USB_PERIODIC_DATA;
 
 	//set first frame to qh
-	USB_LISTBASE[0] = QH_REF(USB_PERIODIC_QH);
+	USB_LISTBASE[0] = QH_LINK(USB_PERIODIC_QH);
 }
 
 void state_machine() {
@@ -686,7 +688,7 @@ void state_machine() {
 		//set address
 		USB_ASYNC_DATA0[0] = 0x00030500;
 		USB_ASYNC_DATA0[1] = 0x00000000;
-		schedTransfer(1, 0, 0x0, USB_ASYNC_QH);
+		schedTransfer(1, 0, 0, USB_ASYNC_QH);
 		status = 3;
 		return;
 	} else if (status == 3) {
@@ -720,10 +722,10 @@ void state_machine() {
             processKeyboardInfo(word0, word1);
 
 			qh_type *qh = USB_PERIODIC_QH;
-			qh->qh_link = QH_TERMINATOR;
+			qh->qh_link = QH_LINK(QH_TERMINATOR);
 
 			qh_type *qh2 = currentTD ? USB_PERIODIC_QH1 : USB_PERIODIC_QH2;
-			qh2->qh_link = QH_TERMINATOR;
+			qh2->qh_link = QH_LINK(QH_TERMINATOR);
 			qh2->qh_endpt1 = 0x00085103;
 			qh2->qh_endpt2 = 0x40000001;
 			qh2->current_qtd = 0;
@@ -736,7 +738,7 @@ void state_machine() {
 			qTD->token = 0x00080180 | toggle; //halt value// setup packet 80 to activate
 			qTD->buffer = USB_PERIODIC_DATA;
 
-			qh->qh_link = QH_REF(qh2);
+			qh->qh_link = QH_LINK(qh2);
 			currentTD = ~currentTD;
 		}
 		scheduleTimer(10000);

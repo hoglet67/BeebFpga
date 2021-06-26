@@ -68,24 +68,21 @@ int currentTD = 0;
 
 typedef struct qtd_struct {
 	struct qtd_struct *next;
-	struct qtd_struct *alternate;
-	u32 word2;
-	u32 *data;
-	u32 word4;
-	u32 word5;
-	u32 word6;
-	u32 word7;
+	struct qtd_struct *altnext;
+	u32 token;
+	u32 *buffer;
+	u32 *buffer1;
+	u32 *buffer2;
+	u32 *buffer3;
+	u32 *buffer4;
 } qtd_type;
 
 typedef struct qh_struct {
-	struct qh_struct *word0;
-	u32 word1;
-	u32 word2;
-	qtd_type *word3;
-	qtd_type *word4;
-	u32 word5;
-	u32 word6;
-	u32 word7;
+	struct qh_struct *qh_link;
+	u32 qh_endpt1;
+	u32 qh_endpt2;
+	qtd_type *current_qtd;
+	qtd_type qtd;
 } qh_type;
 
 
@@ -117,9 +114,9 @@ void state_machine();
 
 // Fixex USB Periodic Buffers
 #define USB_LISTBASE       ((qh_type **)0x304000)
-#define USB_PERIODIC_QH1   ((qh_type  *)0x304040)
-#define USB_PERIODIC_QH2A  ((qh_type  *)0x304080)
-#define USB_PERIODIC_QH2B  ((qh_type  *)0x3040C0)
+#define USB_PERIODIC_QH    ((qh_type  *)0x304040)
+#define USB_PERIODIC_QH1   ((qh_type  *)0x304080)
+#define USB_PERIODIC_QH2   ((qh_type  *)0x3040C0)
 #define USB_PERIODIC_QTD1  ((qtd_type *)0x304100)
 #define USB_PERIODIC_QTD2  ((qtd_type *)0x304120)
 #define USB_PERIODIC_DATA  ((u32      *)0x305000)
@@ -503,7 +500,7 @@ void processKeyboardInfo(u32 usbWord0, u32 usbWord1) {
 	}
 }
 
-qtd_type * calNextPointer(qtd_type * currentpointer) {
+qtd_type *calNextPointer(qtd_type * currentpointer) {
 	currentpointer++;
 	if (currentpointer >= USB_ASYNC_QTD + NUM_QTD) {
 		currentpointer = USB_ASYNC_QTD;
@@ -524,14 +521,14 @@ void set_port_reset_state(int do_reset) {
 }
 
 void schedTransfer(int setup, int direction, int size, qh_type *qh) {
-	qtd_type *first_qtd = qh->word4;
+	qtd_type *first_qtd = qh->qtd.next;
 	qtd_type *firstTD = first_qtd;
 	qtd_type *nextTD = first_qtd;
 	if (setup) {
 		firstTD->next = calNextPointer(first_qtd); //next qtd + terminate
-		firstTD->alternate = QTD_TERMINATOR; // alternate pointer
-		firstTD->word2 = 0x00080240; //with setup keep haleted/non active till everything setup
-		firstTD->data = USB_ASYNC_DATA0; //buffer for setup command
+		firstTD->altnext = QTD_TERMINATOR; // alternate pointer
+		firstTD->token = 0x00080240; //with setup keep haleted/non active till everything setup
+		firstTD->buffer = USB_ASYNC_DATA0; //buffer for setup command
 
 	}
 	if (size > 0) {
@@ -539,40 +536,40 @@ void schedTransfer(int setup, int direction, int size, qh_type *qh) {
 			nextTD = calNextPointer(first_qtd);
 
 		nextTD->next = calNextPointer(nextTD); //next qtd + terminate
-		nextTD->alternate = QTD_TERMINATOR; // alternate pointer
+		nextTD->altnext = QTD_TERMINATOR; // alternate pointer
 
-		nextTD->word2 = (size << 16) | (direction << 8)
+		nextTD->token = (size << 16) | (direction << 8)
 				| (nextTD == firstTD ? 0x40 : 0x80) | 0x80000000;
 
 		if (direction == 0)
-			nextTD->word2 = nextTD->word2 | 0x8000;
-		nextTD->data = setup ? USB_ASYNC_DATA1 : USB_ASYNC_DATA0; //buffer for setup command
+			nextTD->token = nextTD->token | 0x8000;
+		nextTD->buffer = setup ? USB_ASYNC_DATA1 : USB_ASYNC_DATA0; //buffer for setup command
 
 		nextTD = calNextPointer(nextTD);
 
 		if (direction == 1) {
 			nextTD->next = calNextPointer(nextTD); //next qtd + terminate
-			nextTD->alternate = QTD_TERMINATOR; // alternate pointer
-			nextTD->word2 = 0x80008080; //with setup keep haleted/non active till everything setup
-			nextTD->data = USB_ASYNC_DATA0; //buffer for setup command
+			nextTD->altnext = QTD_TERMINATOR; // alternate pointer
+			nextTD->token = 0x80008080; //with setup keep haleted/non active till everything setup
+			nextTD->buffer = USB_ASYNC_DATA0; //buffer for setup command
 		}
 	} else {
 		//size = 0
 		nextTD = calNextPointer(first_qtd);
 		nextTD->next = calNextPointer(nextTD); //next qtd + terminate
-		nextTD->alternate = QTD_TERMINATOR; // alternate pointer
-		nextTD->word2 = (0 << 16) | (1 << 8) | (nextTD == firstTD ? 0x40 : 0x80)
+		nextTD->altnext = QTD_TERMINATOR; // alternate pointer
+		nextTD->token = (0 << 16) | (1 << 8) | (nextTD == firstTD ? 0x40 : 0x80)
 				| 0x80000000 | 0x8000;
 
 	}
 	if (nextTD == firstTD)
-		nextTD->word2 = nextTD->word2 | 0x8000;
+		nextTD->token = nextTD->token | 0x8000;
 	nextTD = calNextPointer(nextTD);
 	nextTD->next = QTD_TERMINATOR; //next qtd + terminate
-	nextTD->alternate = QTD_TERMINATOR; // alternate pointer
-	nextTD->word2 = 0x40; //with setup keep haleted/non active till everything setup
-	nextTD->data = USB_ASYNC_DATA0; //buffer for setup command
-	firstTD->word2 = (firstTD->word2 & (~0x40)) | 0x80;
+	nextTD->altnext = QTD_TERMINATOR; // alternate pointer
+	nextTD->token = 0x40; //with setup keep haleted/non active till everything setup
+	nextTD->buffer = USB_ASYNC_DATA0; //buffer for setup command
+	firstTD->token = (firstTD->token & (~0x40)) | 0x80;
 }
 
 void initUsb() {
@@ -600,18 +597,18 @@ void initUsb() {
 
 	qh_type *qh;
 	qh = USB_ASYNC_QH;
-	qh->word0 = QH_REF(USB_ASYNC_QH);
-	qh->word1 = 0xf808d000; //enable H bit -> head of reclamation
-	qh->word2 = 0x40000000;
-	qh->word3 = 0;
-	qh->word4 = USB_ASYNC_QTD; // pointer to halt qtd
-	qh->word5 = 1; // no alternate
+	qh->qh_link = QH_REF(USB_ASYNC_QH);
+	qh->qh_endpt1 = 0xf808d000; //enable H bit -> head of reclamation
+	qh->qh_endpt2 = 0x40000000;
+	qh->current_qtd = 0;
+	qh->qtd.next = USB_ASYNC_QTD; // pointer to halt qtd
+	qh->qtd.altnext = QTD_TERMINATOR; // no alternate
 
 	qtd_type *qTD;
 	qTD = USB_ASYNC_QTD;
 	qTD->next = QTD_TERMINATOR; //next qtd + terminate
-	qTD->alternate = 0; // alternate pointer
-	qTD->word2 = 0x40; //halt value// setup packet 80 to activate
+	qTD->altnext = 0; // alternate pointer
+	qTD->token = 0x40; //halt value// setup packet 80 to activate
 
 	Xil_Out32(USB0_ASYNCLISTADDR, (u32) USB_ASYNC_QH); // set async base
 	in2 = Xil_In32(USB0_CMD) | 0x1;
@@ -645,30 +642,30 @@ void setup_periodic() {
 
 	Xil_Out32(USB0_LISTBASE, (u32) USB_LISTBASE);
 
-	qh = USB_PERIODIC_QH1;
-	qh->word0 = QH_REF(USB_PERIODIC_QH2A);
-	qh->word1 = 0;
-	qh->word2 = 0;
-	qh->word3 = 0;
-	qh->word4 = QTD_TERMINATOR;
-	qh->word5 = 1;
+	qh = USB_PERIODIC_QH;
+	qh->qh_link = QH_REF(USB_PERIODIC_QH1);
+	qh->qh_endpt1 = 0;
+	qh->qh_endpt2 = 0;
+	qh->current_qtd = 0;
+	qh->qtd.next = QTD_TERMINATOR;
+	qh->qtd.altnext = QTD_TERMINATOR;
 
-	qh = USB_PERIODIC_QH2A;
-	qh->word0 = QH_TERMINATOR;
-	qh->word1 = 0x00085103;
-	qh->word2 = 0x40000001;
-	qh->word3 = 0;
-	qh->word4 = USB_PERIODIC_QTD1;
-	qh->word5 = 1;
+	qh = USB_PERIODIC_QH1;
+	qh->qh_link = QH_TERMINATOR;
+	qh->qh_endpt1 = 0x00085103;
+	qh->qh_endpt2 = 0x40000001;
+	qh->current_qtd = 0;
+	qh->qtd.next = USB_PERIODIC_QTD1;
+	qh->qtd.altnext = QTD_TERMINATOR;
 
 	qtd_type *qTD = USB_PERIODIC_QTD1;
 	qTD->next = QTD_TERMINATOR;
-	qTD->alternate = QTD_TERMINATOR;
-	qTD->word2 = 0x00080180;
-	qTD->data = USB_PERIODIC_DATA;
+	qTD->altnext = QTD_TERMINATOR;
+	qTD->token = 0x00080180;
+	qTD->buffer = USB_PERIODIC_DATA;
 
 	//set first frame to qh
-	USB_LISTBASE[0] = QH_REF(USB_PERIODIC_QH1);
+	USB_LISTBASE[0] = QH_REF(USB_PERIODIC_QH);
 }
 
 void state_machine() {
@@ -697,7 +694,7 @@ void state_machine() {
 		status = 4;
 		return;
 	} else if (status == 4) {
-		USB_ASYNC_QH->word1 |= 3;
+		USB_ASYNC_QH->qh_endpt1 |= 3;
 		//set configuration
 		USB_ASYNC_DATA0[0] = 0x00010900;
 		USB_ASYNC_DATA0[1] = 0x00000000;
@@ -716,30 +713,30 @@ void state_machine() {
 		qtd_type *qTDAddress = currentTD ? USB_PERIODIC_QTD1 : USB_PERIODIC_QTD2;
 		qtd_type *qTDAddressCheck = currentTD ? USB_PERIODIC_QTD2 : USB_PERIODIC_QTD1;
 
-		u32 toggle = qTDAddressCheck->word2 & 0x80000000;
-		if (!(qTDAddressCheck->word2 & 0x80)) {
+		u32 toggle = qTDAddressCheck->token & 0x80000000;
+		if (!(qTDAddressCheck->token & 0x80)) {
 			u32 word0 = USB_PERIODIC_DATA[0];
 			u32 word1 = USB_PERIODIC_DATA[1];
             processKeyboardInfo(word0, word1);
 
-			qh_type *qh = USB_PERIODIC_QH1;
-			qh->word0 = QH_TERMINATOR;
+			qh_type *qh = USB_PERIODIC_QH;
+			qh->qh_link = QH_TERMINATOR;
 
-			qh_type *qh2 = (qh_type *) (currentTD ? USB_PERIODIC_QH2A : USB_PERIODIC_QH2B);
-			qh2->word0 = QH_TERMINATOR;
-			qh2->word1 = 0x00085103;
-			qh2->word2 = 0x40000001;
-			qh2->word3 = 0;
-			qh2->word4 = qTDAddress;
-			qh2->word5 = 1;
+			qh_type *qh2 = currentTD ? USB_PERIODIC_QH1 : USB_PERIODIC_QH2;
+			qh2->qh_link = QH_TERMINATOR;
+			qh2->qh_endpt1 = 0x00085103;
+			qh2->qh_endpt2 = 0x40000001;
+			qh2->current_qtd = 0;
+			qh2->qtd.next = qTDAddress;
+			qh2->qtd.altnext = QTD_TERMINATOR;
 
-			qtd_type *qTD = (qtd_type *) qTDAddress;
+			qtd_type *qTD = qTDAddress;
 			qTD->next = QTD_TERMINATOR;
-			qTD->alternate = QTD_TERMINATOR;
-			qTD->word2 = 0x00080180 | toggle; //halt value// setup packet 80 to activate
-			qTD->data = USB_PERIODIC_DATA;
+			qTD->altnext = QTD_TERMINATOR;
+			qTD->token = 0x00080180 | toggle; //halt value// setup packet 80 to activate
+			qTD->buffer = USB_PERIODIC_DATA;
 
-			qh->word0 = QH_REF(qh2);
+			qh->qh_link = QH_REF(qh2);
 			currentTD = ~currentTD;
 		}
 		scheduleTimer(10000);

@@ -89,8 +89,10 @@ void state_machine();
 #define USB0_PORTSCR1      0xE0002184
 #define USB0_MODE          0xE00021A8
 
-#define USB_QH             ((struct QStruct *)0x300000)
-#define USB_QTD            ((struct QStruct *)0x300040)
+#define USB_ASYNC_QH       ((struct QStruct *)0x300000)
+#define USB_ASYNC_QTD      ((struct QStruct *)0x300040)
+#define USB_ASYNC_DATA0    (0x301000)
+#define USB_ASYNC_DATA1    (0x302000)
 
 #define NUM_QTD            0x10
 
@@ -475,8 +477,8 @@ void processKeyboardInfo(u32 usbWord0, u32 usbWord1) {
 
 struct QStruct * calNextPointer(struct QStruct * currentpointer) {
 	currentpointer++;
-	if (currentpointer >= USB_QTD + NUM_QTD) {
-		currentpointer = USB_QTD;
+	if (currentpointer >= USB_ASYNC_QTD + NUM_QTD) {
+		currentpointer = USB_ASYNC_QTD;
 	}
 	return currentpointer;
 }
@@ -501,7 +503,7 @@ void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
 		firstTD->word0 = (u32) calNextPointer(first_qtd); //next qtd + terminate
 		firstTD->word1 = 1; // alternate pointer
 		firstTD->word2 = 0x00080240; //with setup keep haleted/non active till everything setup
-		firstTD->word3 = 0x301000; //buffer for setup command
+		firstTD->word3 = USB_ASYNC_DATA0; //buffer for setup command
 
 	}
 	if (size > 0) {
@@ -516,7 +518,7 @@ void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
 
 		if (direction == 0)
 			nextTD->word2 = nextTD->word2 | 0x8000;
-		nextTD->word3 = setup ? 0x302000 : 0x301000; //buffer for setup command
+		nextTD->word3 = setup ? USB_ASYNC_DATA1 : USB_ASYNC_DATA0; //buffer for setup command
 
 		nextTD = calNextPointer(nextTD);
 
@@ -524,7 +526,7 @@ void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
 			nextTD->word0 = (u32) calNextPointer(nextTD); //next qtd + terminate
 			nextTD->word1 = 1; // alternate pointer
 			nextTD->word2 = 0x80008080; //with setup keep haleted/non active till everything setup
-			nextTD->word3 = 0x301000; //buffer for setup command
+			nextTD->word3 = USB_ASYNC_DATA0; //buffer for setup command
 		}
 	} else {
 		//size = 0
@@ -541,7 +543,7 @@ void schedTransfer(int setup, int direction, int size, struct QStruct *qh) {
 	nextTD->word0 = 1; //next qtd + terminate
 	nextTD->word1 = 1; // alternate pointer
 	nextTD->word2 = 0x40; //with setup keep haleted/non active till everything setup
-	nextTD->word3 = 0x301000; //buffer for setup command
+	nextTD->word3 = USB_ASYNC_DATA0; //buffer for setup command
 	firstTD->word2 = (firstTD->word2 & (~0x40)) | 0x80;
 }
 
@@ -566,24 +568,24 @@ void initUsb() {
 
 	usleep(1000000);
 
-	memset(USB_QH, 1000000, 1);
+	memset(USB_ASYNC_QH, 1000000, 1);
 
 	struct QStruct *qh;
-	qh = USB_QH;
-	qh->word0 = ((u32) USB_QH) + 2;
+	qh = USB_ASYNC_QH;
+	qh->word0 = ((u32) USB_ASYNC_QH) + 2;
 	qh->word1 = 0xf808d000; //enable H bit -> head of reclamation
 	qh->word2 = 0x40000000;
 	qh->word3 = 0;
-	qh->word4 = (u32) USB_QTD; // pointer to halt qtd
+	qh->word4 = (u32) USB_ASYNC_QTD; // pointer to halt qtd
 	qh->word5 = 1; // no alternate
 
 	struct QStruct *qTD;
-	qTD = USB_QTD;
+	qTD = USB_ASYNC_QTD;
 	qTD->word0 = 1; //next qtd + terminate
 	qTD->word1 = 0; // alternate pointer
 	qTD->word2 = 0x40; //halt value// setup packet 80 to activate
 
-	Xil_Out32(USB0_ASYNCLISTADDR, 0x300000); // set async base
+	Xil_Out32(USB0_ASYNCLISTADDR, USB_ASYNC_QH); // set async base
 	in2 = Xil_In32(USB0_CMD) | 0x1;
 	Xil_Out32(USB0_CMD, in2); //enable rs bit
 
@@ -671,9 +673,9 @@ void state_machine() {
 		return;
 	} else if (status == 2) {
 		//set address
-		Xil_Out32(0x301000, 0x00030500);
-		Xil_Out32(0x301004, 0x00000000);
-		schedTransfer(1, 0, 0x0, USB_QH);
+		Xil_Out32(USB_ASYNC_DATA0, 0x00030500);
+		Xil_Out32(USB_ASYNC_DATA0 + 4, 0x00000000);
+		schedTransfer(1, 0, 0x0, USB_ASYNC_QH);
 		status = 3;
 		return;
 	} else if (status == 3) {
@@ -681,13 +683,12 @@ void state_machine() {
 		status = 4;
 		return;
 	} else if (status == 4) {
-		in2 = Xil_In32(0x300004) | 3;
-		Xil_Out32(0x300004, in2);
+		USB_ASYNC_QH->word1 |= 3;
 
 		//set configuration
-		Xil_Out32(0x301000, 0x00010900);
-		Xil_Out32(0x301004, 0x00000000);
-		schedTransfer(1, 0, 0, USB_QH);
+		Xil_Out32(USB_ASYNC_DATA0, 0x00010900);
+		Xil_Out32(USB_ASYNC_DATA0 + 4, 0x00000000);
+		schedTransfer(1, 0, 0, USB_ASYNC_QH);
 		status = 5;
 		return;
 	} else if (status == 5) {
@@ -795,13 +796,13 @@ int main() {
 
 	//	dump_ulpi();
 	//
-	//	for (u32 i = 0x300000; i < 0x300100; i += 4) {
+	//	for (u32 i = USB_ASYNC_QH; i < USB_ASYNC_QH + 0x100; i += 4) {
 	//		printf("%x = %x\n", i, *((u32 *)i));
 	//	}
-	//	for (u32 i = 0x301000; i < 0x30101C; i += 4) {
+	//	for (u32 i = USB_ASYNC_DATA0; i < USB_ASYNC_DATA0 + 0x1C; i += 4) {
 	//		printf("%x = %x\n", i, *((u32 *)i));
 	//	}
-	//	for (u32 i = 0x302000; i < 0x30201C; i += 4) {
+	//	for (u32 i = USB_ASYNC_DATA1; i < USB_ASYNC_DATA1 + 0x1C; i += 4) {
 	//		printf("%x = %x\n", i, *((u32 *)i));
 	//	}
 	//

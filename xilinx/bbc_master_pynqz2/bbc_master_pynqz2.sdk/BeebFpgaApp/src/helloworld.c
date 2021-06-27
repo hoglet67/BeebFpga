@@ -51,6 +51,13 @@
 #include "xuartps.h"
 #include "ulpi.h"
 
+#include "class/cdc/cdc.h"
+#include "portable/ehci/hcd_ehci.h"
+#include "host/hcd.h"
+#include "tusb.h"
+
+#define USE_TINYUSB
+
 #define UART_BUFFER_SIZE 32
 
 int myhelp;
@@ -198,6 +205,88 @@ void dump_ulpi() {
 		printf("ulpi[%02x]:%24s = %02x (%s)\n", i, ulpi_reg_names[i], val, to_binary(val));
 	}
 }
+
+
+void tuh_cdc_xfer_isr(uint8_t dev_addr, xfer_result_t event, cdc_pipeid_t pipe_id, uint32_t xferred_bytes) {
+	printf("DMB: tuh_cdc_xfer_isr\n");
+}
+
+void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len) {
+	printf("DMB: tuh_hid_report_received_cb\n");
+}
+
+void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report_desc, uint16_t desc_len) {
+	printf("DMB: tuh_hid_mount_cb\n");
+}
+
+uint32_t hcd_ehci_register_addr(uint8_t rhport) {
+	printf("DMB: hcd_ehci_register_addr\n");
+	return USB0_CMD;
+}
+
+void usb_interrupt_handler() {
+	hcd_int_handler(0);
+}
+
+bool hcd_init(uint8_t rhport) {
+	printf("DMB: hcd_init0\n");
+
+	 // Reset controller
+
+	Xil_Out32(USB0_CMD, Xil_In32(USB0_CMD) | 0x2);
+	while (Xil_In32(USB0_CMD) & 2);
+
+	printf("DMB: hcd_init1\n");
+
+	Xil_Out32(USB0_MODE, 0x23); //set to host mode and vbus power select
+
+//	u32 in2 = Xil_In32(USB0_PORTSCR1) | 4096;
+//	Xil_Out32(USB0_PORTSCR1, in2); //switch port power on
+
+	/* ULPI set flags */
+	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl,
+		   ULPI_OTG_DP_PULLDOWN | ULPI_OTG_DM_PULLDOWN |
+		   ULPI_OTG_EXTVBUSIND);
+	ulpi_write(&ulpi_vp, &ulpi->function_ctrl,
+		   ULPI_FC_FULL_SPEED | ULPI_FC_OPMODE_NORMAL |
+		   ULPI_FC_SUSPENDM);
+	ulpi_write(&ulpi_vp, &ulpi->iface_ctrl, 0);
+
+	/* Set VBus */
+	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl_set,
+		   ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
+
+	myhelp = 1;
+	IntcConfig = XScuGic_LookupConfig(0);
+	XScuGic_CfgInitialize(&INTCInst, IntcConfig, IntcConfig->CpuBaseAddress);
+	Xil_ExceptionRegisterHandler(XIL_EXCEPTION_ID_INT, (Xil_ExceptionHandler) XScuGic_InterruptHandler, &INTCInst);
+	Xil_ExceptionEnable();
+	XScuGic_Connect(&INTCInst, 53, (Xil_ExceptionHandler) usb_interrupt_handler, (void *) myhelp);
+	XScuGic_Enable(&INTCInst, 53);
+
+
+	printf("DMB: hcd_init2\n");
+
+	bool ret = hcd_ehci_init(rhport);
+	printf("DMB: hcd_init3\n");
+
+	return ret;
+}
+
+// Enable USB interrupt
+void hcd_int_enable (uint8_t rhport) {
+	//printf("DMB: hcd_int_enable\n");
+	XScuGic_Enable(&INTCInst, 53);
+}
+
+// Disable USB interrupt
+void hcd_int_disable(uint8_t rhport) {
+	//printf("DMB: hcd_int_disable\n");
+	XScuGic_Disable(&INTCInst, 53);
+}
+
+#ifndef USE_TINYUSB
+
 
 void scheduleTimer(int usec) {
 	//set timer value
@@ -758,6 +847,10 @@ void state_machine() {
 
 }
 
+#endif
+
+
+
 int main() {
 	int ret;
 	u8 buffer[UART_BUFFER_SIZE];
@@ -811,10 +904,18 @@ int main() {
 	Xil_Out32(GPIO_REG2, 0);
 	Xil_Out32(GPIO_REG3, 0);
 
+#ifdef USE_TINYUSB
+	printf("DMB:before tusb_init\n");
+	tusb_init();
+	printf("DMB:after tusb_init\n");
+#else
 	initint();
 	initUsb();
 	status = ST_INITIAL;
 	state_machine();
+
+#endif
+
 
 	//	dump_ulpi();
 	//
@@ -835,6 +936,12 @@ int main() {
 	 * Cross Connect the two UARTs *
 	 *******************************/
 
+	usleep(1000000);
+
+	printf("PORTSC=%08lx\n", *(u32 *)USB0_PORTSCR1);
+	dump_ulpi();
+
+
 	while (1) {
 		len = XUartPs_Recv(&Uart_PS_0, buffer, sizeof(buffer));
 		if (len > 0) {
@@ -845,6 +952,9 @@ int main() {
 			XUartPs_Send(&Uart_PS_0, buffer, len);
 			led = !led;
 		}
+#ifdef USE_TINYUSB
+		///tuh_task();
+#endif
 	}
 	cleanup_platform();
 	return 0;

@@ -117,6 +117,10 @@
 // Mind Motion
 #define OPT_MCU_MM32F327X        1500 ///< Mind Motion MM32F327
 
+
+// ZYNQ
+#define OPT_MCU_ZYNQ             1600
+
 /** @} */
 
 /** \defgroup group_supported_os Supported RTOS

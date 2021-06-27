@@ -206,6 +206,40 @@ void dump_ulpi() {
 	}
 }
 
+void dump_usb() {
+
+	printf("USB0_CMD           %08lx\n", *(u32 *)USB0_CMD           );
+	printf("USB0_ISR           %08lx\n", *(u32 *)USB0_ISR           );
+	printf("USB0_IER           %08lx\n", *(u32 *)USB0_IER           );
+	printf("USB0_LISTBASE      %08lx\n", *(u32 *)USB0_LISTBASE      );
+	printf("USB0_ASYNCLISTADDR %08lx\n", *(u32 *)USB0_ASYNCLISTADDR );
+	printf("USB0_VIEWPORT      %08lx\n", *(u32 *)USB0_VIEWPORT      );
+	printf("USB0_PORTSCR1      %08lx\n", *(u32 *)USB0_PORTSCR1      );
+	printf("USB0_MODE          %08lx\n", *(u32 *)USB0_MODE          );
+}
+
+void initUsb() {
+
+	Xil_Out32(USB0_MODE, 3); //set to host mode
+	u32 in2 = Xil_In32(USB0_PORTSCR1) | 4096;
+	Xil_Out32(USB0_PORTSCR1, in2); //switch port power on
+
+
+	/* ULPI set flags */
+	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl,
+		   ULPI_OTG_DP_PULLDOWN | ULPI_OTG_DM_PULLDOWN |
+		   ULPI_OTG_EXTVBUSIND);
+	ulpi_write(&ulpi_vp, &ulpi->function_ctrl,
+		   ULPI_FC_FULL_SPEED | ULPI_FC_OPMODE_NORMAL |
+		   ULPI_FC_SUSPENDM);
+	ulpi_write(&ulpi_vp, &ulpi->iface_ctrl, 0);
+
+	/* Set VBus */
+	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl_set,
+		   ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
+
+	usleep(1000000);
+}
 
 void tuh_cdc_xfer_isr(uint8_t dev_addr, xfer_result_t event, cdc_pipeid_t pipe_id, uint32_t xferred_bytes) {
 	printf("DMB: tuh_cdc_xfer_isr\n");
@@ -236,29 +270,33 @@ bool hcd_init(uint8_t rhport) {
 	Xil_Out32(USB0_CMD, Xil_In32(USB0_CMD) | 0x2);
 	while (Xil_In32(USB0_CMD) & 2);
 
-	printf("DMB: hcd_init1\n");
+	//*(u32 *)USB0_IER = 0;
 
-	Xil_Out32(USB0_MODE, 0x23); //set to host mode and vbus power select
+	usleep(1000);
 
-//	u32 in2 = Xil_In32(USB0_PORTSCR1) | 4096;
-//	Xil_Out32(USB0_PORTSCR1, in2); //switch port power on
+	Xil_Out32(USB0_MODE, 0x03); //set to host mode
+
+	//u32 in2 = Xil_In32(USB0_PORTSCR1) | 4096;
+	//Xil_Out32(USB0_PORTSCR1, in2); //switch port power on
 
 	/* ULPI set flags */
 	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl,
 		   ULPI_OTG_DP_PULLDOWN | ULPI_OTG_DM_PULLDOWN |
 		   ULPI_OTG_EXTVBUSIND);
+
 	ulpi_write(&ulpi_vp, &ulpi->function_ctrl,
 		   ULPI_FC_FULL_SPEED | ULPI_FC_OPMODE_NORMAL |
 		   ULPI_FC_SUSPENDM);
+
 	ulpi_write(&ulpi_vp, &ulpi->iface_ctrl, 0);
+
 
 	/* Set VBus */
 	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl_set,
 		   ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
 
-	/* Disable high speed mode */
-	/* Set to low speed */
-	Xil_Out32(USB0_PORTSCR1, (Xil_In32(USB0_PORTSCR1) & 0xF0FFFFFF) | 0x06000000);
+
+	printf("DMB: hcd_init1\n");
 
 	myhelp = 1;
 	IntcConfig = XScuGic_LookupConfig(0);
@@ -678,27 +716,9 @@ void schedTransfer(int setup, int direction, int size, qh_type *qh) {
 	firstTD->token = (firstTD->token & (~0x40)) | 0x80;
 }
 
-void initUsb() {
-	Xil_Out32(USB0_MODE, 3); //set to host mode
-	u32 in2 = Xil_In32(USB0_PORTSCR1) | 4096;
-	Xil_Out32(USB0_PORTSCR1, in2); //switch port power on
 
 
-	/* ULPI set flags */
-	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl,
-		   ULPI_OTG_DP_PULLDOWN | ULPI_OTG_DM_PULLDOWN |
-		   ULPI_OTG_EXTVBUSIND);
-	ulpi_write(&ulpi_vp, &ulpi->function_ctrl,
-		   ULPI_FC_FULL_SPEED | ULPI_FC_OPMODE_NORMAL |
-		   ULPI_FC_SUSPENDM);
-	ulpi_write(&ulpi_vp, &ulpi->iface_ctrl, 0);
-
-	/* Set VBus */
-	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl_set,
-		   ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
-
-	usleep(1000000);
-
+void initLists() {
 	memset(USB_ASYNC_QH, 1000000, 1);
 
 	qh_type *qh;
@@ -717,12 +737,8 @@ void initUsb() {
 	qTD->token = 0x40; //halt value// setup packet 80 to activate
 
 	Xil_Out32(USB0_ASYNCLISTADDR, (u32) USB_ASYNC_QH); // set async base
-	in2 = Xil_In32(USB0_CMD) | 0x1;
-	Xil_Out32(USB0_CMD, in2); //enable rs bit
-
-	in2 = Xil_In32(USB0_CMD) | 0x20;
-	Xil_Out32(USB0_CMD, in2); // enable async processing
-
+	Xil_Out32(USB0_CMD, Xil_In32(USB0_CMD) | 0x1); //enable rs bit
+	Xil_Out32(USB0_CMD, Xil_In32(USB0_CMD) | 0x20); // enable async processing
 }
 
 void initint() {
@@ -733,8 +749,7 @@ void initint() {
 	Xil_ExceptionEnable();
 	XScuGic_Connect(&INTCInst, 53, (Xil_ExceptionHandler) state_machine, (void *) myhelp);
 	XScuGic_Enable(&INTCInst, 53);
-	u32 in2 = Xil_In32(USB0_IER) | (1 << 24) | (1 << 18);
-	Xil_Out32(USB0_IER, in2); //enable
+	Xil_Out32(USB0_IER, Xil_In32(USB0_IER) | (1 << 24) | (1 << 18)); //enable
 }
 
 void setup_periodic() {
@@ -912,39 +927,38 @@ int main() {
 	printf("DMB:before tusb_init\n");
 	tusb_init();
 	printf("DMB:after tusb_init\n");
+	usleep(100000);
+
+	dump_ulpi();
+	dump_usb();
+	usleep(100000);
+
+
+
+	ulpi_write(&ulpi_vp, &ulpi->function_ctrl,
+		   ULPI_FC_FULL_SPEED | ULPI_FC_OPMODE_NORMAL |
+		   ULPI_FC_SUSPENDM);
+	dump_ulpi();
+	dump_usb();
+
 #else
 	initint();
 	initUsb();
+	initLists();
+	dump_ulpi();
+	dump_usb();
+
 	status = ST_INITIAL;
 	state_machine();
-
 #endif
 
 
-	//	dump_ulpi();
-	//
-	//	for (u32 i = USB_ASYNC_QH; i < USB_ASYNC_QH + 0x100; i += 4) {
-	//		printf("%x = %x\n", i, *((u32 *)i));
-	//	}
-	//	for (u32 i = USB_ASYNC_DATA0; i < USB_ASYNC_DATA0 + 0x1C; i += 4) {
-	//		printf("%x = %x\n", i, *((u32 *)i));
-	//	}
-	//	for (u32 i = USB_ASYNC_DATA1; i < USB_ASYNC_DATA1 + 0x1C; i += 4) {
-	//		printf("%x = %x\n", i, *((u32 *)i));
-	//	}
-	//
-	//	printf("USB0_ISR = %x\n", *((u32 *)USB0_ISR));
-	//	printf("USB0_ASYNCLISTADDR = %x\n", *((u32 *)USB0_ASYNCLISTADDR));
+
+	usleep(1000000);
 
 	/*******************************
 	 * Cross Connect the two UARTs *
 	 *******************************/
-
-	usleep(1000000);
-
-	printf("PORTSC=%08lx\n", *(u32 *)USB0_PORTSCR1);
-	dump_ulpi();
-
 
 	while (1) {
 		len = XUartPs_Recv(&Uart_PS_0, buffer, sizeof(buffer));

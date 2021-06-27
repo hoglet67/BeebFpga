@@ -286,11 +286,17 @@ bool hcd_ehci_init(uint8_t rhport)
   regs->periodic_list_base = (uint32_t) framelist;
 
   //------------- TT Control (NXP only) -------------//
-  regs->nxp_tt_control = 0;
+  // regs->nxp_tt_control = 0;
 
   //------------- USB CMD Register -------------//
+  /*
   regs->command |= TU_BIT(EHCI_USBCMD_POS_RUN_STOP) | TU_BIT(EHCI_USBCMD_POS_ASYNC_ENABLE)
                 | TU_BIT(EHCI_USBCMD_POS_PERIOD_ENABLE) // TODO enable period list only there is int/iso endpoint
+                | ((EHCI_CFG_FRAMELIST_SIZE_BITS & TU_BIN8(011)) << EHCI_USBCMD_POS_FRAMELIST_SZIE)
+                | ((EHCI_CFG_FRAMELIST_SIZE_BITS >> 2) << EHCI_USBCMD_POS_NXP_FRAMELIST_SIZE_MSB);
+*/
+  regs->command |= TU_BIT(EHCI_USBCMD_POS_RUN_STOP) | TU_BIT(EHCI_USBCMD_POS_ASYNC_ENABLE)
+//                | TU_BIT(EHCI_USBCMD_POS_PERIOD_ENABLE) // TODO enable period list only there is int/iso endpoint
                 | ((EHCI_CFG_FRAMELIST_SIZE_BITS & TU_BIN8(011)) << EHCI_USBCMD_POS_FRAMELIST_SZIE)
                 | ((EHCI_CFG_FRAMELIST_SIZE_BITS >> 2) << EHCI_USBCMD_POS_NXP_FRAMELIST_SIZE_MSB);
 

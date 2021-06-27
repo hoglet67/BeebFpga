@@ -64,7 +64,7 @@ int ulpi_init(struct ulpi_viewport *ulpi_vp)
 	}
 
 	/* Split ID into vendor and product ID. */
-	printf("ULPI transceiver ID 0x%04x:0x%04x\n", id >> 16, id & 0xffff);
+	printf("ULPI transceiver ID 0x%04lx:0x%04lx\n", id >> 16, id & 0xffff);
 
 	return ulpi_integrity_check(ulpi_vp);
 }

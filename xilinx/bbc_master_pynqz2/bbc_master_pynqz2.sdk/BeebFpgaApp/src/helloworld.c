@@ -256,6 +256,10 @@ bool hcd_init(uint8_t rhport) {
 	ulpi_write(&ulpi_vp, &ulpi->otg_ctrl_set,
 		   ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
 
+	/* Disable high speed mode */
+	/* Set to low speed */
+	Xil_Out32(USB0_PORTSCR1, (Xil_In32(USB0_PORTSCR1) & 0xF0FFFFFF) | 0x06000000);
+
 	myhelp = 1;
 	IntcConfig = XScuGic_LookupConfig(0);
 	XScuGic_CfgInitialize(&INTCInst, IntcConfig, IntcConfig->CpuBaseAddress);
@@ -953,7 +957,7 @@ int main() {
 			led = !led;
 		}
 #ifdef USE_TINYUSB
-		///tuh_task();
+		tuh_task();
 #endif
 	}
 	cleanup_platform();

@@ -18,7 +18,7 @@
   #error CFG_TUSB_MCU must be defined
 #endif
 
-#define CFG_TUSB_RHPORT0_MODE       OPT_MODE_HOST | OPT_MODE_LOW_SPEED
+#define CFG_TUSB_RHPORT0_MODE       OPT_MODE_HOST | OPT_MODE_FULL_SPEED
 
 #define CFG_TUSB_OS                 OPT_OS_NONE
 

@@ -325,7 +325,7 @@ begin
                 if r08_interlace(1 downto 0) = "11" and VGA = '1' then
                     -- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
                     adj_scan_line := r05_v_total_adj + 2;
-                elsif r08_interlace(1 downto 0) = "11" and odd_field = '1' then
+                elsif odd_field = '1' then
                     -- If interlaced, the odd field contains an additional scan line
                     adj_scan_line := r05_v_total_adj + 1;
                 else

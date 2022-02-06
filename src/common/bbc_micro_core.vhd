@@ -890,7 +890,8 @@ begin
            middle   => mouse_via_pb_in(6),
            right    => mouse_via_pb_in(7)
         );
-        mouse_via_pa_in <= mouse_via_pa_out;
+        -- Make unused inputs float high
+        mouse_via_pa_in <= (others => '1');
         mouse_via_pb_in(4) <= '1';
         mouse_via_pb_in(3) <= '1';
         mouse_via_pb_in(1) <= '1';
@@ -1878,8 +1879,9 @@ begin
     -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
     SDSS          <= '0';
 
-    user_via_pa_in <= user_via_pa_out;
-    user_via_pb_in <= user_via_pb_out;
+    -- Make unused inputs float high
+    user_via_pa_in <= (others => '1');
+    user_via_pb_in <= (others => '1');
 
     -- ROM select latch
     process(clock_48,reset_n)

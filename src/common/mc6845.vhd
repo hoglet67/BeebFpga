@@ -559,7 +559,7 @@ begin
                         -- Suppress wrap around if last line is > max scan line
                         cursor_line := '0';
                     end if;
-                    if line_counter = r10_cursor_start then
+                    if line_counter = r10_cursor_start and r10_cursor_start <= r11_cursor_end then
                         -- First cursor scanline
                         cursor_line := '1';
                     end if;

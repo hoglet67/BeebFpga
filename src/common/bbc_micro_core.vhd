@@ -295,7 +295,7 @@ signal crtc_hsync       :   std_logic;
 signal crtc_hsync_n     :   std_logic;
 signal crtc_de          :   std_logic;
 signal crtc_cursor      :   std_logic;
-constant crtc_lpstb     :   std_logic := '0';
+signal crtc_lpstb       :   std_logic;
 signal crtc_ma          :   std_logic_vector(13 downto 0);
 signal crtc_ra          :   std_logic_vector(4 downto 0);
 
@@ -1839,6 +1839,11 @@ begin
     -- CRTC
     sys_via_ca1_in <= crtc_vsync;
     sys_via_cb2_in <= crtc_lpstb;
+
+    -- The Lightpen strobe is abused by Pharoah's Curse
+    -- see https://github.com/mattgodbolt/jsbeeb/issues/135
+    crtc_lpstb <= sys_via_cb2_out when sys_via_cb2_oe_n = '0' else '1';
+
     -- Keyboard
     sys_via_ca2_in <= keyb_int;
 

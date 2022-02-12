@@ -1618,6 +1618,7 @@ begin
 
     -- CPU data bus mux and interrupts
     cpu_di <=
+        cpu_do         when cpu_r_nw = '0' else
         cpu_mem_data   when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
         crtc_do        when crtc_enable = '1' else
         adc_do         when adc_enable = '1' else

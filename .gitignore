@@ -13,7 +13,7 @@ roms/tmp/
 
 src/common/AtomBusMon
 
-src/xilinx/CpuMon_bd.bmm
+*_bd.bmm
 
 src/xilinx/ipcore_dir/WatchEvents.asy
 src/xilinx/ipcore_dir/WatchEvents.gise

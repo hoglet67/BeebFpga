@@ -342,7 +342,7 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="156"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="49"/>
     </file>
-    <file xil_pn:name="../AtomBusMon/src/AVR8/Memory/XPM_T65.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="../AtomBusMon/src/AVR8/Memory/XPM_Xilinx.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="153"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="48"/>
     </file>
@@ -433,6 +433,9 @@
     <file xil_pn:name="../src/xilinx/ipcore_dir/ph_fifo_core_spartan6.xco" xil_pn:type="FILE_COREGEN">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="161"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="7"/>
+    </file>
+    <file xil_pn:name="duo_cpumon_modelb.bmm" xil_pn:type="FILE_BMM">
+      <association xil_pn:name="Implementation" xil_pn:seqID="172"/>
     </file>
     <file xil_pn:name="../src/xilinx/ipcore_dir/WatchEvents.xise" xil_pn:type="FILE_COREGENISE">
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>

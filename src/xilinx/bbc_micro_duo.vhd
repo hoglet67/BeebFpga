@@ -62,6 +62,7 @@ entity bbc_micro_duo is
         IncludeCoProExt    : boolean := true;
         IncludeVideoNuLA   : boolean := true;
         IncludeBootstrap   : boolean := true;
+        IncludeMaster      : boolean := false;
         IncludeMinimal     : boolean := false   -- Creates a build to test
                                                 -- 4x16K ROM Images
     );
@@ -159,8 +160,6 @@ architecture rtl of bbc_micro_duo is
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_mode       : std_logic;
-    signal m128_mode_1     : std_logic;
-    signal m128_mode_2     : std_logic;
     signal copro_mode      : std_logic;
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
@@ -199,9 +198,9 @@ architecture rtl of bbc_micro_duo is
     -- start address of user data in FLASH as obtained from bitmerge.py
     -- this mus be beyond the end of the bitstream
 
-    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"060000";
-    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"070000";
-    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"0A0000";
+    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"100000";
+    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"110000";
+    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"140000";
     signal   user_address                 : std_logic_vector(23 downto 0);
 
     -- length of user data in FLASH = 256KB (16x 16K ROM) images
@@ -232,7 +231,7 @@ begin
 
     copro_mode <= DIP(3);
     keyb_dip       <= "00000000";
-    m128_mode      <= DIP(2);
+    m128_mode      <= '1' when IncludeMaster else '0';
     vid_mode       <= "00" & DIP(1 downto 0);
     bbc_micro : entity work.bbc_micro_core
     generic map (
@@ -245,8 +244,8 @@ begin
         IncludeCoProExt    => IncludeCoProExt,
         IncludeVideoNuLA   => IncludeVideoNuLA,
         UseOrigKeyboard    => false,
-        UseT65Core         => false,
-        UseAlanDCore       => true
+        UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
+        UseAlanDCore       => IncludeMaster       -- select the 65C02 for the Master
     )
     port map (
         clock_27       => clock_27,
@@ -422,11 +421,7 @@ begin
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            m128_mode_1 <= m128_mode;
-            m128_mode_2 <= m128_mode_1;
-            if (m128_mode_1 /= m128_mode_2) then
-                reset_counter <= (others => '0');
-            elsif (reset_counter(reset_counter'high) = '0') then
+            if (reset_counter(reset_counter'high) = '0') then
                 reset_counter <= reset_counter + 1;
             end if;
             powerup_reset_n <= not ERST and reset_counter(reset_counter'high);

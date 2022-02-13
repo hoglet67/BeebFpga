@@ -606,7 +606,7 @@ void initUsb() {
 
 	usleep(1000000);
 
-	memset(USB_ASYNC_QH, 1000000, 1);
+	memset(USB_ASYNC_QH, 0, 1000000);
 
 	qh_type *qh;
 	qh = USB_ASYNC_QH;

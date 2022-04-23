@@ -272,7 +272,7 @@ begin
                     double_high2 <= '0';
                 else
                     -- Count lines on end of active video (falling edge of disp_enable)
-                    if disp_enable = '0' and disp_enable_latch = '1' and (VGA = '0' or CRS = '1') then
+                    if disp_enable = '0' and disp_enable_latch = '1' and (VGA = '0' or CRS = '0') then
                         if line_counter = 9 then
                             line_counter <= (others => '0');
 
@@ -473,7 +473,7 @@ begin
                     gfx & code_r & std_logic_vector(line_addr);
 
     -- reference row for character rounding
-    rom_address2 <= rom_address1 + 1 when ((double_high = '0' and CRS = '1') or (double_high = '1' and line_counter(0) = '1')) else
+    rom_address2 <= rom_address1 + 1 when ((double_high = '0' and CRS = '0') or (double_high = '1' and line_counter(0) = '1')) else
                     rom_address1 - 1;
 
     char_rom : entity work.saa5050_rom_dual_port port map (

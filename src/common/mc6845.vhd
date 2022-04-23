@@ -347,11 +347,11 @@ begin
                         vadjust_counter <= vadjust_counter + 1;
                     end if;
 
-                    if eof_latched = '1' then
-
-                        line_counter <= (others => '0');
-                        vadjust_counter <= (others => '0');
-
+                    -- Surprisingly, the odd/even flag and field counter are updated based on R6
+                    -- i.e. Both cursor blink and interlace cease if R6 > R4.
+                    -- https://github.com/mattgodbolt/jsbeeb/blob/main/video.js#L641
+                    -- TODO: There are additional conditions mentioned above that we haven't yet implemented
+                    if row_counter = r06_v_displayed and line_counter = 0 then
                         -- If in interlace mode we toggle to the opposite field.
                         -- Save on some logic by doing this here rather than at the
                         -- end of v_total_adj - it shouldn't make any difference to the
@@ -361,15 +361,20 @@ begin
                         else
                             odd_field <= '0';
                         end if;
+                        -- Increment field counter
+                        field_counter <= field_counter + 1;
+                    end if;
+
+                    if eof_latched = '1' then
+
+                        line_counter <= (others => '0');
+                        vadjust_counter <= (others => '0');
 
                         -- Address is loaded from start address register at the top of
                         -- each field and the row counter is reset
                         ma_row_start := r12_start_addr_h & r13_start_addr_l;
                         ma_row_next  := r12_start_addr_h & r13_start_addr_l;
                         row_counter <= (others => '0');
-
-                        -- Increment field counter
-                        field_counter <= field_counter + 1;
 
                         -- Reset the in extra time flag
                         in_adj := '0';

@@ -609,27 +609,27 @@ begin
     GenT65Core: if UseT65Core and not IncludeICEDebugger generate
         core : entity work.T65
         port map (
-            cpu_mode,
-            reset_n,
-            cpu_clken,
-            clock_48,
-            cpu_ready,
-            cpu_abort_n,
-            cpu_irq_n,
-            cpu_nmi_n,
-            cpu_so_n,
-            cpu_r_nw,
-            cpu_sync,
-            cpu_ef,
-            cpu_mf,
-            cpu_xf,
-            cpu_ml_n,
-            cpu_vp_n,
-            cpu_vda,
-            cpu_vpa,
-            cpu_a,
-            cpu_di,
-            cpu_do
+            Mode    => cpu_mode,
+            Res_n   => reset_n,
+            Enable  => cpu_clken,
+            Clk     => clock_48,
+            Rdy     => cpu_ready,
+            Abort_n => cpu_abort_n,
+            IRQ_n   => cpu_irq_n,
+            NMI_n   => cpu_nmi_n,
+            SO_n    => cpu_so_n,
+            R_W_n   => cpu_r_nw,
+            Sync    => cpu_sync,
+            EF      => cpu_ef,
+            MF      => cpu_mf,
+            XF      => cpu_xf,
+            ML_n    => cpu_ml_n,
+            VP_n    => cpu_vp_n,
+            VDA     => cpu_vda,
+            VPA     => cpu_vpa,
+            A       => cpu_a,
+            DI      => cpu_di,
+            DO      => cpu_do
         );
         avr_TxD <= avr_RxD;
     end generate;
@@ -656,24 +656,26 @@ begin
         avr_TxD <= avr_RxD;
     end generate;
 
-    crtc : entity work.mc6845 port map (
-        clock_48,
-        crtc_clken,
-        crtc_clken_adr,
-        hard_reset_n,
-        crtc_enable,
-        cpu_r_nw,
-        cpu_a(0),
-        cpu_do,
-        crtc_do,
-        crtc_vsync,
-        crtc_hsync,
-        crtc_de,
-        crtc_cursor,
-        crtc_lpstb,
-        vga_mode,
-        crtc_ma,
-        crtc_ra );
+    crtc : entity work.mc6845
+        port map (
+            CLOCK     => clock_48,
+            CLKEN     => crtc_clken,
+            CLKEN_ADR => crtc_clken_adr,
+            nRESET    => hard_reset_n,
+            ENABLE    => crtc_enable,
+            R_nW      => cpu_r_nw,
+            RS        => cpu_a(0),
+            DI        => cpu_do,
+            DO        => crtc_do,
+            VSYNC     => crtc_vsync,
+            HSYNC     => crtc_hsync,
+            DE        => crtc_de,
+            CURSOR    => crtc_cursor,
+            LPSTB     => crtc_lpstb,
+            VGA       => vga_mode,
+            MA        => crtc_ma,
+            RA        => crtc_ra
+        );
 
     vidproc_nula: if IncludeVideoNuLA generate
     begin
@@ -703,7 +705,7 @@ begin
                 R               => r_out,
                 G               => g_out,
                 B               => b_out
-                );
+            );
     end generate;
 
     vidproc_orig: if not IncludeVideoNuLA generate
@@ -731,122 +733,129 @@ begin
                 R               => r_out,
                 G               => g_out,
                 B               => b_out
-                );
+            );
         mhz12_active <= ttxt_active;
     end generate;
 
-    teletext : entity work.saa5050 port map (
-        clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
-        ttxt_clken,
-        hard_reset_n,
-        vga_mode,
-        clock_48, -- Data input is synchronised from the bus clock domain
-        vid_clken,
-        vid_mem_data(6 downto 0),
-        ttxt_glr,
-        ttxt_dew,
-        ttxt_crs,
-        ttxt_lose,
-        ttxt_r, ttxt_g, ttxt_b, ttxt_y
+    teletext : entity work.saa5050
+        port map (
+            CLOCK    => clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
+            CLKEN    => ttxt_clken,
+            nRESET   => hard_reset_n,
+            VGA      => vga_mode,
+            DI_CLOCK => clock_48, -- Data input is synchronised from the bus clock domain
+            DI_CLKEN => vid_clken,
+            DI       => vid_mem_data(6 downto 0),
+            GLR      => ttxt_glr,
+            DEW      => ttxt_dew,
+            CRS      => ttxt_crs,
+            LOSE     => ttxt_lose,
+            R        => ttxt_r,
+            G        => ttxt_g,
+            B        => ttxt_b,
+            Y        => ttxt_y
         );
 
     -- System VIA
-    system_via : entity work.m6522 port map (
-        cpu_a(3 downto 0),
-        cpu_do,
-        sys_via_do,
-        sys_via_do_oe_n,
-        cpu_r_nw,
-        sys_via_enable,
-        '0', -- nCS2
-        sys_via_irq_n,
-        sys_via_ca1_in,
-        sys_via_ca2_in,
-        sys_via_ca2_out,
-        sys_via_ca2_oe_n,
-        sys_via_pa_in,
-        sys_via_pa_out,
-        sys_via_pa_oe_n,
-        sys_via_cb1_in,
-        sys_via_cb1_out,
-        sys_via_cb1_oe_n,
-        sys_via_cb2_in,
-        sys_via_cb2_out,
-        sys_via_cb2_oe_n,
-        sys_via_pb_in,
-        sys_via_pb_out,
-        sys_via_pb_oe_n,
-        mhz1_clken,
-        hard_reset_n, -- System VIA is reset by power on reset only
-        mhz4_clken,
-        clock_48
+    system_via : entity work.m6522
+        port map (
+            I_RS        => cpu_a(3 downto 0),
+            I_DATA      => cpu_do,
+            O_DATA      => sys_via_do,
+            O_DATA_OE_L => sys_via_do_oe_n,
+            I_RW_L      => cpu_r_nw,
+            I_CS1       => sys_via_enable,
+            I_CS2_L     => '0', -- nCS2
+            O_IRQ_L     => sys_via_irq_n,
+            I_CA1       => sys_via_ca1_in,
+            I_CA2       => sys_via_ca2_in,
+            O_CA2       => sys_via_ca2_out,
+            O_CA2_OE_L  => sys_via_ca2_oe_n,
+            I_PA        => sys_via_pa_in,
+            O_PA        => sys_via_pa_out,
+            O_PA_OE_L   => sys_via_pa_oe_n,
+            I_CB1       => sys_via_cb1_in,
+            O_CB1       => sys_via_cb1_out,
+            O_CB1_OE_L  => sys_via_cb1_oe_n,
+            I_CB2       => sys_via_cb2_in,
+            O_CB2       => sys_via_cb2_out,
+            O_CB2_OE_L  => sys_via_cb2_oe_n,
+            I_PB        => sys_via_pb_in,
+            O_PB        => sys_via_pb_out,
+            O_PB_OE_L   => sys_via_pb_oe_n,
+            I_P2_H      => mhz1_clken,
+            RESET_L     => hard_reset_n, -- System VIA is reset by power on reset only
+            ENA_4       => mhz4_clken,
+            CLK         => clock_48
         );
 
     -- User VIA
-    user_via : entity work.m6522 port map (
-        cpu_a(3 downto 0),
-        cpu_do,
-        user_via_do,
-        user_via_do_oe_n,
-        cpu_r_nw,
-        user_via_enable,
-        '0', -- nCS2
-        user_via_irq_n,
-        user_via_ca1_in,
-        user_via_ca2_in,
-        user_via_ca2_out,
-        user_via_ca2_oe_n,
-        user_via_pa_in,
-        user_via_pa_out,
-        user_via_pa_oe_n,
-        user_via_cb1_in,
-        user_via_cb1_out,
-        user_via_cb1_oe_n,
-        user_via_cb2_in,
-        user_via_cb2_out,
-        user_via_cb2_oe_n,
-        user_via_pb_in,
-        user_via_pb_out,
-        user_via_pb_oe_n,
-        mhz1_clken,
-        hard_reset_n,
-        mhz4_clken,
-        clock_48
+    user_via : entity work.m6522
+        port map (
+            I_RS        => cpu_a(3 downto 0),
+            I_DATA      => cpu_do,
+            O_DATA      => user_via_do,
+            O_DATA_OE_L => user_via_do_oe_n,
+            I_RW_L      => cpu_r_nw,
+            I_CS1       => user_via_enable,
+            I_CS2_L     => '0', -- nCS2
+            O_IRQ_L     => user_via_irq_n,
+            I_CA1       => user_via_ca1_in,
+            I_CA2       => user_via_ca2_in,
+            O_CA2       => user_via_ca2_out,
+            O_CA2_OE_L  => user_via_ca2_oe_n,
+            I_PA        => user_via_pa_in,
+            O_PA        => user_via_pa_out,
+            O_PA_OE_L   => user_via_pa_oe_n,
+            I_CB1       => user_via_cb1_in,
+            O_CB1       => user_via_cb1_out,
+            O_CB1_OE_L  => user_via_cb1_oe_n,
+            I_CB2       => user_via_cb2_in,
+            O_CB2       => user_via_cb2_out,
+            O_CB2_OE_L  => user_via_cb2_oe_n,
+            I_PB        => user_via_pb_in,
+            O_PB        => user_via_pb_out,
+            O_PB_OE_L   => user_via_pb_oe_n,
+            I_P2_H      => mhz1_clken,
+            RESET_L     => hard_reset_n,
+            ENA_4       => mhz4_clken,
+            CLK         => clock_48
         );
 
     -- Second VIA
     -- If this is included, it becomes the via at FE60 and the user via (above)
     -- is re-addressed to FE80
     GenMouse: if IncludeAMXMouse generate
-        mouse_via : entity work.m6522 port map (
-            cpu_a(3 downto 0),
-            cpu_do,
-            mouse_via_do,
-            mouse_via_do_oe_n,
-            cpu_r_nw,
-            mouse_via_enable,
-            '0', -- nCS2
-            mouse_via_irq_n,
-            mouse_via_ca1_in,
-            mouse_via_ca2_in,
-            mouse_via_ca2_out,
-            mouse_via_ca2_oe_n,
-            mouse_via_pa_in,
-            mouse_via_pa_out,
-            mouse_via_pa_oe_n,
-            mouse_via_cb1_in,
-            mouse_via_cb1_out,
-            mouse_via_cb1_oe_n,
-            mouse_via_cb2_in,
-            mouse_via_cb2_out,
-            mouse_via_cb2_oe_n,
-            mouse_via_pb_in,
-            mouse_via_pb_out,
-            mouse_via_pb_oe_n,
-            mhz1_clken,
-            hard_reset_n,
-            mhz4_clken,
-            clock_48
+        mouse_via : entity work.m6522
+            port map (
+                I_RS        => cpu_a(3 downto 0),
+                I_DATA      => cpu_do,
+                O_DATA      => mouse_via_do,
+                O_DATA_OE_L => mouse_via_do_oe_n,
+                I_RW_L      => cpu_r_nw,
+                I_CS1       => mouse_via_enable,
+                I_CS2_L     => '0', -- nCS2
+                O_IRQ_L     => mouse_via_irq_n,
+                I_CA1       => mouse_via_ca1_in,
+                I_CA2       => mouse_via_ca2_in,
+                O_CA2       => mouse_via_ca2_out,
+                O_CA2_OE_L  => mouse_via_ca2_oe_n,
+                I_PA        => mouse_via_pa_in,
+                O_PA        => mouse_via_pa_out,
+                O_PA_OE_L   => mouse_via_pa_oe_n,
+                I_CB1       => mouse_via_cb1_in,
+                O_CB1       => mouse_via_cb1_out,
+                O_CB1_OE_L  => mouse_via_cb1_oe_n,
+                I_CB2       => mouse_via_cb2_in,
+                O_CB2       => mouse_via_cb2_out,
+                O_CB2_OE_L  => mouse_via_cb2_oe_n,
+                I_PB        => mouse_via_pb_in,
+                O_PB        => mouse_via_pb_out,
+                O_PB_OE_L   => mouse_via_pb_oe_n,
+                I_P2_H      => mhz1_clken,
+                RESET_L     => hard_reset_n,
+                ENA_4       => mhz4_clken,
+                CLK         => clock_48
         );
         mouse_ps2interface: entity work.ps2interface
         generic map(

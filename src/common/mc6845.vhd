@@ -168,11 +168,9 @@ begin
                 (cursor_i and field_counter(3)) when r10_cursor_mode = "10" else
                 (cursor_i and field_counter(4));
 
-    -- In Mode 7 Cursor Delay is set to 10, but in our implementation one one cycle is needed
-    -- TODO: Fix SAA5050
     CURSOR <=   cursor0 when r08_interlace(7 downto 6) = "00" else
                 cursor1 when r08_interlace(7 downto 6) = "01" else
-                cursor1 when r08_interlace(7 downto 6) = "10" else -- not accurate, should be cursor2
+                cursor2 when r08_interlace(7 downto 6) = "10" else
                 '0';
 
     -- Synchronous register access.  Enabled on every clock.

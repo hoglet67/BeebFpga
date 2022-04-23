@@ -1,6 +1,6 @@
 -- BBC Micro Core, designed to be platform independant
 --
--- Copyright (c) 2020 David Banks
+-- Copyright (c) 2015-2022 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -40,7 +40,7 @@
 --
 -- BBC Micro Core, designed to be platform independant
 --
--- (c) 2015 David Banks
+-- (c) 2015-2022 David Banks
 -- (C) 2011 Mike Stirling
 --
 -- Master 128 TODO List
@@ -347,6 +347,8 @@ signal final_g          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal final_b          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
 -- SAA5050 signals
+signal ttxt_data        :   std_logic_vector(6 downto 0);
+signal ttxt_vdu         :   std_logic;
 signal ttxt_glr         :   std_logic;
 signal ttxt_dew         :   std_logic;
 signal ttxt_crs         :   std_logic;
@@ -745,7 +747,7 @@ begin
             VGA      => vga_mode,
             DI_CLOCK => clock_48, -- Data input is synchronised from the bus clock domain
             DI_CLKEN => vid_clken,
-            DI       => vid_mem_data(6 downto 0),
+            DI       => ttxt_data,
             GLR      => ttxt_glr,
             DEW      => ttxt_dew,
             CRS      => ttxt_crs,
@@ -1818,7 +1820,7 @@ begin
             end case;
         end if;
 
-        if crtc_ma(13) = '0' then
+        if ttxt_vdu = '0' then
             -- HI RES
             display_a <= std_logic_vector(aa(3 downto 0)) & crtc_ma(7 downto 0) & crtc_ra(2 downto 0);
         else
@@ -1838,9 +1840,27 @@ begin
     ttxt_glr <= crtc_hsync_n;
     ttxt_dew <= crtc_vsync;
     ttxt_crs <= not crtc_ra(0);
-    ttxt_lose <= crtc_de;
+
+    ttxt_vdu <= crtc_ma(13);
+
+    -- IC15 (LS273 latch in front of SAA5050)
+    process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            if (mhz1_clken = '1') then
+                if (ttxt_vdu = '1') then
+                    ttxt_data <= vid_mem_data(6 downto 0);
+                    ttxt_lose <= crtc_de;
+                else
+                    ttxt_data <= (others => '0');
+                    ttxt_lose <= '0';
+                end if;
+            end if;
+        end if;
+    end process;
 
     -- Connections to System VIA
+
     -- ADC
     sys_via_cb1_in <= adc_eoc_n;
     sys_via_pb_in(5) <= joystick2(4);

@@ -100,7 +100,6 @@ architecture rtl of saa5050 is
 -- Register inputs in the bus clock domain
 signal di_r         :   std_logic_vector(6 downto 0);
 signal dew_r        :   std_logic;
-signal lose_r       :   std_logic;
 -- Data input registered in the pixel clock domain
 signal code         :   std_logic_vector(6 downto 0);
 signal line_addr    :   unsigned(3 downto 0);
@@ -183,12 +182,10 @@ begin
         if nRESET = '0' then
             di_r <= (others => '0');
             dew_r <= '0';
-            lose_r <= '0';
         elsif rising_edge(DI_CLOCK) then
             if DI_CLKEN = '1' then
                 di_r <= DI;
                 dew_r <= DEW;
-                lose_r <= LOSE;
             end if;
         end if;
     end process;
@@ -236,7 +233,7 @@ begin
             if CLKEN = '1' then
                 -- Register syncs for edge detection
                 dew_latch <= dew_r;
-                lose_latch <= lose_r;
+                lose_latch <= LOSE;
                 disp_enable_latch <= disp_enable;
 
                 -- When first entering double-height mode start on top row
@@ -254,10 +251,10 @@ begin
                 end if;
 
                 -- Rising edge of LOSE is the start of the active line
-                if lose_r = '1' and lose_latch = '0' then
+                if LOSE = '1' and lose_latch = '0' then
                     -- Reset pixel counter - small offset to make the output
                     -- line up with the cursor from the video ULA
-                    pixel_counter <= "0010";
+                    pixel_counter <= "0111";
                 end if;
 
                 -- Count frames on end of VSYNC (falling edge of DEW)

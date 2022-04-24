@@ -250,6 +250,7 @@ signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
+signal mhz1_clken_180   :   std_logic; -- 1 MHz clock inverted for SAA5050 character data
 
 -- Control signals to indicate memory cycles
 signal vid_mem_cycle    :   std_logic;
@@ -746,7 +747,7 @@ begin
             nRESET   => hard_reset_n,
             VGA      => vga_mode,
             DI_CLOCK => clock_48, -- Data input is synchronised from the bus clock domain
-            DI_CLKEN => vid_clken,
+            DI_CLKEN => mhz1_clken_180,
             DI       => ttxt_data,
             GLR      => ttxt_glr,
             DEW      => ttxt_dew,
@@ -1382,6 +1383,13 @@ begin
                 mhz1_clken <= '0';
             end if;
 
+            -- 1MHz clock enable
+            if div3_counter = 1 and clken_counter(3 downto 0) = 7 then
+                mhz1_clken_180 <= '1';
+            else
+                mhz1_clken_180 <= '0';
+            end if;
+
             -- CPU clock enable (taking account of cycle stretching)
             if div3_counter = 2 and clken_counter(2 downto 0) = 7 and cpu_cycle_mask = "00" then
                 cpu_clken <= '1';
@@ -1847,7 +1855,7 @@ begin
     process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if (mhz1_clken = '1') then
+            if (mhz1_clken_180 = '1') then
                 if (ttxt_vdu = '1') then
                     ttxt_data <= vid_mem_data(6 downto 0);
                     ttxt_lose <= crtc_de;

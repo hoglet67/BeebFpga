@@ -82,11 +82,15 @@ entity bbc_micro_core is
 
         -- Keyboard
         ps2_kbd_clk    : inout std_logic;
+        ps2_kbd_clk_o  : out   std_logic;
         ps2_kbd_data   : inout std_logic;
+        ps2_kbd_data_o : out   std_logic;
 
         -- Mouse
         ps2_mse_clk    : inout std_logic;
+        ps2_mse_clk_o  : out   std_logic;
         ps2_mse_data   : inout std_logic;
+        ps2_mse_data_o : out   std_logic;
 
         -- Control input to exchange Keyboard and Mouse connections
         ps2_swap       : in    std_logic := '0';
@@ -894,10 +898,10 @@ begin
            rx_data  => mouse_rx_data,
            write    => mouse_write,
            tx_data  => mouse_tx_data,
-           x_a      => mouse_via_cb1_in,
-           x_b      => mouse_via_pb_in(0),
-           y_a      => mouse_via_cb2_in,
-           y_b      => mouse_via_pb_in(2),
+           x_a      => mouse_via_pb_in(0),
+           x_b      => mouse_via_cb1_in,
+           y_a      => mouse_via_pb_in(2),
+           y_b      => mouse_via_cb2_in,
            left     => mouse_via_pb_in(5),
            middle   => mouse_via_pb_in(6),
            right    => mouse_via_pb_in(7)
@@ -989,6 +993,11 @@ begin
     ps2_mse_clk_in  <= ps2_mse_clk  when ps2_swap = '0' else ps2_kbd_clk;
     ps2_kbd_data_in <= ps2_kbd_data when ps2_swap = '0' else ps2_mse_data;
     ps2_mse_data_in <= ps2_mse_data when ps2_swap = '0' else ps2_kbd_data;
+
+    ps2_kbd_clk_o  <= ps2_kbd_clk_out  when ps2_swap = '0' else ps2_mse_clk_out;
+    ps2_mse_clk_o  <= ps2_mse_clk_out  when ps2_swap = '0' else ps2_kbd_clk_out;
+    ps2_kbd_data_o <= ps2_kbd_data_out when ps2_swap = '0' else ps2_mse_data_out;
+    ps2_mse_data_o <= ps2_mse_data_out when ps2_swap = '0' else ps2_kbd_data_out;
 
     ps2_kbd_clk  <= '0' when ps2_kbd_clk_out = '0' and ps2_swap = '0' else
                     '0' when ps2_mse_clk_out = '0' and ps2_swap = '1' else

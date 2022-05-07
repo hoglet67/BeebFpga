@@ -54,12 +54,12 @@ use unisim.vcomponents.all;
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
     generic (
-        IncludeAMXMouse    : boolean := false;
+        IncludeAMXMouse    : boolean := false;  -- Also must enable pullup on accel_io(8,9) in .ucf file
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
-        IncludeCoProExt    : boolean := true;
+        IncludeCoProExt    : boolean := true;   -- Also helps to enable pulldown on D0/accel_io(8) in .ucf file
         IncludeVideoNuLA   : boolean := true;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := false;
@@ -173,7 +173,9 @@ architecture rtl of bbc_micro_duo is
     signal ext_tube_do     : std_logic_vector(7 downto 0);
 
     signal ps2_mse_clk    : std_logic;
+    signal ps2_mse_clk_o  : std_logic;
     signal ps2_mse_data   : std_logic;
+    signal ps2_mse_data_o : std_logic;
     signal LED1           : std_logic;
     signal LED2           : std_logic;
     signal JOYSTICK2      : std_logic_vector(4 downto 0);
@@ -257,7 +259,9 @@ begin
         ps2_kbd_clk    => ps2_kbd_clk,
         ps2_kbd_data   => ps2_kbd_data,
         ps2_mse_clk    => ps2_mse_clk,
+        ps2_mse_clk_o  => ps2_mse_clk_o,
         ps2_mse_data   => ps2_mse_data,
+        ps2_mse_data_o => ps2_mse_data_o,
         video_red      => red,
         video_green    => green,
         video_blue     => blue,
@@ -551,7 +555,8 @@ begin
         accel_io(7)           <= ext_tube_ntube;
         accel_io(15 downto 8) <= ext_tube_di when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else (others => 'Z');
         JOYSTICK2             <= (others => '1');
-
+        ps2_mse_clk           <= ps2_mse_clk_o;
+        ps2_mse_data          <= ps2_mse_data_o;
     end generate;
 
 
@@ -562,7 +567,13 @@ begin
         accel_io(15 downto 14) <= (others => 'Z');
         accel_io(13) <= LED2;
         accel_io(12) <= LED1;
-        accel_io(11 downto 0) <= (others => 'Z');
+        accel_io(11 downto 10) <= (others => 'Z');
+        accel_io(7 downto 0) <= (others => 'Z');
+        -- PS/2 Mouse
+        ps2_mse_clk  <= accel_io(8);
+        accel_io(8)  <= '0' when ps2_mse_clk_o  = '0' else 'Z';
+        ps2_mse_data <= accel_io(9);
+        accel_io(9)  <= '0' when ps2_mse_data_o = '0' else 'Z';
     end generate;
 
 

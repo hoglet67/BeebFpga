@@ -136,7 +136,9 @@ signal hs               :   std_logic;
 signal v_display        :   std_logic;
 signal v_display_early  :   std_logic;
 signal vs               :   std_logic;
-signal odd_field        :   std_logic;
+signal odd_field_next   :   std_logic; -- internal field type (updated on R6 hit)
+signal odd_field        :   std_logic; -- indicates the current field is an odd field, updated on counter wrap
+signal odd_field_ra0    :   std_logic; -- the field type to output on ra0, updated on counter wrap
 signal ma_i             :   unsigned(13 downto 0);
 signal cursor_i         :   std_logic;
 signal lpstb_i          :   std_logic;
@@ -287,7 +289,7 @@ begin
             line_counter <= (others => '0');
             vadjust_counter <= (others => '0');
             row_counter <= (others => '0');
-            odd_field <= '0';
+            odd_field_next <= '0';
 
             -- Fields (cursor flash)
             field_counter <= (others => '0');
@@ -321,7 +323,7 @@ begin
                 if r08_interlace(1 downto 0) = "11" and VGA = '1' then
                     -- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
                     adj_scan_line := r05_v_total_adj + 2;
-                elsif odd_field = '1' then
+                elsif odd_field_next = '1' then
                     -- If interlaced, the odd field contains an additional scan line
                     adj_scan_line := r05_v_total_adj + 1;
                 else
@@ -355,9 +357,9 @@ begin
                         -- end of v_total_adj - it shouldn't make any difference to the
                         -- output
                         if r08_interlace(0) = '1' and VGA = '0' then
-                            odd_field <= not odd_field;
+                            odd_field_next <= not odd_field_next;
                         else
-                            odd_field <= '0';
+                            odd_field_next <= '0';
                         end if;
                         -- Increment field counter
                         field_counter <= field_counter + 1;
@@ -378,6 +380,12 @@ begin
                         in_adj := '0';
                         eom_latched := '0';
                         eof_latched := '0';
+
+                        -- Latch odd field so it's stable for the whole field
+                        odd_field <= odd_field_next;
+
+                        -- TODO: this is not quite consistent with the mode7-75 test
+                        odd_field_ra0 <= odd_field_next;
 
                     elsif line_counter = max_scan_line then
                         -- Scan line counter increments, wrapping at max_scan_line_addr
@@ -444,7 +452,7 @@ begin
     end process;
 
     -- Signals to mark hsync and and vsync in even and odd fields
-    process(h_counter, r00_h_total, r02_h_sync_pos, odd_field)
+    process(h_counter, r00_h_total, r02_h_sync_pos, odd_field, r08_interlace, VGA)
     begin
         h_sync_start <= '0';
         v_sync_start <= '0';
@@ -457,8 +465,18 @@ begin
         -- 6845 behaviour. i.e. in non-interlaced mode the start of vsync
         -- coinscides with the start of the active display, and in intelaced
         -- mode the vsync of the odd field is delayed by half a scan line
-        if (odd_field = '0' and h_counter = 0) or (odd_field = '1' and h_counter = "0" & r00_h_total(7 downto 1)) then
-            v_sync_start <= '1';
+        if r08_interlace(0) = '1' and VGA = '0' then
+            -- Interlaced, alternate between odd and even fields
+            if (odd_field = '1' and h_counter = 0) or (odd_field = '0' and h_counter = "0" & r00_h_total(7 downto 1)) then
+                -- if the current field is odd, then the next field is even so vsync is nor delayed
+                -- if the current field is even, then the next field is off so vsync is delayed by half a line
+                v_sync_start <= '1';
+            end if;
+        else
+            -- Non interlaced, even fields only
+            if h_counter = 0 then
+                v_sync_start <= '1';
+            end if;
         end if;
     end process;
 
@@ -534,7 +552,7 @@ begin
                 -- Character row address is just the scan line counter delayed by
                 -- one clock to line up with the syncs.
                 if r08_interlace(1 downto 0) = "11" and VGA = '0' then
-                    RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field);
+                    RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field_ra0);
                 else
                     RA <= slv_line(4 downto 1) & (slv_line(0) xor VGA);
                 end if;

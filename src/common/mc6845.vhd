@@ -138,7 +138,6 @@ signal v_display_early  :   std_logic;
 signal vs               :   std_logic;
 signal odd_field_next   :   std_logic; -- internal field type (updated on R6 hit)
 signal odd_field        :   std_logic; -- indicates the current field is an odd field, updated on counter wrap
-signal odd_field_ra0    :   std_logic; -- the field type to output on ra0, updated on counter wrap
 signal ma_i             :   unsigned(13 downto 0);
 signal cursor_i         :   std_logic;
 signal lpstb_i          :   std_logic;
@@ -381,12 +380,6 @@ begin
                         eom_latched := '0';
                         eof_latched := '0';
 
-                        -- Latch odd field so it's stable for the whole field
-                        odd_field <= odd_field_next;
-
-                        -- TODO: this is not quite consistent with the mode7-75 test
-                        odd_field_ra0 <= odd_field_next;
-
                     elsif line_counter = max_scan_line then
                         -- Scan line counter increments, wrapping at max_scan_line_addr
                         -- Next character row
@@ -415,6 +408,22 @@ begin
                     h_counter <= h_counter + 1;
                     -- Increment memory address
                     ma_i <= ma_i + 1;
+                end if;
+
+                -- Latch odd field so it's stable for the whole field
+
+                -- NOTE: we delay this by one cycle, just in case R6 hit happens
+                -- in the last line of the previous field. This occurs in the
+                -- mode 7/75 test case, where R6 hit happens due to the extra scanline.
+                --
+                -- It might be better to make R6 detection happen earlier, and there is
+                -- evidence that's what's happens in a real 6845. JSBEEB contains this
+                -- comment concerning R6 hit:
+                --    The Hitachi 6845 will notice this equality at any character,
+                --    including in the middle of a scanline.
+
+                if h_counter = 0 and row_counter = 0 and line_counter = 0 then
+                    odd_field <= odd_field_next;
                 end if;
 
                 -- Two clocks after the start of frame, detect the end of frae
@@ -552,7 +561,7 @@ begin
                 -- Character row address is just the scan line counter delayed by
                 -- one clock to line up with the syncs.
                 if r08_interlace(1 downto 0) = "11" and VGA = '0' then
-                    RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field_ra0);
+                    RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field);
                 else
                     RA <= slv_line(4 downto 1) & (slv_line(0) xor VGA);
                 end if;

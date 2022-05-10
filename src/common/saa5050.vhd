@@ -522,7 +522,7 @@ begin
                             a(11) := '0';
                             a(4) := '0';
                             a(5) := '0';
-                            if line_counter = 2 or line_counter = 6 or line_counter = 9 then
+                            if line_addr = 2 or line_addr = 6 or line_addr = 9 then
                                 a := (others => '0');
                             end if;
                         end if;

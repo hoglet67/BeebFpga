@@ -131,10 +131,8 @@ signal field_counter    :   unsigned(4 downto 0);
 signal h_sync_start     :   std_logic;
 signal v_sync_start     :   std_logic;
 signal h_display        :   std_logic;
-signal h_display_early  :   std_logic;
 signal hs               :   std_logic;
 signal v_display        :   std_logic;
-signal v_display_early  :   std_logic;
 signal vs               :   std_logic;
 signal odd_field_next   :   std_logic; -- internal field type (updated on R6 hit)
 signal odd_field        :   std_logic; -- indicates the current field is an odd field, updated on counter wrap
@@ -147,8 +145,7 @@ signal de2              :   std_logic;
 signal cursor0          :   std_logic;
 signal cursor1          :   std_logic;
 signal cursor2          :   std_logic;
-signal r6_hit           :   std_logic;
-signal r6_hit_last      :   std_logic;
+
 
 begin
     HSYNC <= hs; -- External HSYNC driven directly from internal signal
@@ -163,7 +160,8 @@ begin
 
     -- Cursor output generated combinatorially from the internal signal in
     -- accordance with the currently selected cursor mode
-    cursor0 <=  cursor_i                        when r10_cursor_mode = "00" else
+    cursor0 <= '0'                              when h_display = '0' or v_display = '0' else
+                cursor_i                        when r10_cursor_mode = "00" else
                 '0'                             when r10_cursor_mode = "01" else
                 (cursor_i and field_counter(3)) when r10_cursor_mode = "10" else
                 (cursor_i and field_counter(4));
@@ -286,12 +284,14 @@ begin
         if nRESET = '0' then
             -- H
             h_counter <= (others => '0');
+            h_display <= '0';
 
             -- V
             line_counter <= (others => '0');
             vadjust_counter <= (others => '0');
             row_counter <= (others => '0');
             odd_field_next <= '0';
+            v_display <= '0';
 
             -- Fields (cursor flash)
             field_counter <= (others => '0');
@@ -338,37 +338,36 @@ begin
                     ma_row_next := ma_i;
                 end if;
 
+                -- H Display Enable logic (lags by one clock cycle)
+                if h_counter = r01_h_displayed or h_counter = r00_h_total then
+                    h_display <= '0';
+                elsif h_counter = 0 then
+                    h_display <= '1';
+                end if;
 
+                -- V Display Enable logic (lags by one clock cycle)
+                --
                 -- JSBEEB contains this comment concerning R6 hit:
                 --    The Hitachi 6845 will notice this equality at any character,
                 --    including in the middle of a scanline.
-                if row_counter = r06_v_displayed and first_scanline = '0' then
-                    r6_hit <= '1';
-                else
-                    r6_hit <= '0';
-                end if;
-                r6_hit_last <= r6_hit;
-
-                -- Surprisingly, the odd/even flag and field counter are updated based on R6
-                -- i.e. Both cursor blink and interlace cease if R6 > R4.
-                -- https://github.com/mattgodbolt/jsbeeb/blob/main/video.js#L641
-                -- TODO: There are additional conditions mentioned above that we haven't yet implemented
-                if r6_hit = '1' and r6_hit_last = '0' then
-                    -- If in interlace mode we toggle to the opposite field.
-                    -- Save on some logic by doing this here rather than at the
-                    -- end of v_total_adj - it shouldn't make any difference to the
-                    -- output
+                if row_counter = r06_v_displayed and first_scanline = '0' and v_display = '1' then
+                    -- Drop v_display
+                    v_display <= '0';
+                    -- Surprisingly, the odd/even flag and field counter are updated based on R6
+                    -- i.e. Both cursor blink and interlace cease if R6 > R4.
+                    -- https://github.com/mattgodbolt/jsbeeb/blob/main/video.js#L641
                     if r08_interlace(0) = '1' and VGA = '0' then
+                        -- In interlace mode we toggle to the opposite field.
                         odd_field_next <= not odd_field_next;
                     else
+                        -- In non  interlaces mode we force even frames
                         odd_field_next <= '0';
                     end if;
                     -- Increment field counter
                     field_counter <= field_counter + 1;
                 end if;
 
-                -- Horizontal counter increments on each clock, wrapping at
-                -- h_total
+                -- Horizontal counter increments on each clock, wrapping at h_total
                 if h_counter = r00_h_total then
                     -- h_total reached
                     h_counter <= (others => '0');
@@ -390,6 +389,7 @@ begin
                         ma_row_start := r12_start_addr_h & r13_start_addr_l;
                         ma_row_next  := r12_start_addr_h & r13_start_addr_l;
                         row_counter <= (others => '0');
+                        v_display <= '1';
 
                         -- Reset the in extra time flag
                         in_adj := '0';
@@ -407,7 +407,6 @@ begin
                         -- increased by h_displayed and the row counter is incremented
                         ma_row_start := ma_row_next;
                         row_counter <= row_counter + 1;
-
                     else
                         -- Next scan line.  Count in twos in interlaced sync+video mode
                         if r08_interlace(1 downto 0) = "11" and VGA = '0' then
@@ -499,27 +498,19 @@ begin
         end if;
     end process;
 
-    h_display_early <= '1' when h_counter   < r01_h_displayed and h_counter /= r00_h_total else '0';
-    v_display_early <= '1' when row_counter < r06_v_displayed else '0';
-
     -- Video timing and sync counters
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
             -- H
-            h_display <= '0';
             hs <= '0';
             h_sync_counter <= (others => '0');
 
             -- V
-            v_display <= '0';
             vs <= '0';
             v_sync_counter <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                -- Horizontal active video
-                h_display <= h_display_early;
-
                 -- Horizontal sync
                 if h_sync_start = '1' or hs = '1' then
                     -- In horizontal sync
@@ -533,9 +524,6 @@ begin
                     -- can immediately override the setting above)
                     hs <= '0';
                 end if;
-
-                -- Vertical active video
-                v_display <= v_display_early;
 
                 -- Vertical sync occurs either at the same time as the horizontal sync (even fields)
                 -- or half a line later (odd fields)
@@ -592,7 +580,7 @@ begin
             cursor_line := '0';
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                if h_display_early = '1' and v_display_early = '1' and ma_i = r14_cursor_h & r15_cursor_l then
+                if ma_i = r14_cursor_h & r15_cursor_l then
                     if line_counter = 0 then
                         -- Suppress wrap around if last line is > max scan line
                         cursor_line := '0';

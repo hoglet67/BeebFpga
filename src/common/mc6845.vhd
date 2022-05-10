@@ -147,7 +147,8 @@ signal de2              :   std_logic;
 signal cursor0          :   std_logic;
 signal cursor1          :   std_logic;
 signal cursor2          :   std_logic;
-
+signal r6_hit           :   std_logic;
+signal r6_hit_last      :   std_logic;
 
 begin
     HSYNC <= hs; -- External HSYNC driven directly from internal signal
@@ -278,6 +279,8 @@ begin
     variable sof2 : std_logic;
     variable eom_latched : std_logic;
     variable eof_latched : std_logic;
+    variable first_scanline : std_logic;
+    variable extra_scanline : std_logic;
 
     begin
         if nRESET = '0' then
@@ -301,6 +304,8 @@ begin
             in_adj := '0';
             eom_latched := '0';
             eof_latched := '0';
+            first_scanline := '0';
+            extra_scanline := '0';
 
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
@@ -322,7 +327,7 @@ begin
                 if r08_interlace(1 downto 0) = "11" and VGA = '1' then
                     -- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
                     adj_scan_line := r05_v_total_adj + 2;
-                elsif odd_field_next = '1' then
+                elsif extra_scanline = '1' then
                     -- If interlaced, the odd field contains an additional scan line
                     adj_scan_line := r05_v_total_adj + 1;
                 else
@@ -331,6 +336,35 @@ begin
 
                 if h_counter = r01_h_displayed then
                     ma_row_next := ma_i;
+                end if;
+
+
+                -- JSBEEB contains this comment concerning R6 hit:
+                --    The Hitachi 6845 will notice this equality at any character,
+                --    including in the middle of a scanline.
+                if row_counter = r06_v_displayed and first_scanline = '0' then
+                    r6_hit <= '1';
+                else
+                    r6_hit <= '0';
+                end if;
+                r6_hit_last <= r6_hit;
+
+                -- Surprisingly, the odd/even flag and field counter are updated based on R6
+                -- i.e. Both cursor blink and interlace cease if R6 > R4.
+                -- https://github.com/mattgodbolt/jsbeeb/blob/main/video.js#L641
+                -- TODO: There are additional conditions mentioned above that we haven't yet implemented
+                if r6_hit = '1' and r6_hit_last = '0' then
+                    -- If in interlace mode we toggle to the opposite field.
+                    -- Save on some logic by doing this here rather than at the
+                    -- end of v_total_adj - it shouldn't make any difference to the
+                    -- output
+                    if r08_interlace(0) = '1' and VGA = '0' then
+                        odd_field_next <= not odd_field_next;
+                    else
+                        odd_field_next <= '0';
+                    end if;
+                    -- Increment field counter
+                    field_counter <= field_counter + 1;
                 end if;
 
                 -- Horizontal counter increments on each clock, wrapping at
@@ -344,24 +378,6 @@ begin
 
                     if in_adj = '1' then
                         vadjust_counter <= vadjust_counter + 1;
-                    end if;
-
-                    -- Surprisingly, the odd/even flag and field counter are updated based on R6
-                    -- i.e. Both cursor blink and interlace cease if R6 > R4.
-                    -- https://github.com/mattgodbolt/jsbeeb/blob/main/video.js#L641
-                    -- TODO: There are additional conditions mentioned above that we haven't yet implemented
-                    if row_counter = r06_v_displayed and line_counter = 0 then
-                        -- If in interlace mode we toggle to the opposite field.
-                        -- Save on some logic by doing this here rather than at the
-                        -- end of v_total_adj - it shouldn't make any difference to the
-                        -- output
-                        if r08_interlace(0) = '1' and VGA = '0' then
-                            odd_field_next <= not odd_field_next;
-                        else
-                            odd_field_next <= '0';
-                        end if;
-                        -- Increment field counter
-                        field_counter <= field_counter + 1;
                     end if;
 
                     if eof_latched = '1' then
@@ -379,6 +395,9 @@ begin
                         in_adj := '0';
                         eom_latched := '0';
                         eof_latched := '0';
+
+                        -- Latch odd field so it's stable for the whole field
+                        odd_field <= odd_field_next;
 
                     elsif line_counter = max_scan_line then
                         -- Scan line counter increments, wrapping at max_scan_line_addr
@@ -410,20 +429,10 @@ begin
                     ma_i <= ma_i + 1;
                 end if;
 
-                -- Latch odd field so it's stable for the whole field
-
-                -- NOTE: we delay this by one cycle, just in case R6 hit happens
-                -- in the last line of the previous field. This occurs in the
-                -- mode 7/75 test case, where R6 hit happens due to the extra scanline.
-                --
-                -- It might be better to make R6 detection happen earlier, and there is
-                -- evidence that's what's happens in a real 6845. JSBEEB contains this
-                -- comment concerning R6 hit:
-                --    The Hitachi 6845 will notice this equality at any character,
-                --    including in the middle of a scanline.
-
-                if h_counter = 0 and row_counter = 0 and line_counter = 0 then
-                    odd_field <= odd_field_next;
+                if eof_latched = '1' then
+                    first_scanline := '1';
+                else
+                    first_scanline := '0';
                 end if;
 
                 -- Two clocks after the start of frame, detect the end of frae
@@ -444,6 +453,7 @@ begin
                 if sof1 = '1' then
                     if line_counter = max_scan_line and row_counter = r04_v_total then
                         eom_latched := '1';
+                        extra_scanline := odd_field_next;
                     end if;
                 end if;
 

@@ -128,13 +128,12 @@ signal v_sync_counter   :   unsigned(3 downto 0);
 signal field_counter    :   unsigned(4 downto 0);
 
 -- Internal signals
-signal h_sync_start     :   std_logic;
-signal v_sync_start     :   std_logic;
 signal h_display        :   std_logic;
 signal hs               :   std_logic;
 signal v_display        :   std_logic;
 signal vs               :   std_logic;
-signal odd_field_next   :   std_logic; -- internal field type (updated on R6 hit)
+signal vs_even          :   std_logic;
+signal vs_odd           :   std_logic;
 signal odd_field        :   std_logic; -- indicates the current field is an odd field, updated on counter wrap
 signal ma_i             :   unsigned(13 downto 0);
 signal cursor_i         :   std_logic;
@@ -290,7 +289,6 @@ begin
             line_counter <= (others => '0');
             vadjust_counter <= (others => '0');
             row_counter <= (others => '0');
-            odd_field_next <= '0';
             v_display <= '0';
 
             -- Fields (cursor flash)
@@ -356,13 +354,6 @@ begin
                     -- Surprisingly, the odd/even flag and field counter are updated based on R6
                     -- i.e. Both cursor blink and interlace cease if R6 > R4.
                     -- https://github.com/mattgodbolt/jsbeeb/blob/main/video.js#L641
-                    if r08_interlace(0) = '1' and VGA = '0' then
-                        -- In interlace mode we toggle to the opposite field.
-                        odd_field_next <= not odd_field_next;
-                    else
-                        -- In non  interlaces mode we force even frames
-                        odd_field_next <= '0';
-                    end if;
                     -- Increment field counter
                     field_counter <= field_counter + 1;
                 end if;
@@ -397,7 +388,7 @@ begin
                         eof_latched := '0';
 
                         -- Latch odd field so it's stable for the whole field
-                        odd_field <= odd_field_next;
+                        odd_field <= field_counter(0);
 
                     elsif line_counter = max_scan_line then
                         -- Scan line counter increments, wrapping at max_scan_line_addr
@@ -452,7 +443,11 @@ begin
                 if sof1 = '1' then
                     if line_counter = max_scan_line and row_counter = r04_v_total then
                         eom_latched := '1';
-                        extra_scanline := odd_field_next;
+                        if r08_interlace(0) = '1' then
+                            extra_scanline := field_counter(0);
+                        else
+                            extra_scanline := '0';
+                        end if;
                     end if;
                 end if;
 
@@ -469,81 +464,76 @@ begin
         end if;
     end process;
 
-    -- Signals to mark hsync and and vsync in even and odd fields
-    process(h_counter, r00_h_total, r02_h_sync_pos, odd_field, r08_interlace, VGA)
-    begin
-        h_sync_start <= '0';
-        v_sync_start <= '0';
-
-        if h_counter = r02_h_sync_pos then
-            h_sync_start <= '1';
-        end if;
-
-        -- dmb: measurements on a real beeb confirm this is the actual
-        -- 6845 behaviour. i.e. in non-interlaced mode the start of vsync
-        -- coinscides with the start of the active display, and in intelaced
-        -- mode the vsync of the odd field is delayed by half a scan line
-        if r08_interlace(0) = '1' and VGA = '0' then
-            -- Interlaced, alternate between odd and even fields
-            if (odd_field = '1' and h_counter = 0) or (odd_field = '0' and h_counter = "0" & r00_h_total(7 downto 1)) then
-                -- if the current field is odd, then the next field is even so vsync is nor delayed
-                -- if the current field is even, then the next field is off so vsync is delayed by half a line
-                v_sync_start <= '1';
-            end if;
-        else
-            -- Non interlaced, even fields only
-            if h_counter = 0 then
-                v_sync_start <= '1';
-            end if;
-        end if;
-    end process;
-
-    -- Video timing and sync counters
+    -- H Sync Generation
+    --
+    -- Note: r03_h_sync_width should have the following effect:
+    --       0 => no hsync
+    --       1 => hsync lasting 1 character
+    --       2 => vsync lasting 2 characters
+    --       ...
+    --       15 => hsync lasting 15 characters
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
-            -- H
             hs <= '0';
             h_sync_counter <= (others => '0');
-
-            -- V
-            vs <= '0';
-            v_sync_counter <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                -- Horizontal sync
-                if h_sync_start = '1' or hs = '1' then
-                    -- In horizontal sync
+                if h_counter = r02_h_sync_pos and r03_h_sync_width /= 0 then
                     hs <= '1';
-                    h_sync_counter <= h_sync_counter + 1;
-                else
-                    h_sync_counter <= (others => '0');
-                end if;
-                if h_sync_counter = r03_h_sync_width then
-                    -- Terminate hsync after h_sync_width (0 means no hsync so this
-                    -- can immediately override the setting above)
+                    h_sync_counter <= r03_h_sync_width;
+                elsif h_sync_counter = 1 then
                     hs <= '0';
-                end if;
-
-                -- Vertical sync occurs either at the same time as the horizontal sync (even fields)
-                -- or half a line later (odd fields)
-                if (v_sync_start = '1') then
-                    if (row_counter = r07_v_sync_pos and line_counter = 0) or vs = '1' then
-                        -- In vertical sync
-                        vs <= '1';
-                        v_sync_counter <= v_sync_counter + 1;
-                    else
-                        v_sync_counter <= (others => '0');
-                    end if;
-                    if v_sync_counter = r03_v_sync_width then
-                        -- Terminate vsync after v_sync_width (0 means 16 lines so this is
-                        -- masked by 'vs' to ensure a full turn of the counter in this case)
-                        vs <= '0';
-                    end if;
+                else
+                    h_sync_counter <= h_sync_counter - 1;
                 end if;
             end if;
         end if;
     end process;
+
+    -- V Sync Generation
+    --
+    -- Note: r02_v_sync_width should have the following effect:
+    --       0 => vsync lasting 16 lines
+    --       1 => vsync lasting 1 line
+    --       2 => vsync lasting 2 lines
+    --       ...
+    --       15 => vsync lasting 15 lines
+    --
+    -- Note: Measurements on a real beeb confirm:
+    --       even vsync is aligned with the start of the active display
+    --       odd vsync is delayed by exactly half a scan line
+    process(CLOCK,nRESET)
+    variable tmp : std_logic;
+    begin
+        if nRESET = '0' then
+            vs_even <= '0';
+            vs_odd <= '0';
+            v_sync_counter <= (others => '0');
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                -- Generate an even vsync that is aligned to h_counter = 0
+                if h_counter = 0 then
+                    if row_counter = r07_v_sync_pos and line_counter = 0 then
+                        v_sync_counter <= r03_v_sync_width;
+                        vs_even <= '1';
+                    elsif v_sync_counter = 1 then
+                        vs_even <= '0';
+                    else
+                        v_sync_counter <= v_sync_counter - 1;
+                    end if;
+                end if;
+                -- Generate an odd vsync that is delayed by half a line
+                vs_odd <= tmp;
+                if h_counter = ("0" & r00_h_total(7 downto 1)) then
+                    -- With r00_h_total of 63, this delays it by 31, so one more stage needed
+                    tmp := vs_even;
+                end if;
+            end if;
+        end if;
+    end process;
+    -- Select between vs_odd and vs_even based on interlace state
+    vs <= vs_odd when r08_interlace(0) = '1' and VGA = '0' and odd_field = '0' else vs_even;
 
     -- Address generation
     process(CLOCK,nRESET)

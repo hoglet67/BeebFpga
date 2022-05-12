@@ -78,7 +78,8 @@ port (
 
     -- Memory interface
     MA          :   out std_logic_vector(13 downto 0);
-    RA          :   out std_logic_vector(4 downto 0)
+    RA          :   out std_logic_vector(4 downto 0);
+    test        :   out std_logic_vector(3 downto 0)
     );
 end entity;
 
@@ -144,7 +145,7 @@ signal de2              :   std_logic;
 signal cursor0          :   std_logic;
 signal cursor1          :   std_logic;
 signal cursor2          :   std_logic;
-
+signal interlaced_video :   std_logic;
 
 begin
     HSYNC <= hs; -- External HSYNC driven directly from internal signal
@@ -537,22 +538,34 @@ begin
 
     -- Address generation
     process(CLOCK,nRESET)
-    variable slv_line : std_logic_vector(4 downto 0);
     begin
         if nRESET = '0' then
             RA <= (others => '0');
             MA <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN_ADR = '1' then
-                slv_line := std_logic_vector(line_counter);
-
+                -- On the Read 6845 you don't see glitches on RA0 when writing r08
+                -- so mimic this by latching the relevant r08 state once per line.
+                -- This is probably done differently on the real hardware. I suspect
+                -- the replacement of line_counter(0) with odd_field is done
+                -- upstream as part of the line counter logic, and then when comparing
+                -- to the max scanline, the LSB is masked off. I had a got at implementing
+                -- this, but it got messy.
+                if h_counter = r00_h_total then
+                    if r08_interlace(1 downto 0) = "11" and VGA = '0' then
+                        interlaced_video <= '1';
+                    else
+                        interlaced_video <= '0';
+                    end if;
+                end if;
                 -- Character row address is just the scan line counter delayed by
                 -- one clock to line up with the syncs.
-                if r08_interlace(1 downto 0) = "11" and VGA = '0' then
-                    RA <= slv_line(4 downto 1) & (slv_line(0) or odd_field);
+                if interlaced_video = '1' then
+                    RA(0) <= odd_field;
                 else
-                    RA <= slv_line(4 downto 1) & (slv_line(0) xor VGA);
+                    RA(0) <= line_counter(0) xor VGA;
                 end if;
+                RA(4 downto 1) <= std_logic_vector(line_counter(4 downto 1));
                 -- Internal memory address delayed by one cycle as well
                 MA <= std_logic_vector(ma_i);
             end if;
@@ -630,5 +643,10 @@ begin
             end if;
         end if;
     end process;
+
+    test(0) <= field_counter(0);
+    test(1) <= odd_field;
+    test(2) <= line_counter(0);
+    test(3) <= line_counter(1);
 
 end architecture;

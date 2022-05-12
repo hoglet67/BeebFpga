@@ -326,9 +326,6 @@ begin
                 if r08_interlace(1 downto 0) = "11" and VGA = '1' then
                     -- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
                     adj_scan_line := r05_v_total_adj + 2;
-                elsif extra_scanline = '1' then
-                    -- If interlaced, the odd field contains an additional scan line
-                    adj_scan_line := r05_v_total_adj + 1;
                 else
                     adj_scan_line := r05_v_total_adj;
                 end if;
@@ -373,7 +370,7 @@ begin
 
                     first_scanline := '0';
 
-                    if eof_latched = '1' then
+                    if eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1') then
 
                         line_counter <= (others => '0');
                         vadjust_counter <= (others => '0');
@@ -413,6 +410,13 @@ begin
 
                     end if;
 
+                    --  extra_scanline records that an extra scanline was added to the field
+                    if eof_latched = '1' and r08_interlace(0) = '1' and field_counter(0) = '1' and extra_scanline = '0' then
+                        extra_scanline := '1';
+                    else
+                        extra_scanline := '0';
+                    end if;
+
                     -- Memory address preset to row start at the beginning of each
                     -- scan line
                     ma_i <= ma_row_start;
@@ -441,11 +445,6 @@ begin
                 if sof1 = '1' then
                     if line_counter = max_scan_line and row_counter = r04_v_total then
                         eom_latched := '1';
-                        if r08_interlace(0) = '1' then
-                            extra_scanline := field_counter(0);
-                        else
-                            extra_scanline := '0';
-                        end if;
                     end if;
                 end if;
 

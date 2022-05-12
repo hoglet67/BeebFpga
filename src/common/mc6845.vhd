@@ -371,6 +371,8 @@ begin
                         vadjust_counter <= vadjust_counter + 1;
                     end if;
 
+                    first_scanline := '0';
+
                     if eof_latched = '1' then
 
                         line_counter <= (others => '0');
@@ -387,6 +389,7 @@ begin
                         in_adj := '0';
                         eom_latched := '0';
                         eof_latched := '0';
+                        first_scanline := '1';
 
                         -- Latch odd field so it's stable for the whole field
                         odd_field <= field_counter(0);
@@ -418,12 +421,6 @@ begin
                     h_counter <= h_counter + 1;
                     -- Increment memory address
                     ma_i <= ma_i + 1;
-                end if;
-
-                if eof_latched = '1' then
-                    first_scanline := '1';
-                else
-                    first_scanline := '0';
                 end if;
 
                 -- Two clocks after the start of frame, detect the end of frae

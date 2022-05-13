@@ -563,7 +563,7 @@ begin
     GenCoProNotExt: if not IncludeCoProExt generate
     begin
         ext_tube_do  <= x"FE";
-        JOYSTICK2    <= accel_io(4 downto 1) & accel_io(5);
+        JOYSTICK2    <= accel_io(5) & accel_io(1) & accel_io(2) & accel_io(3) & accel_io(4);
         accel_io(15 downto 14) <= (others => 'Z');
         accel_io(13) <= LED2;
         accel_io(12) <= LED1;

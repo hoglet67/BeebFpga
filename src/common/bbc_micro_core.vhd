@@ -303,6 +303,7 @@ signal crtc_cursor      :   std_logic;
 signal crtc_lpstb       :   std_logic;
 signal crtc_ma          :   std_logic_vector(13 downto 0);
 signal crtc_ra          :   std_logic_vector(4 downto 0);
+signal crtc_test        :   std_logic_vector(3 downto 0);
 
 -- Decoded display address after address translation for hardware
 -- scrolling
@@ -667,6 +668,7 @@ begin
         port map (
             CLOCK     => clock_48,
             CLKEN     => crtc_clken,
+            CLKEN_CPU => cpu_clken,
             CLKEN_ADR => crtc_clken_adr,
             nRESET    => hard_reset_n,
             ENABLE    => crtc_enable,
@@ -681,7 +683,8 @@ begin
             LPSTB     => crtc_lpstb,
             VGA       => vga_mode,
             MA        => crtc_ma,
-            RA        => crtc_ra
+            RA        => crtc_ra,
+            test      => crtc_test
         );
 
     vidproc_nula: if IncludeVideoNuLA generate
@@ -2218,6 +2221,6 @@ begin
     cpu_addr <= cpu_a(15 downto 0);
 
     -- Test output
-    test <= mouse_via_pb_in(7 downto 5) & "0" & mouse_via_cb2_in &  mouse_via_pb_in(2) &  mouse_via_cb1_in & mouse_via_pb_in(0);
+    test <= crtc_vsync & crtc_hsync & crtc_ra(0) & crtc_enable & crtc_test(3 downto 0);
 
 end architecture;

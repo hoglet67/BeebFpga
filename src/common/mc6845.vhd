@@ -57,6 +57,7 @@ entity mc6845 is
 port (
     CLOCK       :   in  std_logic;
     CLKEN       :   in  std_logic;
+    CLKEN_CPU   :   in  std_logic;
     CLKEN_ADR   :   in  std_logic;
     nRESET      :   in  std_logic;
 
@@ -217,7 +218,7 @@ begin
                     when others =>
                         DO <= (others => '0');
                     end case;
-                elsif CLKEN = '1' then
+                elsif CLKEN_CPU = '1' then
                     -- Write
                     if RS = '0' then
                         addr_reg <= DI(4 downto 0);
@@ -529,6 +530,7 @@ begin
             end if;
         end if;
     end process;
+
     -- Select between vs_odd and vs_even based on interlace state
     vs <= vs_odd when r08_interlace(0) = '1' and VGA = '0' and odd_field = '0' else vs_even;
 
@@ -640,9 +642,9 @@ begin
         end if;
     end process;
 
-    test(0) <= field_counter(0);
-    test(1) <= odd_field;
-    test(2) <= line_counter(0);
-    test(3) <= line_counter(1);
+    test(0) <= '1' when CLKEN_CPU = '1' and ENABLE = '1' and R_nW = '0' else '0';
+    test(1) <= '1' when                     ENABLE = '1' and R_nW = '0' else '0';
+    test(2) <= '1' when CLKEN_CPU = '1' and ENABLE = '1' and R_nW = '0' and addr_reg = "00000" else '0';
+    test(3) <= '1' when                     ENABLE = '1' and R_nW = '0' and addr_reg = "00000" else '0';
 
 end architecture;

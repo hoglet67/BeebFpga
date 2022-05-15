@@ -134,7 +134,7 @@ signal vs_odd                 : std_logic;
 signal odd_field              : std_logic; -- indicates the current field is an odd field, updated on counter wrap
 signal ma_i                   : unsigned(13 downto 0);
 signal cursor_i               : std_logic;
-signal lpstb_i                : std_logic;
+signal lpstb_sync             : std_logic_vector(3 downto 0);
 signal de0                    : std_logic;
 signal de1                    : std_logic;
 signal de2                    : std_logic;
@@ -677,16 +677,15 @@ begin
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
-            lpstb_i <= '0';
+            lpstb_sync <= (others => '0');
             r16_light_pen_h <= (others => '0');
             r17_light_pen_l <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                -- Register light-pen strobe input
-                lpstb_i <= LPSTB;
-
-                if LPSTB = '1' and lpstb_i = '0' then
-                    -- Capture address on rising edge
+                -- Synchronise light-pen strobe input
+                lpstb_sync <= LPSTB & lpstb_sync(lpstb_sync'length - 1 downto 1);
+                -- Capture memory address on rising edge
+                if lpstb_sync(1) = '1' and lpstb_sync(0) = '0' then
                     r16_light_pen_h <= ma_i(13 downto 8);
                     r17_light_pen_l <= ma_i(7 downto 0);
                 end if;

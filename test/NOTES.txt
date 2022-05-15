@@ -9,11 +9,11 @@ Current testing issues: 2022/05/11 ca5ca6b8
 - MODE7 3C00 works in Master Mode (it shouldn't)
 - SAA5050 Parrot of Doom eye bug test case failure (bug not implemented)
 - SAA5050 Clear Hold 2/3 test case failure
-- MC6845 Chris Evans rvi-working test fails
-- MC6845 Chris Evans raster-c test palette change 1 char late
-- MC6845 Chris Evans raster-c test pulsing suggest blanking difference
-- MC6845 Tom Seddon Cursor size test fails
-- MC6845 Tom Seddon Light Pen interrupt test slightly easrly
+- MC6845 Chris Evans rvi-working test fails                                [ now fixed ]
+- MC6845 Chris Evans raster-c test palette change 1 char late              [ now just 1px early ]
+- MC6845 Chris Evans raster-c test pulsing suggest blanking difference     [ same on beeb ]
+- MC6845 Tom Seddon Cursor size test fails                                 [ now fixed ]
+- MC6845 Tom Seddon Light Pen interrupt test slightly early                [ now fixed ]
 - MC6845 Tom Seddon mode7-disen  test looks different
 
 Test Disk Images:
@@ -82,7 +82,7 @@ Test Disk Images:
  117: WhiteLight        Works [ known issue: needs FEA0 6522 to avoid user port conflicts ]
 
  150: CHRIS EVANS
- 151: LinearTTX         Hangs on Master/Reboots on BeebFPGA [ Master only ]
+ 151: LinearTTX         Needs 1770 to run
  152: mode1+7           Expected failure on real Master, Works on BeebFPGA Master
  153: mode4+7           Works
  154: mode7-75          Works

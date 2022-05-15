@@ -747,10 +747,9 @@ begin
 
     de0 <= '1' when h_display = '1' and v_display = '1' and r08_interlace(5 downto 4) /= "11" else '0';
 
-    DE <= de0 when r08_interlace(5 downto 4) = "00" else
-          de1 when r08_interlace(5 downto 4) = "01" else
-          de2 when r08_interlace(5 downto 4) = "10" else
-          '0';
+    DE <= de1 when r08_interlace(4) = '1' else
+          de2 when r08_interlace(5) = '1' else
+          de0;
 
     cursor0 <= '0' when h_display = '0' or v_display = '0' else cursor_i;
 

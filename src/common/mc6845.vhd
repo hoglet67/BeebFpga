@@ -700,7 +700,6 @@ begin
     --
     -- ===========================================================================
 
-    -- TODO: Rework in the light of Tom Seddon's cursor tests
     -- TODO: Suppress wrap around if last line is > max scan line ???
 
     process(CLOCK,nRESET)
@@ -711,7 +710,16 @@ begin
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 if ma_i = r14_cursor_h & r15_cursor_l and line_counter >= r10_cursor_start and line_counter <= r11_cursor_end then
-                    cursor_i <= '1';
+                    case r10_cursor_mode is
+                        when "00" =>
+                            cursor_i <= '1';
+                        when "10" =>
+                            cursor_i <= field_counter(3);
+                        when "11" =>
+                            cursor_i <= field_counter(4);
+                        when others =>
+                            cursor_i <= '0';
+                    end case;
                 else
                     cursor_i <= '0';
                 end if;
@@ -744,18 +752,12 @@ begin
           de2 when r08_interlace(5 downto 4) = "10" else
           '0';
 
-    -- Cursor output generated combinatorially from the internal signal in
-    -- accordance with the currently selected cursor mode
-    cursor0 <= '0'                              when h_display = '0' or v_display = '0' else
-                cursor_i                        when r10_cursor_mode = "00" else
-                '0'                             when r10_cursor_mode = "01" else
-                (cursor_i and field_counter(3)) when r10_cursor_mode = "10" else
-                (cursor_i and field_counter(4));
+    cursor0 <= '0' when h_display = '0' or v_display = '0' else cursor_i;
 
-    CURSOR <=   cursor0 when r08_interlace(7 downto 6) = "00" else
-                cursor1 when r08_interlace(7 downto 6) = "01" else
-                cursor2 when r08_interlace(7 downto 6) = "10" else
-                '0';
+    CURSOR <= cursor0 when r08_interlace(7 downto 6) = "00" else
+              cursor1 when r08_interlace(7 downto 6) = "01" else
+              cursor2 when r08_interlace(7 downto 6) = "10" else
+              '0';
 
     -- ===========================================================================
     --

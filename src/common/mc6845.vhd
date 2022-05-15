@@ -120,6 +120,7 @@ signal h_counter        :   unsigned(7 downto 0);
 signal h_sync_counter   :   unsigned(3 downto 0);
 -- Row counter counts current character row
 signal row_counter      :   unsigned(6 downto 0);
+signal row_counter_next :   unsigned(6 downto 0);
 -- Line counter counts current line within each character row
 signal line_counter     :   unsigned(4 downto 0);
 -- Vertical adjust counter counts lines within the vertical adjust period
@@ -134,6 +135,8 @@ signal h_display        :   std_logic;
 signal hs               :   std_logic;
 signal v_display        :   std_logic;
 signal vs               :   std_logic;
+signal vs_hit           :   std_logic;
+signal vs_hit_last      :   std_logic;
 signal vs_even          :   std_logic;
 signal vs_odd           :   std_logic;
 signal odd_field        :   std_logic; -- indicates the current field is an odd field, updated on counter wrap
@@ -147,6 +150,16 @@ signal cursor0          :   std_logic;
 signal cursor1          :   std_logic;
 signal cursor2          :   std_logic;
 signal interlaced_video :   std_logic;
+signal max_scan_line    :   unsigned(4 downto 0);
+signal adj_scan_line    :   unsigned(4 downto 0);
+
+signal in_adj           :   std_logic;
+signal sof1             :   std_logic;
+signal sof2             :   std_logic;
+signal eom_latched      :   std_logic;
+signal eof_latched      :   std_logic;
+signal first_scanline   :   std_logic;
+signal extra_scanline   :   std_logic;
 
 begin
     HSYNC <= hs; -- External HSYNC driven directly from internal signal
@@ -267,20 +280,26 @@ begin
         end if;
     end process; -- registers
 
+    -- TODO: Review the below two expressions, as the VGA mode criteria should really be the same
+
+    -- Normally the max scan line is r09_max_scan_line_addr, with two exceptions
+    -- In VGA mode we add one so the mode 7 18 becomes 19 (giving 20 rows per character)
+    -- In interlace sync + video mode we mask off the LSB
+
+    max_scan_line <= r09_max_scan_line_addr + 1               when VGA = '1'                        else
+                     r09_max_scan_line_addr(4 downto 1) & '0' when r08_interlace(1 downto 0) = "11" else
+                     r09_max_scan_line_addr;
+
+    -- Normally the adjust scan line is r05_v_total_adj, with one exception
+    -- In VGA Mode we add two so the Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
+    adj_scan_line <= r05_v_total_adj + 2 when r08_interlace(1 downto 0) = "11" and VGA = '1'  else
+                     r05_v_total_adj;
+
+
     -- Horizontal, vertical and address counters
     process(CLOCK,nRESET)
     variable ma_row_start : unsigned(13 downto 0);
     variable ma_row_next  : unsigned(13 downto 0);
-    variable max_scan_line : unsigned(4 downto 0);
-    variable adj_scan_line : unsigned(4 downto 0);
-    variable in_adj : std_logic;
-    variable sof1 : std_logic;
-    variable sof2 : std_logic;
-    variable eom_latched : std_logic;
-    variable eof_latched : std_logic;
-    variable first_scanline : std_logic;
-    variable extra_scanline : std_logic;
-
     begin
         if nRESET = '0' then
             -- H
@@ -301,35 +320,17 @@ begin
             ma_row_next  := (others => '0');
             ma_i <= (others => '0');
 
-            in_adj := '0';
-            eom_latched := '0';
-            eof_latched := '0';
-            first_scanline := '0';
-            extra_scanline := '0';
+            -- End of frame logic
+            sof1 <= '0';
+            sof2 <= '0';
+            in_adj <= '0';
+            eom_latched <= '0';
+            eof_latched <= '0';
+            first_scanline <= '0';
+            extra_scanline <= '0';
 
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-
-                -- This is a normal row, so use r09_max_scan_line_addr
-                if VGA = '1' then
-                    -- So Mode 7 value of 18 becomes 19 (giving 20 rows per character)
-                    max_scan_line := r09_max_scan_line_addr + 1;
-                else
-                    max_scan_line := r09_max_scan_line_addr;
-                end if;
-                -- In interlace sync + video mode mask off the LSb of the
-                -- max scan line address
-                if r08_interlace(1 downto 0) = "11" and VGA = '0' then
-                    max_scan_line(0) := '0';
-                end if;
-
-                -- This is the "adjust" row, so use r05_v_total_adj
-                if r08_interlace(1 downto 0) = "11" and VGA = '1' then
-                    -- So Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
-                    adj_scan_line := r05_v_total_adj + 2;
-                else
-                    adj_scan_line := r05_v_total_adj;
-                end if;
 
                 if h_counter = r01_h_displayed then
                     ma_row_next := ma_i;
@@ -369,7 +370,7 @@ begin
                         vadjust_counter <= vadjust_counter + 1;
                     end if;
 
-                    first_scanline := '0';
+                    first_scanline <= '0';
 
                     if eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1') then
 
@@ -384,10 +385,10 @@ begin
                         v_display <= '1';
 
                         -- Reset the in extra time flag
-                        in_adj := '0';
-                        eom_latched := '0';
-                        eof_latched := '0';
-                        first_scanline := '1';
+                        in_adj <= '0';
+                        eom_latched <= '0';
+                        eof_latched <= '0';
+                        first_scanline <= '1';
 
                         -- Latch odd field so it's stable for the whole field
                         odd_field <= field_counter(0);
@@ -413,9 +414,9 @@ begin
 
                     --  extra_scanline records that an extra scanline was added to the field
                     if eof_latched = '1' and r08_interlace(0) = '1' and field_counter(0) = '1' and extra_scanline = '0' then
-                        extra_scanline := '1';
+                        extra_scanline <= '1';
                     else
-                        extra_scanline := '0';
+                        extra_scanline <= '0';
                     end if;
 
                     -- Memory address preset to row start at the beginning of each
@@ -434,9 +435,9 @@ begin
                 if sof2 = '1' then
                     if eom_latched = '1' then
                         if vadjust_counter = adj_scan_line then
-                            eof_latched := '1';
+                            eof_latched <= '1';
                         else
-                            in_adj := '1';
+                            in_adj <= '1';
                         end if;
                     end if;
                 end if;
@@ -445,17 +446,17 @@ begin
                 -- (i.e. on last scanline in last row)
                 if sof1 = '1' then
                     if line_counter = max_scan_line and row_counter = r04_v_total then
-                        eom_latched := '1';
+                        eom_latched <= '1';
                     end if;
                 end if;
 
                 -- Maintain start of frame state
                 -- (sof1 is usually when C0=1 and sof2 is usually when C0=2)
-                sof2 := sof1;
+                sof2 <= sof1;
                 if h_counter = 0 then
-                    sof1 := '1';
+                    sof1 <= '1';
                 else
-                    sof1 := '0';
+                    sof1 <= '0';
                 end if;
 
             end if;
@@ -470,6 +471,12 @@ begin
     --       2 => vsync lasting 2 characters
     --       ...
     --       15 => hsync lasting 15 characters
+    --
+    -- Changing R2 during HSYNC does not retrigger HSYNC
+    -- Changing R3 during HSYNC does extend (or overflow) HSYNC
+    -- multiple HSYNCs can happen on a line, but there will be a gap between them
+    -- R3=0 => no HSYNC
+
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -477,13 +484,16 @@ begin
             h_sync_counter <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                if h_counter = r02_h_sync_pos and r03_h_sync_width /= 0 then
-                    hs <= '1';
-                    h_sync_counter <= r03_h_sync_width;
-                elsif h_sync_counter = 1 then
-                    hs <= '0';
+                if hs = '0' then
+                    if h_counter = r02_h_sync_pos - 1 and r03_h_sync_width /= 0 then
+                        hs <= '1';
+                    end if;
+                    h_sync_counter <= x"1";
                 else
-                    h_sync_counter <= h_sync_counter - 1;
+                    if h_sync_counter = r03_h_sync_width then
+                        hs <= '0';
+                    end if;
+                    h_sync_counter <= h_sync_counter + 1;
                 end if;
             end if;
         end if;
@@ -491,7 +501,7 @@ begin
 
     -- V Sync Generation
     --
-    -- Note: r02_v_sync_width should have the following effect:
+    -- Note: r03_v_sync_width should have the following effect:
     --       0 => vsync lasting 16 lines
     --       1 => vsync lasting 1 line
     --       2 => vsync lasting 2 lines
@@ -501,31 +511,50 @@ begin
     -- Note: Measurements on a real beeb confirm:
     --       even vsync is aligned with the start of the active display
     --       odd vsync is delayed by exactly half a scan line
+    --
+    -- triggered immediately when C4=R7 (irrespective of h_counter)
+    -- possible to generate several VSYNCs in a frame
+    -- can only generate one VSYNC per row
+    -- vsync counter increments on C0=0
+    -- on vsync, vdisplay => 0
+    -- R3=0 => 16 lines
+    -- ??? what happens if R3 changes during vsync
+
+    row_counter_next <= (others => '0') when h_counter = r00_h_total and eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1') else
+                        row_counter + 1 when h_counter = r00_h_total and line_counter = max_scan_line else
+                        row_counter;
+
+    vs_hit <= '1' when row_counter_next = r07_v_sync_pos else '0';
+
+    -- Generate an even vsync that is aligned to h_counter = 0
     process(CLOCK,nRESET)
-    variable tmp : std_logic;
     begin
         if nRESET = '0' then
             vs_even <= '0';
-            vs_odd <= '0';
             v_sync_counter <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                -- Generate an even vsync that is aligned to h_counter = 0
-                if h_counter = 0 then
-                    if row_counter = r07_v_sync_pos and line_counter = 0 then
-                        v_sync_counter <= r03_v_sync_width;
-                        vs_even <= '1';
-                    elsif v_sync_counter = 1 then
+                if vs_hit = '1' and vs_hit_last = '0' then
+                    vs_even <= '1';
+                    v_sync_counter <= x"1";
+                elsif h_counter = r00_h_total then
+                    if  v_sync_counter = r03_v_sync_width then
                         vs_even <= '0';
-                    else
-                        v_sync_counter <= v_sync_counter - 1;
                     end if;
+                    v_sync_counter <= v_sync_counter + 1;
                 end if;
-                -- Generate an odd vsync that is delayed by half a line
-                vs_odd <= tmp;
+                vs_hit_last <= vs_hit;
+            end if;
+        end if;
+    end process;
+
+    -- Generate an odd vsync that is delayed by half a line
+    process(CLOCK)
+    begin
+        if rising_edge(CLOCK) then
+            if CLKEN = '1' then
                 if h_counter = ("0" & r00_h_total(7 downto 1)) then
-                    -- With r00_h_total of 63, this delays it by 31, so one more stage needed
-                    tmp := vs_even;
+                    vs_odd <= vs_even;
                 end if;
             end if;
         end if;

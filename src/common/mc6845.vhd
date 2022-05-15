@@ -1,5 +1,6 @@
 -- BBC Micro for Altera DE1
 --
+-- Copyright (c) 2022 David Banks (hoglet)
 -- Copyright (c) 2011 Mike Stirling
 --
 -- All rights reserved
@@ -38,154 +39,152 @@
 --
 -- Synchronous implementation for FPGA
 --
--- (C) 2011 Mike Stirling
---
--- Corrected cursor flash rate
--- Fixed incorrect positioning of cursor when over left most character
--- Fixed timing of VSYNC
--- Fixed interlaced timing (add an extra line)
--- Implemented r05_v_total_adj
--- Implemented delay parts of r08_interlace (see Hitacht HD6845SP datasheet)
---
--- (C) 2015 David Banks
---
+
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity mc6845 is
 port (
-    CLOCK       :   in  std_logic;
-    CLKEN       :   in  std_logic;
-    CLKEN_CPU   :   in  std_logic;
-    CLKEN_ADR   :   in  std_logic;
-    nRESET      :   in  std_logic;
+    CLOCK     : in  std_logic;
+    CLKEN     : in  std_logic;
+    CLKEN_CPU : in  std_logic;
+    CLKEN_ADR : in  std_logic;
+    nRESET    : in  std_logic;
 
     -- Bus interface
-    ENABLE      :   in  std_logic;
-    R_nW        :   in  std_logic;
-    RS          :   in  std_logic;
-    DI          :   in  std_logic_vector(7 downto 0);
-    DO          :   out std_logic_vector(7 downto 0);
+    ENABLE    : in  std_logic;
+    R_nW      : in  std_logic;
+    RS        : in  std_logic;
+    DI        : in  std_logic_vector(7 downto 0);
+    DO        : out std_logic_vector(7 downto 0);
 
     -- Display interface
-    VSYNC       :   out std_logic;
-    HSYNC       :   out std_logic;
-    DE          :   out std_logic;
-    CURSOR      :   out std_logic;
-    LPSTB       :   in  std_logic;
+    VSYNC     : out std_logic;
+    HSYNC     : out std_logic;
+    DE        : out std_logic;
+    CURSOR    : out std_logic;
+    LPSTB     : in  std_logic;
 
-    VGA         :   in  std_logic;
+    VGA       : in  std_logic; -- Output Mode 7 as 624 line non-interlaced
 
     -- Memory interface
-    MA          :   out std_logic_vector(13 downto 0);
-    RA          :   out std_logic_vector(4 downto 0);
-    test        :   out std_logic_vector(3 downto 0)
+    MA        : out std_logic_vector(13 downto 0);
+    RA        : out std_logic_vector(4 downto 0);
+    test      : out std_logic_vector(3 downto 0)
     );
 end entity;
 
 architecture rtl of mc6845 is
 
 -- Host-accessible registers
-signal addr_reg         :   std_logic_vector(4 downto 0);   -- Currently addressed register
--- These are write-only
-signal r00_h_total      :   unsigned(7 downto 0);   -- Horizontal total, chars
-signal r01_h_displayed  :   unsigned(7 downto 0);   -- Horizontal active, chars
-signal r02_h_sync_pos   :   unsigned(7 downto 0);   -- Horizontal sync position, chars
-signal r03_v_sync_width :   unsigned(3 downto 0);   -- Vertical sync width, scan lines (0=16 lines)
-signal r03_h_sync_width :   unsigned(3 downto 0);   -- Horizontal sync width, chars (0=no sync)
-signal r04_v_total      :   unsigned(6 downto 0);   -- Vertical total, character rows
-signal r05_v_total_adj  :   unsigned(4 downto 0);   -- Vertical offset, scan lines
-signal r06_v_displayed  :   unsigned(6 downto 0);   -- Vertical active, character rows
-signal r07_v_sync_pos   :   unsigned(6 downto 0);   -- Vertical sync position, character rows
-signal r08_interlace    :   std_logic_vector(7 downto 0);
-signal r09_max_scan_line_addr       :   unsigned(4 downto 0);
-signal r10_cursor_mode  :   std_logic_vector(1 downto 0);
-signal r10_cursor_start :   unsigned(4 downto 0);   -- Cursor start, scan lines
-signal r11_cursor_end   :   unsigned(4 downto 0);   -- Cursor end, scan lines
-signal r12_start_addr_h :   unsigned(5 downto 0);
-signal r13_start_addr_l :   unsigned(7 downto 0);
--- These are read/write
-signal r14_cursor_h     :   unsigned(5 downto 0);
-signal r15_cursor_l     :   unsigned(7 downto 0);
--- These are read-only
-signal r16_light_pen_h  :   unsigned(5 downto 0);
-signal r17_light_pen_l  :   unsigned(7 downto 0);
+signal addr_reg               :   std_logic_vector(4 downto 0);   -- Currently addressed register
 
+-- These are write-only
+signal r00_h_total            : unsigned(7 downto 0);   -- Horizontal total, chars
+signal r01_h_displayed        : unsigned(7 downto 0);   -- Horizontal active, chars
+signal r02_h_sync_pos         : unsigned(7 downto 0);   -- Horizontal sync position, chars
+signal r03_v_sync_width       : unsigned(3 downto 0);   -- Vertical sync width, scan lines (0=16 lines)
+signal r03_h_sync_width       : unsigned(3 downto 0);   -- Horizontal sync width, chars (0=no sync)
+signal r04_v_total            : unsigned(6 downto 0);   -- Vertical total, character rows
+signal r05_v_total_adj        : unsigned(4 downto 0);   -- Vertical offset, scan lines
+signal r06_v_displayed        : unsigned(6 downto 0);   -- Vertical active, character rows
+signal r07_v_sync_pos         : unsigned(6 downto 0);   -- Vertical sync position, character rows
+signal r08_interlace          : std_logic_vector(7 downto 0);
+signal r09_max_scan_line_addr : unsigned(4 downto 0);
+signal r10_cursor_mode        : std_logic_vector(1 downto 0);
+signal r10_cursor_start       : unsigned(4 downto 0);   -- Cursor start, scan lines
+signal r11_cursor_end         : unsigned(4 downto 0);   -- Cursor end, scan lines
+signal r12_start_addr_h       : unsigned(5 downto 0);
+signal r13_start_addr_l       : unsigned(7 downto 0);
+-- These are read/write
+signal r14_cursor_h           : unsigned(5 downto 0);
+signal r15_cursor_l           : unsigned(7 downto 0);
+-- These are read-only
+signal r16_light_pen_h        : unsigned(5 downto 0);
+signal r17_light_pen_l        : unsigned(7 downto 0);
 
 -- Timing generation
 -- Horizontal counter counts position on line
-signal h_counter        :   unsigned(7 downto 0);
+signal h_counter              : unsigned(7 downto 0);
 -- HSYNC counter counts duration of sync pulse
-signal h_sync_counter   :   unsigned(3 downto 0);
+signal h_sync_counter         : unsigned(3 downto 0);
 -- Row counter counts current character row
-signal row_counter      :   unsigned(6 downto 0);
-signal row_counter_next :   unsigned(6 downto 0);
+signal row_counter            : unsigned(6 downto 0);
+signal row_counter_next       : unsigned(6 downto 0);
 -- Line counter counts current line within each character row
-signal line_counter     :   unsigned(4 downto 0);
+signal line_counter           : unsigned(4 downto 0);
 -- Vertical adjust counter counts lines within the vertical adjust period
-signal vadjust_counter  :   unsigned(4 downto 0);
+signal vadjust_counter        : unsigned(4 downto 0);
 -- VSYNC counter counts duration of sync pulse
-signal v_sync_counter   :   unsigned(3 downto 0);
+signal v_sync_counter         : unsigned(3 downto 0);
 -- Field counter counts number of complete fields for cursor flash
-signal field_counter    :   unsigned(4 downto 0);
+signal field_counter          : unsigned(4 downto 0);
 
 -- Internal signals
-signal h_display        :   std_logic;
-signal hs               :   std_logic;
-signal v_display        :   std_logic;
-signal vs               :   std_logic;
-signal vs_hit           :   std_logic;
-signal vs_hit_last      :   std_logic;
-signal vs_even          :   std_logic;
-signal vs_odd           :   std_logic;
-signal odd_field        :   std_logic; -- indicates the current field is an odd field, updated on counter wrap
-signal ma_i             :   unsigned(13 downto 0);
-signal cursor_i         :   std_logic;
-signal lpstb_i          :   std_logic;
-signal de0              :   std_logic;
-signal de1              :   std_logic;
-signal de2              :   std_logic;
-signal cursor0          :   std_logic;
-signal cursor1          :   std_logic;
-signal cursor2          :   std_logic;
-signal interlaced_video :   std_logic;
-signal max_scan_line    :   unsigned(4 downto 0);
-signal adj_scan_line    :   unsigned(4 downto 0);
+signal h_display              : std_logic;
+signal hs                     : std_logic;
+signal v_display              : std_logic;
+signal vs                     : std_logic;
+signal vs_hit                 : std_logic;
+signal vs_hit_last            : std_logic;
+signal vs_even                : std_logic;
+signal vs_odd                 : std_logic;
+signal odd_field              : std_logic; -- indicates the current field is an odd field, updated on counter wrap
+signal ma_i                   : unsigned(13 downto 0);
+signal cursor_i               : std_logic;
+signal lpstb_i                : std_logic;
+signal de0                    : std_logic;
+signal de1                    : std_logic;
+signal de2                    : std_logic;
+signal cursor0                : std_logic;
+signal cursor1                : std_logic;
+signal cursor2                : std_logic;
+signal interlaced_video       : std_logic;
+signal max_scan_line          : unsigned(4 downto 0);
+signal adj_scan_line          : unsigned(4 downto 0);
 
-signal in_adj           :   std_logic;
-signal sof1             :   std_logic;
-signal sof2             :   std_logic;
-signal eom_latched      :   std_logic;
-signal eof_latched      :   std_logic;
-signal first_scanline   :   std_logic;
-signal extra_scanline   :   std_logic;
+signal in_adj                 : std_logic;
+signal sof1                   : std_logic;
+signal sof2                   : std_logic;
+signal eom_latched            : std_logic;
+signal eof_latched            : std_logic;
+signal first_scanline         : std_logic;
+signal extra_scanline         : std_logic;
+signal new_frame              : std_logic;
 
 begin
-    HSYNC <= hs; -- External HSYNC driven directly from internal signal
-    VSYNC <= vs; -- External VSYNC driven directly from internal signal
 
-    de0 <= '1' when h_display = '1' and v_display = '1' and r08_interlace(5 downto 4) /= "11" else '0';
+    -- ===========================================================================
+    --
+    -- Common combinatorial logic
+    --
+    -- ===========================================================================
 
-    DE <= de0 when r08_interlace(5 downto 4) = "00" else
-          de1 when r08_interlace(5 downto 4) = "01" else
-          de2 when r08_interlace(5 downto 4) = "10" else
-          '0';
+    -- TODO: Review the below two expressions, as the VGA mode criteria should really be the same
 
-    -- Cursor output generated combinatorially from the internal signal in
-    -- accordance with the currently selected cursor mode
-    cursor0 <= '0'                              when h_display = '0' or v_display = '0' else
-                cursor_i                        when r10_cursor_mode = "00" else
-                '0'                             when r10_cursor_mode = "01" else
-                (cursor_i and field_counter(3)) when r10_cursor_mode = "10" else
-                (cursor_i and field_counter(4));
+    -- Normally the max scan line is r09_max_scan_line_addr, with two exceptions
+    -- In VGA mode we add one so the mode 7 18 becomes 19 (giving 20 rows per character)
+    -- In interlace sync + video mode we mask off the LSB
 
-    CURSOR <=   cursor0 when r08_interlace(7 downto 6) = "00" else
-                cursor1 when r08_interlace(7 downto 6) = "01" else
-                cursor2 when r08_interlace(7 downto 6) = "10" else
-                '0';
+    max_scan_line <= r09_max_scan_line_addr + 1               when VGA = '1'                        else
+                     r09_max_scan_line_addr(4 downto 1) & '0' when r08_interlace(1 downto 0) = "11" else
+                     r09_max_scan_line_addr;
 
-    -- Synchronous register access.  Enabled on every clock.
+    -- Normally the adjust scan line is r05_v_total_adj, with one exception
+    -- In VGA Mode we add two so the Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
+    adj_scan_line <= r05_v_total_adj + 2 when r08_interlace(1 downto 0) = "11" and VGA = '1'  else
+                     r05_v_total_adj;
+
+    -- Indcates a new frame will start on the next clock tick.
+    new_frame <= '1' when h_counter = r00_h_total and eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1') else '0';
+
+    -- ===========================================================================
+    --
+    -- Registers
+    --
+    -- ===========================================================================
+
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -278,192 +277,31 @@ begin
                 end if;
             end if;
         end if;
-    end process; -- registers
+    end process;
 
-    -- TODO: Review the below two expressions, as the VGA mode criteria should really be the same
+    -- ===========================================================================
+    --
+    -- HORIZONTAL TIMING
+    --
+    -- ===========================================================================
 
-    -- Normally the max scan line is r09_max_scan_line_addr, with two exceptions
-    -- In VGA mode we add one so the mode 7 18 becomes 19 (giving 20 rows per character)
-    -- In interlace sync + video mode we mask off the LSB
-
-    max_scan_line <= r09_max_scan_line_addr + 1               when VGA = '1'                        else
-                     r09_max_scan_line_addr(4 downto 1) & '0' when r08_interlace(1 downto 0) = "11" else
-                     r09_max_scan_line_addr;
-
-    -- Normally the adjust scan line is r05_v_total_adj, with one exception
-    -- In VGA Mode we add two so the Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
-    adj_scan_line <= r05_v_total_adj + 2 when r08_interlace(1 downto 0) = "11" and VGA = '1'  else
-                     r05_v_total_adj;
-
-
-    -- Horizontal, vertical and address counters
+    -- Horizontal Counter and Horizontal Display Enable
     process(CLOCK,nRESET)
-    variable ma_row_start : unsigned(13 downto 0);
-    variable ma_row_next  : unsigned(13 downto 0);
     begin
         if nRESET = '0' then
-            -- H
             h_counter <= (others => '0');
-            h_display <= '0';
-
-            -- V
-            line_counter <= (others => '0');
-            vadjust_counter <= (others => '0');
-            row_counter <= (others => '0');
-            v_display <= '0';
-
-            -- Fields (cursor flash)
-            field_counter <= (others => '0');
-
-            -- Addressing
-            ma_row_start := (others => '0');
-            ma_row_next  := (others => '0');
-            ma_i <= (others => '0');
-
-            -- End of frame logic
-            sof1 <= '0';
-            sof2 <= '0';
-            in_adj <= '0';
-            eom_latched <= '0';
-            eof_latched <= '0';
-            first_scanline <= '0';
-            extra_scanline <= '0';
-
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-
-                if h_counter = r01_h_displayed then
-                    ma_row_next := ma_i;
-                end if;
-
-                -- H Display Enable logic (lags by one clock cycle)
-                if h_counter = r01_h_displayed or h_counter = r00_h_total then
-                    h_display <= '0';
-                elsif h_counter = 0 then
-                    h_display <= '1';
-                end if;
-
-                -- V Display Enable logic (lags by one clock cycle)
-                --
-                -- JSBEEB contains this comment concerning R6 hit:
-                --    The Hitachi 6845 will notice this equality at any character,
-                --    including in the middle of a scanline.
-                if row_counter = r06_v_displayed and first_scanline = '0' and v_display = '1' then
-                    -- Drop v_display
-                    v_display <= '0';
-                    -- Surprisingly, the odd/even flag and field counter are updated based on R6
-                    -- i.e. Both cursor blink and interlace cease if R6 > R4.
-                    -- https://github.com/mattgodbolt/jsbeeb/blob/main/video.js#L641
-                    -- Increment field counter
-                    field_counter <= field_counter + 1;
-                end if;
-
-                -- Horizontal counter increments on each clock, wrapping at h_total
                 if h_counter = r00_h_total then
-                    -- h_total reached
                     h_counter <= (others => '0');
-
-                    -- In vertical adjust, start incrementing the vadjust counter,
-                    -- everything else is the same
-
-                    if in_adj = '1' then
-                        vadjust_counter <= vadjust_counter + 1;
-                    end if;
-
-                    first_scanline <= '0';
-
-                    if eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1') then
-
-                        line_counter <= (others => '0');
-                        vadjust_counter <= (others => '0');
-
-                        -- Address is loaded from start address register at the top of
-                        -- each field and the row counter is reset
-                        ma_row_start := r12_start_addr_h & r13_start_addr_l;
-                        ma_row_next  := r12_start_addr_h & r13_start_addr_l;
-                        row_counter <= (others => '0');
-                        v_display <= '1';
-
-                        -- Reset the in extra time flag
-                        in_adj <= '0';
-                        eom_latched <= '0';
-                        eof_latched <= '0';
-                        first_scanline <= '1';
-
-                        -- Latch odd field so it's stable for the whole field
-                        odd_field <= field_counter(0);
-
-                    elsif line_counter = max_scan_line then
-                        -- Scan line counter increments, wrapping at max_scan_line_addr
-                        -- Next character row
-                        line_counter <= (others => '0');
-                        -- On all other character rows within the field the row start address is
-                        -- increased by h_displayed and the row counter is incremented
-                        ma_row_start := ma_row_next;
-                        row_counter <= row_counter + 1;
-                    else
-                        -- Next scan line.  Count in twos in interlaced sync+video mode
-                        if r08_interlace(1 downto 0) = "11" and VGA = '0' then
-                            line_counter <= line_counter + 2;
-                            line_counter(0) <= '0'; -- Force to even
-                        else
-                            line_counter <= line_counter + 1;
-                        end if;
-
-                    end if;
-
-                    --  extra_scanline records that an extra scanline was added to the field
-                    if eof_latched = '1' and r08_interlace(0) = '1' and field_counter(0) = '1' and extra_scanline = '0' then
-                        extra_scanline <= '1';
-                    else
-                        extra_scanline <= '0';
-                    end if;
-
-                    -- Memory address preset to row start at the beginning of each
-                    -- scan line
-                    ma_i <= ma_row_start;
                 else
-                    -- Increment horizontal counter
                     h_counter <= h_counter + 1;
-                    -- Increment memory address
-                    ma_i <= ma_i + 1;
                 end if;
-
-                -- Two clocks after the start of frame, detect the end of frae
-                -- (i.e. on last scanline including the vertical adjust, which
-                -- may be zero)
-                if sof2 = '1' then
-                    if eom_latched = '1' then
-                        if vadjust_counter = adj_scan_line then
-                            eof_latched <= '1';
-                        else
-                            in_adj <= '1';
-                        end if;
-                    end if;
-                end if;
-
-                -- One clock after the start of frame, detect the end of main
-                -- (i.e. on last scanline in last row)
-                if sof1 = '1' then
-                    if line_counter = max_scan_line and row_counter = r04_v_total then
-                        eom_latched <= '1';
-                    end if;
-                end if;
-
-                -- Maintain start of frame state
-                -- (sof1 is usually when C0=1 and sof2 is usually when C0=2)
-                sof2 <= sof1;
-                if h_counter = 0 then
-                    sof1 <= '1';
-                else
-                    sof1 <= '0';
-                end if;
-
             end if;
         end if;
     end process;
 
-    -- H Sync Generation
+    -- Horizontal Sync
     --
     -- Note: r03_h_sync_width should have the following effect:
     --       0 => no hsync
@@ -476,7 +314,6 @@ begin
     -- Changing R3 during HSYNC does extend (or overflow) HSYNC
     -- multiple HSYNCs can happen on a line, but there will be a gap between them
     -- R3=0 => no HSYNC
-
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -499,7 +336,88 @@ begin
         end if;
     end process;
 
-    -- V Sync Generation
+    HSYNC <= hs; -- External HSYNC driven directly from internal signal
+
+    -- Horizontal Display Enable (lags by one clock cycle)
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            h_display <= '0';
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                if h_counter = r01_h_displayed or h_counter = r00_h_total then
+                    h_display <= '0';
+                elsif h_counter = 0 then
+                    h_display <= '1';
+                end if;
+            end if;
+        end if;
+    end process;
+
+    -- ===========================================================================
+    --
+    -- VERTICAL TIMING
+    --
+    -- ===========================================================================
+
+    -- Vertical Scanline Counter, increments at the end of each line, wraps at max_scan_line_addr
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            line_counter <= (others => '0');
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                if new_frame = '1' then
+                    line_counter <= (others => '0');
+                elsif h_counter = r00_h_total then
+                    if line_counter = max_scan_line then
+                        line_counter <= (others => '0');
+                    elsif r08_interlace(1 downto 0) = "11" and VGA = '0' then
+                        -- Count in twos in interlaced sync+video mode
+                        line_counter <= line_counter + 2;
+                        line_counter(0) <= '0'; -- Force to even
+                    else
+                        line_counter <= line_counter + 1;
+                    end if;
+                end if;
+            end if;
+        end if;
+    end process;
+
+    -- Vertical Row Counter
+
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            row_counter <= (others => '0');
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                row_counter <= row_counter_next;
+            end if;
+        end if;
+    end process;
+
+    row_counter_next <= (others => '0') when new_frame = '1' else
+                        row_counter + 1 when h_counter = r00_h_total and line_counter = max_scan_line else
+                        row_counter;
+
+    -- Vertical Adjust Counter
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            vadjust_counter <= (others => '0');
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                if new_frame = '1' then
+                    vadjust_counter <= (others => '0');
+                elsif h_counter = r00_h_total and in_adj = '1' then
+                    vadjust_counter <= vadjust_counter + 1;
+                end if;
+            end if;
+        end if;
+    end process;
+
+    -- Vertical Sync
     --
     -- Note: r03_v_sync_width should have the following effect:
     --       0 => vsync lasting 16 lines
@@ -519,10 +437,6 @@ begin
     -- on vsync, vdisplay => 0
     -- R3=0 => 16 lines
     -- ??? what happens if R3 changes during vsync
-
-    row_counter_next <= (others => '0') when h_counter = r00_h_total and eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1') else
-                        row_counter + 1 when h_counter = r00_h_total and line_counter = max_scan_line else
-                        row_counter;
 
     vs_hit <= '1' when row_counter_next = r07_v_sync_pos else '0';
 
@@ -563,6 +477,155 @@ begin
     -- Select between vs_odd and vs_even based on interlace state
     vs <= vs_odd when r08_interlace(0) = '1' and VGA = '0' and odd_field = '0' else vs_even;
 
+    VSYNC <= vs; -- External VSYNC driven directly from internal signal
+
+    -- Vertical Display Enable (lags by one clock cycle)
+    --
+    -- JSBEEB contains this comment concerning R6 hit:
+    --    The Hitachi 6845 will notice this equality at any character,
+    --    including in the middle of a scanline.
+    --
+    -- Surprisingly, the odd/even flag and field counter are updated based on R6
+    -- i.e. Both cursor blink and interlace cease if R6 > R4.
+    -- https://github.com/mattgodbolt/jsbeeb/blob/main/video.js#L641
+    --
+    -- In interlaced modes, the LSB of the field counter indicates the odd/even field type
+    -- which is latched in odd_field so it's stable for the whole of the next frame.
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            v_display <= '0';
+            field_counter <= (others => '0');
+            odd_field <= '0';
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                if new_frame = '1' then
+                    -- Enable the display
+                    v_display <= '1';
+                    -- Latch odd field so it's stable for the whole field
+                    odd_field <= field_counter(0);
+                elsif row_counter = r06_v_displayed and first_scanline = '0' and v_display = '1' then
+                    -- Disable the display
+                    v_display <= '0';
+                    -- Increment field counter
+                    field_counter <= field_counter + 1;
+                end if;
+                -- TODO: v_display also dropped on r6 hit (?)
+            end if;
+        end if;
+    end process;
+
+    -- ===========================================================================
+    --
+    -- End of frame logic
+    --
+    -- ===========================================================================
+
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            sof1 <= '0';
+            sof2 <= '0';
+            in_adj <= '0';
+            eom_latched <= '0';
+            eof_latched <= '0';
+            first_scanline <= '0';
+            extra_scanline <= '0';
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+
+                -- TODO: Review if Sof1 and Sof2 are correct, e.g. if R0=0 then what should happen?
+
+                -- Sof1 is asserted during C0=1
+                if h_counter = 0 then
+                    sof1 <= '1';
+                else
+                    sof1 <= '0';
+                end if;
+
+                -- Sof2 is asserted during C0=2 (i.e. one cycle later)
+                sof2 <= sof1;
+
+                -- One clock after the start of frame, detect the end of main
+                -- (i.e. on last scanline in last row)
+                if new_frame = '1' then
+                    eom_latched <= '0';
+                elsif sof1 = '1' and line_counter = max_scan_line and row_counter = r04_v_total then
+                    eom_latched <= '1';
+                end if;
+
+                -- Two clocks after the start of frame, detect the end of frae
+                -- (i.e. on last scanline including the vertical adjust, which may be zero)
+                if new_frame = '1' then
+                    in_adj <= '0';
+                    eof_latched <= '0';
+                elsif sof2 = '1' and eom_latched = '1' then
+                    if vadjust_counter = adj_scan_line then
+                        eof_latched <= '1';
+                    else
+                        in_adj <= '1';
+                    end if;
+                end if;
+
+                -- First scaline is active for the first scanline of the field; this affects only the R06 hit logic
+                if new_frame = '1' then
+                    first_scanline <= '1';
+                elsif h_counter = r00_h_total then
+                    first_scanline <= '0';
+                end if;
+
+                -- Extra_scanline records that an extra scanline was added to the field
+                if h_counter = r00_h_total and eof_latched = '1' and r08_interlace(0) = '1' and field_counter(0) = '1' and extra_scanline = '0' then
+                    extra_scanline <= '1';
+                elsif h_counter = r00_h_total then
+                    extra_scanline <= '0';
+                end if;
+
+            end if;
+        end if;
+    end process;
+
+    -- ===========================================================================
+    --
+    -- Memory Address Generation
+    --
+    -- ===========================================================================
+
+    process(CLOCK,nRESET)
+    variable ma_row_start : unsigned(13 downto 0);
+    variable ma_row_next  : unsigned(13 downto 0);
+    begin
+        if nRESET = '0' then
+            ma_row_start := (others => '0');
+            ma_row_next  := (others => '0');
+            ma_i <= (others => '0');
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                if h_counter = r01_h_displayed then
+                    ma_row_next := ma_i;
+                end if;
+                -- Horizontal counter increments on each clock, wrapping at h_total
+                if h_counter = r00_h_total then
+                    if new_frame = '1' then
+                        -- Address is loaded from start address register at the top of each field
+                        ma_row_start := r12_start_addr_h & r13_start_addr_l;
+                        ma_row_next  := r12_start_addr_h & r13_start_addr_l;
+                    elsif line_counter = max_scan_line then
+                        -- On all other character rows within the field the row start address is
+                        -- increased by h_displayed and the row counter is incremented
+                        ma_row_start := ma_row_next;
+                    end if;
+                    -- Memory address preset to row start at the beginning of each
+                    -- scan line
+                    ma_i <= ma_row_start;
+                else
+                    -- Increment memory address
+                    ma_i <= ma_i + 1;
+                end if;
+            end if;
+        end if;
+    end process;
+
     -- Address generation
     process(CLOCK,nRESET)
     begin
@@ -599,7 +662,38 @@ begin
         end if;
     end process;
 
+    -- ===========================================================================
+    --
+    -- Light pen
+    --
+    -- ===========================================================================
+
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            lpstb_i <= '0';
+            r16_light_pen_h <= (others => '0');
+            r17_light_pen_l <= (others => '0');
+        elsif rising_edge(CLOCK) then
+            if CLKEN = '1' then
+                -- Register light-pen strobe input
+                lpstb_i <= LPSTB;
+
+                if LPSTB = '1' and lpstb_i = '0' then
+                    -- Capture address on rising edge
+                    r16_light_pen_h <= ma_i(13 downto 8);
+                    r17_light_pen_l <= ma_i(7 downto 0);
+                end if;
+            end if;
+        end if;
+    end process;
+
+    -- ===========================================================================
+    --
     -- Cursor control
+    --
+    -- ===========================================================================
+
     process(CLOCK,nRESET)
     variable cursor_line : std_logic;
     begin
@@ -637,28 +731,12 @@ begin
         end if;
     end process;
 
-    -- Light pen capture
-    process(CLOCK,nRESET)
-    begin
-        if nRESET = '0' then
-            lpstb_i <= '0';
-            r16_light_pen_h <= (others => '0');
-            r17_light_pen_l <= (others => '0');
-        elsif rising_edge(CLOCK) then
-            if CLKEN = '1' then
-                -- Register light-pen strobe input
-                lpstb_i <= LPSTB;
+    -- ===========================================================================
+    --
+    -- Skew (of cursor and display enable)
+    --
+    -- ===========================================================================
 
-                if LPSTB = '1' and lpstb_i = '0' then
-                    -- Capture address on rising edge
-                    r16_light_pen_h <= ma_i(13 downto 8);
-                    r17_light_pen_l <= ma_i(7 downto 0);
-                end if;
-            end if;
-        end if;
-    end process;
-
-    -- Delayed CURSOR and DE (selected by R08)
     process(CLOCK,nRESET)
     begin
         if rising_edge(CLOCK) then
@@ -670,6 +748,32 @@ begin
             end if;
         end if;
     end process;
+
+    de0 <= '1' when h_display = '1' and v_display = '1' and r08_interlace(5 downto 4) /= "11" else '0';
+
+    DE <= de0 when r08_interlace(5 downto 4) = "00" else
+          de1 when r08_interlace(5 downto 4) = "01" else
+          de2 when r08_interlace(5 downto 4) = "10" else
+          '0';
+
+    -- Cursor output generated combinatorially from the internal signal in
+    -- accordance with the currently selected cursor mode
+    cursor0 <= '0'                              when h_display = '0' or v_display = '0' else
+                cursor_i                        when r10_cursor_mode = "00" else
+                '0'                             when r10_cursor_mode = "01" else
+                (cursor_i and field_counter(3)) when r10_cursor_mode = "10" else
+                (cursor_i and field_counter(4));
+
+    CURSOR <=   cursor0 when r08_interlace(7 downto 6) = "00" else
+                cursor1 when r08_interlace(7 downto 6) = "01" else
+                cursor2 when r08_interlace(7 downto 6) = "10" else
+                '0';
+
+    -- ===========================================================================
+    --
+    -- Test
+    --
+    -- ===========================================================================
 
     test(0) <= '1' when CLKEN_CPU = '1' and ENABLE = '1' and R_nW = '0' else '0';
     test(1) <= '1' when                     ENABLE = '1' and R_nW = '0' else '0';

@@ -517,7 +517,6 @@ begin
                     -- Increment field counter
                     field_counter <= field_counter + 1;
                 end if;
-                -- TODO: v_display also dropped on r7 hit (?)
             end if;
         end if;
     end process;
@@ -702,38 +701,18 @@ begin
     -- ===========================================================================
 
     -- TODO: Rework in the light of Tom Seddon's cursor tests
+    -- TODO: Suppress wrap around if last line is > max scan line ???
 
     process(CLOCK,nRESET)
-    variable cursor_line : std_logic;
     begin
-        -- Internal cursor enable signal delayed by 1 clock to line up
-        -- with address outputs
+        -- Internal cursor enable signal delayed by 1 clock to line up with address outputs
         if nRESET = '0' then
             cursor_i <= '0';
-            cursor_line := '0';
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                if ma_i = r14_cursor_h & r15_cursor_l then
-                    if line_counter = 0 then
-                        -- Suppress wrap around if last line is > max scan line
-                        cursor_line := '0';
-                    end if;
-                    if line_counter = r10_cursor_start and r10_cursor_start <= r11_cursor_end then
-                        -- First cursor scanline
-                        cursor_line := '1';
-                    end if;
-
-                    -- Cursor output is asserted within the current cursor character
-                    -- on the selected lines only
-                    cursor_i <= cursor_line;
-
-                    if line_counter = r11_cursor_end then
-                        -- Last cursor scanline
-                        cursor_line := '0';
-                    end if;
+                if ma_i = r14_cursor_h & r15_cursor_l and line_counter >= r10_cursor_start and line_counter <= r11_cursor_end then
+                    cursor_i <= '1';
                 else
-                    -- Cursor is off in all character positions apart from the
-                    -- selected one
                     cursor_i <= '0';
                 end if;
             end if;

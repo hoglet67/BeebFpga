@@ -113,10 +113,9 @@ signal h_sync_counter         : unsigned(3 downto 0);
 -- Row counter counts current character row
 signal row_counter            : unsigned(6 downto 0);
 signal row_counter_next       : unsigned(6 downto 0);
--- Line counter counts current line within each character row
+-- Line counter counts current line within each character row (also used for vertical adjust)
 signal line_counter           : unsigned(4 downto 0);
--- Vertical adjust counter counts lines within the vertical adjust period
-signal vadjust_counter        : unsigned(4 downto 0);
+signal line_counter_next      : unsigned(4 downto 0);
 -- VSYNC counter counts duration of sync pulse
 signal v_sync_counter         : unsigned(3 downto 0);
 -- Field counter counts number of complete fields for cursor flash
@@ -147,6 +146,7 @@ signal adj_scanline           : unsigned(4 downto 0);
 signal ma_row                 : unsigned(13 downto 0);
 
 signal in_adj                 : std_logic;
+signal adj_in_progress        : std_logic;
 signal sol                    : std_logic_vector(2 downto 0);
 signal eom_latched            : std_logic;
 signal eof_latched            : std_logic;
@@ -175,7 +175,8 @@ begin
                     r09_max_scanline_addr(4 downto 1) & '0' when r08_interlace(1 downto 0) = "11" else
                     r09_max_scanline_addr;
 
-    max_scanline_hit <= '1' when line_counter = max_scanline else '0';
+    -- In Type 0 CRTCs, C9 is used instead of C5, and max_scanline_hit is inhibited
+    max_scanline_hit <= '1' when line_counter = max_scanline and adj_in_progress = '0' else '0';
 
     -- Normally the adjust scan line is r05_v_total_adj, with one exception
     -- In VGA Mode we add two so the Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
@@ -367,7 +368,10 @@ begin
     --
     -- ===========================================================================
 
-    -- Vertical Scanline Counter, increments at the end of each line, wraps at max_scanline_addr
+    -- Vertical Scanline Counter (also used for vertical adjust)
+    -- In interlaced sync + video mode it counts in steps of 2
+    -- In interlaced sync mode and non-interlaced mode it counts in steps of 1
+    -- In vertical adjust it also counts in steps of 1 regardless
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -377,19 +381,15 @@ begin
                 if new_frame = '1' then
                     line_counter <= (others => '0');
                 elsif r00_h_total_hit = '1' then
-                    if max_scanline_hit = '1' then
-                        line_counter <= (others => '0');
-                    elsif r08_interlace(1 downto 0) = "11" and VGA = '0' then
-                        -- Count in twos in interlaced sync+video mode
-                        line_counter <= line_counter + 2;
-                        line_counter(0) <= '0'; -- Force to even
-                    else
-                        line_counter <= line_counter + 1;
-                    end if;
+                    line_counter <= line_counter_next;
                 end if;
             end if;
         end if;
     end process;
+
+    line_counter_next <= (others => '0') when max_scanline_hit = '1' else
+                         line_counter + 1 when adj_in_progress = '1' or not(r08_interlace(1 downto 0) = "11" and VGA = '0') else
+                         line_counter(4 downto 1) + 1 & '0';
 
     -- Vertical Row Counter
 
@@ -407,22 +407,6 @@ begin
     row_counter_next <= (others => '0') when new_frame = '1' else
                         row_counter + 1 when r00_h_total_hit = '1' and max_scanline_hit = '1' else
                         row_counter;
-
-    -- Vertical Adjust Counter
-    process(CLOCK,nRESET)
-    begin
-        if nRESET = '0' then
-            vadjust_counter <= (others => '0');
-        elsif rising_edge(CLOCK) then
-            if CLKEN = '1' then
-                if new_frame = '1' then
-                    vadjust_counter <= (others => '0');
-                elsif r00_h_total_hit = '1' and in_adj = '1' then
-                    vadjust_counter <= vadjust_counter + 1;
-                end if;
-            end if;
-        end if;
-    end process;
 
     -- Vertical Sync
     --
@@ -531,6 +515,7 @@ begin
         if nRESET = '0' then
             sol <= (others => '0');
             in_adj <= '0';
+            adj_in_progress <= '0';
             eom_latched <= '0';
             eof_latched <= '0';
             first_scanline <= '0';
@@ -590,7 +575,7 @@ begin
                 if new_frame = '1' then
                     in_adj <= '0';
                 elsif sol(1) = '1' and eom_latched = '1' then
-                    if vadjust_counter = adj_scanline then
+                    if line_counter_next = adj_scanline then
                         in_adj <= '0';
                     else
                         in_adj <= '1';
@@ -602,6 +587,14 @@ begin
                     eof_latched <= '0';
                 elsif sol(2) = '1' and eom_latched = '1' and in_adj = '0' then
                     eof_latched <= '1';
+                end if;
+
+                -- adj_in_progress is a delayed version of in_adj that's used the line counter to
+                -- force the increment to 1, and to disable max_scanline_hit
+                if new_frame = '1' then
+                    adj_in_progress <= '0';
+                elsif r00_h_total_hit = '1' and eom_latched = '1' and in_adj = '1' then
+                    adj_in_progress <= '1';
                 end if;
 
                 -- First_scanline is active for the first scanline of the field; this affects only the R06 hit logic

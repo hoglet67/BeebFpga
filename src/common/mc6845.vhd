@@ -147,8 +147,7 @@ signal adj_scanline           : unsigned(4 downto 0);
 signal ma_row                 : unsigned(13 downto 0);
 
 signal in_adj                 : std_logic;
-signal sof1                   : std_logic;
-signal sof2                   : std_logic;
+signal sol                    : std_logic_vector(2 downto 0);
 signal eom_latched            : std_logic;
 signal eof_latched            : std_logic;
 signal first_scanline         : std_logic;
@@ -484,7 +483,6 @@ begin
 
     -- Select between vs_odd and vs_even based on interlace state
     vs <= vs_odd when r08_interlace(0) = '1' and VGA = '0' and odd_field = '0' else vs_even;
-
     VSYNC <= vs; -- External VSYNC driven directly from internal signal
 
     -- Vertical Display Enable (lags by one clock cycle)
@@ -531,8 +529,7 @@ begin
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
-            sof1 <= '0';
-            sof2 <= '0';
+            sol <= (others => '0');
             in_adj <= '0';
             eom_latched <= '0';
             eof_latched <= '0';
@@ -541,40 +538,73 @@ begin
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
 
-                -- TODO: Review if Sof1 and Sof2 are correct, e.g. if R0=0 then what should happen?
+                -- TODO: Confirm extactly when end of main (EOM) is latched
+                --
+                -- i.e. Is EOM latched on entering C0=1 or on exiting C0=1
+                --
+                -- RichTW says:
+                --
+                --     One character after the beginning of a new scanline (normally when C0 is
+                --     exactly 1), the CTRC latches the "end of frame pending" signal.  After this
+                --     moment, the CRTC is committed to ending the current frame, regardless of
+                --     changes to R4 or R9 after that.
+                --
+                --     Two characters after the beginning of a new scanline (normally when C0 is
+                --     exactly 2 (!)), the CRTC decides whether it needs to enter vertical adjust as
+                --     part of the end of frame sequence.  In other words, if R5=0, but you then
+                --     change it any time after C0=2 when C9=R9 and C4=R4, it won't get noticed, and
+                --     there will be no vertical adjust.  In the case where R0=1, it doesn't get to
+                --     do that check by the supposed end of frame, so an extra scanline occurs with
+                --     C9=0 and C4=R4+1, and it will then see that no vertical adjust is due and
+                --     finish the frame at the end of the next scanline.
 
-                -- Sof1 is asserted during C0=1
-                if h_counter = 0 then
-                    sof1 <= '1';
-                else
-                    sof1 <= '0';
-                end if;
+                -- https://www.cpcwiki.eu/forum/programming/crtc-detailed-operation/msg180078/#msg180078
+                --
+                -- Amstrad CRTC Compendion says:
+                --
+                --     When C0=0, the CRTC evaluates if C0=R9 and
+                --     C4=R4 to determine if it is on the bottom line
+                --     of the screen. Ir no longer repeats this on
+                --     other values of C0.
+                --
+                -- https://www.cpcwiki.eu/forum/news-events/release-of-amstrad-cpc-crtc-compendium-and-amazing-demo-rev-2021/msg209689/#msg209689
+                --
+                -- From this, I would say it's on the transition of C0=0 => C0=1
+                --
+                -- Looking at the beebjit code, it seems latching end-of-main, vertical-adjust and
+                -- end-of-frame happen over three successive cycles.
 
-                -- Sof2 is asserted during C0=2 (i.e. one cycle later)
-                sof2 <= sof1;
+                -- Sol(0) is asserted during C0=0
+                -- Sol(1) is asserted during C0=1
+                -- Sol(2) is asserted during C0=2
+                sol <= sol(sol'length - 2 downto 0) & r00_h_total_hit;
 
-                -- One clock after the start of frame, detect the end of main
-                -- (i.e. on last scanline in last row)
+                -- One clock after the start of the line (after C0=0), latch end-of-main
                 if new_frame = '1' then
                     eom_latched <= '0';
-                elsif sof1 = '1' and max_scanline_hit = '1' and row_counter = r04_v_total then
+                elsif sol(0) = '1' and max_scanline_hit = '1' and row_counter = r04_v_total then
                     eom_latched <= '1';
                 end if;
 
-                -- Two clocks after the start of frame, detect the end of frae
-                -- (i.e. on last scanline including the vertical adjust, which may be zero)
+                -- Two clocks after the start of the line (after C0=1), detect if vertical-adjust needed
                 if new_frame = '1' then
                     in_adj <= '0';
-                    eof_latched <= '0';
-                elsif sof2 = '1' and eom_latched = '1' then
+                elsif sol(1) = '1' and eom_latched = '1' then
                     if vadjust_counter = adj_scanline then
-                        eof_latched <= '1';
+                        in_adj <= '0';
                     else
                         in_adj <= '1';
                     end if;
                 end if;
 
-                -- First scaline is active for the first scanline of the field; this affects only the R06 hit logic
+                -- Three clocks after the start of the line (after C0=2), latch end-of-frame
+                if new_frame = '1' then
+                    eof_latched <= '0';
+                elsif sol(2) = '1' and eom_latched = '1' and in_adj = '0' then
+                    eof_latched <= '1';
+                end if;
+
+                -- First_scanline is active for the first scanline of the field; this affects only the R06 hit logic
                 if new_frame = '1' then
                     first_scanline <= '1';
                 elsif r00_h_total_hit = '1' then

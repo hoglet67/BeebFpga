@@ -144,6 +144,7 @@ signal cursor2                : std_logic;
 signal interlaced_video       : std_logic;
 signal max_scanline           : unsigned(4 downto 0);
 signal adj_scanline           : unsigned(4 downto 0);
+signal ma_row                 : unsigned(13 downto 0);
 
 signal in_adj                 : std_logic;
 signal sof1                   : std_logic;
@@ -598,34 +599,27 @@ begin
     -- ===========================================================================
 
     process(CLOCK,nRESET)
-    variable ma_row_start : unsigned(13 downto 0);
-    variable ma_row_next  : unsigned(13 downto 0);
     begin
         if nRESET = '0' then
-            ma_row_start := (others => '0');
-            ma_row_next  := (others => '0');
+            ma_row <= (others => '0');
             ma_i <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                if h_counter = r01_h_displayed then
-                    ma_row_next := ma_i;
+                if new_frame = '1' then
+                    -- At start of frame the row start address is loaded from r12/13
+                    ma_row <= r12_start_addr_h & r13_start_addr_l;
+                elsif h_counter = r01_h_displayed and max_scanline_hit = '1' then
+                    -- At the end of the row, the row start address loaded with the address of the next row
+                    ma_row <= ma_i;
                 end if;
-                -- Horizontal counter increments on each clock, wrapping at h_total
-                if r00_h_total_hit = '1' then
-                    if new_frame = '1' then
-                        -- Address is loaded from start address register at the top of each field
-                        ma_row_start := r12_start_addr_h & r13_start_addr_l;
-                        ma_row_next  := r12_start_addr_h & r13_start_addr_l;
-                    elsif max_scanline_hit = '1' then
-                        -- On all other character rows within the field the row start address is
-                        -- increased by h_displayed and the row counter is incremented
-                        ma_row_start := ma_row_next;
-                    end if;
-                    -- Memory address preset to row start at the beginning of each
-                    -- scan line
-                    ma_i <= ma_row_start;
+                if new_frame = '1' then
+                    -- At start of frame the memory address is loaded from r12/13
+                    ma_i <= r12_start_addr_h & r13_start_addr_l;
+                elsif r00_h_total_hit = '1' then
+                    -- At start of each line the memory addess is reset back to the row start address
+                    ma_i <= ma_row;
                 else
-                    -- Increment memory address
+                    -- During the line the memory address is incremented
                     ma_i <= ma_i + 1;
                 end if;
             end if;

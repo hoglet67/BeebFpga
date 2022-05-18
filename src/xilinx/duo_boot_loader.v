@@ -2,6 +2,8 @@ module duo_boot_loader
   (
    input       clock,
    input [3:0] dip,
+   input       SW1,
+   output      ARDUINO_RESET,
    output      led
    );
 
@@ -294,5 +296,7 @@ module duo_boot_loader
    end
 
    assign led = 1'b1;
+
+   assign ARDUINO_RESET = SW1;
 
 endmodule

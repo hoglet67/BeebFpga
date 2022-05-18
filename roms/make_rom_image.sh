@@ -24,8 +24,9 @@ cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 
 # Note: Bank 8 is special, in that B600-BFFF is mapped to RAM (for SWMMFS)
-cat bbcb/swmmfs.rom            >> $IMAGE
+#cat bbcb/swmmfs.rom           >> $IMAGE
 #cat bbcb/swmmfs2.rom          >> $IMAGE
+cat bbcb/swmmfsspi.rom         >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
@@ -40,8 +41,9 @@ cat bbcb/basic2.rom            >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 cat m128/adfs1-57.rom          >> $IMAGE
-cat m128/mammfs.rom            >> $IMAGE
+#cat m128/mammfs.rom           >> $IMAGE
 #cat m128/mammfs2.rom          >> $IMAGE
+cat m128/mammfsspi.rom         >> $IMAGE
 
 # Note: It's not possible to pre-load the sideways RAM banks (4-7)
 cat m128/mos.rom               >> $IMAGE

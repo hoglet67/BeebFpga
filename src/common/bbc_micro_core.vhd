@@ -57,6 +57,7 @@ use ieee.numeric_std.all;
 entity bbc_micro_core is
     generic (
         IncludeAMXMouse    : boolean := false;
+        IncludeSPISD       : boolean := false;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
@@ -437,6 +438,9 @@ signal mouse_rx_data     :   std_logic_vector(7 downto 0);
 signal mouse_write       :   std_logic;
 signal mouse_tx_data     :   std_logic_vector(7 downto 0);
 
+-- SPI SD Card
+signal spisd_do         :   std_logic_vector(7 downto 0);
+
 -- IC32 latch on System VIA
 signal ic32             :   std_logic_vector(7 downto 0);
 signal sound_enable_n   :   std_logic;
@@ -520,6 +524,7 @@ signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
 signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F, or FE80-FE9F
 signal mouse_via_enable :   std_logic;      -- 0xFE60-FE7F
 --signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
+signal spisd_enable     :   std_logic;      -- 0xFEDC (Master) / 0xFE1C (Model B)
 signal int_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
 signal ext_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
 
@@ -1513,14 +1518,17 @@ begin
     -- All the system peripherals are mapped into this page as follows:
     -- 0xFE00 - 0xFE07 = MC6845 CRTC
     -- 0xFE08 - 0xFE0F = MC6850 ACIA (Serial/Tape)
-    -- 0xFE10 - 0xFE1F = Serial ULA
+    -- 0xFE10 - 0xFE17 = Serial ULA
+    -- 0xFE18 - 0xFE1B = Econet Station ID (Model B)
+    -- 0xFE1C - 0xFE1F = SPI SD Card Controller (Model B)
     -- 0xFE20 - 0xFE2F = Video ULA
     -- 0xFE30 - 0xFE3F = Paged ROM select latch
     -- 0xFE40 - 0xFE5F = System VIA (6522)
     -- 0xFE60 - 0xFE7F = User VIA (6522)
     -- 0xFE80 - 0xFE9F = 8271 Floppy disc controller
     -- 0xFEA0 - 0xFEBF = 68B54 ADLC for Econet
-    -- 0xFEC0 - 0xFEDF = uPD7002 ADC
+    -- 0xFEC0 - 0xFEDB = uPD7002 ADC
+    -- 0xFEDC - 0xFEDF = SPI SD Card Controller (Master)
     -- 0xFEE0 - 0xFEFF = Tube ULA
     process(cpu_a,io_sheila,m128_mode,copro_mode,cpu_r_nw,acc_itu)
     begin
@@ -1534,6 +1542,7 @@ begin
         user_via_enable <= '0';
         mouse_via_enable <= '0';
  --     adlc_enable <= '0';
+        spisd_enable <= '0';
         adc_enable <= '0';
         int_tube_enable <= '0';
         ext_tube_enable <= '0';
@@ -1559,7 +1568,9 @@ begin
                         else
                             -- 0xFE18
                             if m128_mode = '1' then
-                                adc_enable <= '1';
+                                adc_enable <= '1';     -- 0xFE18-0xFE1F
+                            elsif cpu_a(2) = '1' then
+                                spisd_enable <= '1';   -- 0xFE1C-0xFE1F
                             end if;
                         end if;
                     end if;
@@ -1602,7 +1613,11 @@ begin
 --              when "101" => adlc_enable <= '1';       -- 0xFEA0
                 when "110" =>
                     -- 0xFEC0
-                    if m128_mode = '0' then
+                    if m128_mode = '1' then
+                        if cpu_a(4 downto 2) = "111" then
+                            spisd_enable <= '1';        -- 0xFEDC - 0xFEDF
+                        end if;
+                    else
                         adc_enable <= '1';
                     end if;
                 when "111" =>                           -- 0xFEE0
@@ -1657,6 +1672,7 @@ begin
         sys_via_do_r   when sys_via_enable = '1' else
         user_via_do_r  when user_via_enable = '1' else
         mouse_via_do_r when mouse_via_enable = '1' else
+        spisd_do       when spisd_enable = '1' else
         -- Optional peripherals
         sid_do         when sid_enable = '1' and IncludeSid else
         music5000_do   when io_jim = '1' and IncludeMusic5000 else
@@ -1916,23 +1932,47 @@ begin
 
     -- MMBEEB
 
-    -- SDCLK is driven from either PB1 or CB1 depending on the SR Mode
-    sdclk_int     <= user_via_pb_out(1) when user_via_pb_oe_n(1) = '0' else
-                     user_via_cb1_out   when user_via_cb1_oe_n = '0' else
-                     '1';
+    spisd: if IncludeSPISD generate
 
-    SDCLK           <= sdclk_int;
-    user_via_cb1_in <= sdclk_int;
+        Inst_SPI_Port: entity work.SPI_Port
+            port map (
+                nRST    => reset_n,
+                clk     => clock_48,
+                clken   => vid_clken,  -- needs to be 16MHz or less (SPI clockis half this rate)
+                enable  => spisd_enable,
+                nwe     => cpu_r_nw,
+                datain  => cpu_do,
+                dataout => spisd_do,
+                SDMISO  => SDMISO,
+                SDMOSI  => SDMOSI,
+                SDSS    => SDSS,
+                SDCLK   => SDCLK
+                );
+        user_via_cb1_in <= '0';
+        user_via_cb2_in <= '0';
 
-    -- SDMOSI is always driven from PB0
-    SDMOSI        <= user_via_pb_out(0) when user_via_pb_oe_n(0) = '0' else
-                     '1';
+    end generate;
 
-    -- SDMISO is always read from CB2
-    user_via_cb2_in <= SDMISO; -- SDI
+    spi_sd: if not IncludeSPISD generate
+        -- SDCLK is driven from either PB1 or CB1 depending on the SR Mode
+        sdclk_int     <= user_via_pb_out(1) when user_via_pb_oe_n(1) = '0' else
+                         user_via_cb1_out   when user_via_cb1_oe_n = '0' else
+                         '1';
 
-    -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
-    SDSS          <= '0';
+        SDCLK           <= sdclk_int;
+        user_via_cb1_in <= sdclk_int;
+
+        -- SDMOSI is always driven from PB0
+        SDMOSI        <= user_via_pb_out(0) when user_via_pb_oe_n(0) = '0' else
+                         '1';
+
+        -- SDMISO is always read from CB2
+        user_via_cb2_in <= SDMISO; -- SDI
+
+        -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
+        SDSS          <= '0';
+    end generate;
+
 
     -- Make unused inputs float high
     user_via_pa_in <= (others => '1');

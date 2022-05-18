@@ -40,7 +40,7 @@
 --
 -- Papilio Duo top-level
 --
--- (c) 2015 David Banks
+-- (c) 2022 David Banks
 -- (C) 2011 Mike Stirling
 
 library ieee;
@@ -55,11 +55,12 @@ use unisim.vcomponents.all;
 entity bbc_micro_duo is
     generic (
         IncludeAMXMouse    : boolean := false;  -- Also must enable pullup on accel_io(8,9) in .ucf file
+        IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
-        IncludeCoProExt    : boolean := true;   -- Also helps to enable pulldown on D0/accel_io(8) in .ucf file
+        IncludeCoProExt    : boolean := false;   -- Also helps to enable pulldown on D0/accel_io(8) in .ucf file
         IncludeVideoNuLA   : boolean := true;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := false;
@@ -238,6 +239,7 @@ begin
     bbc_micro : entity work.bbc_micro_core
     generic map (
         IncludeAMXMouse    => IncludeAMXMouse,
+        IncludeSPISD       => IncludeSPISD,
         IncludeSID         => IncludeSID,
         IncludeMusic5000   => IncludeMusic5000,
         IncludeICEDebugger => IncludeICEDebugger,

@@ -49,7 +49,6 @@ port (
     CLOCK     : in  std_logic;
     CLKEN     : in  std_logic;
     CLKEN_CPU : in  std_logic;
-    CLKEN_ADR : in  std_logic;
     nRESET    : in  std_logic;
 
     -- Bus interface
@@ -668,7 +667,7 @@ begin
             RA <= (others => '0');
             MA <= (others => '0');
         elsif rising_edge(CLOCK) then
-            if CLKEN_ADR = '1' then
+            if CLKEN = '1' then
                 -- On the Real 6845 you don't see glitches on RA0 when writing r08
                 -- so mimic this by latching the relevant r08 state once per line.
                 -- This is probably done differently on the real hardware. I suspect

@@ -293,7 +293,6 @@ signal cpu_dout_us      :   unsigned (7 downto 0);
 
 -- CRTC signals
 signal crtc_clken       :   std_logic;
-signal crtc_clken_adr   :   std_logic;
 signal crtc_do          :   std_logic_vector(7 downto 0);
 signal crtc_vsync       :   std_logic;
 signal crtc_vsync_n     :   std_logic;
@@ -674,7 +673,6 @@ begin
             CLOCK     => clock_48,
             CLKEN     => crtc_clken,
             CLKEN_CPU => cpu_clken,
-            CLKEN_ADR => crtc_clken_adr,
             nRESET    => hard_reset_n,
             ENABLE    => crtc_enable,
             R_nW      => cpu_r_nw,
@@ -702,7 +700,6 @@ begin
                 PIXCLK          => clock_48,
                 nRESET          => hard_reset_n,
                 CLKEN_CRTC      => crtc_clken,
-                CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
                 MHZ12           => mhz12_active,
@@ -731,7 +728,6 @@ begin
                 CLKEN           => vid_clken,
                 nRESET          => hard_reset_n,
                 CLKEN_CRTC      => crtc_clken,
-                CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
                 VGA             => vga_mode,
@@ -1303,13 +1299,10 @@ begin
     -- The video processor increments clken_counter when vid_clken
     -- is asserted.
     --
-    -- The video processor assertes CRTC_CLKEN_ADR during cycle 3/11
+    -- The video processor assertes CRTC_CLKEN during cycle 3/11
     -- (qualified by vid_clken)
     --
     -- The mc6845 increments the video address at the start of cycle 4/12
-    --
-    -- The video processor assertes CRTC_CLKEN during cycle 15/7
-    -- (qualified by vid_clken)
     --
     -- The video processor latches read data at the end of cycle 0/8
     -- (qualified by vid_clken)

@@ -132,7 +132,7 @@ signal vs_odd                 : std_logic;
 signal odd_field              : std_logic; -- indicates the current field is an odd field, updated on counter wrap
 signal ma_i                   : unsigned(13 downto 0);
 signal cursor_i               : std_logic;
-signal lpstb_sync             : std_logic_vector(3 downto 0);
+signal lpstb_sync             : std_logic_vector(2 downto 0);
 signal de0                    : std_logic;
 signal de1                    : std_logic;
 signal de2                    : std_logic;

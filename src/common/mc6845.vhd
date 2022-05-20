@@ -429,26 +429,38 @@ begin
     -- R3=0 => 16 lines
     -- ??? what happens if R3 changes during vsync
 
-    vs_hit <= '1' when row_counter_next = r07_v_sync_pos else '0';
+    vs_hit <= '1' when row_counter = r07_v_sync_pos else '0';
 
     -- Generate an even vsync that is aligned to h_counter = 0
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
-            vs_even <= '0';
             v_sync_counter <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 if vs_hit = '1' and vs_hit_last = '0' then
-                    vs_even <= '1';
-                    v_sync_counter <= x"1";
+                    v_sync_counter <= x"0";
                 elsif r00_h_total_hit = '1' then
-                    if  v_sync_counter = r03_v_sync_width then
-                        vs_even <= '0';
-                    end if;
                     v_sync_counter <= v_sync_counter + 1;
                 end if;
                 vs_hit_last <= vs_hit;
+            end if;
+        end if;
+    end process;
+
+    -- vs_even is modelled like a R/S flip-flop
+    -- Important: No clock enable is used here
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            vs_even <= '0';
+        elsif rising_edge(CLOCK) then
+            if vs_hit = '1' and vs_hit_last = '0' then
+                -- one CLOCK tick C4=R7 (which normally conincides with C0=0)
+                vs_even <= '1';
+            elsif v_sync_counter = r03_v_sync_width and sol(0) = '1' then
+                -- one CLOCK tick after C3=R3h and C0=0
+                vs_even <= '0';
             end if;
         end if;
     end process;

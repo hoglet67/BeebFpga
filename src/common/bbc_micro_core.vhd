@@ -1852,9 +1852,12 @@ begin
         if ttxt_vdu = '0' then
             -- HI RES
             display_a <= std_logic_vector(aa(3 downto 0)) & crtc_ma(7 downto 0) & crtc_ra(2 downto 0);
-        else
-            -- TTX VDU
+        elsif m128_mode = '0' then
+            -- TTX VDU (Model B, &3c00 or &7C00)
             display_a <= std_logic(aa(3)) & "1111" & crtc_ma(9 downto 0);
+        else
+            -- TTX VDU (Master, &7C00 only)
+            display_a <= "11111" & crtc_ma(9 downto 0);
         end if;
     end process;
 

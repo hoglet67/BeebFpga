@@ -40,10 +40,8 @@ cat bbcb/basic2.rom            >> $IMAGE
 
 cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
-cat m128/adfs1-57.rom          >> $IMAGE
-#cat m128/mammfs.rom           >> $IMAGE
-#cat m128/mammfs2.rom          >> $IMAGE
-cat m128/mammfsspi.rom         >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
+cat generic/blank.rom          >> $IMAGE
 
 # Note: It's not possible to pre-load the sideways RAM banks (4-7)
 cat m128/mos.rom               >> $IMAGE
@@ -51,8 +49,8 @@ cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 
-cat generic/blank.rom          >> $IMAGE
-cat m128/dfs.rom               >> $IMAGE
+cat m128/dfs.rom               >> $IMAGE # Retain this for SRAM Utils
+cat m128/mammfsspi.rom         >> $IMAGE # MMFS in a higher slot
 cat m128/viewsht.rom           >> $IMAGE
 cat m128/edit.rom              >> $IMAGE
 

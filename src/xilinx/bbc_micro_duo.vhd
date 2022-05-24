@@ -61,6 +61,7 @@ entity bbc_micro_duo is
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := false;   -- Also helps to enable pulldown on D0/accel_io(8) in .ucf file
+        IncludeRGBtoHDMI   : boolean := true;
         IncludeVideoNuLA   : boolean := true;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := false;
@@ -182,6 +183,12 @@ architecture rtl of bbc_micro_duo is
     signal JOYSTICK2      : std_logic_vector(4 downto 0);
     signal ROM_D          : std_logic_vector(7 downto 0);
 
+    signal red_int        : std_logic_vector(3 downto 0);
+    signal green_int      : std_logic_vector(3 downto 0);
+    signal blue_int       : std_logic_vector(3 downto 0);
+    signal hsync_int      : std_logic;
+    signal vsync_int      : std_logic;
+
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
 -----------------------------------------------
@@ -264,11 +271,11 @@ begin
         ps2_mse_clk_o  => ps2_mse_clk_o,
         ps2_mse_data   => ps2_mse_data,
         ps2_mse_data_o => ps2_mse_data_o,
-        video_red      => red,
-        video_green    => green,
-        video_blue     => blue,
-        video_vsync    => vsync,
-        video_hsync    => hsync,
+        video_red      => red_int,
+        video_green    => green_int,
+        video_blue     => blue_int,
+        video_vsync    => vsync_int,
+        video_hsync    => hsync_int,
         audio_l        => audio_l,
         audio_r        => audio_r,
         ext_nOE        => RAM_nOE,
@@ -319,8 +326,13 @@ begin
         ext_keyb_ca2   => '1',
         ext_keyb_pa7   => '1'
     );
-    LED1 <= caps_led;
-    LED2 <= shift_led;
+    LED1  <= caps_led;
+    LED2  <= shift_led;
+    red   <= red_int;
+    green <= green_int;
+    blue  <= blue_int;
+    hsync <= hsync_int;
+    vsync <= vsync_int;
 
 --------------------------------------------------------
 -- Clock Generation
@@ -561,8 +573,36 @@ begin
         ps2_mse_data          <= ps2_mse_data_o;
     end generate;
 
+    GenRGBtoHDMI: if IncludeRGBtoHDMI generate
+    begin
+        -- Mappings for RGBtoHDMI 12-bit extender V1
+        -- (V2 is different !!!)
+                                                -- pin 7 (GND)
+        accel_io(15 downto 0) <= 'Z'          &
+                                 'Z'          &
+                                 green_int(0) & -- pin 1
+                                 blue_int(0)  & -- pin 2
+                                 green_int(1) & -- pin 3
+                                 red_int(0)   & -- pin 4
+                                 red_int(1)   & -- pin 5
+                                 blue_int(1)  & -- pin 6
+                                 green_int(2) & -- pin 8
+                                 red_int(2)   & -- pin 9
+                                 blue_int(2)  & -- pin 10
+                                 red_int(3)   & -- pin 11
+                                 hsync_int    & -- pin 12
+                                 green_int(3) & -- pin 13
+                                 vsync_int    & -- pin 14
+                                 blue_int(3);   -- pin 15
+                                                -- pin 16 (VCC)
 
-    GenCoProNotExt: if not IncludeCoProExt generate
+        JOYSTICK2             <= (others => '1');
+        ps2_mse_clk           <= ps2_mse_clk_o;
+        ps2_mse_data          <= ps2_mse_data_o;
+    end generate;
+
+
+    GenCoProNotExt: if not IncludeCoProExt and not IncludeRGBtoHDMI generate
     begin
         ext_tube_do  <= x"FE";
         JOYSTICK2    <= accel_io(5) & accel_io(1) & accel_io(2) & accel_io(3) & accel_io(4);

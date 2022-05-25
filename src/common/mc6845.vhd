@@ -186,7 +186,7 @@ begin
     r00_h_total_hit <= '1' when h_counter = r00_h_total  else '0';
 
     -- Indcates a new frame will start on the next clock tick.
-    new_frame <= '1' when r00_h_total_hit = '1' and eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1') else '0';
+    new_frame <= '1' when r00_h_total_hit = '1' and eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1' or VGA = '1') else '0';
 
     -- ===========================================================================
     --

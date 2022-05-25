@@ -687,7 +687,7 @@ begin
                 if interlaced_video = '1' then
                     RA(0) <= odd_field;
                 else
-                    RA(0) <= line_counter(0) xor VGA;
+                    RA(0) <= line_counter(0);
                 end if;
                 RA(4 downto 1) <= std_logic_vector(line_counter(4 downto 1));
                 -- Internal memory address delayed by one cycle as well

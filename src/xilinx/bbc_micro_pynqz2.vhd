@@ -54,6 +54,7 @@ use UNISIM.Vcomponents.all;
 entity bbc_micro_pynqz2 is
     generic (
         IncludeAMXMouse    : boolean := false;
+        IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := true;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
@@ -272,6 +273,7 @@ begin
     bbc_micro : entity work.bbc_micro_core
     generic map (
         IncludeAMXMouse    => IncludeAMXMouse,
+        IncludeSPISD       => IncludeSPISD,
         IncludeSID         => IncludeSID,
         IncludeMusic5000   => IncludeMusic5000,
         IncludeICEDebugger => IncludeICEDebugger,

@@ -254,6 +254,7 @@ signal ttxt_clken       :   std_logic; -- 12 MHz used by SAA 5050 (24MHz in VGA 
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
+signal mhz2_clken_180   :   std_logic; -- 2 MHz clock inverted for SAA5050 character data (in VGA mode)
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
 signal mhz1_clken_180   :   std_logic; -- 1 MHz clock inverted for SAA5050 character data
 
@@ -364,6 +365,7 @@ signal ttxt_g           :   std_logic;
 signal ttxt_b           :   std_logic;
 signal ttxt_y           :   std_logic;
 signal ttxt_active      :   std_logic;
+signal ttxt_di_clken    :   std_logic;
 signal mhz12_active     :   std_logic;
 
 -- System VIA signals
@@ -748,6 +750,8 @@ begin
         mhz12_active <= ttxt_active;
     end generate;
 
+    ttxt_di_clken <= mhz2_clken_180 when vga_mode = '1' else mhz1_clken_180;
+
     teletext : entity work.saa5050
         port map (
             CLOCK    => clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
@@ -755,7 +759,7 @@ begin
             nRESET   => hard_reset_n,
             VGA      => vga_mode,
             DI_CLOCK => clock_48, -- Data input is synchronised from the bus clock domain
-            DI_CLKEN => mhz1_clken_180,
+            DI_CLKEN => ttxt_di_clken,
             DI       => ttxt_data,
             GLR      => ttxt_glr,
             DEW      => ttxt_dew,
@@ -1386,6 +1390,13 @@ begin
                 mhz2_clken <= '0';
             end if;
 
+            -- 2MHz clock enable, 180 degrees out of phase
+            if div3_counter = 1 and clken_counter(2 downto 0) = 3 then
+                mhz2_clken_180 <= '1';
+            else
+                mhz2_clken_180 <= '0';
+            end if;
+
             -- 1MHz clock enable
             if div3_counter = 1 and clken_counter(3 downto 0) = 15 then
                 mhz1_clken <= '1';
@@ -1393,7 +1404,7 @@ begin
                 mhz1_clken <= '0';
             end if;
 
-            -- 1MHz clock enable
+            -- 1MHz clock enable, 180 degrees out of phase
             if div3_counter = 1 and clken_counter(3 downto 0) = 7 then
                 mhz1_clken_180 <= '1';
             else
@@ -1879,7 +1890,7 @@ begin
     process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if (mhz1_clken_180 = '1') then
+            if (ttxt_di_clken = '1') then
                 if (ttxt_vdu = '1') then
                     ttxt_data <= vid_mem_data(6 downto 0);
                     ttxt_lose <= crtc_de;

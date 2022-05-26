@@ -345,16 +345,16 @@ begin
 
     HSYNC <= hs; -- External HSYNC driven directly from internal signal
 
-    -- Horizontal Display Enable (lags by one clock cycle)
+    -- Horizontal Display Enable
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
             h_display <= '0';
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                if h_counter = r01_h_displayed or r00_h_total_hit = '1' then
+                if h_counter_next = r01_h_displayed or h_counter_next = r00_h_total then
                     h_display <= '0';
-                elsif h_counter = 0 then
+                elsif h_counter_next = 0 then
                     h_display <= '1';
                 end if;
             end if;
@@ -480,7 +480,7 @@ begin
     vs <= vs_odd when r08_interlace(0) = '1' and VGA = '0' and odd_field = '0' else vs_even;
     VSYNC <= vs; -- External VSYNC driven directly from internal signal
 
-    -- Vertical Display Enable (lags by one clock cycle)
+    -- Vertical Display Enable
     --
     -- JSBEEB contains this comment concerning R6 hit:
     --    The Hitachi 6845 will notice this equality at any character,
@@ -505,7 +505,7 @@ begin
                     v_display <= '1';
                     -- Latch odd field so it's stable for the whole field
                     odd_field <= field_counter(0);
-                elsif row_counter = r06_v_displayed and first_scanline = '0' and v_display = '1' then
+                elsif row_counter_next = r06_v_displayed and first_scanline = '0' and v_display = '1' then
                     -- Disable the display
                     v_display <= '0';
                     -- Increment field counter
@@ -663,10 +663,7 @@ begin
     -- Address generation
     process(CLOCK,nRESET)
     begin
-        if nRESET = '0' then
-            RA <= (others => '0');
-            MA <= (others => '0');
-        elsif rising_edge(CLOCK) then
+        if rising_edge(CLOCK) then
             if CLKEN = '1' then
                 -- On the Real 6845 you don't see glitches on RA0 when writing r08
                 -- so mimic this by latching the relevant r08 state once per line.
@@ -682,19 +679,15 @@ begin
                         interlaced_video <= '0';
                     end if;
                 end if;
-                -- Character row address is just the scan line counter delayed by
-                -- one clock to line up with the syncs.
-                if interlaced_video = '1' then
-                    RA(0) <= odd_field;
-                else
-                    RA(0) <= line_counter(0);
-                end if;
-                RA(4 downto 1) <= std_logic_vector(line_counter(4 downto 1));
-                -- Internal memory address delayed by one cycle as well
-                MA <= std_logic_vector(ma_i);
             end if;
         end if;
     end process;
+
+    RA <= std_logic_vector(line_counter(4 downto 1)) & odd_field when interlaced_video = '1' else
+          std_logic_vector(line_counter);
+
+    MA <= std_logic_vector(ma_i);
+
 
     -- ===========================================================================
     --
@@ -727,32 +720,11 @@ begin
     --
     -- ===========================================================================
 
-    -- TODO: Suppress wrap around if last line is > max scan line ???
-
-    process(CLOCK,nRESET)
-    begin
-        -- Internal cursor enable signal delayed by 1 clock to line up with address outputs
-        if nRESET = '0' then
-            cursor_i <= '0';
-        elsif rising_edge(CLOCK) then
-            if CLKEN = '1' then
-                if ma_i = r14_cursor_h & r15_cursor_l and line_counter >= r10_cursor_start and line_counter <= r11_cursor_end then
-                    case r10_cursor_mode is
-                        when "00" =>
-                            cursor_i <= '1';
-                        when "10" =>
-                            cursor_i <= field_counter(3);
-                        when "11" =>
-                            cursor_i <= field_counter(4);
-                        when others =>
-                            cursor_i <= '0';
-                    end case;
-                else
-                    cursor_i <= '0';
-                end if;
-            end if;
-        end if;
-    end process;
+    cursor0 <= '0' when h_display = '0' or v_display = '0' or ma_i /= r14_cursor_h & r15_cursor_l or line_counter < r10_cursor_start or line_counter > r11_cursor_end else
+               field_counter(4) when r10_cursor_mode = "11" else
+               field_counter(3) when r10_cursor_mode = "10" else
+               '1'              when r10_cursor_mode = "00" else
+               '0';
 
     -- ===========================================================================
     --
@@ -778,7 +750,6 @@ begin
           de2 when r08_interlace(5) = '1' else
           de0;
 
-    cursor0 <= '0' when h_display = '0' or v_display = '0' else cursor_i;
 
     CURSOR <= cursor0 when r08_interlace(7 downto 6) = "00" else
               cursor1 when r08_interlace(7 downto 6) = "01" else

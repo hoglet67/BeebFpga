@@ -183,12 +183,12 @@ begin
         CLKEN                                                       when r0_pixel_rate = "11" else
         CLKEN and (not clken_counter(0))                            when r0_pixel_rate = "10" else
         CLKEN and (not clken_counter(0)) and (not clken_counter(1)) when r0_pixel_rate = "01" else
-        CLKEN and (not clken_counter(0)) and (not clken_counter(1)) and clken_counter(2);
+        CLKEN and (not clken_counter(0)) and (not clken_counter(1)) and (not clken_counter(2));
 
     -- The CRTC is clocked out of phase with the CPU, and the result loaded into the
     -- the shift register on the next CRTC clock edge
     clken_fetch <= CLKEN and
-                  (not clken_counter(0)) and (not clken_counter(1)) and clken_counter(2) and
+                  (not clken_counter(0)) and (not clken_counter(1)) and (not clken_counter(2)) and
                   (clken_counter(3) or r0_crtc_2mhz or (r0_teletext and VGA));
 
     CLKEN_CRTC  <= clken_fetch;

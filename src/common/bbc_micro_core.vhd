@@ -249,11 +249,10 @@ signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabl
 signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
 -- IO cycles are out of phase with the CPU
-signal vid_clken        :   std_logic; -- 16 MHz video cycles
+signal mhz16_clken      :   std_logic; -- 16 MHz, used by the Video ULA
 signal ttxt_clken       :   std_logic; -- 12 MHz used by SAA 5050 (24MHz in VGA mode)
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
-signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
 
 -- Control signals to indicate memory cycles
@@ -697,7 +696,7 @@ begin
             port map (
                 CLOCK           => clock_48,
                 CPUCLKEN        => cpu_clken,
-                CLKEN           => vid_clken,
+                CLKEN           => mhz16_clken,
                 PIXCLK          => clock_48,
                 nRESET          => hard_reset_n,
                 CLKEN_CRTC      => crtc_clken,
@@ -727,7 +726,7 @@ begin
             port map (
                 CLOCK           => clock_48,
                 CPUCLKEN        => cpu_clken,
-                CLKEN           => vid_clken,
+                CLKEN           => mhz16_clken,
                 nRESET          => hard_reset_n,
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_COUNT     => clken_counter,
@@ -1184,7 +1183,7 @@ begin
         process(clock_48)
         begin
             if rising_edge(clock_48) then
-                ext_tube_phi2  <= clken_counter(2); -- TODO, check this
+                ext_tube_phi2  <= not clken_counter(2);
                 ext_tube_r_nw  <= cpu_r_nw;
                 ext_tube_nrst  <= reset_n;
                 ext_tube_ntube <= not ext_tube_enable;
@@ -1290,39 +1289,42 @@ begin
 --------------------------------------------------------
 
     -- Clock enable generation
-
-    -- Updated system timing, as of 26th Feb 2020
+    --
+    -- Updated system timing, as of 27th May 2022
     --
     -- The goal of this change to accomodate much slower external RAM.
     --
     -- There is a single copy of clken_counter, inside the video processor,
     -- which is now passed out of it's interface.
     --
-    -- The video processor increments clken_counter when vid_clken
+    -- The video processor increments clken_counter when mhz16_clken
     -- is asserted.
     --
-    -- The video processor assertes CRTC_CLKEN during cycle 3/11
-    -- (qualified by vid_clken)
+    -- The video processor assertes CRTC_CLKEN during cycle 0/8
+    -- (qualified by mhz16_clken)
     --
-    -- The mc6845 increments the video address at the start of cycle 4/12
+    -- The mc6845 increments updates it's output in CRTC_CLKEN.
+    --
+    -- The CPU is clocked out of phase with the CRTC, during cycle 4/12
+    -- (qualified by mhz16_clken)
     --
     -- The video processor latches read data at the end of cycle 0/8
-    -- (qualified by vid_clken)
+    -- (qualified by mhz16_clken)
     --
     --      Memory     Data loaded
-    --  0 - Co Pro     CPU, Video
+    --  0 - Co Pro     Video
     --  1 - Co Pro
     --  2 - CPU        Co Pro
     --  3 - CPU
-    --  4 - Co Pro
+    --  4 - Co Pro     CPU
     --  5 - Co Pro
     --  6 - Video      Co Pro
     --  7 - Video
-    --  8 - Co Pro     CPU, Video
+    --  8 - Co Pro     Video
     --  9 - Co Pro
     -- 10 - CPU        Co Pro
     -- 11 - CPU
-    -- 12 - Co Pro
+    -- 12 - Co Pro     CPU
     -- 13 - Co Pro
     -- 14 - Video      Co Pro
     -- 15 - Video
@@ -1343,9 +1345,9 @@ begin
 
             -- 16MHz (video) clock enable
             if div3_counter = 1 then
-                vid_clken <= '1';
+                mhz16_clken <= '1';
             else
-                vid_clken <= '0';
+                mhz16_clken <= '0';
             end if;
 
             -- 1MHz/2MHz clock enable (for IC15).
@@ -1355,8 +1357,8 @@ begin
             --
             -- In VGA mode this needs to be double-speed.
             if div3_counter = 1 and
-                ((vga_mode = '0' and clken_counter = 11) or
-                 (vga_mode = '1' and clken_counter(2 downto 0) = 3)) then
+                ((vga_mode = '0' and clken_counter = 8) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 0)) then
                 ttxt_ic15_clken <= '1';
             else
                 ttxt_ic15_clken <= '0';
@@ -1369,8 +1371,8 @@ begin
             --
             -- In VGA mode this needs to be double-speed.
             if div3_counter = 1 and
-                ((vga_mode = '0' and clken_counter = 3) or
-                 (vga_mode = '1' and clken_counter(2 downto 0) = 7)) then
+                ((vga_mode = '0' and clken_counter = 0) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 4)) then
                 ttxt_di_clken <= '1';
             else
                 ttxt_di_clken <= '0';
@@ -1398,12 +1400,11 @@ begin
             end if;
 
             -- 2MHz clock enable
-            if div3_counter = 1 and clken_counter(2 downto 0) = 7 then
-                mhz2_clken <= '1';
+            if div3_counter = 1 and clken_counter(2 downto 0) = 3 then
                 -- Compute cycle stretching
                 if mhz1_enable = '1' and cpu_cycle_mask = "00" then
                     -- Block CPU cycles until 1 MHz cycle has completed
-                    if clken_counter(3) = '0' then
+                    if clken_counter(3) = '1' then
                         cpu_cycle_mask <= "01";
                     else
                         cpu_cycle_mask <= "10";
@@ -1412,19 +1413,17 @@ begin
                 if cpu_cycle_mask /= "00" then
                     cpu_cycle_mask <= cpu_cycle_mask - 1;
                 end if;
-            else
-                mhz2_clken <= '0';
             end if;
 
             -- 1MHz clock enable
-            if div3_counter = 1 and clken_counter(3 downto 0) = 15 then
+            if div3_counter = 1 and clken_counter(3 downto 0) = 3 then
                 mhz1_clken <= '1';
             else
                 mhz1_clken <= '0';
             end if;
 
             -- CPU clock enable (taking account of cycle stretching)
-            if div3_counter = 2 and clken_counter(2 downto 0) = 7 and cpu_cycle_mask = "00" then
+            if div3_counter = 2 and clken_counter(2 downto 0) = 3 and cpu_cycle_mask = "00" then
                 cpu_clken <= '1';
             else
                 cpu_clken <= '0';
@@ -1442,6 +1441,7 @@ begin
                 cpu_mem_cycle <= '1';
                 -- Latch read data at the end of the cycle
                 if div3_counter = 2 and clken_counter(0) = '1' then
+                    -- This is only held for one tick, so likely could be eliminated
                     cpu_mem_data <= ext_Dout;
                 end if;
             else
@@ -1955,7 +1955,7 @@ begin
             port map (
                 nRST    => reset_n,
                 clk     => clock_48,
-                clken   => vid_clken,  -- needs to be 16MHz or less (SPI clockis half this rate)
+                clken   => mhz16_clken,  -- needs to be 16MHz or less (SPI clockis half this rate)
                 enable  => spisd_enable,
                 nwe     => cpu_r_nw,
                 datain  => cpu_do,
@@ -2036,7 +2036,7 @@ begin
     -- Input clock enable (for the 48MHz input clock)
     --   mhz12_active = 0: 16MHz
     --   mhz12_active = 1: 12MHz
-    clken_pixel <= ttxt_clken when mhz12_active = '1' else vid_clken;
+    clken_pixel <= ttxt_clken when mhz12_active = '1' else mhz16_clken;
 
     -- Output clock enable (for the 96MHz output clock)
     -- mhz12_active = 0: divide by 3 -> 32MHz

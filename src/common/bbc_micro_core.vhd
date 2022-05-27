@@ -254,9 +254,7 @@ signal ttxt_clken       :   std_logic; -- 12 MHz used by SAA 5050 (24MHz in VGA 
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
-signal mhz2_clken_180   :   std_logic; -- 2 MHz clock inverted for SAA5050 character data (in VGA mode)
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
-signal mhz1_clken_180   :   std_logic; -- 1 MHz clock inverted for SAA5050 character data
 
 -- Control signals to indicate memory cycles
 signal vid_mem_cycle    :   std_logic;
@@ -365,6 +363,7 @@ signal ttxt_g           :   std_logic;
 signal ttxt_b           :   std_logic;
 signal ttxt_y           :   std_logic;
 signal ttxt_active      :   std_logic;
+signal ttxt_ic15_clken  :   std_logic;
 signal ttxt_di_clken    :   std_logic;
 signal mhz12_active     :   std_logic;
 
@@ -727,6 +726,7 @@ begin
         videoula_orig : entity work.vidproc_orig
             port map (
                 CLOCK           => clock_48,
+                CPUCLKEN        => cpu_clken,
                 CLKEN           => vid_clken,
                 nRESET          => hard_reset_n,
                 CLKEN_CRTC      => crtc_clken,
@@ -749,8 +749,6 @@ begin
             );
         mhz12_active <= ttxt_active;
     end generate;
-
-    ttxt_di_clken <= mhz2_clken_180 when vga_mode = '1' else mhz1_clken_180;
 
     teletext : entity work.saa5050
         port map (
@@ -1350,6 +1348,34 @@ begin
                 vid_clken <= '0';
             end if;
 
+            -- 1MHz/2MHz clock enable (for IC15).
+            --
+            -- On a real Beeb this is clocked on the falling edge of
+            -- the Video ULA 1MHz clock.
+            --
+            -- In VGA mode this needs to be double-speed.
+            if div3_counter = 1 and
+                ((vga_mode = '0' and clken_counter = 11) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 3)) then
+                ttxt_ic15_clken <= '1';
+            else
+                ttxt_ic15_clken <= '0';
+            end if;
+
+            -- 1MHz/2MHz clock enable (for the SAA5050)
+            --
+            -- On a real Beeb this is clocked on the rising edge of
+            -- the Video ULA 1MHz clock.
+            --
+            -- In VGA mode this needs to be double-speed.
+            if div3_counter = 1 and
+                ((vga_mode = '0' and clken_counter = 3) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 7)) then
+                ttxt_di_clken <= '1';
+            else
+                ttxt_di_clken <= '0';
+            end if;
+
             -- 12MHz clock enable (for SAA5050)
             if (vga_mode = '0' and div8_counter(1 downto 0) = 3) or (vga_mode = '1' and div8_counter(0) = '1') then
                 ttxt_clken <= '1';
@@ -1390,25 +1416,11 @@ begin
                 mhz2_clken <= '0';
             end if;
 
-            -- 2MHz clock enable, 180 degrees out of phase
-            if div3_counter = 1 and clken_counter(2 downto 0) = 3 then
-                mhz2_clken_180 <= '1';
-            else
-                mhz2_clken_180 <= '0';
-            end if;
-
             -- 1MHz clock enable
             if div3_counter = 1 and clken_counter(3 downto 0) = 15 then
                 mhz1_clken <= '1';
             else
                 mhz1_clken <= '0';
-            end if;
-
-            -- 1MHz clock enable, 180 degrees out of phase
-            if div3_counter = 1 and clken_counter(3 downto 0) = 7 then
-                mhz1_clken_180 <= '1';
-            else
-                mhz1_clken_180 <= '0';
             end if;
 
             -- CPU clock enable (taking account of cycle stretching)
@@ -1890,14 +1902,12 @@ begin
     process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if (ttxt_di_clken = '1') then
-                if (ttxt_vdu = '1') then
-                    ttxt_data <= vid_mem_data(6 downto 0);
-                    ttxt_lose <= crtc_de;
-                else
-                    ttxt_data <= (others => '0');
-                    ttxt_lose <= '0';
-                end if;
+            if ttxt_vdu = '0' then
+                ttxt_data <= (others => '0');
+                ttxt_lose <= '0';
+            elsif ttxt_ic15_clken = '1' then
+                ttxt_data <= vid_mem_data(6 downto 0);
+                ttxt_lose <= crtc_de;
             end if;
         end if;
     end process;

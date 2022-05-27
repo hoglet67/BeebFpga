@@ -106,7 +106,6 @@ signal r17_light_pen_l        : unsigned(7 downto 0);
 -- Timing generation
 -- Horizontal counter counts position on line
 signal h_counter              : unsigned(7 downto 0);
-signal h_counter_next         : unsigned(7 downto 0);
 -- HSYNC counter counts duration of sync pulse
 signal h_sync_counter         : unsigned(3 downto 0);
 -- Row counter counts current character row
@@ -294,21 +293,23 @@ begin
     --
     -- ===========================================================================
 
-    -- Horizontal Counter and Horizontal Display Enable
+    -- Horizontal Counter
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
             h_counter <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
-                h_counter <= h_counter_next;
+                if r00_h_total_hit = '1' then
+                    h_counter <= (others => '0');
+                else
+                    h_counter <= h_counter + 1;
+                end if;
             end if;
         end if;
     end process;
 
-    h_counter_next <= (others => '0') when r00_h_total_hit = '1' else h_counter + 1;
-
-    -- Horizontal Sync
+    -- Horizontal Sync Counter
     --
     -- Note: r03_h_sync_width should have the following effect:
     --       0 => no hsync
@@ -324,21 +325,33 @@ begin
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
-            hs <= '0';
             h_sync_counter <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 if hs = '0' then
-                    if h_counter_next = r02_h_sync_pos and r03_h_sync_width /= 0 then
-                        hs <= '1';
-                    end if;
-                    h_sync_counter <= x"1";
+                    h_sync_counter <= x"0";
                 else
-                    if h_sync_counter = r03_h_sync_width then
-                        hs <= '0';
-                    end if;
                     h_sync_counter <= h_sync_counter + 1;
                 end if;
+            end if;
+        end if;
+    end process;
+
+    -- Horizontal Sync
+    --
+    -- hs is modelled like a R/S flip-flop that reacts almost immediately
+    -- to h_counter (one fast tick later)
+    --
+    -- Important: No clock enable is used here
+    process(CLOCK,nRESET)
+    begin
+        if nRESET = '0' then
+            hs <= '0';
+        elsif rising_edge(CLOCK) then
+            if h_sync_counter = r03_h_sync_width then
+                hs <= '0';
+            elsif h_counter = r02_h_sync_pos then
+                hs <= '1';
             end if;
         end if;
     end process;
@@ -346,17 +359,20 @@ begin
     HSYNC <= hs; -- External HSYNC driven directly from internal signal
 
     -- Horizontal Display Enable
+    --
+    -- h_display is modelled like a R/S flip-flop that reacts almost immediately
+    -- to h_counter (one fast tick later)
+    --
+    -- Important: No clock enable is used here
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
             h_display <= '0';
         elsif rising_edge(CLOCK) then
-            if CLKEN = '1' then
-                if h_counter_next = r01_h_displayed or h_counter_next = r00_h_total then
-                    h_display <= '0';
-                elsif h_counter_next = 0 then
-                    h_display <= '1';
-                end if;
+            if h_counter = r01_h_displayed or h_counter = r00_h_total then
+                h_display <= '0';
+            elsif h_counter = 0 then
+                h_display <= '1';
             end if;
         end if;
     end process;

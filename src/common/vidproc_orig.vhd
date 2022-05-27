@@ -49,9 +49,16 @@ entity vidproc_orig is
         IncludeVideoNuLA : boolean := false
         );
     port (
+        -- CLOCK is the 48MHz master clock
         CLOCK       :   in  std_logic;
-        -- Clock enable qualifies display cycles (interleaved with CPU cycles)
+
+        -- CPUCLKEN qualifies CPU cycles, wrt. CLOCK
+        CPUCLKEN    :   in  std_logic;
+
+        -- CLKEN qualifies display cycles, wrt. CLOCK
         CLKEN       :   in  std_logic;
+
+        -- nRESET is a power-on reset
         nRESET      :   in  std_logic;
 
         -- Clock enable output to CRTC
@@ -119,7 +126,6 @@ architecture rtl of vidproc_orig is
 -- Segment 2 is 16 pixels wide
     signal cursor_invert    :   std_logic;
     signal cursor_invert1   :   std_logic;
-    signal cursor_invert2   :   std_logic;
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
 
@@ -144,19 +150,26 @@ begin
                 palette(colour) <= (others => '0');
             end loop;
         elsif rising_edge(CLOCK) then
-            if ENABLE = '1' then
-                if A0 = '0' then
-                    -- Access control register
-                    r0_cursor0 <= DI_CPU(7);
-                    r0_cursor1 <= DI_CPU(6);
-                    r0_cursor2 <= DI_CPU(5);
-                    r0_crtc_2mhz <= DI_CPU(4);
-                    r0_pixel_rate <= DI_CPU(3 downto 2);
-                    r0_teletext <= DI_CPU(1);
-                    r0_flash <= DI_CPU(0);
-                else
-                    -- Access palette register
-                    palette(to_integer(unsigned(DI_CPU(7 downto 4)))) <= DI_CPU(3 downto 0);
+            -- Enable/CS (pin 3) is just a decode of the CPU address so is asserted for 500ns
+            -- Using Tom Seddons framework-test, and looking at green on the scope, you can
+            -- see the green output changing after ~400ns. This point corresponds approximately
+            -- to where the falling edge of the CPU clock would be. More specifically, this seems
+            -- to be 20ns after the falling edge.
+            if CPUCLKEN = '1' then
+                if ENABLE = '1' then
+                    if A0 = '0' then
+                        -- Access control register
+                        r0_cursor0 <= DI_CPU(7);
+                        r0_cursor1 <= DI_CPU(6);
+                        r0_cursor2 <= DI_CPU(5);
+                        r0_crtc_2mhz <= DI_CPU(4);
+                        r0_pixel_rate <= DI_CPU(3 downto 2);
+                        r0_teletext <= DI_CPU(1);
+                        r0_flash <= DI_CPU(0);
+                    else
+                        -- Access palette register
+                        palette(to_integer(unsigned(DI_CPU(7 downto 4)))) <= DI_CPU(3 downto 0);
+                    end if;
                 end if;
             end if;
         end if;
@@ -167,23 +180,19 @@ begin
     -- programmed at r0_pixel_rate
     -- 00 = /8, 01 = /4, 10 = /2, 11 = /1
     clken_pixel <=
-        CLKEN                                                   when r0_pixel_rate = "11" else
-        (CLKEN and not clken_counter(0))                        when r0_pixel_rate = "10" else
-        (CLKEN and not (clken_counter(0) or clken_counter(1)))  when r0_pixel_rate = "01" else
-        (CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2)));
+        CLKEN                                                       when r0_pixel_rate = "11" else
+        CLKEN and (not clken_counter(0))                            when r0_pixel_rate = "10" else
+        CLKEN and (not clken_counter(0)) and (not clken_counter(1)) when r0_pixel_rate = "01" else
+        CLKEN and (not clken_counter(0)) and (not clken_counter(1)) and clken_counter(2);
 
-    -- The CRTC is clocked out of phase with the CPU (in the 3rd cycle and the 11th cycle)
-    CLKEN_CRTC <= CLKEN and
-                  clken_counter(0) and clken_counter(1) and (not clken_counter(2)) and
+    -- The CRTC is clocked out of phase with the CPU, and the result loaded into the
+    -- the shift register on the next CRTC clock edge
+    clken_fetch <= CLKEN and
+                  (not clken_counter(0)) and (not clken_counter(1)) and clken_counter(2) and
                   (clken_counter(3) or r0_crtc_2mhz or (r0_teletext and VGA));
 
+    CLKEN_CRTC  <= clken_fetch;
     CLKEN_COUNT <= clken_counter;
-
-    -- The result is fetched from the CRTC in cycle 0 and also cycle 8 if 2 MHz
-    -- mode is selected.  This is used for reloading the shift register as well as
-    -- counting cursor pixels
-    clken_fetch <= CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2) or
-                                  (clken_counter(3) and not r0_crtc_2mhz and not (r0_teletext and VGA)));
 
     process(CLOCK)
     begin
@@ -200,12 +209,15 @@ begin
     begin
         if nRESET = '0' then
             shiftreg <= (others => '0');
+            delayed_disen <= '0';
         elsif rising_edge(CLOCK) then
             if clken_pixel = '1' then
                 if clken_fetch = '1' then
                     -- Fetch next byte from RAM into shift register.  This always occurs in
                     -- cycle 0, and also in cycle 8 if the CRTC is clocked at double rate.
                     shiftreg <= DI_RAM;
+                    -- Ensure the disen signal is valid for a whole character
+                    delayed_disen <= DISEN;
                 else
                     -- Clock shift register and input '1' at LSB
                     shiftreg <= shiftreg(6 downto 0) & "1";
@@ -249,13 +261,19 @@ begin
         end if;
     end process;
 
-    -- Pixel generation
-    -- The new shift register contents are loaded during
-    -- cycle 0 (and 8) but will not be read here until the next cycle.
-    -- By running this process on every single video tick instead of at
-    -- the pixel rate we ensure that the resulting delay is minimal and
-    -- constant (running this at the pixel rate would cause
-    -- the display to move slightly depending on which mode was selected).
+    -- Palette lookup and pixel generation
+    --
+    -- This involves:
+    -- - looking the 4-bit colour up in the palette
+    -- - handing flashing colours by inverting the colour
+    -- - handling display enable by forcing to black
+    -- - handling the cursor by inversion
+    --
+    -- Measurements on real hardware indicate the RGB outputs change
+    -- about a pixel after the falling edge of the CRTC clock, which
+    -- means the left side of the screen moves slightly depending on
+    -- the screen mode. Given this, it's likely that this stage of the
+    -- design is clocked by the pixel clock.
     process(CLOCK,nRESET)
         variable palette_a : std_logic_vector(3 downto 0);
         variable dot_val : std_logic_vector(3 downto 0);
@@ -267,9 +285,8 @@ begin
             RR <= '0';
             GG <= '0';
             BB <= '0';
-            delayed_disen <= '0';
         elsif rising_edge(CLOCK) then
-            if CLKEN = '1' then
+            if clken_pixel = '1' then
                 -- Look up dot value in the palette.  Bits are as follows:
                 -- bit 3 - FLASH
                 -- bit 2 - Not BLUE
@@ -284,25 +301,20 @@ begin
                 blue_val := (dot_val(3) and r0_flash) xor not dot_val(2);
 
                 -- To output
-                -- FIXME: INVERT option
                 RR <= (red_val and delayed_disen) xor cursor_invert;
                 GG <= (green_val and delayed_disen) xor cursor_invert;
                 BB <= (blue_val and delayed_disen) xor cursor_invert;
 
-                -- Display enable signal delayed by one clock
-                delayed_disen <= DISEN;
-
                 -- Delayed cursor for use in teletext mode
                 cursor_invert1 <= cursor_invert;
-                cursor_invert2 <= cursor_invert1;
             end if;
         end if;
     end process;
 
     -- Allow the 12MHz teletext signals to pass through without re-sampling
-    R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert2;
-    G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert2;
-    B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert2;
+    R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert1;
+    G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert1;
+    B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert1;
 
     -- Indicate mode 7 teletext is selected
     TTXT <= r0_teletext;

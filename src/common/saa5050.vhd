@@ -170,6 +170,11 @@ signal double_high1 :   std_logic;
 -- Set in second row of double height
 signal double_high2 :   std_logic;
 
+
+signal r_int : std_logic_vector(11 downto 0);
+signal g_int : std_logic_vector(11 downto 0);
+signal b_int : std_logic_vector(11 downto 0);
+
 begin
 
 
@@ -254,7 +259,7 @@ begin
                 if LOSE = '1' and lose_latch = '0' then
                     -- Reset pixel counter - small offset to make the output
                     -- line up with the cursor from the video ULA
-                    pixel_counter <= "0111";
+                    pixel_counter <= "1011";
                 end if;
 
                 -- Count frames on end of VSYNC (falling edge of DEW)
@@ -551,12 +556,7 @@ begin
     process(CLOCK,nRESET)
     variable pixel : std_logic;
     begin
-
-        if nRESET = '0' then
-            R <= '0';
-            G <= '0';
-            B <= '0';
-        elsif rising_edge(CLOCK) then
+        if rising_edge(CLOCK) then
             if CLKEN = '1' then
                 pixel := shift_reg(11) and not ((flash and is_flash_r) or conceal_r);
 
@@ -565,15 +565,27 @@ begin
 
                 -- Generate colour output
                 if pixel = '1' then
-                    R <= fg_r(0);
-                    G <= fg_r(1);
-                    B <= fg_r(2);
+                    r_int <= fg_r(0) & r_int(r_int'length - 1 downto 1);
+                    g_int <= fg_r(1) & g_int(g_int'length - 1 downto 1);
+                    b_int <= fg_r(2) & b_int(b_int'length - 1 downto 1);
                 else
-                    R <= bg_r(0);
-                    G <= bg_r(1);
-                    B <= bg_r(2);
+                    r_int <= bg_r(0) & r_int(r_int'length - 1 downto 1);
+                    g_int <= bg_r(1) & g_int(g_int'length - 1 downto 1);
+                    b_int <= bg_r(2) & b_int(b_int'length - 1 downto 1);
                 end if;
             end if;
         end if;
     end process;
+
+    --------------------------------------------------------------------
+    -- Output Pixel Delay
+    --------------------------------------------------------------------
+
+    -- The real device has 2.6us of delay
+    --
+    -- This implementation is faster, so we need to add extra
+    R <= r_int(0);
+    G <= g_int(0);
+    B <= b_int(0);
+
 end architecture;

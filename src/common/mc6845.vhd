@@ -762,8 +762,8 @@ begin
 
     de0 <= '1' when h_display = '1' and v_display = '1' and r08_interlace(5 downto 4) /= "11" else '0';
 
-    DE <= de1 when r08_interlace(4) = '1' else
-          de2 when r08_interlace(5) = '1' else
+    DE <= de1 when r08_interlace(5 downto 4) = "01" else
+          de2 when r08_interlace(5 downto 4) = "10" else
           de0;
 
 

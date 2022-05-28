@@ -126,6 +126,7 @@ architecture rtl of vidproc_orig is
 -- Segment 2 is 16 pixels wide
     signal cursor_invert    :   std_logic;
     signal cursor_invert1   :   std_logic;
+    signal cursor_invert2   :   std_logic;
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
 
@@ -307,14 +308,15 @@ begin
 
                 -- Delayed cursor for use in teletext mode
                 cursor_invert1 <= cursor_invert;
+                cursor_invert2 <= cursor_invert1;
             end if;
         end if;
     end process;
 
     -- Allow the 12MHz teletext signals to pass through without re-sampling
-    R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert1;
-    G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert1;
-    B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert1;
+    R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert2;
+    G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert2;
+    B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert2;
 
     -- Indicate mode 7 teletext is selected
     TTXT <= r0_teletext;

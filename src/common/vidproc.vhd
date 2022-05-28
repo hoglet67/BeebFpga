@@ -180,10 +180,6 @@ architecture rtl of vidproc is
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
 
-    signal ttxt_R           :   std_logic_vector(9 downto 0);
-    signal ttxt_G           :   std_logic_vector(9 downto 0);
-    signal ttxt_B           :   std_logic_vector(9 downto 0);
-
 -- Pass physical colour to VideoNuLA
     signal phys_col                   : std_logic_vector(3 downto 0);
 
@@ -642,7 +638,7 @@ begin
     -- Infer a large mux to select the appropriate hor scroll delay tap
     phys_col_delay_mux <= phys_col_delay_reg & phys_col;
     phys_col_delay_out <= phys_col_delay_mux(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
-    phys_col_final <= phys_col_delay_out when r0_teletext = '0' else '0' & ttxt_B(0) & ttxt_G(0) & ttxt_R(0);
+    phys_col_final <= phys_col_delay_out when r0_teletext = '0' else '0' & B_IN & G_IN & R_IN;
 
     process (PIXCLK)
         variable invert : std_logic_vector(3 downto 0);
@@ -650,12 +646,6 @@ begin
         if rising_edge(PIXCLK) then
 
             if clken_pixel = '1' then
-                -- Delay teletext R, G, B slightly to align with cursor
-                -- (this is needed because the NuLA pipe is deeper than the original NuLA)
-                ttxt_R <= R_IN & ttxt_R(ttxt_R'length - 1 downto 1);
-                ttxt_G <= G_IN & ttxt_G(ttxt_G'length - 1 downto 1);
-                ttxt_B <= B_IN & ttxt_B(ttxt_B'length - 1 downto 1);
-
                 -- Shift pixels in from right (so bits 3..0 are the most recent)
                 phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
                 if nula_speccy_attr_mode = '1' then

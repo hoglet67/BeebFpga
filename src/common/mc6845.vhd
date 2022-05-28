@@ -508,6 +508,8 @@ begin
     --
     -- In interlaced modes, the LSB of the field counter indicates the odd/even field type
     -- which is latched in odd_field so it's stable for the whole of the next frame.
+    --
+    -- Important: No clock enable is used here
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
@@ -515,18 +517,16 @@ begin
             field_counter <= (others => '0');
             odd_field <= '0';
         elsif rising_edge(CLOCK) then
-            if CLKEN = '1' then
-                if new_frame = '1' then
-                    -- Enable the display
-                    v_display <= '1';
-                    -- Latch odd field so it's stable for the whole field
-                    odd_field <= field_counter(0);
-                elsif row_counter_next = r06_v_displayed and first_scanline = '0' and v_display = '1' then
-                    -- Disable the display
-                    v_display <= '0';
-                    -- Increment field counter
-                    field_counter <= field_counter + 1;
-                end if;
+            if first_scanline = '1' then
+                -- Enable the display when C4 = C9 = 0
+                v_display <= '1';
+                -- Latch odd field so it's stable for the whole field
+                odd_field <= field_counter(0);
+            elsif row_counter = r06_v_displayed and v_display = '1' then
+                -- Disable the display when C4 = R6, irrespective of C9
+                v_display <= '0';
+                -- Increment field counter
+                field_counter <= field_counter + 1;
             end if;
         end if;
     end process;

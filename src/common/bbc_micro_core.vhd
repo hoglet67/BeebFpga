@@ -1356,9 +1356,12 @@ begin
             -- the Video ULA 1MHz clock.
             --
             -- In VGA mode this needs to be double-speed.
+            --
+            -- As this triggers the sampling of ttxt_lose, then it controls when
+            -- the SAA5050 internal pixel counter is reset.
             if div3_counter = 1 and
-                ((vga_mode = '0' and clken_counter = 8) or
-                 (vga_mode = '1' and clken_counter(2 downto 0) = 0)) then
+                ((vga_mode = '0' and clken_counter = 0) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 4)) then
                 ttxt_ic15_clken <= '1';
             else
                 ttxt_ic15_clken <= '0';
@@ -1371,7 +1374,7 @@ begin
             --
             -- In VGA mode this needs to be double-speed.
             if div3_counter = 1 and
-                ((vga_mode = '0' and clken_counter = 0) or
+                ((vga_mode = '0' and clken_counter = 8) or
                  (vga_mode = '1' and clken_counter(2 downto 0) = 4)) then
                 ttxt_di_clken <= '1';
             else

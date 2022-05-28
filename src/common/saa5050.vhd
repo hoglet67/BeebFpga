@@ -177,7 +177,6 @@ signal b_int : std_logic_vector(11 downto 0);
 
 begin
 
-
     -- Generate flash signal for 3:1 ratio
     flash <= flash_counter(5) and flash_counter(4);
 

@@ -358,7 +358,7 @@ begin
     -- the shift register on the next CRTC clock edge
     clken_fetch <= CLKEN and
                   (not clken_counter(0)) and (not clken_counter(1)) and (not clken_counter(2)) and
-                  (clken_counter(3) or r0_crtc_2mhz or (r0_teletext and VGA));
+                  ((not clken_counter(3)) or r0_crtc_2mhz or (r0_teletext and VGA));
 
     CLKEN_CRTC  <= clken_fetch;
     CLKEN_COUNT <= clken_counter;

@@ -98,8 +98,10 @@ end entity;
 architecture rtl of saa5050 is
 
 -- Register inputs in the bus clock domain
+signal di_tmp       :   std_logic_vector(6 downto 0);
 signal di_r         :   std_logic_vector(6 downto 0);
 signal dew_r        :   std_logic;
+signal lose_r       :   std_logic;
 -- Data input registered in the pixel clock domain
 signal code         :   std_logic_vector(6 downto 0);
 signal line_addr    :   unsigned(3 downto 0);
@@ -170,11 +172,6 @@ signal double_high1 :   std_logic;
 -- Set in second row of double height
 signal double_high2 :   std_logic;
 
-
-signal r_int : std_logic_vector(11 downto 0);
-signal g_int : std_logic_vector(11 downto 0);
-signal b_int : std_logic_vector(11 downto 0);
-
 begin
 
     -- Generate flash signal for 3:1 ratio
@@ -184,12 +181,16 @@ begin
     process(DI_CLOCK,nRESET)
     begin
         if nRESET = '0' then
+            di_tmp <= (others => '0');
             di_r <= (others => '0');
             dew_r <= '0';
+            lose_r <= '0';
         elsif rising_edge(DI_CLOCK) then
             if DI_CLKEN = '1' then
-                di_r <= DI;
+                di_tmp <= DI;
+                di_r <= di_tmp;
                 dew_r <= DEW;
+                lose_r <= LOSE;
             end if;
         end if;
     end process;
@@ -237,7 +238,7 @@ begin
             if CLKEN = '1' then
                 -- Register syncs for edge detection
                 dew_latch <= dew_r;
-                lose_latch <= LOSE;
+                lose_latch <= lose_r;
                 disp_enable_latch <= disp_enable;
 
                 -- When first entering double-height mode start on top row
@@ -249,16 +250,16 @@ begin
                 if pixel_counter = 11 then
                     -- Start of next character and delayed display enable
                     pixel_counter <= (others => '0');
-                    disp_enable <= lose_latch;
+                    disp_enable <= lose_r;
                 else
                     pixel_counter <= pixel_counter + 1;
                 end if;
 
                 -- Rising edge of LOSE is the start of the active line
-                if LOSE = '1' and lose_latch = '0' then
+                if lose_r = '1' and lose_latch = '0' then
                     -- Reset pixel counter - small offset to make the output
                     -- line up with the cursor from the video ULA
-                    pixel_counter <= "1011";
+                    pixel_counter <= "0110";
                 end if;
 
                 -- Count frames on end of VSYNC (falling edge of DEW)
@@ -564,27 +565,16 @@ begin
 
                 -- Generate colour output
                 if pixel = '1' then
-                    r_int <= fg_r(0) & r_int(r_int'length - 1 downto 1);
-                    g_int <= fg_r(1) & g_int(g_int'length - 1 downto 1);
-                    b_int <= fg_r(2) & b_int(b_int'length - 1 downto 1);
+                    R <= fg_r(0);
+                    G <= fg_r(1);
+                    B <= fg_r(2);
                 else
-                    r_int <= bg_r(0) & r_int(r_int'length - 1 downto 1);
-                    g_int <= bg_r(1) & g_int(g_int'length - 1 downto 1);
-                    b_int <= bg_r(2) & b_int(b_int'length - 1 downto 1);
+                    R <= bg_r(0);
+                    G <= bg_r(1);
+                    B <= bg_r(2);
                 end if;
             end if;
         end if;
     end process;
-
-    --------------------------------------------------------------------
-    -- Output Pixel Delay
-    --------------------------------------------------------------------
-
-    -- The real device has 2.6us of delay
-    --
-    -- This implementation is faster, so we need to add extra
-    R <= r_int(0);
-    G <= g_int(0);
-    B <= b_int(0);
 
 end architecture;

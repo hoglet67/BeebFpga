@@ -354,10 +354,13 @@ begin
                     is_flash_next    <= '0';
                     double_high_next <= '0';
                     unconceal_next   <= '0';
-                    -- Latch the last graphic character (inc seperation), to support graphics hold
                     if code(5) = '1' then
+                        -- Latch the last graphic character (inc seperation), to support graphics hold
                         last_gfx <= code;
                         last_gfx_sep <= gfx_sep;
+                    elsif code(6 downto 5) = "00" and gfx_hold = '0' and code(4 downto 0) /= "11110" then
+                        -- SAA5050 hold bug: control codes outside of hold clear the held character (apart from 11110=HOLD)
+                        last_gfx <= (others => '0');
                     end if;
                     -- Latch new control codes at the start of each character
                     if code(6 downto 5) = "00" then

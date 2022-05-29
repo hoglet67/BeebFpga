@@ -362,6 +362,37 @@ begin
                         -- SAA5050 hold bug: control codes outside of hold clear the held character (apart from 11110=HOLD)
                         last_gfx <= (others => '0');
                     end if;
+
+                    -- Set After codes (from the previous char) are handled first, because in some
+                    -- cases they can be over-ridden by Set At codes. For example:
+                    -- Flash (Set After) followed by Steady (Set At) => Steady wins
+                    -- Double (Set After) followed by Normal (Set At) => Normal wins
+                    -- Delay the "Set After" control code effect until the next character
+                    if fg_next /= "000" then
+                        fg <= fg_next;
+                    end if;
+                    if gfx_next = '1' then
+                        gfx <= '1';
+                    end if;
+                    if alpha_next = '1' then
+                        gfx <= '0';
+                    end if;
+                    if is_flash_next = '1' then
+                        is_flash <= '1';
+                    end if;
+                    if double_high_next = '1' then
+                        double_high <= '1';
+                    end if;
+                    if gfx_release_next = '1' then
+                        gfx_hold <= '0';
+                    end if;
+
+                    -- Note, conflicts can arise as setting/clearing happen in different cycles
+                    -- e.g. 03 (Alpha Yellow) 18 (Conceal) should leave us in a conceal state
+                    if conceal = '1' and unconceal_next = '1' then
+                        conceal <= '0';
+                    end if;
+
                     -- Latch new control codes at the start of each character
                     if code(6 downto 5) = "00" then
                         if code(3) = '0' then
@@ -430,30 +461,6 @@ begin
                             when others => null;
                             end case;
                         end if;
-                    end if;
-                    -- Delay the "Set After" control code effect until the next character
-                    if fg_next /= "000" then
-                        fg <= fg_next;
-                    end if;
-                    if gfx_next = '1' then
-                        gfx <= '1';
-                    end if;
-                    if alpha_next = '1' then
-                        gfx <= '0';
-                    end if;
-                    if is_flash_next = '1' then
-                        is_flash <= '1';
-                    end if;
-                    if double_high_next = '1' then
-                        double_high <= '1';
-                    end if;
-                    if gfx_release_next = '1' then
-                        gfx_hold <= '0';
-                    end if;
-                    -- Note, conflicts can arise as setting/clearing happen in different cycles
-                    -- e.g. 03 (Alpha Yellow) 18 (Conceal) should leave us in a conceal state
-                    if conceal = '1' and unconceal_next = '1' then
-                        conceal <= '0';
                     end if;
                 end if;
             end if;

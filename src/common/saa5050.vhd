@@ -388,7 +388,7 @@ begin
                             when "01100" =>
                                 double_high <= '0';
                                 -- Graphics hold character is cleared by a *change* of height
-                                if (double_high = '0') then
+                                if (double_high = '1') then
                                     last_gfx <= (others => '0');
                                 end if;
                             -- DOUBLE HEIGHT - Set After

@@ -180,6 +180,10 @@ architecture rtl of vidproc is
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
 
+    signal ttxt_R           :   std_logic;
+    signal ttxt_G           :   std_logic;
+    signal ttxt_B           :   std_logic;
+
 -- Pass physical colour to VideoNuLA
     signal phys_col                   : std_logic_vector(3 downto 0);
 
@@ -423,7 +427,7 @@ begin
                 end if;
 
                 -- clken_load is either 1MHz or 2MHz
-                if pixen_counter(2 downto 0) = 0 and (pixen_counter(3) = '1' or r0_crtc_2mhz = '1') then
+                if pixen_counter(2 downto 0) = 0 and (pixen_counter(3) = '0' or r0_crtc_2mhz = '1') then
                     clken_load <= '1';
                 end if;
 
@@ -638,7 +642,10 @@ begin
     -- Infer a large mux to select the appropriate hor scroll delay tap
     phys_col_delay_mux <= phys_col_delay_reg & phys_col;
     phys_col_delay_out <= phys_col_delay_mux(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
-    phys_col_final <= phys_col_delay_out when r0_teletext = '0' else '0' & B_IN & G_IN & R_IN;
+
+    phys_col_final <= phys_col_delay_out            when r0_teletext = '0' else
+                      '0' & B_IN   & G_IN   & R_IN  when VGA         = '0' else
+                      '0' & ttxt_R & ttxt_G & ttxt_B;
 
     process (PIXCLK)
         variable invert : std_logic_vector(3 downto 0);
@@ -646,6 +653,12 @@ begin
         if rising_edge(PIXCLK) then
 
             if clken_pixel = '1' then
+
+                -- One more pixel delay was needed in for VideoNuLA in VGA mode; this was the easist place to do it.
+                ttxt_R <= R_IN;
+                ttxt_G <= G_IN;
+                ttxt_B <= B_IN;
+
                 -- Shift pixels in from right (so bits 3..0 are the most recent)
                 phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;
                 if nula_speccy_attr_mode = '1' then

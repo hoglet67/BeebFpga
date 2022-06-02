@@ -62,7 +62,7 @@ entity bbc_micro_duo is
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := false;   -- Also helps to enable pulldown on D0/accel_io(8) in .ucf file
         IncludeRGBtoHDMI   : boolean := true;
-        IncludeVideoNuLA   : boolean := true;
+        IncludeVideoNuLA   : boolean := false;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := false;
         IncludeMinimal     : boolean := false   -- Creates a build to test
@@ -97,15 +97,16 @@ entity bbc_micro_duo is
         FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
         avr_RxD        : in    std_logic;
         avr_TxD        : out   std_logic;
-        -- DIP(1..0) = Video Mode:
-        --             (00) SCART RGB mode (15.625KHz)
-        --             (01) Mode 0-6: RGBtoVGA SD, Mode 7: RGBtoVGA SD
-        --             (10) Mode 0-7: Mist SD,     Mode 7: Mist SD
-        --             (11) Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode
+        -- DIP(0) = Video Mode:
+        --             (0) SCART RGB mode (15.625KHz)
+        --             (1) VGA Mode (Mode 0-6: Mist SD, Mode 7: SAA5050 VGA Mode)
+        -- DIP(1) = Co Pro:
+        --             (0) Off
+        --             (1) On
         -- DIP(2) = Machine:
         --             (0) BBC Model B
         --             (1) BBC Master
-        -- DIP(3) = Co Pro:
+        -- DIP(3) = NulA:
         --             (0) Off
         --             (1) On
         DIP            : in    std_logic_vector(3 downto 0);
@@ -208,9 +209,9 @@ architecture rtl of bbc_micro_duo is
     -- start address of user data in FLASH as obtained from bitmerge.py
     -- this mus be beyond the end of the bitstream
 
-    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"100000";
-    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"110000";
-    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"140000";
+    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"200000";
+    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"210000";
+    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"240000";
     signal   user_address                 : std_logic_vector(23 downto 0);
 
     -- length of user data in FLASH = 256KB (16x 16K ROM) images
@@ -239,10 +240,10 @@ begin
 -- BBC Micro Core
 --------------------------------------------------------
 
-    copro_mode <= DIP(3);
+    copro_mode <= DIP(1);
     keyb_dip       <= "00000000";
     m128_mode      <= '1' when IncludeMaster else '0';
-    vid_mode       <= "00" & DIP(1 downto 0);
+    vid_mode       <= "0000" when DIP(0) = '0' else "0011";
     bbc_micro : entity work.bbc_micro_core
     generic map (
         IncludeAMXMouse    => IncludeAMXMouse,

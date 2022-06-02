@@ -129,9 +129,13 @@ module duo_boot_loader
                // Loader          - 0300-0000
                // Model B         - 0305-4000
                // Master          - 030A-8000
-               case (dip[2])
-                 1'b1:     icap_din    = 16'h8000; // Master
-                 default:  icap_din    = 16'h4000; // Model B
+               // Model B (NuLA)  - 030F-C000
+               // Master (NuLA)   - 0315-0000
+               case (dip[3:2])
+                 2'b00:     icap_din    = 16'h4000;
+                 2'b01:     icap_din    = 16'h8000;
+                 2'b10:     icap_din    = 16'hC000;
+                 2'b11:     icap_din    = 16'h0000;
                endcase
             end
 
@@ -151,9 +155,13 @@ module duo_boot_loader
                // Loader          - 0300-0000
                // Model B         - 0305-4000
                // Master          - 030A-8000
-               case (dip[2])
-                 1'b1:     icap_din    = 16'h030A; // Master
-                 default:  icap_din    = 16'h0305; // Model B
+               // Model B (NuLA)  - 030F-C000
+               // Master (NuLA)   - 0315-0000
+               case (dip[3:2])
+                 2'b00:     icap_din    = 16'h0305;
+                 2'b01:     icap_din    = 16'h030A;
+                 2'b10:     icap_din    = 16'h030F;
+                 2'b11:     icap_din    = 16'h0315;
                endcase
             end
 

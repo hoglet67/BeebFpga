@@ -195,7 +195,7 @@ resource=os12.rom,4
 resource=blank.rom,5
 resource=blank.rom,6
 resource=blank.rom,7
-resource=swmmfsspi.rom,8
+resource=swmmfspi.rom,8
 resource=blank.rom,9
 resource=blank.rom,10
 resource=blank.rom,11
@@ -221,6 +221,7 @@ dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 
 # Rename to keep filenames sensible
 mv $DIR/machines/${MACH}/ram_master_v6.rom $DIR/machines/${MACH}/rammas6.rom
+mv $DIR/machines/${MACH}/swmmfsspi.rom $DIR/machines/${MACH}/swmmfspi.rom
 
 common_settings $DIR/machines/${MACH}/beeb.cfg
 modelb_settings $DIR/machines/${MACH}/beeb.cfg
@@ -248,7 +249,7 @@ resource=blank.rom,5
 resource=blank.rom,6
 resource=blank.rom,7
 resource=dfs.rom,8
-resource=mammfsspi.rom,9
+resource=mammfspi.rom,9
 resource=viewsht.rom,10
 resource=edit.rom,11
 resource=basic4.rom,12
@@ -270,6 +271,9 @@ done
 
 # Add a blank rom
 dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
+
+# Rename to keep filenames sensible
+mv $DIR/machines/${MACH}/mammfsspi.rom $DIR/machines/${MACH}/mammfspi.rom
 
 common_settings $DIR/machines/${MACH}/beeb.cfg
 master_settings $DIR/machines/${MACH}/beeb.cfg

@@ -254,6 +254,8 @@ architecture rtl of bbc_micro_pynqz2 is
     signal keyb_rst_n      : std_logic;
     signal keyb_ca2        : std_logic;
     signal keyb_pa7        : std_logic;
+    signal fn_keys         : std_logic_vector(9 downto 0);
+    signal fn_keys_last    : std_logic_vector(9 downto 0);
 
 begin
 
@@ -357,7 +359,7 @@ begin
         ext_keyb_pa7   => keyb_pa7,
 
         -- config
-        config        => config
+        config        => open
     );
 
 --------------------------------------------------------
@@ -377,6 +379,13 @@ begin
                 else
                     usb_kb_counter <= usb_kb_counter + 1;
                 end if;
+                -- Map config function to <Ctrl> <Shift> <Fn>
+                fn_keys_last <= fn_keys;
+                if usb_kb_matrix(8) = '1' and usb_kb_matrix(0) = '1' then
+                    config <= fn_keys and not(fn_keys_last);
+                end if;
+            else
+                config <= (others => '0');
             end if;
             keyb_1mhz_last <= keyb_1mhz;
         end if;
@@ -389,6 +398,10 @@ begin
     keyb_rst_n <= ext_keyb_rst_n and not (usb_kb_matrix(127));
     keyb_ca2   <= ext_keyb_ca2   or usb_kb_ca2;
     keyb_pa7   <= ext_keyb_pa7   or usb_kb_pa7;
+
+    -- F9...F1, F10
+    fn_keys <= usb_kb_matrix(63) & usb_kb_matrix(55) & usb_kb_matrix(49) & usb_kb_matrix(47) & usb_kb_matrix(39) &
+               usb_kb_matrix(33) & usb_kb_matrix(31) & usb_kb_matrix(23) & usb_kb_matrix(15) & usb_kb_matrix(2);
 
 --------------------------------------------------------
 -- Zynq Processing System

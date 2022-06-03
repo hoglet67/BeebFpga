@@ -392,45 +392,25 @@ signal sys_via_do_r     :   std_logic_vector (7 downto 0);
 signal user_via_do      :   std_logic_vector(7 downto 0);
 signal user_via_do_oe_n :   std_logic;
 signal user_via_irq_n   :   std_logic;
-signal user_via_ca1_in  :   std_logic := '0';
-constant user_via_ca2_in  :   std_logic := '0';
+signal user_via_ca1_in  :   std_logic;
+signal user_via_ca2_in  :   std_logic;
 signal user_via_ca2_out :   std_logic;
-signal user_via_ca2_oe_n    :   std_logic;
+signal user_via_ca2_oe_n:   std_logic;
 signal user_via_pa_in   :   std_logic_vector(7 downto 0);
 signal user_via_pa_out  :   std_logic_vector(7 downto 0);
 signal user_via_pa_oe_n :   std_logic_vector(7 downto 0);
-signal user_via_cb1_in  :   std_logic := '0';
+signal user_via_cb1_in  :   std_logic;
 signal user_via_cb1_out :   std_logic;
-signal user_via_cb1_oe_n    :   std_logic;
-signal user_via_cb2_in  :   std_logic := '0';
+signal user_via_cb1_oe_n:   std_logic;
+signal user_via_cb2_in  :   std_logic;
 signal user_via_cb2_out :   std_logic;
-signal user_via_cb2_oe_n    :   std_logic;
+signal user_via_cb2_oe_n:   std_logic;
 signal user_via_pb_in   :   std_logic_vector(7 downto 0);
 signal user_via_pb_out  :   std_logic_vector(7 downto 0);
 signal user_via_pb_oe_n :   std_logic_vector(7 downto 0);
 signal user_via_do_r    :   std_logic_vector (7 downto 0);
 
--- Mouse VIA signals
-signal mouse_via_do      :   std_logic_vector(7 downto 0);
-signal mouse_via_do_oe_n :   std_logic;
-signal mouse_via_irq_n   :   std_logic;
-signal mouse_via_ca1_in  :   std_logic := '0';
-constant mouse_via_ca2_in  :   std_logic := '0';
-signal mouse_via_ca2_out :   std_logic;
-signal mouse_via_ca2_oe_n    :   std_logic;
-signal mouse_via_pa_in   :   std_logic_vector(7 downto 0);
-signal mouse_via_pa_out  :   std_logic_vector(7 downto 0);
-signal mouse_via_pa_oe_n :   std_logic_vector(7 downto 0);
-signal mouse_via_cb1_in  :   std_logic := '0';
-signal mouse_via_cb1_out :   std_logic;
-signal mouse_via_cb1_oe_n    :   std_logic;
-signal mouse_via_cb2_in  :   std_logic := '0';
-signal mouse_via_cb2_out :   std_logic;
-signal mouse_via_cb2_oe_n    :   std_logic;
-signal mouse_via_pb_in   :   std_logic_vector(7 downto 0);
-signal mouse_via_pb_out  :   std_logic_vector(7 downto 0);
-signal mouse_via_pb_oe_n :   std_logic_vector(7 downto 0);
-signal mouse_via_do_r    :   std_logic_vector(7 downto 0);
+-- Mouse signals
 signal mouse_read        :   std_logic;
 signal mouse_err         :   std_logic;
 signal mouse_rx_data     :   std_logic_vector(7 downto 0);
@@ -521,7 +501,6 @@ signal vidproc_enable   :   std_logic;      -- 0xFE20-FE2F
 signal romsel_enable    :   std_logic;      -- 0xFE30-FE3F
 signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
 signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F, or FE80-FE9F
-signal mouse_via_enable :   std_logic;      -- 0xFE60-FE7F
 --signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
 signal spisd_enable     :   std_logic;      -- 0xFEDC (Master) / 0xFE1C (Model B)
 signal int_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
@@ -539,8 +518,6 @@ signal adc_ch3          :   std_logic_vector(11 downto 0);
 signal romsel           :   std_logic_vector(7 downto 0);
 
 signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz peripheral
-
-signal sdclk_int : std_logic;
 
 -- Master Real Time Clock / CMOS RAM
 signal rtc_adi         : std_logic_vector(7 downto 0);
@@ -834,41 +811,8 @@ begin
             CLK         => clock_48
         );
 
-    -- Second VIA
-    -- If this is included, it becomes the via at FE60 and the user via (above)
-    -- is re-addressed to FE80
+    -- Optional AMXMouse, connected to the user via FE60
     GenMouse: if IncludeAMXMouse generate
-        mouse_via : entity work.m6522
-            port map (
-                I_RS        => cpu_a(3 downto 0),
-                I_DATA      => cpu_do,
-                O_DATA      => mouse_via_do,
-                O_DATA_OE_L => mouse_via_do_oe_n,
-                I_RW_L      => cpu_r_nw,
-                I_CS1       => mouse_via_enable,
-                I_CS2_L     => '0', -- nCS2
-                O_IRQ_L     => mouse_via_irq_n,
-                I_CA1       => mouse_via_ca1_in,
-                I_CA2       => mouse_via_ca2_in,
-                O_CA2       => mouse_via_ca2_out,
-                O_CA2_OE_L  => mouse_via_ca2_oe_n,
-                I_PA        => mouse_via_pa_in,
-                O_PA        => mouse_via_pa_out,
-                O_PA_OE_L   => mouse_via_pa_oe_n,
-                I_CB1       => mouse_via_cb1_in,
-                O_CB1       => mouse_via_cb1_out,
-                O_CB1_OE_L  => mouse_via_cb1_oe_n,
-                I_CB2       => mouse_via_cb2_in,
-                O_CB2       => mouse_via_cb2_out,
-                O_CB2_OE_L  => mouse_via_cb2_oe_n,
-                I_PB        => mouse_via_pb_in,
-                O_PB        => mouse_via_pb_out,
-                O_PB_OE_L   => mouse_via_pb_oe_n,
-                I_P2_H      => mhz1_clken,
-                RESET_L     => hard_reset_n,
-                ENA_4       => mhz4_clken,
-                CLK         => clock_48
-        );
         mouse_ps2interface: entity work.ps2interface
         generic map(
             MainClockSpeed => 48000000
@@ -903,26 +847,36 @@ begin
            rx_data  => mouse_rx_data,
            write    => mouse_write,
            tx_data  => mouse_tx_data,
-           x_a      => mouse_via_pb_in(0),
-           x_b      => mouse_via_cb1_in,
-           y_a      => mouse_via_pb_in(2),
-           y_b      => mouse_via_cb2_in,
-           left     => mouse_via_pb_in(5),
-           middle   => mouse_via_pb_in(6),
-           right    => mouse_via_pb_in(7)
+           x_a      => user_via_pb_in(0),
+           x_b      => user_via_cb1_in,
+           y_a      => user_via_pb_in(2),
+           y_b      => user_via_cb2_in,
+           left     => user_via_pb_in(5),
+           middle   => user_via_pb_in(6),
+           right    => user_via_pb_in(7)
         );
-        -- Make unused inputs float high
-        mouse_via_pa_in <= (others => '1');
-        mouse_via_pb_in(4) <= '1';
-        mouse_via_pb_in(3) <= '1';
-        mouse_via_pb_in(1) <= '1';
     end generate;
     GenNotMouse: if not IncludeAMXMouse generate
-        mouse_via_do     <= x"FE";
-        mouse_via_irq_n  <= '1';
-        ps2_mse_clk_out  <= '1';
-        ps2_mse_data_out <= '1';
+        ps2_mse_clk_out   <= '1';
+        ps2_mse_data_out  <= '1';
+        user_via_pb_in(0) <= '1';
+        user_via_cb1_in   <= '1';
+        user_via_cb2_in   <= '1';
+        user_via_pb_in(2) <= '1';
+        user_via_pb_in(5) <= '1';
+        user_via_pb_in(6) <= '1';
+        user_via_pb_in(7) <= '1';
     end generate;
+
+    -- Unused User VIA Port B Inputs
+    user_via_pb_in(1) <= '1';
+    user_via_pb_in(3) <= '1';
+    user_via_pb_in(4) <= '1';
+
+    -- Unused User VIA Port A Inputs
+    user_via_ca1_in   <= '1';
+    user_via_ca2_in   <= '1';
+    user_via_pa_in    <= (others => '1');
 
     -- Original Keyboard Enabled
     keyboard_orig: if UseOrigKeyboard generate
@@ -1513,7 +1467,7 @@ begin
     -- The following IO regions are accessed at 1 MHz and hence will stall the
     -- CPU accordingly
     mhz1_enable <= io_fred or io_jim or
-        adc_enable or sys_via_enable or user_via_enable or mouse_via_enable or
+        adc_enable or sys_via_enable or user_via_enable or
         serproc_enable or acia_enable or crtc_enable;
 
 
@@ -1560,7 +1514,6 @@ begin
         romsel_enable <= '0';
         sys_via_enable <= '0';
         user_via_enable <= '0';
-        mouse_via_enable <= '0';
  --     adlc_enable <= '0';
         spisd_enable <= '0';
         adc_enable <= '0';
@@ -1620,16 +1573,7 @@ begin
                     sys_via_enable <= '1';
                 when "011" =>
                     -- 0xFE60
-                    if IncludeAMXMouse then
-                        mouse_via_enable <= '1';
-                    else
-                        user_via_enable <= '1';
-                    end if;
-                when "100" =>
-                      -- 0xFE80
-                    if IncludeAMXMouse then
-                        user_via_enable <= '1';
-                    end if;
+                    user_via_enable <= '1';
 --              when "101" => adlc_enable <= '1';       -- 0xFEA0
                 when "110" =>
                     -- 0xFEC0
@@ -1675,7 +1619,6 @@ begin
     begin
         if rising_edge(clock_48) then
             if (mhz1_clken = '1') then
-                mouse_via_do_r <= mouse_via_do;
                 user_via_do_r <= user_via_do;
                 sys_via_do_r  <= sys_via_do;
             end if;
@@ -1691,7 +1634,6 @@ begin
         "00000010"     when acia_enable = '1' else
         sys_via_do_r   when sys_via_enable = '1' else
         user_via_do_r  when user_via_enable = '1' else
-        mouse_via_do_r when mouse_via_enable = '1' else
         spisd_do       when spisd_enable = '1' else
         -- Optional peripherals
         sid_do         when sid_enable = '1' and IncludeSid else
@@ -1705,8 +1647,8 @@ begin
         "11111111"     when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
 
-    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or (not mouse_via_irq_n) or acc_irr) when m128_mode = '1' else
-                 not ((not sys_via_irq_n) or (not user_via_irq_n) or (not mouse_via_irq_n));
+    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
+                 not ((not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
     ext_nCS <= '0';
 
@@ -1948,13 +1890,8 @@ begin
     sys_via_pb_in(7 downto 6) <= (others => '1');
     sys_via_pb_in(3 downto 0) <= sys_via_pb_out(3 downto 0);
 
-    -- Connections to User VIA (user port is output on green LEDs)
-    user_via_ca1_in <= '1'; -- Pulled up
-
-    -- MMBEEB
-
+    -- SPI SD Card Interface (for Memory Mapped SPI)
     spisd: if IncludeSPISD generate
-
         Inst_SPI_Port: entity work.SPI_Port
             port map (
                 nRST    => reset_n,
@@ -1969,35 +1906,13 @@ begin
                 SDSS    => SDSS,
                 SDCLK   => SDCLK
                 );
-        user_via_cb1_in <= '0';
-        user_via_cb2_in <= '0';
-
     end generate;
-
-    spi_sd: if not IncludeSPISD generate
-        -- SDCLK is driven from either PB1 or CB1 depending on the SR Mode
-        sdclk_int     <= user_via_pb_out(1) when user_via_pb_oe_n(1) = '0' else
-                         user_via_cb1_out   when user_via_cb1_oe_n = '0' else
-                         '1';
-
-        SDCLK           <= sdclk_int;
-        user_via_cb1_in <= sdclk_int;
-
-        -- SDMOSI is always driven from PB0
-        SDMOSI        <= user_via_pb_out(0) when user_via_pb_oe_n(0) = '0' else
-                         '1';
-
-        -- SDMISO is always read from CB2
-        user_via_cb2_in <= SDMISO; -- SDI
-
-        -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
-        SDSS          <= '0';
+    not_spisd: if not IncludeSPISD generate
+        SDCLK    <= '1';
+        SDMOSI   <= '1';
+        SDSS     <= '1';
+        spisd_do <= x"FE";
     end generate;
-
-
-    -- Make unused inputs float high
-    user_via_pa_in <= (others => '1');
-    user_via_pb_in <= (others => '1');
 
     -- ROM select latch
     process(clock_48,reset_n)

@@ -130,7 +130,7 @@ cat >> $1 <<EOF
 ; CMOS RAM Settings
 ; See http://beebwiki.mdfs.net/CMOS_configuration_RAM_allocation
 
-cmos05 = C8 ; Default Filing System / Language
+cmos05 = C9 ; Default Filing System / Language
 cmos06 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos07 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos08 = 00 ; Edit startup settings
@@ -152,8 +152,8 @@ crc03 = 81db
 crc04 = 9402
 crc06 = 0000
 crc07 = 0000
-crc08 = 1a2f
-crc09 = c433
+crc08 = c433
+crc09 = 1a2f
 crc0A = e7c4
 crc0B = b5b6
 crc0C = 61d7
@@ -247,8 +247,8 @@ resource=mos.rom,4
 resource=blank.rom,5
 resource=blank.rom,6
 resource=blank.rom,7
-resource=mammfsspi.rom,8
-resource=dfs.rom,9
+resource=dfs.rom,8
+resource=mammfsspi.rom,9
 resource=viewsht.rom,10
 resource=edit.rom,11
 resource=basic4.rom,12

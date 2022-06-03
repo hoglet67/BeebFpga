@@ -109,7 +109,7 @@ crc03 = 0000
 crc04 = 5cbf
 crc06 = 0000
 crc07 = 0000
-crc08 = f63c
+crc08 = c842
 crc09 = 0000
 crc0A = 0000
 crc0B = 0000
@@ -130,7 +130,7 @@ cat >> $1 <<EOF
 ; CMOS RAM Settings
 ; See http://beebwiki.mdfs.net/CMOS_configuration_RAM_allocation
 
-cmos05 = C3 ; Default Filing System / Language
+cmos05 = C8 ; Default Filing System / Language
 cmos06 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos07 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos08 = 00 ; Edit startup settings
@@ -148,11 +148,11 @@ cmos10 = 80 ; Default serial data format, auto boot option, int/ext TUBE, bell a
 crc00 = 0000
 crc01 = 0000
 crc02 = 0000
-crc03 = 7af4
+crc03 = 81db
 crc04 = 9402
 crc06 = 0000
 crc07 = 0000
-crc08 = 81db
+crc08 = 1a2f
 crc09 = c433
 crc0A = e7c4
 crc0B = b5b6
@@ -195,7 +195,7 @@ resource=os12.rom,4
 resource=blank.rom,5
 resource=blank.rom,6
 resource=blank.rom,7
-resource=swmmfs2.rom,8
+resource=swmmfsspi.rom,8
 resource=blank.rom,9
 resource=blank.rom,10
 resource=blank.rom,11
@@ -211,7 +211,7 @@ resource=beeb.cfg,5
 config=5,16128
 EOF
 
-for i in os12 basic2 ram_master_v6 swmmfs2
+for i in os12 basic2 ram_master_v6 swmmfsspi
 do
     cp roms/bbcb/$i.rom $DIR/machines/${MACH}
 done
@@ -242,12 +242,12 @@ name=Acorn BBC Master
 resource=blank.rom,0
 resource=blank.rom,1
 resource=blank.rom,2
-resource=mammfs2.rom,3
+resource=owl.rom,3
 resource=mos.rom,4
 resource=blank.rom,5
 resource=blank.rom,6
 resource=blank.rom,7
-resource=owl.rom,8
+resource=mammfsspi.rom,8
 resource=dfs.rom,9
 resource=viewsht.rom,10
 resource=edit.rom,11
@@ -263,7 +263,7 @@ resource=beeb.cfg,5
 config=5,16128
 EOF
 
-for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht
+for i in adfs basic4 dfs edit mammfsspi mos owl terminal view viewsht
 do
     cp roms/m128/$i.rom $DIR/machines/${MACH}
 done

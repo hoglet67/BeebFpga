@@ -1,6 +1,6 @@
 -- BBC Master / BBC B for the Spectrum Next
 --
--- Copright (c) 2020 David Banks
+-- Copright (c) 2022 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -40,7 +40,7 @@
 --
 -- Spectrum Next top-level
 --
--- (c) 2017 David Banks
+-- (c) 2022 David Banks
 -- (C) 2011 Mike Stirling
 
 library ieee;
@@ -54,6 +54,7 @@ use UNISIM.Vcomponents.all;
 entity bbc_micro_spec_next is
     generic (
         IncludeAMXMouse    : boolean := true;
+        IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := true;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
@@ -276,6 +277,7 @@ begin
     bbc_micro : entity work.bbc_micro_core
     generic map (
         IncludeAMXMouse    => IncludeAMXMouse,
+        IncludeSPISD       => IncludeSPISD,
         IncludeSID         => IncludeSID,
         IncludeMusic5000   => IncludeMusic5000,
         IncludeICEDebugger => IncludeICEDebugger,

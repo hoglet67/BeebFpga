@@ -195,7 +195,7 @@ resource=os12.rom,4
 resource=blank.rom,5
 resource=blank.rom,6
 resource=blank.rom,7
-resource=swmmfspi.rom,8
+resource=SWMMFS.rom,8
 resource=blank.rom,9
 resource=blank.rom,10
 resource=blank.rom,11
@@ -211,7 +211,7 @@ resource=beeb.cfg,5
 config=5,16128
 EOF
 
-for i in os12 basic2 ram_master_v6 swmmfsspi
+for i in os12 basic2 ram_master_v6 MMFS/M/SWMMFS
 do
     cp roms/bbcb/$i.rom $DIR/machines/${MACH}
 done
@@ -221,7 +221,6 @@ dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 
 # Rename to keep filenames sensible
 mv $DIR/machines/${MACH}/ram_master_v6.rom $DIR/machines/${MACH}/rammas6.rom
-mv $DIR/machines/${MACH}/swmmfsspi.rom $DIR/machines/${MACH}/swmmfspi.rom
 
 common_settings $DIR/machines/${MACH}/beeb.cfg
 modelb_settings $DIR/machines/${MACH}/beeb.cfg
@@ -249,7 +248,7 @@ resource=blank.rom,5
 resource=blank.rom,6
 resource=blank.rom,7
 resource=dfs.rom,8
-resource=mammfspi.rom,9
+resource=MAMMFS.rom,9
 resource=viewsht.rom,10
 resource=edit.rom,11
 resource=basic4.rom,12
@@ -264,16 +263,13 @@ resource=beeb.cfg,5
 config=5,16128
 EOF
 
-for i in adfs basic4 dfs edit mammfsspi mos owl terminal view viewsht
+for i in adfs basic4 dfs edit MMFS/M/MAMMFS mos owl terminal view viewsht
 do
     cp roms/m128/$i.rom $DIR/machines/${MACH}
 done
 
 # Add a blank rom
 dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
-
-# Rename to keep filenames sensible
-mv $DIR/machines/${MACH}/mammfsspi.rom $DIR/machines/${MACH}/mammfspi.rom
 
 common_settings $DIR/machines/${MACH}/beeb.cfg
 master_settings $DIR/machines/${MACH}/beeb.cfg

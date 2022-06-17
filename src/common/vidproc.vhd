@@ -645,7 +645,7 @@ begin
 
     phys_col_final <= phys_col_delay_out            when r0_teletext = '0' else
                       '0' & B_IN   & G_IN   & R_IN  when VGA         = '0' else
-                      '0' & ttxt_R & ttxt_G & ttxt_B;
+                      '0' & ttxt_B & ttxt_G & ttxt_R;
 
     process (PIXCLK)
         variable invert : std_logic_vector(3 downto 0);

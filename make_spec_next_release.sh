@@ -13,14 +13,9 @@ fi
 BUILD=$(date +"%Y%m%d_%H%M")
 #BUILD=dev
 
-NAME=beeb_fpga_spec_next_$BUILD
-
-DIR=releases/$NAME
-
-echo "Release name: $NAME"
-
-rm -rf $DIR
-mkdir -p $DIR
+# ====================================================
+# Compile Config Firmware
+# ====================================================
 
 function common_settings {
 cat > $1 <<EOF
@@ -109,7 +104,9 @@ crc03 = 0000
 crc04 = 5cbf
 crc06 = 0000
 crc07 = 0000
-crc08 = c842
+EOF
+echo "crc08 = $2" >> $1
+cat >> $1 <<EOF
 crc09 = 0000
 crc0A = 0000
 crc0B = 0000
@@ -153,7 +150,9 @@ crc04 = 9402
 crc06 = 0000
 crc07 = 0000
 crc08 = c433
-crc09 = 1a2f
+EOF
+echo "crc09 = $2" >> $1
+cat >> $1 <<EOF
 crc0A = e7c4
 crc0B = b5b6
 crc0C = 61d7
@@ -164,26 +163,9 @@ crc0F = 64af
 EOF
 }
 
-# ====================================================
-# Compile Config Firmware
-# ====================================================
 
-pushd firmware
-
-echo EQUB \"Version: $BUILD $GITVERSION\" > version.asm
-beebasm -v -i config.asm -o config.rom
-od -An -tx1 -w16 -v config.rom > config.mem
-popd
-
-# ====================================================
-# Acorn BBC Model B
-# ====================================================
-
-MACH=bbcmodelb
-
-mkdir -p $DIR/machines/$MACH
-
-cat > $DIR/machines/${MACH}/core.cfg <<EOF
+function modelb_config {
+cat > $1 <<EOF
 name=Acorn BBC Model B
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
@@ -210,32 +192,11 @@ resource=beeb.cfg,5
 ; Spec Next Config and the end (0x3F00)
 config=5,16128
 EOF
+}
 
-for i in os12 basic2 ram_master_v6 MMFS/M/SWMMFS
-do
-    cp roms/bbcb/$i.rom $DIR/machines/${MACH}
-done
 
-# Add a blank rom
-dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
-
-# Rename to keep filenames sensible
-mv $DIR/machines/${MACH}/ram_master_v6.rom $DIR/machines/${MACH}/rammas6.rom
-
-common_settings $DIR/machines/${MACH}/beeb.cfg
-modelb_settings $DIR/machines/${MACH}/beeb.cfg
-
-data2mem -bm xilinx/spec_next_config_modelb_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_micro_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
-
-# ====================================================
-# Acorn BBC Master
-# ====================================================
-
-MACH=bbcmaster
-
-mkdir -p $DIR/machines/$MACH
-
-cat > $DIR/machines/${MACH}/core.cfg <<EOF
+function master_config {
+cat > $1 <<EOF
 name=Acorn BBC Master
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
@@ -262,8 +223,73 @@ resource=beeb.cfg,5
 ; Spec Next Config and the end (0x3F00)
 config=5,16128
 EOF
+}
 
-for i in adfs basic4 dfs edit MMFS/M/MAMMFS mos owl terminal view viewsht
+for MMFS in MMFS MMFS2
+do
+
+MMFS_BBCB_CRC=`crc16 roms/bbcb/${MMFS}/M/SWMMFS.rom`
+MMFS_M128_CRC=`crc16 roms/m128/${MMFS}/M/MAMMFS.rom`
+
+echo "CRC for $MMFS for BBC B is $MMFS_BBCB_CRC"
+echo "CRC for $MMFS for Master 128 is $MMFS_M128_CRC"
+
+
+NAME=beeb_fpga_spec_next_${BUILD}_${MMFS}
+
+DIR=releases/$NAME
+
+echo "Release name: $NAME"
+
+rm -rf $DIR
+mkdir -p $DIR
+
+# ====================================================
+# Compile Config Firmware
+# ====================================================
+
+pushd firmware
+
+echo EQUB \"Version: $BUILD $GITVERSION\" > version.asm
+beebasm -v -i config.asm -o config.rom
+od -An -tx1 -w16 -v config.rom > config.mem
+popd
+
+# ====================================================
+# Acorn BBC Model B
+# ====================================================
+
+MACH=bbcmodelb
+
+mkdir -p $DIR/machines/$MACH
+
+for i in os12 basic2 ram_master_v6 ${MMFS}/M/SWMMFS
+do
+    cp roms/bbcb/$i.rom $DIR/machines/${MACH}
+done
+
+# Add a blank rom
+dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
+
+# Rename to keep filenames sensible
+mv $DIR/machines/${MACH}/ram_master_v6.rom $DIR/machines/${MACH}/rammas6.rom
+
+common_settings $DIR/machines/${MACH}/beeb.cfg
+modelb_settings $DIR/machines/${MACH}/beeb.cfg $MMFS_BBCB_CRC
+
+modelb_config $DIR/machines/${MACH}/core.cfg
+
+data2mem -bm xilinx/spec_next_config_modelb_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_micro_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
+
+# ====================================================
+# Acorn BBC Master
+# ====================================================
+
+MACH=bbcmaster
+
+mkdir -p $DIR/machines/$MACH
+
+for i in adfs basic4 dfs edit ${MMFS}/M/MAMMFS mos owl terminal view viewsht
 do
     cp roms/m128/$i.rom $DIR/machines/${MACH}
 done
@@ -272,7 +298,9 @@ done
 dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 
 common_settings $DIR/machines/${MACH}/beeb.cfg
-master_settings $DIR/machines/${MACH}/beeb.cfg
+master_settings $DIR/machines/${MACH}/beeb.cfg $MMFS_M128_CRC
+
+master_config $DIR/machines/${MACH}/core.cfg
 
 data2mem -bm xilinx/spec_next_config_master_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_master_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
 
@@ -287,3 +315,5 @@ zip -qr ../$NAME.zip .
 popd
 
 unzip -l $DIR.zip
+
+done

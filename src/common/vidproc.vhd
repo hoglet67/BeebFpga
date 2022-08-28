@@ -356,7 +356,7 @@ begin
     -- Decode which attribute mode is active
     nula_normal_attr_mode <= '1' when nula_reg6(1 downto 0) = "01" and nula_reg7(0) = '0' else '0';
     nula_text_attr_mode   <= '1' when nula_reg6(1 downto 0) = "01" and nula_reg7(0) = '1' else '0';
-    nula_speccy_attr_mode <= '1' when nula_reg6(1 downto 0) = "10"                        else '0';
+    nula_speccy_attr_mode <= '1' when nula_reg6(1)          = '1'                         else '0';
 
     -- The CRTC is clocked out of phase with the CPU, and the result loaded into the
     -- the shift register on the next CRTC clock edge
@@ -497,32 +497,39 @@ begin
                     else
                         -- second byte contains pixels
                         shiftreg <= di;
-                        -- attribute is <flash> <bright> <paper: G R B> <ink GRB>
+                        -- attribute is <flash> <bright> <paper: G R B> <ink G R B>
                         -- beeb colour is <B G R>
                         fg := speccy_attr(6) & speccy_attr(0) & speccy_attr(2) & speccy_attr(1);
                         bg := speccy_attr(6) & speccy_attr(3) & speccy_attr(5) & speccy_attr(4);
-                        -- attribute 0x80 is used to indicate border
-                        -- which is then mapped to logical colour 0
-                        if speccy_attr = x"80" then
-                            speccy_fg <= x"0";
-                            speccy_bg <= x"0";
-                        else
-                            -- remap light black (0) to dark black (8) so
-                            -- logical colour zero can only be border
-                            if fg = x"0" then
-                                fg := x"8";
-                            end if;
-                            if bg = x"0" then
-                                bg := x"8";
-                            end if;
-                            -- now handle flashing
-                            if speccy_attr(7) = '1' and r0_flash = '1' then
-                                speccy_fg <= bg;
-                                speccy_bg <= fg;
+                        -- Bit 0 of R6 is a recent enhancement that selects between Spectrum and Thomson Attribute modes
+                        if nula_reg6(0) = '0' then
+                            -- Spectrum mode (mode 2) specific behaviour
+                            if speccy_attr = x"80" then
+                                -- attribute 0x80 is used to indicate border
+                                -- which is then mapped to logical colour 0
+                                fg := x"0";
+                                bg := x"0";
                             else
-                                speccy_fg <= fg;
-                                speccy_bg <= bg;
+                                -- remap light black (0) to dark black (8) so
+                                -- logical colour zero can only be border
+                                if fg = x"0" then
+                                    fg := x"8";
+                                end if;
+                                if bg = x"0" then
+                                    bg := x"8";
+                                end if;
                             end if;
+                        else
+                            -- Thomson mode (mode 3) specific behaviour
+                            bg(3) := speccy_attr(7);
+                        end if;
+                        -- now handle flashing
+                        if speccy_attr(7) = '1' and r0_flash = '1' then
+                            speccy_fg <= bg;
+                            speccy_bg <= fg;
+                        else
+                            speccy_fg <= fg;
+                            speccy_bg <= bg;
                         end if;
                     end if;
                     if disen1 = '0' and disen2 = '1' then

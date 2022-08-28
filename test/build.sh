@@ -214,3 +214,38 @@ do
 done
 
 beeb dcat -f ${mmb}
+
+# ##########################################################################
+# VideoNula
+# ##########################################################################
+
+dir=downloads/VideoNuLA_pack_Feb2018
+if [ ! -d ${dir} ]
+then
+wget -N -P downloads "https://www.dropbox.com/s/g3i5fe5napf8rwt/VideoNuLA_pack_Feb2018.zip"
+mkdir -p ${dir}
+unzip -d ${dir} downloads/VideoNuLA_pack_Feb2018.zip
+beeb split_dsd ${dir}/cpc.dsd ${dir}/cpc0.ssd ${dir}/cpc2.ssd  
+fi
+roundup_disk_num 50
+title_ssd "VIDEO NULA"
+for ssd in $(find ${dir} -name '*.ssd' | sort -f)
+do    
+    title=$(echo ${ssd} | cut -c34- | cut -d. -f1)
+    add_ssd ${ssd} ${title}
+done
+add_ssd ../local/nulatest.ssd
+
+# ##########################################################################
+# 6502 Tests
+# ##########################################################################
+
+get_git_repo https://github.com/dp111/6502Timing
+get_git_repo https://github.com/hoglet67/6502_65C02_functional_tests
+roundup_disk_num 50
+title_ssd "6502 TESTS"
+add_ssd downloads/6502_65C02_functional_tests/beeb/dormann.ssd
+add_ssd ../local/BCDTEST.ssd
+add_directory downloads/6502Timing
+
+

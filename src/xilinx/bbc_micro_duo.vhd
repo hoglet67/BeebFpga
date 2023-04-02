@@ -582,9 +582,9 @@ begin
         accel_io(15 downto 0) <= 'Z'          &
                                  'Z'          &
                                  green_int(0) & -- pin 1
-                                 blue_int(0)  & -- pin 2
-                                 green_int(1) & -- pin 3
-                                 red_int(0)   & -- pin 4
+                                 red_int(0)   & -- pin 2
+                                 blue_int(0)  & -- pin 3
+                                 green_int(1) & -- pin 4
                                  red_int(1)   & -- pin 5
                                  blue_int(1)  & -- pin 6
                                  green_int(2) & -- pin 8

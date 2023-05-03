@@ -194,6 +194,8 @@ NET "accel_io<6>"   LOC="P80"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
 NET "accel_io<7>"   LOC="P78"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
 NET "accel_io<8>"   LOC="P74"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLDOWN ;  # (D0) Ensure model B boots if Pi not present
 NET "accel_io<9>"   LOC="P66"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
+#NET "accel_io<8>"  LOC="P74"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLUP;     # ps2_mse_clk  needs a pullup
+#NET "accel_io<9>"  LOC="P66"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW | PULLUP;     # ps2_mse_data needs a pullup
 NET "accel_io<10>"  LOC="P61"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
 NET "accel_io<11>"  LOC="P58"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;
 NET "accel_io<12>"  LOC="P56"   | IOSTANDARD = LVCMOS33 | DRIVE = 8 | SLOW;

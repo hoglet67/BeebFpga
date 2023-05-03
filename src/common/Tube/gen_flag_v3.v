@@ -11,7 +11,7 @@
 );
 
    // Initial state: 0 = empty; 1 = full
-   
+
    // TODO - Implement this!
    parameter init = 0;
 

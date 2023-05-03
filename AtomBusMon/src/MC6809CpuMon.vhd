@@ -101,6 +101,7 @@ architecture behavioral of MC6809CpuMon is
     signal Addr_int       : std_logic_vector(15 downto 0);
     signal Din            : std_logic_vector(7 downto 0);
     signal Dout           : std_logic_vector(7 downto 0);
+    signal Dbusmon        : std_logic_vector(7 downto 0);
     signal Sync_int       : std_logic;
     signal hold           : std_logic;
 
@@ -123,7 +124,7 @@ architecture behavioral of MC6809CpuMon is
     signal SS_Single      : std_logic;
     signal SS_Step        : std_logic;
     signal CountCycle     : std_logic;
-    signal special        : std_logic_vector(1 downto 0);
+    signal int_ctrl       : std_logic_vector(7 downto 0);
 
     signal LIC_int        : std_logic;
 
@@ -139,9 +140,10 @@ architecture behavioral of MC6809CpuMon is
     signal data_wr        : std_logic;
     signal nRSTout        : std_logic;
 
-    signal NMI_n_masked   : std_logic;
-    signal IRQ_n_masked   : std_logic;
     signal FIRQ_n_masked  : std_logic;
+    signal IRQ_n_masked   : std_logic;
+    signal NMI_n_masked   : std_logic;
+    signal RES_n_masked   : std_logic;
 
 begin
 
@@ -176,14 +178,14 @@ begin
         cpu_clk      => cpu_clk,
         cpu_clken    => '1',
         Addr         => Addr_int,
-        Data         => Data,
+        Data         => Dbusmon,
         Rd_n         => not R_W_n_int,
         Wr_n         => R_W_n_int,
         RdIO_n       => '1',
         WrIO_n       => '1',
         Sync         => Sync_int,
         Rdy          => open,
-        nRSTin       => RES_n,
+        nRSTin       => RES_n_masked,
         nRSTout      => cpu_reset_n,
         CountCycle   => CountCycle,
         trig         => trig,
@@ -206,14 +208,28 @@ begin
         DataOut      => memory_dout,
         DataIn       => memory_din,
         Done         => memory_done,
-        Special      => special,
+        int_ctrl     => int_ctrl,
         SS_Step      => SS_Step,
         SS_Single    => SS_Single
     );
 
-    NMI_n_masked  <= NMI_n  or special(1);
-    FIRQ_n_masked <= FIRQ_n or special(1);
-    IRQ_n_masked  <= IRQ_n  or special(0);
+    -- The two int control bits work as follows
+    -- 00 -> IRQ_n                (enabled)
+    -- 01 -> IRQ_n or SS_Single   (enabled when free-running)
+    -- 10 -> 0                    (forced)
+    -- 11 -> 1                    (disabled)
+
+    FIRQ_n_masked <= int_ctrl(0) when int_ctrl(1) = '1' else
+                     FIRQ_n or (int_ctrl(0) and SS_single);
+
+    IRQ_n_masked  <= int_ctrl(2) when int_ctrl(3) = '1' else
+                     IRQ_n or (int_ctrl(2) and SS_single);
+
+    NMI_n_masked  <= int_ctrl(4) when int_ctrl(5) = '1' else
+                     NMI_n or (int_ctrl(4) and SS_single);
+
+    RES_n_masked  <= int_ctrl(6) when int_ctrl(7) = '1' else
+                     RES_n or (int_ctrl(6) and SS_single);
 
     -- The CPU is slightly pipelined and the register update of the last
     -- instruction overlaps with the opcode fetch of the next instruction.
@@ -338,6 +354,13 @@ begin
     Data       <= memory_dout when TSC = '0' and data_wr = '1' and memory_wr1 = '1' else
                          Dout when TSC = '0' and data_wr = '1' and R_W_n_int = '0' and memory_rd1 = '0' else
                   (others => 'Z');
+
+    -- Version of data seen by the Bus Mon need to use Din rather than the
+    -- external bus value as by the rising edge of cpu_clk we will have stopped driving
+    -- the external bus. On the ALS version we get away way this, but on the GODIL
+    -- version, due to the pullups, we don't. So all write watch breakpoints see
+    -- the data bus as 0xFF.
+    Dbusmon   <= Din when R_W_n_int = '1' else Dout;
 
     memory_done <= memory_rd1 or memory_wr1;
 

@@ -1,0 +1,217 @@
+Papilio Duo Issues:
+
+- Arduino Held in Reset: NuLA Games trigger JTAG boundary scan.
+- Arduino Running Flasher: User LED conflicts with Joy1 Up (p134).
+- Arduino Running Hacked Flasher (LED/JTAG disabled): Works fine.
+
+Current testing issues: 2022/05/11 ca5ca6b8
+
+- MODE7 3C00 works in Master Mode (it shouldn't)
+- SAA5050 Parrot of Doom eye bug test case failure (bug not implemented)
+- SAA5050 Clear Hold 2/3 test case failure
+- MC6845 Chris Evans rvi-working test fails                                [ now fixed ]
+- MC6845 Chris Evans raster-c test palette change 1 char late              [ now just 1px early ]
+- MC6845 Chris Evans raster-c test pulsing suggest blanking difference     [ same on beeb ]
+- MC6845 Tom Seddon Cursor size test fails                                 [ now fixed ]
+- MC6845 Tom Seddon Light Pen interrupt test slightly early                [ now fixed ]
+- MC6845 Tom Seddon mode7-disen  test looks different
+
+Test Disk Images Results (ca5ca6b8):
+
+   0: BITSHIFTERS
+   1: NastyEffects      *Works
+   2: BeebTracker1      *Works
+   3: BeebTracker2      *Works
+   4: BeebTracker3      *Works
+   5: TelTxtBadApp      *Works (Needs DFS disabled)
+   6: TelTxtBadApp      (2nd side)
+   7: TeleTextR         *Works (Needs DFS disabled)
+   8: NuLAGalVol1       *Works (Needs DFS disabled)
+   9: NuLAGalVol2       *Works (Needs DFS disabled)
+  10: PriceOfPersi      *Works (Needs DFS disabled)
+  11: TwistedBrain      *Works
+  12: BeebStep          *Works
+  13: StuntCarRacr      Works
+  14: Patarty           Works
+  15: WaveRunner        Works
+  16: XMAS-19           Works
+  17: BeebNICCC         Hangs after on minute on both (MMFS unsupported and known issues)
+  18: BeebNICCC         (2nd side)
+  19: NovaInvite        Works
+  20: EvilInfluenc      Works
+  21: WobbleColour      Possibly slight banding difference in bottom row?
+  22: BarBeeb           Works
+  23: MasterMode7       Works
+  24: AlienDayDre       Works
+
+  50: TRICKYSOFT
+  51: Asteroids         Works
+  52: AstroBlaster      Works [ Need to disable RAM Master ]
+  53: CanyonBomber      Works
+  54: Carnival          Works
+  55: Centipede         Works
+  56: Circus            [ paddle only ]
+  57: Frogger           Works
+  58: MissileCmd        Works
+  59: Pacman            Works
+  60: Phoenix           Works
+  61: RallyX            Works
+  62: RipCord           Works
+  63: Scramble          Works
+  64: SpaceInvader      Works
+  65: Sprint1           [ paddle only ]
+  66: SuperBreakou      [ paddle only ]
+
+ 100: GAMES
+ 101: Alien8            Works [Model B Only]
+ 102: Boffin            Works [Model B Only]
+ 103: DevilsIsland      Works
+ 104: DrWho1stAdv       Works
+ 105: Elite             Works
+ 106: Exile             Works
+ 107: FireTrack         Works
+ 108: LunarJetman       Works [Model B Only]
+ 109: PharaohCurse      Works
+ 110: PriceOfPersi      Works
+ 111: Revs              Works
+ 112: SnapperV1         Works
+ 113: StuntCarRacr      Works
+ 114: Time&Magic        Works
+ 115: Time&Magic        (2nd side)
+ 116: Uridium           Works
+ 117: WhiteLight        Works [ known issue: needs FEA0 6522 to avoid user port conflicts ]
+
+ 150: CHRIS EVANS
+ 151: LinearTTX         Needs 1770 to run
+ 152: mode1+7           Expected failure on real Master, Works on BeebFPGA Master
+ 153: mode4+7           Works
+ 154: mode7-75          Works
+ 155: mode7-bug         Bug causing black eyes not present on BeebFPGA
+ 156: Music2            Works
+ 157: raster-c          BeebFPGA: Palette change 1 char late, slight pulsing (blanking issue?)
+ 158: rvi-working       BeebFPGA: Fails
+ 159: teletest_v1       BeebFPGA: 1) Works; 2) Clear Held 2/3 fail; 3) Parrot bug missing
+ 160: upside-doom-      (no-skew version) Works
+ 161: upside-doom       (normal version) Both: Hangs with black screen
+
+ 200: TOM SEDDON
+ 201: cursor_flash      Works
+ 202: cursor_oddit      Works
+ 203: cursor_r11        Both: hangs with black screen [ reported to tom ]
+ 204: cursor_reset      BeebFPGA: Cursor size difference
+ 205: cursor_reset      Works
+ 206: framework_te      Works
+ 207: light_pen_cb      BeebFPGA: Slightly early colour change (minor)
+ 208: mode7-disen       BeebFPGA: Output looks different
+ 209: r1=0              Works
+ 210: r1=255            Works
+ 211: R4-1              Works
+ 212: R4-2              Works
+ 213: R4-3              Works
+ 214: r6=0              Works
+ 215: R6-2              Works
+ 216: R6                Works
+ 217: R7-POS            Both: Not Found error [ reported to tom ]
+ 218: R7-TIME           Works
+ 219: scr-screen        Works
+
+
+
+Test Disk Images Results (fa5536e5):
+
+   0: BITSHIFTERS
+   1: NastyEffects      Works
+   2: BeebTracker1      Works
+   3: BeebTracker2      Works
+   4: BeebTracker3      Works
+   5: TelTxtBadApp      Works (Needs DFS disabled)
+   6: TelTxtBadApp      (2nd side)
+   7: TeleTextR         Works (Needs DFS disabled)
+   8: NuLAGalVol1       Works
+   9: NuLAGalVol2       Works
+  10: PriceOfPersi      Works
+  11: TwistedBrain      Works
+  12: BeebStep          Works
+  13: StuntCarRacr      Works
+  14: Patarty           Works
+  15: WaveRunner        Works
+  16: XMAS-19           Works
+  17: BeebNICCC         Hangs after on minute on both (MMFS unsupported and known issues)
+  18: BeebNICCC         (2nd side)
+  19: NovaInvite        Works
+  20: EvilInfluenc      Works
+  21: WobbleColour      Possibly slight banding difference in bottom row?
+  22: BarBeeb           Works
+  23: MasterMode7       Works
+  24: AlienDayDre       Works
+
+  50: TRICKYSOFT
+  51: Asteroids         *Works
+  52: AstroBlaster      *Works [ Need to disable RAM Master on Model B ]
+  53: CanyonBomber      *Works
+  54: Carnival          *Works
+  55: Centipede         *Works
+  56: Circus            *[ paddle only ]
+  57: Frogger           *Works
+  58: MissileCmd        *Works
+  59: Pacman            *Works
+  60: Phoenix           *Works
+  61: RallyX            *Works
+  62: RipCord           *Works
+  63: Scramble          *Works
+  64: SpaceInvader      *Works
+  65: Sprint1           *[ paddle only ]
+  66: SuperBreakou      *[ paddle only ]
+
+ 100: GAMES
+ 101: Alien8            Works [Model B Only]
+ 102: Boffin            Works [Model B Only]
+ 103: DevilsIsland      Works
+ 104: DrWho1stAdv       Works
+ 105: Elite             *Works
+ 106: Exile             *Works [ if you answer N to S/W RAM ]
+ 107: FireTrack         *Works
+ 108: LunarJetman       Works [Model B Only]
+ 109: PharaohCurse      *Works
+ 110: PriceOfPersi      *Works [ needs DFS disabled on Master ]
+ 111: Revs              Works
+ 112: SnapperV1         Works
+ 113: StuntCarRacr      Works
+ 114: Time&Magic        Works
+ 115: Time&Magic        (2nd side)
+ 116: Uridium           Works
+ 117: WhiteLight        Works [ known issue: needs FEA0 6522 to avoid user port conflicts ]
+
+ 150: CHRIS EVANS
+ 151: LinearTTX         *Needs 1770 to run
+ 152: mode1+7           *Expected failure on real Master, Works on BeebFPGA Master
+ 153: mode4+7           *Works
+ 154: mode7-75          *Works
+ 155: mode7-bug         *Bug causing black eyes not present on BeebFPGA
+ 156: Music2            *Works
+ 157: raster-c          *Works (Palette change 250ns early Vid Proc Orig)
+ 158: rvi-working       *Works (Blanking 250ns early in Vid Proc Orig
+ 159: teletest_v1       *BeebFPGA: 1) Works; 2) Clear Held 2/3 fail; 3) Parrot bug missing
+ 160: upside-doom-      *(no-skew version) Works
+ 161: upside-doom       *(normal version) Master: Works about 50% of the time, BeebFPGA Hangs 100% of the time
+
+ 200: TOM SEDDON
+ 201: cursor_flash      *Works
+ 202: cursor_oddit      *Works
+ 203: cursor_r11        *Both: hangs with black screen [ reported to tom ]
+ 204: cursor_reset      *Works
+ 205: cursor_reset      *Works
+ 206: framework_te      *Works
+ 207: light_pen_cb      *Works
+ 208: mode7-disen       *BeebFPGA: SAA5050 row counter updated at a different time
+ 209: r1=0              *Works
+ 210: r1=255            *Works
+ 211: R4-1              *Works
+ 212: R4-2              *Works
+ 213: R4-3              *Works
+ 214: r6=0              *Works
+ 215: R6-2              *Works
+ 216: R6                *Works
+ 217: R7-POS            *Both: Not Found error [ reported to tom ]
+ 218: R7-TIME           *Works
+ 219: scr-screen        *Works

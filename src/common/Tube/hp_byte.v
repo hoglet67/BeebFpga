@@ -1,10 +1,10 @@
 //**************************************************************************
 //    hp_byte.v - single byte buffer for transfers in host to parasite direction
-//   
+//
 //    COPYRIGHT 2010 Richard Evans, Ed Spittles
-// 
+//
 //    This file is part of tube - an Acorn Tube ULA compatible system.
-//   
+//
 //    tube is free software: you can redistribute it and/or modify
 //    it under the terms of the GNU Lesser General Public License as published by
 //    the Free Software Foundation, either version 3 of the License, or
@@ -27,22 +27,22 @@ module hp_byte (
                   input h_selectData,
                   input h_phi2,
                   input [7:0] h_data,
-                  
+
                   input p_selectData,
                   input p_phi2,
-                  input p_rdnw,                                
+                  input p_rdnw,
                   output [7:0] p_data,
                   output p_data_available,
                   output h_full
                   );
 
-   
+
    reg [7:0] fifo_q_r ;
    wire [7:0] fifo_d_w ;
 
    // assign primary IOs
-   assign p_data = fifo_q_r;   
-   
+   assign p_data = fifo_q_r;
+
    // Compute D and resets for state bits
    assign fifo_d_w = ( h_selectData & !h_we_b ) ? h_data : fifo_q_r;
 
@@ -60,14 +60,12 @@ module hp_byte (
                        );
 
    // All state inferences
-   always @ ( negedge h_phi2 or negedge h_rst_b )
+   always @ ( posedge h_phi2 or negedge h_rst_b )
      begin
         if ( ! h_rst_b)
-          fifo_q_r <= 8'b0;             
+          fifo_q_r <= 8'b0;
         else
-          fifo_q_r <= fifo_d_w ;             
+          fifo_q_r <= fifo_d_w ;
      end
-   
-endmodule // hp_byte
 
-   
+endmodule // hp_byte

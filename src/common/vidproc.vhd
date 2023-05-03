@@ -80,7 +80,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity vidproc is
     port (
-        -- CLOCK is the Beeb's 32MHz master clock
+        -- CLOCK is the 48MHz master clock
         CLOCK       :   in  std_logic;
 
         -- CPUCLKEN qualifies CPU cycles, wrt. CLOCK
@@ -98,9 +98,6 @@ entity vidproc is
 
         -- Clock enable output to CRTC
         CLKEN_CRTC  :   out std_logic;
-
-        -- Clock enable output to CRTC, to update the RAM address
-        CLKEN_CRTC_ADR  : out std_logic;
 
         -- Clock enable counter, so memory timing can be slaved to the video processor
         CLKEN_COUNT :   out unsigned(3 downto 0);
@@ -183,9 +180,9 @@ architecture rtl of vidproc is
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
 
-    signal ttxt_R           :   std_logic_vector(6 downto 0);
-    signal ttxt_G           :   std_logic_vector(6 downto 0);
-    signal ttxt_B           :   std_logic_vector(6 downto 0);
+    signal ttxt_R           :   std_logic;
+    signal ttxt_G           :   std_logic;
+    signal ttxt_B           :   std_logic;
 
 -- Pass physical colour to VideoNuLA
     signal phys_col                   : std_logic_vector(3 downto 0);
@@ -359,27 +356,16 @@ begin
     -- Decode which attribute mode is active
     nula_normal_attr_mode <= '1' when nula_reg6(1 downto 0) = "01" and nula_reg7(0) = '0' else '0';
     nula_text_attr_mode   <= '1' when nula_reg6(1 downto 0) = "01" and nula_reg7(0) = '1' else '0';
-    nula_speccy_attr_mode <= '1' when nula_reg6(1 downto 0) = "10"                        else '0';
+    nula_speccy_attr_mode <= '1' when nula_reg6(1)          = '1'                         else '0';
 
-    -- The CRT controller is always enabled in the 15th cycle, so that the result
-    -- is ready for latching into the shift register in cycle 0.  If 2 MHz mode is
-    -- selected then the CRTC is also enabled in the 7rd cycle
-    CLKEN_CRTC <= CLKEN and
-                  clken_counter(0) and clken_counter(1) and clken_counter(2) and
-                  (clken_counter(3) or r0_crtc_2mhz or (r0_teletext and VGA));
+    -- The CRTC is clocked out of phase with the CPU, and the result loaded into the
+    -- the shift register on the next CRTC clock edge
+    clken_fetch <= CLKEN and
+                  (not clken_counter(0)) and (not clken_counter(1)) and (not clken_counter(2)) and
+                  ((not clken_counter(3)) or r0_crtc_2mhz or (r0_teletext and VGA));
 
-    -- To allow for some latency through slow RAM, increment the address earlier
-    CLKEN_CRTC_ADR <= CLKEN and
-                  clken_counter(0) and clken_counter(1) and (not clken_counter(2)) and
-                  (clken_counter(3) or r0_crtc_2mhz or (r0_teletext and VGA));
-
+    CLKEN_CRTC  <= clken_fetch;
     CLKEN_COUNT <= clken_counter;
-
-    -- The result is fetched from the CRTC in cycle 0 and also cycle 8 if 2 MHz
-    -- mode is selected.  This is used for reloading the shift register as well as
-    -- counting cursor pixels
-    clken_fetch <= CLKEN and not (clken_counter(0) or clken_counter(1) or clken_counter(2) or
-                                  (clken_counter(3) and not r0_crtc_2mhz and not (r0_teletext and VGA)));
 
     process(CLOCK)
     begin
@@ -441,7 +427,7 @@ begin
                 end if;
 
                 -- clken_load is either 1MHz or 2MHz
-                if pixen_counter(2 downto 0) = 0 and (pixen_counter(3) = '1' or r0_crtc_2mhz = '1') then
+                if pixen_counter(2 downto 0) = 0 and (pixen_counter(3) = '0' or r0_crtc_2mhz = '1') then
                     clken_load <= '1';
                 end if;
 
@@ -511,32 +497,39 @@ begin
                     else
                         -- second byte contains pixels
                         shiftreg <= di;
-                        -- attribute is <flash> <bright> <paper: G R B> <ink GRB>
+                        -- attribute is <flash> <bright> <paper: G R B> <ink G R B>
                         -- beeb colour is <B G R>
                         fg := speccy_attr(6) & speccy_attr(0) & speccy_attr(2) & speccy_attr(1);
                         bg := speccy_attr(6) & speccy_attr(3) & speccy_attr(5) & speccy_attr(4);
-                        -- attribute 0x80 is used to indicate border
-                        -- which is then mapped to logical colour 0
-                        if speccy_attr = x"80" then
-                            speccy_fg <= x"0";
-                            speccy_bg <= x"0";
-                        else
-                            -- remap light black (0) to dark black (8) so
-                            -- logical colour zero can only be border
-                            if fg = x"0" then
-                                fg := x"8";
-                            end if;
-                            if bg = x"0" then
-                                bg := x"8";
-                            end if;
-                            -- now handle flashing
-                            if speccy_attr(7) = '1' and r0_flash = '1' then
-                                speccy_fg <= bg;
-                                speccy_bg <= fg;
+                        -- Bit 0 of R6 is a recent enhancement that selects between Spectrum and Thomson Attribute modes
+                        if nula_reg6(0) = '0' then
+                            -- Spectrum mode (mode 2) specific behaviour
+                            if speccy_attr = x"80" then
+                                -- attribute 0x80 is used to indicate border
+                                -- which is then mapped to logical colour 0
+                                fg := x"0";
+                                bg := x"0";
                             else
-                                speccy_fg <= fg;
-                                speccy_bg <= bg;
+                                -- remap light black (0) to dark black (8) so
+                                -- logical colour zero can only be border
+                                if fg = x"0" then
+                                    fg := x"8";
+                                end if;
+                                if bg = x"0" then
+                                    bg := x"8";
+                                end if;
                             end if;
+                        else
+                            -- Thomson mode (mode 3) specific behaviour
+                            bg(3) := speccy_attr(7);
+                        end if;
+                        -- now handle flashing
+                        if speccy_attr(7) = '1' and r0_flash = '1' then
+                            speccy_fg <= bg;
+                            speccy_bg <= fg;
+                        else
+                            speccy_fg <= fg;
+                            speccy_bg <= bg;
                         end if;
                     end if;
                     if disen1 = '0' and disen2 = '1' then
@@ -656,7 +649,10 @@ begin
     -- Infer a large mux to select the appropriate hor scroll delay tap
     phys_col_delay_mux <= phys_col_delay_reg & phys_col;
     phys_col_delay_out <= phys_col_delay_mux(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
-    phys_col_final <= phys_col_delay_out when r0_teletext = '0' else '0' & ttxt_B(0) & ttxt_G(0) & ttxt_R(0);
+
+    phys_col_final <= phys_col_delay_out            when r0_teletext = '0' else
+                      '0' & B_IN   & G_IN   & R_IN  when VGA         = '0' else
+                      '0' & ttxt_B & ttxt_G & ttxt_R;
 
     process (PIXCLK)
         variable invert : std_logic_vector(3 downto 0);
@@ -664,10 +660,11 @@ begin
         if rising_edge(PIXCLK) then
 
             if clken_pixel = '1' then
-                -- Delay teletext R, G, B slightly to align with cursor
-                ttxt_R <= R_IN & ttxt_R(6 downto 1);
-                ttxt_G <= G_IN & ttxt_G(6 downto 1);
-                ttxt_B <= B_IN & ttxt_B(6 downto 1);
+
+                -- One more pixel delay was needed in for VideoNuLA in VGA mode; this was the easist place to do it.
+                ttxt_R <= R_IN;
+                ttxt_G <= G_IN;
+                ttxt_B <= B_IN;
 
                 -- Shift pixels in from right (so bits 3..0 are the most recent)
                 phys_col_delay_reg <= phys_col_delay_reg(23 downto 0) & phys_col;

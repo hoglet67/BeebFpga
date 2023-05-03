@@ -1,6 +1,6 @@
 -- BBC Master / BBC B for the Altera/Terasic DE1
 --
--- Copright (c) 2015 David Banks
+-- Copright (c) 2021 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -40,7 +40,7 @@
 --
 -- Altera/Terasic DE1 top-level
 --
--- (c) 2015 David Banks
+-- (c) 2021 David Banks
 -- (C) 2011 Mike Stirling
 
 library ieee;
@@ -58,7 +58,7 @@ generic (
         IncludeCoPro6502   : boolean := true;  -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := true ;
+        IncludeVideoNuLA   : boolean := true;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -99,8 +99,8 @@ port (
     UART_TXD    :   out std_logic;
 
     -- PS/2 Keyboard
-    PS2_CLK     :   in  std_logic;
-    PS2_DAT     :   in  std_logic;
+    PS2_CLK     :   inout  std_logic;
+    PS2_DAT     :   inout  std_logic;
 
     -- I2C
     I2C_SCLK    :   inout   std_logic;
@@ -163,9 +163,9 @@ architecture rtl of bbc_micro_de1 is
 -- Signals
 -------------
 
-signal clock_24        : std_logic;
-signal clock_48        : std_logic;
 signal clock_32        : std_logic;
+signal clock_48        : std_logic;
+signal clock_96        : std_logic;
 signal audio_l         : std_logic_vector(15 downto 0);
 signal audio_r         : std_logic_vector(15 downto 0);
 signal powerup_reset_n : std_logic;
@@ -276,10 +276,11 @@ begin
             UseAlanDCore       => UseAlanDCore
             )
         port map (
-            clock_32       => clock_32,
-            clock_24       => clock_24,
             clock_27       => CLOCK_27_0,
+            clock_32       => clock_32,
             clock_48       => clock_48,
+            clock_96       => clock_96,
+            clock_avr      => CLOCK_24_0,
             hard_reset_n   => hard_reset_n,
             ps2_kbd_clk    => PS2_CLK,
             ps2_kbd_data   => PS2_DAT,
@@ -317,6 +318,7 @@ begin
             vid_mode       => vid_mode,
             joystick1      => (others => '1'),
             joystick2      => (others => '1'),
+            avr_reset      => not hard_reset_n,
             avr_RxD        => UART_RXD,
             avr_TxD        => UART_TXD,
             cpu_addr       => cpu_addr,
@@ -347,31 +349,17 @@ begin
 -- Clock Generation
 --------------------------------------------------------
 
-    -- 32 MHz master clock from 27MHz input clock
-    -- plus intermediate 48MHz clock
+    -- 48 MHz master clock from 27MHz input clock
+    -- plus intermediate 96MHz clock for scan doubler
     pll32: entity work.pll32
         port map (
             areset         => pll_reset,
             inclk0         => CLOCK_27_0,   -- 27 MHz input clock
-            c0             => clock_32,     -- 32 MHz master clock for the Beeb
-            c1             => clock_48,     -- 48 MHz intermediate clock, see below
+            c0             => clock_32,     -- 32 MHz clock for bbc core (unused)
+            c1             => clock_48,     -- 48 MHz clock for bbc core
+            c2             => clock_96,     -- 96 MHz clock for bbc core
             locked         => pll_locked
         );
-
-    -- 24MHz teletext clock, generated from 48MHz intermediate clock
-    --
-    -- Important: this must be phase locked to the 32MHz clock
-    -- i.e. they must be generated from the same clock source
-    --
-    -- This is also the case on a real BBC, where the 6MHz teletext
-    -- clock is generted by some dubious delays from the 16MHz
-    -- system clock.
-    clock_24_gen : process(clock_48)
-    begin
-        if rising_edge(clock_48) then
-            clock_24 <= not clock_24;
-        end if;
-    end process;
 
 --------------------------------------------------------
 -- Power Up Reset Generation
@@ -382,9 +370,9 @@ begin
 
     -- Generate a reliable power up reset
     -- Also, perform a power up reset if the master/beeb mode switch is changed
-    reset_gen : process(clock_32)
+    reset_gen : process(clock_48)
     begin
-        if rising_edge(clock_32) then
+        if rising_edge(clock_48) then
             m128_mode_1 <= m128_mode;
             m128_mode_2 <= m128_mode_1;
             if (m128_mode_1 /= m128_mode_2) then
@@ -404,7 +392,7 @@ begin
 
     i2s : entity work.i2s_intf
         port map (
-            CLK         => clock_32,
+            CLK         => clock_48,
             nRESET      => hard_reset_n,
             PCM_INL     => pcm_inl,
             PCM_INR     => pcm_inr,
@@ -425,7 +413,7 @@ begin
             log2_divider => 7
             )
         port map (
-            CLK         => clock_32,
+            CLK         => clock_48,
             nRESET      => hard_reset_n,
             I2C_SCL     => I2C_SCLK,
             I2C_SDA     => I2C_SDAT,
@@ -442,9 +430,9 @@ begin
     -- Hold the ext_A for multiple clock cycles to allow slow FLASH to be used
     -- This is necessary because currently FLASH and SRAM accesses are
     -- interleaved every cycle.
-    process(clock_32)
+    process(clock_48)
     begin
-        if rising_edge(clock_32) then
+        if rising_edge(clock_48) then
             if ext_A(18) = '0' then
                 ext_A_r <= ext_A;
             end if;
@@ -470,7 +458,7 @@ begin
     SRAM_OE_N <= ext_nOE;
 
     -- Gate the WE with clock to provide more address/data hold time
-    SRAM_WE_N <= ext_nWE or not clock_32;
+    SRAM_WE_N <= ext_nWE or not clock_48;
 
     SRAM_ADDR <= ext_A(17 downto 0);
     SRAM_DQ(15 downto 8) <= (others => 'Z');

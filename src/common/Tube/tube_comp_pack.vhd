@@ -23,7 +23,5 @@ component tube port (
     p_irq_b    : out std_logic
     );
 end component;
-    
-end package;
 
-        
+end package;

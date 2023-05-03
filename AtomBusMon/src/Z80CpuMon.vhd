@@ -110,15 +110,13 @@ type state_type is (idle, nop_t1, nop_t2, nop_t3, nop_t4, rd_t1, rd_wa, rd_t2, r
     signal RFSH_n_int     : std_logic;
     signal M1_n_int       : std_logic;
     signal BUSAK_n_int    : std_logic;
-    signal BUSAK_n_comb   : std_logic;
     signal WAIT_n_latched : std_logic;
     signal TState         : std_logic_vector(2 downto 0);
-    signal TState1        : std_logic_vector(2 downto 0);
     signal SS_Single      : std_logic;
     signal SS_Step        : std_logic;
     signal SS_Step_held   : std_logic;
     signal CountCycle     : std_logic;
-    signal special        : std_logic_vector(1 downto 0);
+    signal int_ctrl       : std_logic_vector(7 downto 0);
     signal skipNextOpcode : std_logic;
 
     signal Regs           : std_logic_vector(255 downto 0);
@@ -152,24 +150,19 @@ type state_type is (idle, nop_t1, nop_t2, nop_t3, nop_t4, rd_t1, rd_wa, rd_t2, r
     signal BUSRQ_n_sync   : std_logic;
     signal INT_n_sync     : std_logic;
     signal NMI_n_sync     : std_logic;
+    signal RESET_n_sync   : std_logic;
 
-    signal Rdy            : std_logic;
     signal Read_n         : std_logic;
     signal Read_n0        : std_logic;
-    signal Read_n1        : std_logic;
     signal Write_n        : std_logic;
     signal Write_n0       : std_logic;
     signal ReadIO_n       : std_logic;
     signal ReadIO_n0      : std_logic;
-    signal ReadIO_n1      : std_logic;
     signal WriteIO_n      : std_logic;
     signal WriteIO_n0     : std_logic;
     signal Sync           : std_logic;
     signal Sync0          : std_logic;
     signal Sync1          : std_logic;
-    signal Mem_IO_n       : std_logic;
-
-    signal MemState       : std_logic_vector(2 downto 0);
 
     signal Din            : std_logic_vector(7 downto 0);
     signal Dout           : std_logic_vector(7 downto 0);
@@ -226,7 +219,7 @@ begin
         WrIO_n       => WriteIO_n,
         Sync         => Sync,
         Rdy          => open,
-        nRSTin       => RESET_n,
+        nRSTin       => RESET_n_sync,
         nRSTout      => cpu_reset_n,
         CountCycle   => CountCycle,
         trig         => trig,
@@ -250,7 +243,7 @@ begin
         DataOut      => memory_dout,
         DataIn       => memory_din,
         Done         => memory_done,
-        Special      => special,
+        int_ctrl     => int_ctrl,
         SS_Single    => SS_Single,
         SS_Step      => SS_Step
     );
@@ -291,9 +284,31 @@ begin
     int_gen : process(CLK_n)
     begin
         if rising_edge(CLK_n) then
-            BUSRQ_n_sync <= BUSRQ_n;
-            NMI_n_sync   <= NMI_n or special(1);
-            INT_n_sync   <= INT_n or special(0);
+
+            if int_ctrl(1) = '1' then
+                BUSRQ_n_sync <= int_ctrl(0);
+            else
+                BUSRQ_n_sync <= BUSRQ_n or (int_ctrl(0) and SS_single);
+            end if;
+
+            if int_ctrl(3) = '1' then
+                INT_n_sync <= int_ctrl(2);
+            else
+                INT_n_sync <= INT_n or (int_ctrl(2) and SS_single);
+            end if;
+
+            if int_ctrl(5) = '1' then
+                NMI_n_sync <= int_ctrl(4);
+            else
+                NMI_n_sync <= NMI_n or (int_ctrl(4) and SS_single);
+            end if;
+
+            if int_ctrl(7) = '1' then
+                RESET_n_sync <= int_ctrl(6);
+            else
+                RESET_n_sync <= RESET_n or (int_ctrl(6) and SS_single);
+            end if;
+
         end if;
     end process;
 
@@ -327,40 +342,32 @@ begin
     -- really care about the data (it's re-read from memory by the disassembler).
     Sync0    <= '1' when WAIT_n = '1' and M1_n_int = '0' and TState = "010" and skipNextOpcode = '0' else '0';
 
-    -- For memory reads/write breakpoints we make the monitoring decision in the middle of T2
-    -- but only if WAIT_n is '1' so we catch the right data.
-    Read_n0    <= not (WAIT_n and (not RD_n_int) and (not MREQ_n_int) and (M1_n_int)) when TState = "010" else '1';
-    Write_n0   <= not (WAIT_n and (    RD_n_int) and (not MREQ_n_int) and (M1_n_int)) when TState = "010" else '1';
-
-    -- For IO reads/writes we make the monitoring decision in the middle of the second T2 cycle
-    -- but only if WAIT_n is '1' so we catch the right data.
-    -- This one cycle delay accounts for the forced wait state
-    ReadIO_n0  <= not (WAIT_n and (not RD_n_int) and (not IORQ_n_int) and (M1_n_int)) when TState1 = "010" else '1';
-    WriteIO_n0 <= not (WAIT_n and (    RD_n_int) and (not IORQ_n_int) and (M1_n_int)) when TState1 = "010" else '1';
+    -- For reads/write breakpoints we make the monitoring decision in the middle of T3
+    Read_n0    <= not ((not RD_n_int) and (not MREQ_n_int) and (M1_n_int)) when TState = "011" else '1';
+    Write_n0   <= not ((    RD_n_int) and (not MREQ_n_int) and (M1_n_int)) when TState = "011" else '1';
+    ReadIO_n0  <= not ((not RD_n_int) and (not IORQ_n_int) and (M1_n_int)) when TState = "011" else '1';
+    WriteIO_n0 <= not ((    RD_n_int) and (not IORQ_n_int) and (M1_n_int)) when TState = "011" else '1';
 
     -- Hold the monitoring decision so it is valid on the rising edge of the clock
-    -- For instruction fetches and writes, the monitor sees these at the start of T3
-    -- For reads, the data can arrive in the middle of T3 so delay until end of T3
+    -- For instruction fetches the monitor sees these at the end of T2
+    -- For reads and writes, the data is sampled in the middle of T3 so delay until end of T3
     watch_gen : process(CLK_n)
     begin
         if falling_edge(CLK_n) then
             Sync        <= Sync0;
-            Read_n1     <= Read_n0;
-            Read_n      <= Read_n1;
+            Read_n      <= Read_n0;
             Write_n     <= Write_n0;
-            ReadIO_n1   <= ReadIO_n0;
-            ReadIO_n    <= ReadIO_n1;
+            ReadIO_n    <= ReadIO_n0;
             WriteIO_n   <= WriteIO_n0;
             -- Latch wait seen by T80 on the falling edge, for use on the next rising edge
             WAIT_n_latched <= WAIT_n;
         end if;
     end process;
 
-    -- Register the exec data on the rising at the end of T2
+    -- Register the exec data on the rising edge of the clock at the end of T2
     ex_data_latch : process(CLK_n)
     begin
         if rising_edge(CLK_n) then
-            TState1 <= TState;
             if Sync = '1' then
                 ex_data <= Data;
             end if;
@@ -371,14 +378,14 @@ begin
     rd_data_latch : process(CLK_n)
     begin
         if falling_edge(CLK_n) then
-            if Read_n1 = '0' or ReadIO_n1 = '0' then
+            if Read_n0 = '0' or ReadIO_n0 = '0' then
                 rd_data <= Data;
             end if;
             memory_din <= Data;
         end if;
     end process;
 
-    -- Register the write data on the falling edge in the middle of T2
+    -- Register the read data on the falling edge of clock in the middle of T3
     wr_data_latch : process(CLK_n)
     begin
         if falling_edge(CLK_n) then
@@ -417,7 +424,7 @@ begin
     BUSAK_n    <= BUSAK_n_int when state = idle else mon_busak_n;
 
     -- Force the address and databus to tristate when reset is asserted
-    tristate_ad_n <= '0'         when RESET_n = '0' else
+    tristate_ad_n <= '0'         when RESET_n_sync = '0' else
                      BUSAK_n_int when state = idle  else
                      mon_busak_n1;
 

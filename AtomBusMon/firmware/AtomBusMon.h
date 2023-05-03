@@ -76,7 +76,8 @@ void doCmdStep(char *params);
 void doCmdTest(char *params);
 void doCmdSave(char *params);
 void doCmdSRec(char *params);
-void doCmdSpecial(char *params);
+void doCmdTimerMode(char *params);
+void doCmdTimeout(char *params);
 void doCmdTrace(char *params);
 void doCmdTrigger(char *params);
 void doCmdWatchI(char *params);
@@ -86,5 +87,9 @@ void doCmdWatchWrIO(char *params);
 void doCmdWatchWrMem(char *params);
 void doCmdWriteIO(char *params);
 void doCmdWriteMem(char *params);
+void doCmdXCmd0(char *params);
+void doCmdXCmd1(char *params);
+void doCmdXCmd2(char *params);
+void doCmdXCmd3(char *params);
 
 #endif

@@ -13,14 +13,9 @@ fi
 BUILD=$(date +"%Y%m%d_%H%M")
 #BUILD=dev
 
-NAME=beeb_fpga_spec_next_$BUILD
-
-DIR=releases/$NAME
-
-echo "Release name: $NAME"
-
-rm -rf $DIR
-mkdir -p $DIR
+# ====================================================
+# Compile Config Firmware
+# ====================================================
 
 function common_settings {
 cat > $1 <<EOF
@@ -109,7 +104,9 @@ crc03 = 0000
 crc04 = 5cbf
 crc06 = 0000
 crc07 = 0000
-crc08 = b4ab
+EOF
+echo "crc08 = $2" >> $1
+cat >> $1 <<EOF
 crc09 = 0000
 crc0A = 0000
 crc0B = 0000
@@ -130,7 +127,7 @@ cat >> $1 <<EOF
 ; CMOS RAM Settings
 ; See http://beebwiki.mdfs.net/CMOS_configuration_RAM_allocation
 
-cmos05 = C3 ; Default Filing System / Language
+cmos05 = C9 ; Default Filing System / Language
 cmos06 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos07 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos08 = 00 ; Edit startup settings
@@ -148,12 +145,14 @@ cmos10 = 80 ; Default serial data format, auto boot option, int/ext TUBE, bell a
 crc00 = 0000
 crc01 = 0000
 crc02 = 0000
-crc03 = dd56
+crc03 = 81db
 crc04 = 9402
 crc06 = 0000
 crc07 = 0000
-crc08 = 81db
-crc09 = c433
+crc08 = c433
+EOF
+echo "crc09 = $2" >> $1
+cat >> $1 <<EOF
 crc0A = e7c4
 crc0B = b5b6
 crc0C = 61d7
@@ -163,6 +162,87 @@ crc0F = 64af
 
 EOF
 }
+
+
+function modelb_config {
+cat > $1 <<EOF
+name=Acorn BBC Model B
+
+; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
+resource=blank.rom,0
+resource=blank.rom,1
+resource=blank.rom,2
+resource=blank.rom,3
+resource=os12.rom,4
+resource=blank.rom,5
+resource=blank.rom,6
+resource=blank.rom,7
+resource=SWMMFS.rom,8
+resource=blank.rom,9
+resource=blank.rom,10
+resource=blank.rom,11
+resource=blank.rom,12
+resource=blank.rom,13
+resource=rammas6.rom,14
+resource=basic2.rom,15
+
+; Beeb Config at the start
+resource=beeb.cfg,5
+
+; Spec Next Config and the end (0x3F00)
+config=5,16128
+EOF
+}
+
+
+function master_config {
+cat > $1 <<EOF
+name=Acorn BBC Master
+
+; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
+resource=blank.rom,0
+resource=blank.rom,1
+resource=blank.rom,2
+resource=owl.rom,3
+resource=mos.rom,4
+resource=blank.rom,5
+resource=blank.rom,6
+resource=blank.rom,7
+resource=dfs.rom,8
+resource=MAMMFS.rom,9
+resource=viewsht.rom,10
+resource=edit.rom,11
+resource=basic4.rom,12
+resource=adfs.rom,13
+resource=view.rom,14
+resource=terminal.rom,15
+
+; Beeb Config at the start
+resource=beeb.cfg,5
+
+; Spec Next Config and the end (0x3F00)
+config=5,16128
+EOF
+}
+
+for MMFS in MMFS MMFS2
+do
+
+MMFS_BBCB_CRC=`crc16 roms/bbcb/${MMFS}/M/SWMMFS.rom`
+MMFS_M128_CRC=`crc16 roms/m128/${MMFS}/M/MAMMFS.rom`
+
+echo "CRC for $MMFS for BBC B is $MMFS_BBCB_CRC"
+echo "CRC for $MMFS for Master 128 is $MMFS_M128_CRC"
+
+
+NAME=beeb_fpga_spec_next_${BUILD}_${MMFS}
+
+DIR=releases/$NAME
+
+echo "Release name: $NAME"
+
+rm -rf $DIR
+mkdir -p $DIR
 
 # ====================================================
 # Compile Config Firmware
@@ -183,35 +263,7 @@ MACH=bbcmodelb
 
 mkdir -p $DIR/machines/$MACH
 
-cat > $DIR/machines/${MACH}/core.cfg <<EOF
-name=Acorn BBC Model B
-
-; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
-resource=blank.rom,0
-resource=blank.rom,1
-resource=blank.rom,2
-resource=blank.rom,3
-resource=os12.rom,4
-resource=blank.rom,5
-resource=blank.rom,6
-resource=blank.rom,7
-resource=swmmfs2.rom,8
-resource=blank.rom,9
-resource=blank.rom,10
-resource=blank.rom,11
-resource=blank.rom,12
-resource=blank.rom,13
-resource=rammas6.rom,14
-resource=basic2.rom,15
-
-; Beeb Config at the start
-resource=beeb.cfg,5
-
-; Spec Next Config and the end (0x3F00)
-config=5,16128
-EOF
-
-for i in os12 basic2 ram_master_v6 swmmfs2
+for i in os12 basic2 ram_master_v6 ${MMFS}/M/SWMMFS
 do
     cp roms/bbcb/$i.rom $DIR/machines/${MACH}
 done
@@ -223,7 +275,9 @@ dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 mv $DIR/machines/${MACH}/ram_master_v6.rom $DIR/machines/${MACH}/rammas6.rom
 
 common_settings $DIR/machines/${MACH}/beeb.cfg
-modelb_settings $DIR/machines/${MACH}/beeb.cfg
+modelb_settings $DIR/machines/${MACH}/beeb.cfg $MMFS_BBCB_CRC
+
+modelb_config $DIR/machines/${MACH}/core.cfg
 
 data2mem -bm xilinx/spec_next_config_modelb_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_micro_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
 
@@ -235,35 +289,7 @@ MACH=bbcmaster
 
 mkdir -p $DIR/machines/$MACH
 
-cat > $DIR/machines/${MACH}/core.cfg <<EOF
-name=Acorn BBC Master
-
-; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
-resource=blank.rom,0
-resource=blank.rom,1
-resource=blank.rom,2
-resource=mammfs2.rom,3
-resource=mos.rom,4
-resource=blank.rom,5
-resource=blank.rom,6
-resource=blank.rom,7
-resource=owl.rom,8
-resource=dfs.rom,9
-resource=viewsht.rom,10
-resource=edit.rom,11
-resource=basic4.rom,12
-resource=adfs.rom,13
-resource=view.rom,14
-resource=terminal.rom,15
-
-; Beeb Config at the start
-resource=beeb.cfg,5
-
-; Spec Next Config and the end (0x3F00)
-config=5,16128
-EOF
-
-for i in adfs basic4 dfs edit mammfs2 mos owl terminal view viewsht
+for i in adfs basic4 dfs edit ${MMFS}/M/MAMMFS mos owl terminal view viewsht
 do
     cp roms/m128/$i.rom $DIR/machines/${MACH}
 done
@@ -272,7 +298,9 @@ done
 dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 
 common_settings $DIR/machines/${MACH}/beeb.cfg
-master_settings $DIR/machines/${MACH}/beeb.cfg
+master_settings $DIR/machines/${MACH}/beeb.cfg $MMFS_M128_CRC
+
+master_config $DIR/machines/${MACH}/core.cfg
 
 data2mem -bm xilinx/spec_next_config_master_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_master_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
 
@@ -287,3 +315,5 @@ zip -qr ../$NAME.zip .
 popd
 
 unzip -l $DIR.zip
+
+done

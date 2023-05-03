@@ -1,6 +1,6 @@
 -- BBC Micro Core, designed to be platform independant
 --
--- Copyright (c) 2020 David Banks
+-- Copyright (c) 2015-2022 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -40,7 +40,7 @@
 --
 -- BBC Micro Core, designed to be platform independant
 --
--- (c) 2015 David Banks
+-- (c) 2015-2022 David Banks
 -- (C) 2011 Mike Stirling
 --
 -- Master 128 TODO List
@@ -57,6 +57,7 @@ use ieee.numeric_std.all;
 entity bbc_micro_core is
     generic (
         IncludeAMXMouse    : boolean := false;
+        IncludeSPISD       : boolean := false;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
         IncludeICEDebugger : boolean := false;
@@ -82,11 +83,15 @@ entity bbc_micro_core is
 
         -- Keyboard
         ps2_kbd_clk    : inout std_logic;
+        ps2_kbd_clk_o  : out   std_logic;
         ps2_kbd_data   : inout std_logic;
+        ps2_kbd_data_o : out   std_logic;
 
         -- Mouse
         ps2_mse_clk    : inout std_logic;
+        ps2_mse_clk_o  : out   std_logic;
         ps2_mse_data   : inout std_logic;
+        ps2_mse_data_o : out   std_logic;
 
         -- Control input to exchange Keyboard and Mouse connections
         ps2_swap       : in    std_logic := '0';
@@ -244,11 +249,10 @@ signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabl
 signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
 -- IO cycles are out of phase with the CPU
-signal vid_clken        :   std_logic; -- 16 MHz video cycles
+signal mhz16_clken      :   std_logic; -- 16 MHz, used by the Video ULA
 signal ttxt_clken       :   std_logic; -- 12 MHz used by SAA 5050 (24MHz in VGA mode)
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
-signal mhz2_clken       :   std_logic; -- Used for latching CPU address for clock stretch
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
 
 -- Control signals to indicate memory cycles
@@ -287,7 +291,6 @@ signal cpu_dout_us      :   unsigned (7 downto 0);
 
 -- CRTC signals
 signal crtc_clken       :   std_logic;
-signal crtc_clken_adr   :   std_logic;
 signal crtc_do          :   std_logic_vector(7 downto 0);
 signal crtc_vsync       :   std_logic;
 signal crtc_vsync_n     :   std_logic;
@@ -295,9 +298,10 @@ signal crtc_hsync       :   std_logic;
 signal crtc_hsync_n     :   std_logic;
 signal crtc_de          :   std_logic;
 signal crtc_cursor      :   std_logic;
-constant crtc_lpstb     :   std_logic := '0';
+signal crtc_lpstb       :   std_logic;
 signal crtc_ma          :   std_logic_vector(13 downto 0);
 signal crtc_ra          :   std_logic_vector(4 downto 0);
+signal crtc_test        :   std_logic_vector(3 downto 0);
 
 -- Decoded display address after address translation for hardware
 -- scrolling
@@ -347,6 +351,8 @@ signal final_g          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal final_b          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
 -- SAA5050 signals
+signal ttxt_data        :   std_logic_vector(6 downto 0);
+signal ttxt_vdu         :   std_logic;
 signal ttxt_glr         :   std_logic;
 signal ttxt_dew         :   std_logic;
 signal ttxt_crs         :   std_logic;
@@ -356,6 +362,8 @@ signal ttxt_g           :   std_logic;
 signal ttxt_b           :   std_logic;
 signal ttxt_y           :   std_logic;
 signal ttxt_active      :   std_logic;
+signal ttxt_ic15_clken  :   std_logic;
+signal ttxt_di_clken    :   std_logic;
 signal mhz12_active     :   std_logic;
 
 -- System VIA signals
@@ -384,50 +392,33 @@ signal sys_via_do_r     :   std_logic_vector (7 downto 0);
 signal user_via_do      :   std_logic_vector(7 downto 0);
 signal user_via_do_oe_n :   std_logic;
 signal user_via_irq_n   :   std_logic;
-signal user_via_ca1_in  :   std_logic := '0';
-constant user_via_ca2_in  :   std_logic := '0';
+signal user_via_ca1_in  :   std_logic;
+signal user_via_ca2_in  :   std_logic;
 signal user_via_ca2_out :   std_logic;
-signal user_via_ca2_oe_n    :   std_logic;
+signal user_via_ca2_oe_n:   std_logic;
 signal user_via_pa_in   :   std_logic_vector(7 downto 0);
 signal user_via_pa_out  :   std_logic_vector(7 downto 0);
 signal user_via_pa_oe_n :   std_logic_vector(7 downto 0);
-signal user_via_cb1_in  :   std_logic := '0';
+signal user_via_cb1_in  :   std_logic;
 signal user_via_cb1_out :   std_logic;
-signal user_via_cb1_oe_n    :   std_logic;
-signal user_via_cb2_in  :   std_logic := '0';
+signal user_via_cb1_oe_n:   std_logic;
+signal user_via_cb2_in  :   std_logic;
 signal user_via_cb2_out :   std_logic;
-signal user_via_cb2_oe_n    :   std_logic;
+signal user_via_cb2_oe_n:   std_logic;
 signal user_via_pb_in   :   std_logic_vector(7 downto 0);
 signal user_via_pb_out  :   std_logic_vector(7 downto 0);
 signal user_via_pb_oe_n :   std_logic_vector(7 downto 0);
 signal user_via_do_r    :   std_logic_vector (7 downto 0);
 
--- Mouse VIA signals
-signal mouse_via_do      :   std_logic_vector(7 downto 0);
-signal mouse_via_do_oe_n :   std_logic;
-signal mouse_via_irq_n   :   std_logic;
-signal mouse_via_ca1_in  :   std_logic := '0';
-constant mouse_via_ca2_in  :   std_logic := '0';
-signal mouse_via_ca2_out :   std_logic;
-signal mouse_via_ca2_oe_n    :   std_logic;
-signal mouse_via_pa_in   :   std_logic_vector(7 downto 0);
-signal mouse_via_pa_out  :   std_logic_vector(7 downto 0);
-signal mouse_via_pa_oe_n :   std_logic_vector(7 downto 0);
-signal mouse_via_cb1_in  :   std_logic := '0';
-signal mouse_via_cb1_out :   std_logic;
-signal mouse_via_cb1_oe_n    :   std_logic;
-signal mouse_via_cb2_in  :   std_logic := '0';
-signal mouse_via_cb2_out :   std_logic;
-signal mouse_via_cb2_oe_n    :   std_logic;
-signal mouse_via_pb_in   :   std_logic_vector(7 downto 0);
-signal mouse_via_pb_out  :   std_logic_vector(7 downto 0);
-signal mouse_via_pb_oe_n :   std_logic_vector(7 downto 0);
-signal mouse_via_do_r    :   std_logic_vector(7 downto 0);
+-- Mouse signals
 signal mouse_read        :   std_logic;
 signal mouse_err         :   std_logic;
 signal mouse_rx_data     :   std_logic_vector(7 downto 0);
 signal mouse_write       :   std_logic;
 signal mouse_tx_data     :   std_logic_vector(7 downto 0);
+
+-- SPI SD Card
+signal spisd_do         :   std_logic_vector(7 downto 0);
 
 -- IC32 latch on System VIA
 signal ic32             :   std_logic_vector(7 downto 0);
@@ -510,8 +501,8 @@ signal vidproc_enable   :   std_logic;      -- 0xFE20-FE2F
 signal romsel_enable    :   std_logic;      -- 0xFE30-FE3F
 signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
 signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F, or FE80-FE9F
-signal mouse_via_enable :   std_logic;      -- 0xFE60-FE7F
 --signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
+signal spisd_enable     :   std_logic;      -- 0xFEDC (Master) / 0xFE1C (Model B)
 signal int_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
 signal ext_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
 
@@ -527,8 +518,6 @@ signal adc_ch3          :   std_logic_vector(11 downto 0);
 signal romsel           :   std_logic_vector(7 downto 0);
 
 signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz peripheral
-
-signal sdclk_int : std_logic;
 
 -- Master Real Time Clock / CMOS RAM
 signal rtc_adi         : std_logic_vector(7 downto 0);
@@ -609,27 +598,27 @@ begin
     GenT65Core: if UseT65Core and not IncludeICEDebugger generate
         core : entity work.T65
         port map (
-            cpu_mode,
-            reset_n,
-            cpu_clken,
-            clock_48,
-            cpu_ready,
-            cpu_abort_n,
-            cpu_irq_n,
-            cpu_nmi_n,
-            cpu_so_n,
-            cpu_r_nw,
-            cpu_sync,
-            cpu_ef,
-            cpu_mf,
-            cpu_xf,
-            cpu_ml_n,
-            cpu_vp_n,
-            cpu_vda,
-            cpu_vpa,
-            cpu_a,
-            cpu_di,
-            cpu_do
+            Mode    => cpu_mode,
+            Res_n   => reset_n,
+            Enable  => cpu_clken,
+            Clk     => clock_48,
+            Rdy     => cpu_ready,
+            Abort_n => cpu_abort_n,
+            IRQ_n   => cpu_irq_n,
+            NMI_n   => cpu_nmi_n,
+            SO_n    => cpu_so_n,
+            R_W_n   => cpu_r_nw,
+            Sync    => cpu_sync,
+            EF      => cpu_ef,
+            MF      => cpu_mf,
+            XF      => cpu_xf,
+            ML_n    => cpu_ml_n,
+            VP_n    => cpu_vp_n,
+            VDA     => cpu_vda,
+            VPA     => cpu_vpa,
+            A       => cpu_a,
+            DI      => cpu_di,
+            DO      => cpu_do
         );
         avr_TxD <= avr_RxD;
     end generate;
@@ -656,24 +645,27 @@ begin
         avr_TxD <= avr_RxD;
     end generate;
 
-    crtc : entity work.mc6845 port map (
-        clock_48,
-        crtc_clken,
-        crtc_clken_adr,
-        hard_reset_n,
-        crtc_enable,
-        cpu_r_nw,
-        cpu_a(0),
-        cpu_do,
-        crtc_do,
-        crtc_vsync,
-        crtc_hsync,
-        crtc_de,
-        crtc_cursor,
-        crtc_lpstb,
-        vga_mode,
-        crtc_ma,
-        crtc_ra );
+    crtc : entity work.mc6845
+        port map (
+            CLOCK     => clock_48,
+            CLKEN     => crtc_clken,
+            CLKEN_CPU => cpu_clken,
+            nRESET    => hard_reset_n,
+            ENABLE    => crtc_enable,
+            R_nW      => cpu_r_nw,
+            RS        => cpu_a(0),
+            DI        => cpu_do,
+            DO        => crtc_do,
+            VSYNC     => crtc_vsync,
+            HSYNC     => crtc_hsync,
+            DE        => crtc_de,
+            CURSOR    => crtc_cursor,
+            LPSTB     => crtc_lpstb,
+            VGA       => vga_mode,
+            MA        => crtc_ma,
+            RA        => crtc_ra,
+            test      => crtc_test
+        );
 
     vidproc_nula: if IncludeVideoNuLA generate
     begin
@@ -681,11 +673,10 @@ begin
             port map (
                 CLOCK           => clock_48,
                 CPUCLKEN        => cpu_clken,
-                CLKEN           => vid_clken,
+                CLKEN           => mhz16_clken,
                 PIXCLK          => clock_48,
                 nRESET          => hard_reset_n,
                 CLKEN_CRTC      => crtc_clken,
-                CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
                 MHZ12           => mhz12_active,
@@ -703,7 +694,7 @@ begin
                 R               => r_out,
                 G               => g_out,
                 B               => b_out
-                );
+            );
     end generate;
 
     vidproc_orig: if not IncludeVideoNuLA generate
@@ -711,10 +702,10 @@ begin
         videoula_orig : entity work.vidproc_orig
             port map (
                 CLOCK           => clock_48,
-                CLKEN           => vid_clken,
+                CPUCLKEN        => cpu_clken,
+                CLKEN           => mhz16_clken,
                 nRESET          => hard_reset_n,
                 CLKEN_CRTC      => crtc_clken,
-                CLKEN_CRTC_ADR  => crtc_clken_adr,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
                 VGA             => vga_mode,
@@ -731,123 +722,97 @@ begin
                 R               => r_out,
                 G               => g_out,
                 B               => b_out
-                );
+            );
         mhz12_active <= ttxt_active;
     end generate;
 
-    teletext : entity work.saa5050 port map (
-        clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
-        ttxt_clken,
-        hard_reset_n,
-        vga_mode,
-        clock_48, -- Data input is synchronised from the bus clock domain
-        vid_clken,
-        vid_mem_data(6 downto 0),
-        ttxt_glr,
-        ttxt_dew,
-        ttxt_crs,
-        ttxt_lose,
-        ttxt_r, ttxt_g, ttxt_b, ttxt_y
+    teletext : entity work.saa5050
+        port map (
+            CLOCK    => clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
+            CLKEN    => ttxt_clken,
+            nRESET   => hard_reset_n,
+            VGA      => vga_mode,
+            DI_CLOCK => clock_48, -- Data input is synchronised from the bus clock domain
+            DI_CLKEN => ttxt_di_clken,
+            DI       => ttxt_data,
+            GLR      => ttxt_glr,
+            DEW      => ttxt_dew,
+            CRS      => ttxt_crs,
+            LOSE     => ttxt_lose,
+            R        => ttxt_r,
+            G        => ttxt_g,
+            B        => ttxt_b,
+            Y        => ttxt_y
         );
 
     -- System VIA
-    system_via : entity work.m6522 port map (
-        cpu_a(3 downto 0),
-        cpu_do,
-        sys_via_do,
-        sys_via_do_oe_n,
-        cpu_r_nw,
-        sys_via_enable,
-        '0', -- nCS2
-        sys_via_irq_n,
-        sys_via_ca1_in,
-        sys_via_ca2_in,
-        sys_via_ca2_out,
-        sys_via_ca2_oe_n,
-        sys_via_pa_in,
-        sys_via_pa_out,
-        sys_via_pa_oe_n,
-        sys_via_cb1_in,
-        sys_via_cb1_out,
-        sys_via_cb1_oe_n,
-        sys_via_cb2_in,
-        sys_via_cb2_out,
-        sys_via_cb2_oe_n,
-        sys_via_pb_in,
-        sys_via_pb_out,
-        sys_via_pb_oe_n,
-        mhz1_clken,
-        hard_reset_n, -- System VIA is reset by power on reset only
-        mhz4_clken,
-        clock_48
+    system_via : entity work.m6522
+        port map (
+            I_RS        => cpu_a(3 downto 0),
+            I_DATA      => cpu_do,
+            O_DATA      => sys_via_do,
+            O_DATA_OE_L => sys_via_do_oe_n,
+            I_RW_L      => cpu_r_nw,
+            I_CS1       => sys_via_enable,
+            I_CS2_L     => '0', -- nCS2
+            O_IRQ_L     => sys_via_irq_n,
+            I_CA1       => sys_via_ca1_in,
+            I_CA2       => sys_via_ca2_in,
+            O_CA2       => sys_via_ca2_out,
+            O_CA2_OE_L  => sys_via_ca2_oe_n,
+            I_PA        => sys_via_pa_in,
+            O_PA        => sys_via_pa_out,
+            O_PA_OE_L   => sys_via_pa_oe_n,
+            I_CB1       => sys_via_cb1_in,
+            O_CB1       => sys_via_cb1_out,
+            O_CB1_OE_L  => sys_via_cb1_oe_n,
+            I_CB2       => sys_via_cb2_in,
+            O_CB2       => sys_via_cb2_out,
+            O_CB2_OE_L  => sys_via_cb2_oe_n,
+            I_PB        => sys_via_pb_in,
+            O_PB        => sys_via_pb_out,
+            O_PB_OE_L   => sys_via_pb_oe_n,
+            I_P2_H      => mhz1_clken,
+            RESET_L     => hard_reset_n, -- System VIA is reset by power on reset only
+            ENA_4       => mhz4_clken,
+            CLK         => clock_48
         );
 
     -- User VIA
-    user_via : entity work.m6522 port map (
-        cpu_a(3 downto 0),
-        cpu_do,
-        user_via_do,
-        user_via_do_oe_n,
-        cpu_r_nw,
-        user_via_enable,
-        '0', -- nCS2
-        user_via_irq_n,
-        user_via_ca1_in,
-        user_via_ca2_in,
-        user_via_ca2_out,
-        user_via_ca2_oe_n,
-        user_via_pa_in,
-        user_via_pa_out,
-        user_via_pa_oe_n,
-        user_via_cb1_in,
-        user_via_cb1_out,
-        user_via_cb1_oe_n,
-        user_via_cb2_in,
-        user_via_cb2_out,
-        user_via_cb2_oe_n,
-        user_via_pb_in,
-        user_via_pb_out,
-        user_via_pb_oe_n,
-        mhz1_clken,
-        hard_reset_n,
-        mhz4_clken,
-        clock_48
+    user_via : entity work.m6522
+        port map (
+            I_RS        => cpu_a(3 downto 0),
+            I_DATA      => cpu_do,
+            O_DATA      => user_via_do,
+            O_DATA_OE_L => user_via_do_oe_n,
+            I_RW_L      => cpu_r_nw,
+            I_CS1       => user_via_enable,
+            I_CS2_L     => '0', -- nCS2
+            O_IRQ_L     => user_via_irq_n,
+            I_CA1       => user_via_ca1_in,
+            I_CA2       => user_via_ca2_in,
+            O_CA2       => user_via_ca2_out,
+            O_CA2_OE_L  => user_via_ca2_oe_n,
+            I_PA        => user_via_pa_in,
+            O_PA        => user_via_pa_out,
+            O_PA_OE_L   => user_via_pa_oe_n,
+            I_CB1       => user_via_cb1_in,
+            O_CB1       => user_via_cb1_out,
+            O_CB1_OE_L  => user_via_cb1_oe_n,
+            I_CB2       => user_via_cb2_in,
+            O_CB2       => user_via_cb2_out,
+            O_CB2_OE_L  => user_via_cb2_oe_n,
+            I_PB        => user_via_pb_in,
+            O_PB        => user_via_pb_out,
+            O_PB_OE_L   => user_via_pb_oe_n,
+            I_P2_H      => mhz1_clken,
+            RESET_L     => hard_reset_n,
+            ENA_4       => mhz4_clken,
+            CLK         => clock_48
         );
 
-    -- Second VIA
-    -- If this is included, it becomes the via at FE60 and the user via (above)
-    -- is re-addressed to FE80
+    -- Optional AMXMouse, connected to the user via FE60
     GenMouse: if IncludeAMXMouse generate
-        mouse_via : entity work.m6522 port map (
-            cpu_a(3 downto 0),
-            cpu_do,
-            mouse_via_do,
-            mouse_via_do_oe_n,
-            cpu_r_nw,
-            mouse_via_enable,
-            '0', -- nCS2
-            mouse_via_irq_n,
-            mouse_via_ca1_in,
-            mouse_via_ca2_in,
-            mouse_via_ca2_out,
-            mouse_via_ca2_oe_n,
-            mouse_via_pa_in,
-            mouse_via_pa_out,
-            mouse_via_pa_oe_n,
-            mouse_via_cb1_in,
-            mouse_via_cb1_out,
-            mouse_via_cb1_oe_n,
-            mouse_via_cb2_in,
-            mouse_via_cb2_out,
-            mouse_via_cb2_oe_n,
-            mouse_via_pb_in,
-            mouse_via_pb_out,
-            mouse_via_pb_oe_n,
-            mhz1_clken,
-            hard_reset_n,
-            mhz4_clken,
-            clock_48
-        );
         mouse_ps2interface: entity work.ps2interface
         generic map(
             MainClockSpeed => 48000000
@@ -882,25 +847,36 @@ begin
            rx_data  => mouse_rx_data,
            write    => mouse_write,
            tx_data  => mouse_tx_data,
-           x_a      => mouse_via_cb1_in,
-           x_b      => mouse_via_pb_in(0),
-           y_a      => mouse_via_cb2_in,
-           y_b      => mouse_via_pb_in(2),
-           left     => mouse_via_pb_in(5),
-           middle   => mouse_via_pb_in(6),
-           right    => mouse_via_pb_in(7)
+           x_a      => user_via_pb_in(0),
+           x_b      => user_via_cb1_in,
+           y_a      => user_via_pb_in(2),
+           y_b      => user_via_cb2_in,
+           left     => user_via_pb_in(5),
+           middle   => user_via_pb_in(6),
+           right    => user_via_pb_in(7)
         );
-        mouse_via_pa_in <= mouse_via_pa_out;
-        mouse_via_pb_in(4) <= '1';
-        mouse_via_pb_in(3) <= '1';
-        mouse_via_pb_in(1) <= '1';
     end generate;
     GenNotMouse: if not IncludeAMXMouse generate
-        mouse_via_do     <= x"FE";
-        mouse_via_irq_n  <= '1';
-        ps2_mse_clk_out  <= '1';
-        ps2_mse_data_out <= '1';
+        ps2_mse_clk_out   <= '1';
+        ps2_mse_data_out  <= '1';
+        user_via_pb_in(0) <= '1';
+        user_via_cb1_in   <= '1';
+        user_via_cb2_in   <= '1';
+        user_via_pb_in(2) <= '1';
+        user_via_pb_in(5) <= '1';
+        user_via_pb_in(6) <= '1';
+        user_via_pb_in(7) <= '1';
     end generate;
+
+    -- Unused User VIA Port B Inputs
+    user_via_pb_in(1) <= '1';
+    user_via_pb_in(3) <= '1';
+    user_via_pb_in(4) <= '1';
+
+    -- Unused User VIA Port A Inputs
+    user_via_ca1_in   <= '1';
+    user_via_ca2_in   <= '1';
+    user_via_pa_in    <= (others => '1');
 
     -- Original Keyboard Enabled
     keyboard_orig: if UseOrigKeyboard generate
@@ -976,6 +952,11 @@ begin
     ps2_mse_clk_in  <= ps2_mse_clk  when ps2_swap = '0' else ps2_kbd_clk;
     ps2_kbd_data_in <= ps2_kbd_data when ps2_swap = '0' else ps2_mse_data;
     ps2_mse_data_in <= ps2_mse_data when ps2_swap = '0' else ps2_kbd_data;
+
+    ps2_kbd_clk_o  <= ps2_kbd_clk_out  when ps2_swap = '0' else ps2_mse_clk_out;
+    ps2_mse_clk_o  <= ps2_mse_clk_out  when ps2_swap = '0' else ps2_kbd_clk_out;
+    ps2_kbd_data_o <= ps2_kbd_data_out when ps2_swap = '0' else ps2_mse_data_out;
+    ps2_mse_data_o <= ps2_mse_data_out when ps2_swap = '0' else ps2_kbd_data_out;
 
     ps2_kbd_clk  <= '0' when ps2_kbd_clk_out = '0' and ps2_swap = '0' else
                     '0' when ps2_mse_clk_out = '0' and ps2_swap = '1' else
@@ -1156,7 +1137,7 @@ begin
         process(clock_48)
         begin
             if rising_edge(clock_48) then
-                ext_tube_phi2  <= clken_counter(2); -- TODO, check this
+                ext_tube_phi2  <= not clken_counter(2);
                 ext_tube_r_nw  <= cpu_r_nw;
                 ext_tube_nrst  <= reset_n;
                 ext_tube_ntube <= not ext_tube_enable;
@@ -1218,17 +1199,17 @@ begin
         variable l : std_logic_vector(15 downto 0);
         variable r : std_logic_vector(15 downto 0);
     begin
-          -- SN76489 output is 8-bit unsigned
-          -- attenuate by one bit as to try to match level with other sources
-        l := std_logic_vector(not sound_ao(7) & not sound_ao(7) & sound_ao(6 downto 0)) & "0000000";
-        r := std_logic_vector(not sound_ao(7) & not sound_ao(7) & sound_ao(6 downto 0)) & "0000000";
+        -- SN76489 output is 8-bit unsigned and is 0x00 when no sound is playing
+        -- attenuate by one bit as to try to match level with other sources
+        l := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
+        r := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
         if IncludeSID then
-                -- SID output is 16-bit unsigned
+            -- SID output is 16-bit unsigned
             l := l + (sid_ao(17 downto 2) - x"8000");
             r := r + (sid_ao(17 downto 2) - x"8000");
         end if;
         if IncludeMusic5000 then
-                -- Music 5000 output is 16-bit signed
+            -- Music 5000 output is 16-bit signed
             l := l + music5000_ao_l;
             r := r + music5000_ao_r;
         end if;
@@ -1262,42 +1243,42 @@ begin
 --------------------------------------------------------
 
     -- Clock enable generation
-
-    -- Updated system timing, as of 26th Feb 2020
+    --
+    -- Updated system timing, as of 27th May 2022
     --
     -- The goal of this change to accomodate much slower external RAM.
     --
     -- There is a single copy of clken_counter, inside the video processor,
     -- which is now passed out of it's interface.
     --
-    -- The video processor increments clken_counter when vid_clken
+    -- The video processor increments clken_counter when mhz16_clken
     -- is asserted.
     --
-    -- The video processor assertes CRTC_CLKEN_ADR during cycle 3/11
-    -- (qualified by vid_clken)
+    -- The video processor assertes CRTC_CLKEN during cycle 0/8
+    -- (qualified by mhz16_clken)
     --
-    -- The mc6845 increments the video address at the start of cycle 4/12
+    -- The mc6845 increments updates it's output in CRTC_CLKEN.
     --
-    -- The video processor assertes CRTC_CLKEN during cycle 15/7
-    -- (qualified by vid_clken)
+    -- The CPU is clocked out of phase with the CRTC, during cycle 4/12
+    -- (qualified by mhz16_clken)
     --
     -- The video processor latches read data at the end of cycle 0/8
-    -- (qualified by vid_clken)
+    -- (qualified by mhz16_clken)
     --
     --      Memory     Data loaded
-    --  0 - Co Pro     CPU, Video
+    --  0 - Co Pro     Video
     --  1 - Co Pro
     --  2 - CPU        Co Pro
     --  3 - CPU
-    --  4 - Co Pro
+    --  4 - Co Pro     CPU
     --  5 - Co Pro
     --  6 - Video      Co Pro
     --  7 - Video
-    --  8 - Co Pro     CPU, Video
+    --  8 - Co Pro     Video
     --  9 - Co Pro
     -- 10 - CPU        Co Pro
     -- 11 - CPU
-    -- 12 - Co Pro
+    -- 12 - Co Pro     CPU
     -- 13 - Co Pro
     -- 14 - Video      Co Pro
     -- 15 - Video
@@ -1318,9 +1299,41 @@ begin
 
             -- 16MHz (video) clock enable
             if div3_counter = 1 then
-                vid_clken <= '1';
+                mhz16_clken <= '1';
             else
-                vid_clken <= '0';
+                mhz16_clken <= '0';
+            end if;
+
+            -- 1MHz/2MHz clock enable (for IC15).
+            --
+            -- On a real Beeb this is clocked on the falling edge of
+            -- the Video ULA 1MHz clock.
+            --
+            -- In VGA mode this needs to be double-speed.
+            if div3_counter = 1 and
+                ((vga_mode = '0' and clken_counter = 0) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 0 and not IncludeVideoNuLA) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 0 and     IncludeVideoNuLA)) then
+                ttxt_ic15_clken <= '1';
+            else
+                ttxt_ic15_clken <= '0';
+            end if;
+
+            -- 1MHz/2MHz clock enable (for the SAA5050)
+            --
+            -- On a real Beeb this is clocked on the rising edge of
+            -- the Video ULA 1MHz clock.
+            --
+            -- In VGA mode this needs to be double-speed.
+            --
+            -- This is the best place to fine-tune the teletext character alignent with the cursor
+            if div3_counter = 1 and
+                ((vga_mode = '0' and clken_counter = 8) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 6 and not IncludeVideoNuLA) or
+                 (vga_mode = '1' and clken_counter(2 downto 0) = 3 and     IncludeVideoNuLA)) then
+                ttxt_di_clken <= '1';
+            else
+                ttxt_di_clken <= '0';
             end if;
 
             -- 12MHz clock enable (for SAA5050)
@@ -1345,12 +1358,11 @@ begin
             end if;
 
             -- 2MHz clock enable
-            if div3_counter = 1 and clken_counter(2 downto 0) = 7 then
-                mhz2_clken <= '1';
+            if div3_counter = 1 and clken_counter(2 downto 0) = 3 then
                 -- Compute cycle stretching
                 if mhz1_enable = '1' and cpu_cycle_mask = "00" then
                     -- Block CPU cycles until 1 MHz cycle has completed
-                    if clken_counter(3) = '0' then
+                    if clken_counter(3) = '1' then
                         cpu_cycle_mask <= "01";
                     else
                         cpu_cycle_mask <= "10";
@@ -1359,19 +1371,17 @@ begin
                 if cpu_cycle_mask /= "00" then
                     cpu_cycle_mask <= cpu_cycle_mask - 1;
                 end if;
-            else
-                mhz2_clken <= '0';
             end if;
 
             -- 1MHz clock enable
-            if div3_counter = 1 and clken_counter(3 downto 0) = 15 then
+            if div3_counter = 1 and clken_counter(3 downto 0) = 3 then
                 mhz1_clken <= '1';
             else
                 mhz1_clken <= '0';
             end if;
 
             -- CPU clock enable (taking account of cycle stretching)
-            if div3_counter = 2 and clken_counter(2 downto 0) = 7 and cpu_cycle_mask = "00" then
+            if div3_counter = 2 and clken_counter(2 downto 0) = 3 and cpu_cycle_mask = "00" then
                 cpu_clken <= '1';
             else
                 cpu_clken <= '0';
@@ -1389,6 +1399,7 @@ begin
                 cpu_mem_cycle <= '1';
                 -- Latch read data at the end of the cycle
                 if div3_counter = 2 and clken_counter(0) = '1' then
+                    -- This is only held for one tick, so likely could be eliminated
                     cpu_mem_data <= ext_Dout;
                 end if;
             else
@@ -1456,7 +1467,7 @@ begin
     -- The following IO regions are accessed at 1 MHz and hence will stall the
     -- CPU accordingly
     mhz1_enable <= io_fred or io_jim or
-        adc_enable or sys_via_enable or user_via_enable or mouse_via_enable or
+        adc_enable or sys_via_enable or user_via_enable or
         serproc_enable or acia_enable or crtc_enable;
 
 
@@ -1481,14 +1492,17 @@ begin
     -- All the system peripherals are mapped into this page as follows:
     -- 0xFE00 - 0xFE07 = MC6845 CRTC
     -- 0xFE08 - 0xFE0F = MC6850 ACIA (Serial/Tape)
-    -- 0xFE10 - 0xFE1F = Serial ULA
+    -- 0xFE10 - 0xFE17 = Serial ULA
+    -- 0xFE18 - 0xFE1B = Econet Station ID (Model B)
+    -- 0xFE1C - 0xFE1F = SPI SD Card Controller (Model B)
     -- 0xFE20 - 0xFE2F = Video ULA
     -- 0xFE30 - 0xFE3F = Paged ROM select latch
     -- 0xFE40 - 0xFE5F = System VIA (6522)
     -- 0xFE60 - 0xFE7F = User VIA (6522)
     -- 0xFE80 - 0xFE9F = 8271 Floppy disc controller
     -- 0xFEA0 - 0xFEBF = 68B54 ADLC for Econet
-    -- 0xFEC0 - 0xFEDF = uPD7002 ADC
+    -- 0xFEC0 - 0xFEDB = uPD7002 ADC
+    -- 0xFEDC - 0xFEDF = SPI SD Card Controller (Master)
     -- 0xFEE0 - 0xFEFF = Tube ULA
     process(cpu_a,io_sheila,m128_mode,copro_mode,cpu_r_nw,acc_itu)
     begin
@@ -1500,8 +1514,8 @@ begin
         romsel_enable <= '0';
         sys_via_enable <= '0';
         user_via_enable <= '0';
-        mouse_via_enable <= '0';
  --     adlc_enable <= '0';
+        spisd_enable <= '0';
         adc_enable <= '0';
         int_tube_enable <= '0';
         ext_tube_enable <= '0';
@@ -1527,7 +1541,9 @@ begin
                         else
                             -- 0xFE18
                             if m128_mode = '1' then
-                                adc_enable <= '1';
+                                adc_enable <= '1';     -- 0xFE18-0xFE1F
+                            elsif cpu_a(2) = '1' then
+                                spisd_enable <= '1';   -- 0xFE1C-0xFE1F
                             end if;
                         end if;
                     end if;
@@ -1557,20 +1573,15 @@ begin
                     sys_via_enable <= '1';
                 when "011" =>
                     -- 0xFE60
-                    if IncludeAMXMouse then
-                        mouse_via_enable <= '1';
-                    else
-                        user_via_enable <= '1';
-                    end if;
-                when "100" =>
-                      -- 0xFE80
-                    if IncludeAMXMouse then
-                        user_via_enable <= '1';
-                    end if;
+                    user_via_enable <= '1';
 --              when "101" => adlc_enable <= '1';       -- 0xFEA0
                 when "110" =>
                     -- 0xFEC0
-                    if m128_mode = '0' then
+                    if m128_mode = '1' then
+                        if cpu_a(4 downto 2) = "111" then
+                            spisd_enable <= '1';        -- 0xFEDC - 0xFEDF
+                        end if;
+                    else
                         adc_enable <= '1';
                     end if;
                 when "111" =>                           -- 0xFEE0
@@ -1608,7 +1619,6 @@ begin
     begin
         if rising_edge(clock_48) then
             if (mhz1_clken = '1') then
-                mouse_via_do_r <= mouse_via_do;
                 user_via_do_r <= user_via_do;
                 sys_via_do_r  <= sys_via_do;
             end if;
@@ -1617,13 +1627,14 @@ begin
 
     -- CPU data bus mux and interrupts
     cpu_di <=
+        cpu_do         when cpu_r_nw = '0' else
         cpu_mem_data   when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
         crtc_do        when crtc_enable = '1' else
         adc_do         when adc_enable = '1' else
         "00000010"     when acia_enable = '1' else
         sys_via_do_r   when sys_via_enable = '1' else
         user_via_do_r  when user_via_enable = '1' else
-        mouse_via_do_r when mouse_via_enable = '1' else
+        spisd_do       when spisd_enable = '1' else
         -- Optional peripherals
         sid_do         when sid_enable = '1' and IncludeSid else
         music5000_do   when io_jim = '1' and IncludeMusic5000 else
@@ -1636,8 +1647,8 @@ begin
         "11111111"     when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
 
-    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or (not mouse_via_irq_n) or acc_irr) when m128_mode = '1' else
-                 not ((not sys_via_irq_n) or (not user_via_irq_n) or (not mouse_via_irq_n));
+    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
+                 not ((not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
     ext_nCS <= '0';
 
@@ -1678,9 +1689,9 @@ begin
     -- 101 11xx xxxx xxxx xxxx = RAM Slot 7
     -- 110 00xx xxxx xxxx xxxx = Main memory
     -- 110 01xx xxxx xxxx xxxx = Main memory
-    -- 110 1000 xxxx xxxx xxxx = Filing System RAM (4K, at C000-CFFF) (unused in Beeb Mode)
-    -- 110 1001 xxxx xxxx xxxx = Filing System RAM (4K, at D000-DFFF) (unused in Beeb Mode)
-    -- 110 1010 xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF)       (unused in Beeb Mode)
+    -- 110 1000 xxxx xxxx xxxx = Private RAM (4K, at 8000-8FFF)       (unused in Beeb Mode)
+    -- 110 1001 xxxx xxxx xxxx = Filing System RAM (4K, at C000-CFFF) (unused in Beeb Mode)
+    -- 110 1010 xxxx xxxx xxxx = Filing System RAM (4K, at D000-DFFF) (unused in Beeb Mode)
     -- 110 1011 xxxx xxxx xxxx = Shadow memory (4K, at 3000-3FFF)     (unused in Beeb Mode)
     -- 110 11xx xxxx xxxx xxxx = Shadow memory (16K, at 4000-7FFF)    (unused in Beeb Mode)
     -- 111 00xx xxxx xxxx xxxx = RAM Slot 8 (B600-BFFF)
@@ -1723,7 +1734,7 @@ begin
                 if rom_enable = '1' then
                     if m128_mode = '1' and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
                         -- Master 128, RAM bit maps 8000-8FFF as private RAM
-                        ext_A   <= "1101010" & cpu_a(11 downto 0);
+                        ext_A   <= "1101000" & cpu_a(11 downto 0);
                         ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                         ext_nOE <= not cpu_r_nw;
                     else
@@ -1757,7 +1768,7 @@ begin
                 elsif mos_enable = '1' then
                     if m128_mode = '1' and cpu_a(15 downto 13) = "110" and acc_y = '1' then
                         -- Master 128, Y bit maps C000-DFFF as filing system RAM
-                        ext_A   <= "110100" &  cpu_a(12 downto 0);
+                        ext_A   <= "11010" & cpu_a(12) & not cpu_a(12) & cpu_a(11 downto 0);
                         ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
                         ext_nOE <= not cpu_r_nw;
                     else
@@ -1765,7 +1776,7 @@ begin
                         ext_A <= "00100" & cpu_a(13 downto 0);
                     end if;
                 elsif ram_enable = '1' then
-                    if m128_mode = '1' and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and (acc_x = '1' or (acc_e = '1' and vdu_op = '1' and cpu_sync = '0')) then
+                    if m128_mode = '1' and (cpu_a(15 downto 12) = "0011"  or cpu_a(15 downto 14) = "01") and ((vdu_op = '0' and acc_x = '1') or (vdu_op = '1' and acc_e = '1' and cpu_sync = '0')) then
                         -- Shadow RAM
                         ext_A   <= "1101" & cpu_a(14 downto 0);
                     else
@@ -1807,12 +1818,15 @@ begin
             end case;
         end if;
 
-        if crtc_ma(13) = '0' then
+        if ttxt_vdu = '0' then
             -- HI RES
             display_a <= std_logic_vector(aa(3 downto 0)) & crtc_ma(7 downto 0) & crtc_ra(2 downto 0);
-        else
-            -- TTX VDU
+        elsif m128_mode = '0' then
+            -- TTX VDU (Model B, &3c00 or &7C00)
             display_a <= std_logic(aa(3)) & "1111" & crtc_ma(9 downto 0);
+        else
+            -- TTX VDU (Master, &7C00 only)
+            display_a <= "11111" & crtc_ma(9 downto 0);
         end if;
     end process;
 
@@ -1827,9 +1841,25 @@ begin
     ttxt_glr <= crtc_hsync_n;
     ttxt_dew <= crtc_vsync;
     ttxt_crs <= not crtc_ra(0);
-    ttxt_lose <= crtc_de;
+
+    ttxt_vdu <= crtc_ma(13);
+
+    -- IC15 (LS273 latch in front of SAA5050)
+    process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            if ttxt_vdu = '0' then
+                ttxt_data <= (others => '0');
+                ttxt_lose <= '0';
+            elsif ttxt_ic15_clken = '1' then
+                ttxt_data <= vid_mem_data(6 downto 0);
+                ttxt_lose <= crtc_de;
+            end if;
+        end if;
+    end process;
 
     -- Connections to System VIA
+
     -- ADC
     sys_via_cb1_in <= adc_eoc_n;
     sys_via_pb_in(5) <= joystick2(4);
@@ -1838,6 +1868,11 @@ begin
     -- CRTC
     sys_via_ca1_in <= crtc_vsync;
     sys_via_cb2_in <= crtc_lpstb;
+
+    -- The Lightpen strobe is abused by Pharoah's Curse
+    -- see https://github.com/mattgodbolt/jsbeeb/issues/135
+    crtc_lpstb <= sys_via_cb2_out when sys_via_cb2_oe_n = '0' else '1';
+
     -- Keyboard
     sys_via_ca2_in <= keyb_int;
 
@@ -1855,31 +1890,29 @@ begin
     sys_via_pb_in(7 downto 6) <= (others => '1');
     sys_via_pb_in(3 downto 0) <= sys_via_pb_out(3 downto 0);
 
-    -- Connections to User VIA (user port is output on green LEDs)
-    user_via_ca1_in <= '1'; -- Pulled up
-
-    -- MMBEEB
-
-    -- SDCLK is driven from either PB1 or CB1 depending on the SR Mode
-    sdclk_int     <= user_via_pb_out(1) when user_via_pb_oe_n(1) = '0' else
-                     user_via_cb1_out   when user_via_cb1_oe_n = '0' else
-                     '1';
-
-    SDCLK           <= sdclk_int;
-    user_via_cb1_in <= sdclk_int;
-
-    -- SDMOSI is always driven from PB0
-    SDMOSI        <= user_via_pb_out(0) when user_via_pb_oe_n(0) = '0' else
-                     '1';
-
-    -- SDMISO is always read from CB2
-    user_via_cb2_in <= SDMISO; -- SDI
-
-    -- SDSS is hardwired to 0 (always selected) as there is only one slave attached
-    SDSS          <= '0';
-
-    user_via_pa_in <= user_via_pa_out;
-    user_via_pb_in <= user_via_pb_out;
+    -- SPI SD Card Interface (for Memory Mapped SPI)
+    spisd: if IncludeSPISD generate
+        Inst_SPI_Port: entity work.SPI_Port
+            port map (
+                nRST    => reset_n,
+                clk     => clock_48,
+                clken   => mhz16_clken,  -- needs to be 16MHz or less (SPI clockis half this rate)
+                enable  => spisd_enable,
+                nwe     => cpu_r_nw,
+                datain  => cpu_do,
+                dataout => spisd_do,
+                SDMISO  => SDMISO,
+                SDMOSI  => SDMOSI,
+                SDSS    => SDSS,
+                SDCLK   => SDCLK
+                );
+    end generate;
+    not_spisd: if not IncludeSPISD generate
+        SDCLK    <= '1';
+        SDMOSI   <= '1';
+        SDSS     <= '1';
+        spisd_do <= x"FE";
+    end generate;
 
     -- ROM select latch
     process(clock_48,reset_n)
@@ -1922,7 +1955,7 @@ begin
     -- Input clock enable (for the 48MHz input clock)
     --   mhz12_active = 0: 16MHz
     --   mhz12_active = 1: 12MHz
-    clken_pixel <= ttxt_clken when mhz12_active = '1' else vid_clken;
+    clken_pixel <= ttxt_clken when mhz12_active = '1' else mhz16_clken;
 
     -- Output clock enable (for the 96MHz output clock)
     -- mhz12_active = 0: divide by 3 -> 32MHz
@@ -2139,9 +2172,10 @@ begin
                 if acccon_enable = '1' and cpu_r_nw = '0' then
                     acccon <= cpu_do;
                 end if;
-                -- vdu op indicates the last opcode fetch in 0xC000-0xDFFF
+                -- vdu op indicates the last opcode fetch in 0xC000-0xDFFF and
+                -- the VDU driver is paged in (rather than Hazel RAM)
                 if cpu_sync = '1' then
-                    if cpu_a(15 downto 13) = "110" then
+                    if cpu_a(15 downto 13) = "110" and acc_y = '0' then
                         vdu_op <= '1';
                     else
                         vdu_op <= '0';
@@ -2163,6 +2197,6 @@ begin
     cpu_addr <= cpu_a(15 downto 0);
 
     -- Test output
-    test <= mouse_via_pb_in(7 downto 5) & "0" & mouse_via_cb2_in &  mouse_via_pb_in(2) &  mouse_via_cb1_in & mouse_via_pb_in(0);
+    test <= crtc_vsync & crtc_hsync & crtc_ra(0) & crtc_enable & crtc_test(3 downto 0);
 
 end architecture;

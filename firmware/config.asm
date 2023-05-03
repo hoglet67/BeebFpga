@@ -1249,6 +1249,17 @@ ENDMACRO
 .rst_handler
     LDX #&00
     STX flags
+
+    ; Clear the first 4 pages of RAM
+    TXA
+.ram_clear_loop
+    STA &0000, X
+    STA &0100, X
+    STA &0200, X
+    STA &0300, X
+    DEX
+    BNE ram_clear_loop
+
     DEX
     TXS
 

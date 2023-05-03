@@ -8,7 +8,7 @@ use work.tube_comp_pack.all;
 entity CoPro6502 is
     port (
 
-        -- Host 
+        -- Host
         h_clk        : in    std_logic;
         h_cs_b       : in    std_logic;
         h_rdnw       : in    std_logic;
@@ -43,11 +43,11 @@ architecture BEHAVIORAL of CoPro6502 is
     signal RSTn          : std_logic;
     signal RSTn_sync     : std_logic;
     signal reset_counter : std_logic_vector (8 downto 0);
-    
+
 -------------------------------------------------
 -- parasite signals
 -------------------------------------------------
-    
+
     signal p_cs_b        : std_logic;
     signal p_data_out    : std_logic_vector (7 downto 0);
 
@@ -108,7 +108,7 @@ begin
         h_cs_b          => h_cs_b,
         h_data_in       => h_data_in,
         h_data_out      => h_data_out,
-        h_phi2          => not h_clk,
+        h_phi2          => h_clk,
         h_rdnw          => h_rdnw,
         h_rst_b         => h_rst_b,
         h_irq_b         => h_irq_b,
@@ -129,19 +129,19 @@ begin
     rom_cs_b <= '0' when cpu_addr(15 downto 11) = "11111" and cpu_R_W_n = '1' and bootmode = '1' else '1';
 
     ram_cs_b <= '0' when p_cs_b = '1' and rom_cs_b = '1' else '1';
-    
+
     ram_wr <= (not ram_cs_b) and (not cpu_R_W_n);
 
     ram_data_in <= cpu_dout;
-    
+
     ram_addr <= cpu_addr(15 downto 0);
-    
+
     cpu_din <=
         p_data_out   when p_cs_b      = '0' else
         rom_data_out when rom_cs_b    = '0' else
         ram_data_out when ram_cs_b    = '0' else
         x"f1";
-            
+
 --------------------------------------------------------
 -- boot mode generator
 --------------------------------------------------------
@@ -186,7 +186,5 @@ begin
     end process;
 
     test <= RSTn & RSTn_sync &  h_rst_b & cpu_NMI_n_sync &  cpu_IRQ_n_sync & bootmode & "00";
-    
+
 end BEHAVIORAL;
-
-

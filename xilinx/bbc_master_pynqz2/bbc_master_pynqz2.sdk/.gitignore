@@ -1,0 +1,64 @@
+# --- VIVADO & SDK common ---
+
+# folders (and all of their contents) that should always be ignored,
+# anywhere in the repo
+.Xil/
+Debug/
+
+# file patterns that should always be ignored (journal files, log
+# files, dump files that are created upon Vivado/SDK errors)
+
+*.jou
+*.log
+*.backup.jou
+*.backup.log
+*.upgrade_log
+*.dmp
+vivado_pid*
+
+# --- SDK specific ---
+
+# exclude some obscure hidden SDK folders
+.metadata/
+webtalk/
+RemoteSystemsTempFiles/
+
+# hw_platform : exclude the entire hw_platform folder, as
+# we'll regenerate everything from the .hdf file
+# make sure to include the bitstream in the .hdf file when exporting
+# from Vivado!
+bbc_micro_pynqz2_hw_platform_0/
+
+# BSP : only keep .cproject, .project, .sdkproject, .system.mss
+# and Makefile
+# i.e. the ps7_cortexa9_0 lib files are regenerated automatically
+BeebFpgaLoader_bsp/ps7_cortexa9_0/
+BeebFpgaApp_bsp/ps7_cortexa9_0/
+
+# Application : keep everything, except ignored file patterns
+*.o
+*.d
+*.a
+*.bin
+
+# For now, we won't checking the hardware defintion file, as this contains
+# the bitstream:
+# $ unzip -l bbc_micro_pynqz2.hdf
+# Archive:  bbc_micro_pynqz2.hdf
+# 02hPvuVhqoYXn9slk0tQcRD/JDQcPIMQIXGusdJxCRGNA=
+#   Length      Date    Time    Name
+# ---------  ---------- -----   ----
+#      1043  2021-06-20 13:40   sysdef.xml
+#     86536  2021-06-20 13:40   ProcessingSystemOnly.hwh
+#     37024  2021-06-20 13:40   ProcessingSystemOnly_bd.tcl
+#    549972  2021-06-20 13:40   ps7_init.c
+#      4911  2021-06-20 13:40   ps7_init.h
+#    549368  2021-06-20 13:40   ps7_init_gpl.c
+#      4297  2021-06-20 13:40   ps7_init_gpl.h
+#   2903311  2021-06-20 13:40   ps7_init.html
+#     36322  2021-06-20 13:40   ps7_init.tcl
+#   4045676  2021-06-20 13:40   bbc_micro_pynqz2.bit
+# ---------                     -------
+#   8218460                     10 files
+
+*.hdf

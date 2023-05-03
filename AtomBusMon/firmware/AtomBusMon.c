@@ -14,16 +14,35 @@
  * VERSION and NAME are used in the start-up message
  ********************************************************/
 
-#define VERSION "0.983"
+#define VERSION "0.998"
+
+// The X commands allows the various interrupt inputs to be overridded
+// They are named after the data sheet pin name
 
 #if defined(CPU_Z80)
   #define NAME "ICE-Z80"
+  #define XCMD0 "xbusrq"
+  #define XCMD1 "xint"
+  #define XCMD2 "xnmi"
+  #define XCMD3 "xres"
 #elif defined(CPU_6502)
   #define NAME "ICE-6502"
+  #define XCMD0 "xirq"
+  #define XCMD1 "xnmi"
+  #define XCMD2 "xres"
+  #define XCMD3 "xso "
 #elif defined(CPU_65C02)
   #define NAME "ICE-65C02"
+  #define XCMD0 "xirq"
+  #define XCMD1 "xnmi"
+  #define XCMD2 "xres"
+  #define XCMD3 "xso "
 #elif defined(CPU_6809)
   #define NAME "ICE-6809"
+  #define XCMD0 "xfiq"
+  #define XCMD1 "xirq"
+  #define XCMD2 "xnmi"
+  #define XCMD3 "xres"
 #else
   #error "Unsupported CPU type"
 #endif
@@ -70,7 +89,6 @@ char *cmdStrings[] = {
   "load",
   "save",
   "srec",
-  "special",
   "reset",
   "trace",
   "blist",
@@ -87,7 +105,13 @@ char *cmdStrings[] = {
   "watcho",
 #endif
   "clear",
-  "trigger"
+  "trigger",
+  "timermode",
+  "timeout",
+  XCMD0,
+  XCMD1,
+  XCMD2,
+  XCMD3
 };
 
 // Must be kept in step with cmdStrings (just above)
@@ -123,7 +147,6 @@ void (*cmdFuncs[])(char *params) = {
   doCmdLoad,
   doCmdSave,
   doCmdSRec,
-  doCmdSpecial,
   doCmdReset,
   doCmdTrace,
   doCmdList,
@@ -140,7 +163,13 @@ void (*cmdFuncs[])(char *params) = {
   doCmdWatchWrIO,
 #endif
   doCmdClear,
-  doCmdTrigger
+  doCmdTrigger,
+  doCmdTimerMode,
+  doCmdTimeout,
+  doCmdXCmd0,
+  doCmdXCmd1,
+  doCmdXCmd2,
+  doCmdXCmd3
 };
 
 #if defined(EXTENDED_HELP)
@@ -162,6 +191,8 @@ static const char ARGS13[] PROGMEM = "<start> <end> <to>";
 static const char ARGS14[] PROGMEM = "[ <value> ]";
 static const char ARGS15[] PROGMEM = "[ <command> ]";
 static const char ARGS16[] PROGMEM = "<op1> [ <op2> [ <op3> ] ]";
+static const char ARGS17[] PROGMEM = "[ <source> [ <prescale> [ <reset address> ] ] ]";
+static const char ARGS18[] PROGMEM = "e|c|d|f";
 
 static const char * const argsStrings[] PROGMEM = {
   ARGS00,
@@ -180,7 +211,9 @@ static const char * const argsStrings[] PROGMEM = {
   ARGS13,
   ARGS14,
   ARGS15,
-  ARGS16
+  ARGS16,
+  ARGS17,
+  ARGS18
 };
 
 // Must be kept in step with cmdStrings (just above)
@@ -190,8 +223,8 @@ static const uint8_t helpMeta[] PROGMEM = {
 #endif
   17, 15, // help
    9,  8, // continue
-  24,  7, // next
-  32,  6, // step
+  24,  1, // next
+  31,  6, // step
   27,  7, // regs
   12, 10, // dis
   16,  7, // flush
@@ -201,7 +234,7 @@ static const uint8_t helpMeta[] PROGMEM = {
    8, 13, // compare
   22,  1, // mem
   26,  2, // rd
-  41,  3, // wr
+  42,  3, // wr
 #if defined(CPU_Z80)
   20,  1, // io
   19,  2, // in
@@ -212,28 +245,33 @@ static const uint8_t helpMeta[] PROGMEM = {
   15, 16, // exec
   23, 14, // mode
 #endif
-  33, 12, // test
+  32, 12, // test
   21,  0, // load
   29,  9, // save
-  31,  7, // srec
-  30, 14, // special
+  30,  7, // srec
   28,  7, // reset
-  34,  6, // trace
+  35,  6, // trace
    1,  7, // blist
    6,  4, // breakx
-  40,  4, // watchx
+  41,  4, // watchx
    4,  4, // breakr
-  38,  4, // watchr
+  39,  4, // watchr
    5,  4, // breakw
-  39,  4, // watchw
+  40,  4, // watchw
 #if defined(CPU_Z80)
    2,  4, // breaki
-  36,  4, // watchi
+  37,  4, // watchi
    3,  4, // breako
-  37,  4, // watcho
+  38,  4, // watcho
 #endif
    7,  0, // clear
-  35,  5, // trigger
+  36,  5, // trigger
+  34, 17, // timermode
+  33, 14, // timeout
+  43, 18, // xcmd0
+  44, 18, // xcmd1
+  45, 18, // xcmd2
+  46, 18, // xcmd3
    0,  0
 };
 
@@ -248,42 +286,42 @@ static const uint8_t helpMeta[] PROGMEM = {
 #define CTRL_DDR          DDRB
 #define CTRL_DIN          PINB
 
-// A 0->1 transition on bit 5 actually sends a command
-#define CMD_EDGE          0x20
+// A 0->1 transition on bit 6 actually sends a command
+#define CMD_EDGE          0x40
 
-// Commands are placed on bits 4..0
-#define CMD_MASK          0x1F
-
-// Bits 7..6 are the special function output bits
-// On the 6502, these are used to mask IRQ and NMI
-#define SPECIAL_0            6
-#define SPECIAL_1            7
-#define SPECIAL_MASK      ((1<<SPECIAL_0) | (1<<SPECIAL_1))
+// Commands are placed on bits 5..0
+#define CMD_MASK          0x3F
 
 // Hardware Commands:
 //
-// 0000x Enable/Disable single strpping
-// 0001x Enable/Disable breakpoints / watches
-// 0010x Load breakpoint / watch register
-// 0011x Reset CPU
-// 01000 Singe Step CPU
-// 01001 Read FIFO
-// 01010 Reset FIFO
-// 01011 Unused
-// 0110x Load address/data register
-// 0111x Unused
-// 10000 Read Memory
-// 10001 Read Memory and Auto Inc Address
-// 10010 Write Memory
-// 10011 Write Memory and Auto Inc Address
-// 10100 Read IO
-// 10101 Read IO and Auto Inc Address
-// 10110 Write IO
-// 10111 Write IO and Auto Inc Address
-// 11000 Exec Go
-// 11xx1 Unused
-// 11x1x Unused
-// 111xx Unused
+// 00000x Enable/Disable single strpping
+// 00001x Enable/Disable breakpoints / watches
+// 00010x Load breakpoint / watch register
+// 00011x Reset CPU
+// 001000 Singe Step CPU
+// 001001 Read FIFO
+// 001010 Reset FIFO
+// 001011 Unused
+// 00110x Load address/data register
+// 00111x Unused
+// 010000 Read Memory
+// 010001 Read Memory and Auto Inc Address
+// 010010 Write Memory
+// 010011 Write Memory and Auto Inc Address
+// 010100 Read IO
+// 010101 Read IO and Auto Inc Address
+// 010110 Write IO
+// 010111 Write IO and Auto Inc Address
+// 011000 Exec Go
+// 011xx1 Unused
+// 011x1x Unused
+// 0111xx Unused
+// 10xxxx Int Ctrl
+// 1100xx Timer Mode
+//     00 - count cpu cycles where clken = 1 and CountCycle = 1
+//     01 - count cpu cycles where clken = 1 (ignoring CountCycle)
+//     10 - free running timer, using busmon_clk as the source
+//     11 - free running timer, using trig0 as the source
 
 #define CMD_SINGLE_ENABLE 0x00
 #define CMD_BRKPT_ENABLE  0x02
@@ -302,6 +340,8 @@ static const uint8_t helpMeta[] PROGMEM = {
 #define CMD_WR_IO         0x16
 #define CMD_WR_IO_INC     0x17
 #define CMD_EXEC_GO       0x18
+#define CMD_INT_CTRL      0x20
+#define CMD_TIMER_MODE    0x30
 
 /********************************************************
  * AVR Status Register Definitions
@@ -446,6 +486,10 @@ modes_t modes[MAXBKPTS];
 #define WATCH_EXEC      9
 #define TRANSIENT      10
 
+// Mask to test if the breakpoint/watchpoint is a Z80 IO
+#if defined(CPU_Z80)
+#define MASK_IO ((1 << BRKPT_IO_READ) |  (1 << WATCH_IO_READ) |  (1 << BRKPT_IO_WRITE) |  (1 << WATCH_IO_WRITE))
+#endif
 
 static const char MODE0[] PROGMEM = "Mem Rd Brkpt";
 static const char MODE1[] PROGMEM = "Mem Rd Watch";
@@ -472,6 +516,21 @@ static const char *modeStrings[NUM_MODES] = {
   MODE8,
   MODE9,
   MODE10
+};
+
+// The number of different timer sources
+#define NUM_TIMERS   4
+
+static const char TIMER0[] PROGMEM = "Normal Cycles";
+static const char TIMER1[] PROGMEM = "All Cycles";
+static const char TIMER2[] PROGMEM = "Internal Timer";
+static const char TIMER3[] PROGMEM = "External Timer";
+
+static const char *timerStrings[NUM_TIMERS] = {
+  TIMER0,
+  TIMER1,
+  TIMER2,
+  TIMER3
 };
 
 // For convenience, several masks are defined that group similar types of breakpoint/watch
@@ -581,11 +640,32 @@ static const char * triggerStrings[NUM_TRIGGERS] = {
 #define TRIGGER_UNDEFINED 31
 
 /********************************************************
+ * Interrupt controls
+ ********************************************************/
+
+static const uint8_t cmd_map[] = { 1, 3, 0, 2 };
+
+static const char INTCTRL0[] PROGMEM = "Enabled";
+static const char INTCTRL1[] PROGMEM = "Conditional";
+static const char INTCTRL2[] PROGMEM = "Forced";
+static const char INTCTRL3[] PROGMEM = "Disabled";
+
+static const char *int_ctrl_strings[] = {
+   INTCTRL0,
+   INTCTRL1,
+   INTCTRL2,
+   INTCTRL3
+};
+
+/********************************************************
  * Other global variables
  ********************************************************/
 
 // The current memory address (e.g. used when disassembling)
 addr_t memAddr = 0;
+
+// The current memory timeout value, in microseconds.
+uint16_t memTimeout = 0x1000;
 
 // The address of the next instruction
 addr_t nextAddr = 0;
@@ -604,6 +684,16 @@ uint8_t cmd_id = 0xff;
 
 #define MASK_CLOCK_ERROR   1
 #define MASK_TIMEOUT_ERROR 2
+
+// Current timer mode setting
+uint8_t timer_mode = 0x00;
+uint8_t timer_prescale = 0x01;
+addr_t  timer_resetaddr = 0xffff;
+unsigned long timer_offset = 0;
+
+// Current interrupts controls
+uint8_t int_ctrl = 0;
+
 
 /********************************************************
  * User Command Processor
@@ -746,9 +836,13 @@ uint8_t checkargs(char *params) {
  ********************************************************/
 
 // Send a single hardware command
+//
 void hwCmd(cmd_t cmd, cmd_t param) {
   uint8_t status = STATUS_DIN;
-  uint16_t timeout = 10000;
+  // An interation of the inner loop with a 32-bit loop variable
+  // is 9 instructions. So use F_CPU to scale to the timeout
+  // value is approx microseconds.
+  uint32_t timeout =  ((uint32_t) memTimeout) * ((F_CPU / 1000000) / 9);
   cmd |= param;
   CTRL_PORT &= ~CMD_MASK;
   CTRL_PORT ^= cmd | CMD_EDGE;
@@ -877,7 +971,7 @@ void writeIOByteInc() {
 
 addr_t disMem(addr_t addr) {
   loadAddr(addr);
-  return disassemble(addr);
+  return disassemble(addr, MODE_NORMAL);
 }
 
 void genericDump(char *params, data_t (*readFunc)()) {
@@ -957,8 +1051,9 @@ void genericRead(char *params, data_t (*readFunc)()) {
  * Logging Helpers
  ********************************************************/
 
-void logCycleCount(int offsetLow, int offsetHigh) {
-  unsigned long count = (((unsigned long) hwRead8(offsetHigh)) << 16) | hwRead16(offsetLow);
+void logCycleCount(int offsetLow, int offsetHigh, uint8_t clear) {
+  unsigned long original_count = (((unsigned long) hwRead8(offsetHigh)) << 16) | hwRead16(offsetLow);
+  unsigned long count = ((original_count - timer_offset) & 0xFFFFFF) / timer_prescale;
   char buffer[16];
   uint8_t i;
   // count is 24 bits so a maximum of 16777215
@@ -976,6 +1071,11 @@ void logCycleCount(int offsetLow, int offsetHigh) {
     }
   }
   logs(" : ");
+  // Deal with clearing the counter
+  if (clear) {
+    logs("\n00.000000 : ");
+    timer_offset = original_count;
+  }
 }
 
 void logMode(modes_t mode) {
@@ -1012,6 +1112,8 @@ uint8_t logDetails() {
 
   // Process the dropped counter
   uint8_t dropped = mode >> 4;
+  // Whether to clear timer
+  uint8_t clear = i_addr == timer_resetaddr;
   if (dropped) {
     logstr("          : ");
     if (dropped == 15) {
@@ -1030,7 +1132,7 @@ uint8_t logDetails() {
 
   // Update the serial console
   if (mode & W_MASK) {
-    logCycleCount(OFFSET_BW_CNTL, OFFSET_BW_CNTH);
+    logCycleCount(OFFSET_BW_CNTL, OFFSET_BW_CNTH, clear);
   }
   logMode(mode);
   logstr(" hit at ");
@@ -1046,16 +1148,19 @@ uint8_t logDetails() {
   logc('\n');
   if (mode & B_RDWR_MASK) {
     // It's only safe to do this for brkpts, as it makes memory accesses
-    logCycleCount(OFFSET_BW_CNTL, OFFSET_BW_CNTH);
+    logCycleCount(OFFSET_BW_CNTL, OFFSET_BW_CNTH, clear);
     disMem(i_addr);
   }
   return watch;
 }
 
 void logAddr() {
+  // Delay works around a race condition with slow CPUs
+  // (really the STEP and RESET commands should be synchronous)
+  Delay_us(100);
   memAddr = hwRead16(OFFSET_IAL);
   // Update the serial console
-  logCycleCount(OFFSET_CNTL, OFFSET_CNTH);
+  logCycleCount(OFFSET_CNTL, OFFSET_CNTH, memAddr == timer_resetaddr);
   nextAddr = disMem(memAddr);
   return;
 }
@@ -1186,7 +1291,11 @@ void clearBreakpoint(bknum_t n) {
 void genericBreakpoint(char *params, unsigned int mode) {
   bknum_t i;
   addr_t addr;
+#if defined(CPU_Z80)
+  addr_t mask = (mode & MASK_IO) ? 0xFF : 0xFFFF;
+#else
   addr_t mask = 0xFFFF;
+#endif
   trigger_t trigger = TRIGGER_UNDEFINED;
   params = parsehex4required(params, &addr);
   if (checkargs(params)) {
@@ -1363,7 +1472,7 @@ void helpForCommand(uint8_t i) {
   logstr("   ");
   logs(cmdStrings[i]);
   tmp = strlen(cmdStrings[i]);
-  while (tmp++ < 9) {
+  while (tmp++ < 10) {
     logc(' ');
   }
   while ((tmp = pgm_read_byte(ip++))) {
@@ -1466,7 +1575,7 @@ void doCmdDis(char *params) {
   memAddr = startAddr;
   loadAddr(memAddr);
   do {
-    memAddr = disassemble(memAddr);
+     memAddr = disassemble(memAddr, MODE_DIS_CMD);
     i++;
   } while ((!endAddr && i < 10) || (endAddr && memAddr > startAddr && memAddr <= endAddr));
 }
@@ -1972,23 +2081,89 @@ void doCmdSRec(char *params) {
   }
 }
 
-void logSpecial(char *function, uint8_t value) {
-  logs(function);
-  if (value) {
-    logstr(" inhibited\n");
-  } else {
-    logstr(" enabled\n");
-  }
+void set_int_ctrl(uint8_t offset, char *params) {
+   // (C) 01 Conditional
+   // (D) 11 Disabled
+   // (E) 00 Enabled
+   // (F) 10 Forced
+   while (*params == ' ') {
+      params++;
+   }
+   if (!*params) {
+      uint8_t tmp = int_ctrl;
+      for (int i = 0; i < 4; i++) {
+         logs(cmdStrings[NUM_CMDS - 4 + i]);
+         logstr(" = ");
+         logpgmstr(int_ctrl_strings[tmp & 3]);
+         logc('\n');
+         tmp >>= 2;
+      }
+   } else {
+      *params &= 0xdf;
+      if (*params >= 'C' && *params <= 'F') {
+         uint8_t val = cmd_map[*params - 'C'];
+         hwCmd(CMD_INT_CTRL, (offset << 1) | val);
+         int_ctrl &= (0x03 << offset) ^ 0xFF;
+         int_ctrl |= (val  << offset);
+      } else {
+         logstr("Illegal option\n");
+      }
+   }
 }
 
-void doCmdSpecial(char *params) {
-  uint8_t special = 0xff;
-  parsehex2(params, &special);
-  if (special <= 3) {
-    CTRL_PORT = (CTRL_PORT & ~SPECIAL_MASK) | (special << SPECIAL_0);
+void doCmdXCmd0(char *params) {
+   set_int_ctrl(0, params);
+}
+
+void doCmdXCmd1(char *params) {
+   set_int_ctrl(2, params);
+}
+
+void doCmdXCmd2(char *params) {
+   set_int_ctrl(4, params);
+}
+
+void doCmdXCmd3(char *params) {
+   set_int_ctrl(6, params);
+}
+
+void doCmdTimerMode(char *params) {
+  uint8_t      mode = 0xff;
+  uint8_t  prescale = 0xff;
+  addr_t       addr = 0xffff;
+
+  params = parsehex2(params, &mode);
+  params = parsehex2(params, &prescale);
+  params = parsehex4(params, &addr);
+  if (mode <= NUM_TIMERS) {
+    timer_mode = mode;
+    hwCmd(CMD_TIMER_MODE, timer_mode);
   }
-  logSpecial("NMI", CTRL_PORT & (1 << SPECIAL_1));
-  logSpecial("IRQ", CTRL_PORT & (1 << SPECIAL_0));
+  if (prescale < 0xff) {
+    timer_prescale = prescale;
+  }
+  if (addr < 0xffff) {
+    timer_resetaddr = addr;
+  }
+  logstr("mode: ");
+  logpgmstr(timerStrings[timer_mode]);
+  logstr("; prescale=");
+  loghex4(timer_prescale);
+  logstr("; reset address=");
+  loghex4(timer_resetaddr);
+  logstr("\n");
+}
+
+void doCmdTimeout(char *params) {
+  parsehex4(params, &memTimeout);
+  // Small timeouts values cause bogus timeout errors, so enforce a minimum
+  // of 16us, which is less much than one character time at 115,200 (86us)
+  if (memTimeout < 0x10) {
+     memTimeout = 0x10;
+  }
+  logstr("timeout=");
+  loghex4(memTimeout);
+  logstr(" microseconds (hex)\n");
 }
 
 void doCmdTrace(char *params) {
@@ -2110,8 +2285,13 @@ void doCmdNext(char *params) {
     logTooManyBreakpoints();
     return;
   }
+  addr_t addr = 0xFFFF;
+  params = parsehex4(params, &addr);
+  if (addr == 0xFFFF) {
+     addr = nextAddr;
+  }
   numbkpts++;
-  setBreakpoint(numbkpts - 1, nextAddr, 0xffff, (1 << BRKPT_EXEC) | (1 << TRANSIENT), TRIGGER_ALWAYS);
+  setBreakpoint(numbkpts - 1, addr, 0xffff, (1 << BRKPT_EXEC) | (1 << TRANSIENT), TRIGGER_ALWAYS);
   doCmdContinue(params);
 }
 

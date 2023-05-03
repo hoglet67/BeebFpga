@@ -169,7 +169,7 @@ static const unsigned char dopname[256] PROGMEM =
 
 static const unsigned char dopaddr[256] PROGMEM =
 {
-/*00*/ IMP, INDX,  IMP, IMP,  ZP,   ZP,    ZP,   IMP,   IMP,  IMM,   IMPA,  IMP,  ABS,    ABS,   ABS,  IMP,
+/*00*/ IMM, INDX,  IMP, IMP,  ZP,   ZP,    ZP,   IMP,   IMP,  IMM,   IMPA,  IMP,  ABS,    ABS,   ABS,  IMP,
 /*10*/ BRA, INDY,  IND, IMP,  ZP,   ZPX,   ZPX,  IMP,   IMP,  ABSY,  IMPA,  IMP,  ABS,    ABSX,  ABSX, IMP,
 /*20*/ ABS, INDX,  IMP, IMP,  ZP,   ZP,    ZP,   IMP,   IMP,  IMM,   IMPA,  IMP,  ABS,    ABS,   ABS,  IMP,
 /*30*/ BRA, INDY,  IND, IMP,  ZPX,  ZPX,   ZPX,  IMP,   IMP,  ABSY,  IMPA,  IMP,  ABSX,   ABSX,  ABSX, IMP,
@@ -187,7 +187,7 @@ static const unsigned char dopaddr[256] PROGMEM =
 /*F0*/ BRA, INDY,  IND, IMP,  ZP,   ZPX,   ZPX,  IMP,   IMP,  ABSY,  IMP,   IMP,  ABS,    ABSX,  ABSX, IMP
 };
 
-addr_t disassemble(addr_t addr)
+addr_t disassemble(addr_t addr, uint8_t m)
 {
 
   char buffer[40];

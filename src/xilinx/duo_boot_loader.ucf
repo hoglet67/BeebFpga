@@ -1,0 +1,18 @@
+NET "clock" TNM_NET = clk_period_grp_32;
+TIMESPEC TS_clk_period_32 = PERIOD "clk_period_grp_32" 31.25ns HIGH;
+
+# CLOCK
+NET "clock"    LOC="P94"  | IOSTANDARD = LVCMOS33 | PERIOD = 31.25ns ;
+
+# LEDs
+NET "led"      LOC="P134" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+
+# DIP switches
+NET dip<0>     LOC="P111" | IOSTANDARD = LVCMOS33 ;
+NET dip<1>     LOC="P105" | IOSTANDARD = LVCMOS33 ;
+NET dip<2>     LOC="P101" | IOSTANDARD = LVCMOS33 ;
+NET dip<3>     LOC="P100" | IOSTANDARD = LVCMOS33 ;
+
+# Arduino
+NET ARDUINO_RESET   LOC="P139" | IOSTANDARD=LVTTL | DRIVE=2 | SLEW=SLOW; # ARDUINO_RESET
+NET SW1             LOC="P104" | IOSTANDARD=LVTTL;                       # SW1

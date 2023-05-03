@@ -422,10 +422,10 @@ begin
    begin
       if (r_pcr(0) = '0') then -- ca1 control
          -- negative edge
-         ca1_int <= (ca1_ip_reg_d = '1') and (ca1_ip_reg_c = '0');
+         ca1_int <= (ca1_ip_reg_c = '1') and (I_CA1 = '0');
       else
          -- positive edge
-         ca1_int <= (ca1_ip_reg_d = '0') and (ca1_ip_reg_c = '1');
+         ca1_int <= (ca1_ip_reg_c = '0') and (I_CA1 = '1');
       end if;
 
       if (r_pcr(4) = '0') then -- cb1 control

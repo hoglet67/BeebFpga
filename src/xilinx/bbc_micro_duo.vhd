@@ -40,7 +40,7 @@
 --
 -- Papilio Duo top-level
 --
--- (c) 2015 David Banks
+-- (c) 2022 David Banks
 -- (C) 2011 Mike Stirling
 
 library ieee;
@@ -54,14 +54,17 @@ use unisim.vcomponents.all;
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
     generic (
-        IncludeAMXMouse    : boolean := false;
+        IncludeAMXMouse    : boolean := false;  -- Also must enable pullup on accel_io(8,9) in .ucf file
+        IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
-        IncludeCoProExt    : boolean := true;
-        IncludeVideoNuLA   : boolean := true;
+        IncludeCoProExt    : boolean := false;   -- Also helps to enable pulldown on D0/accel_io(8) in .ucf file
+        IncludeRGBtoHDMI   : boolean := true;
+        IncludeVideoNuLA   : boolean := false;
         IncludeBootstrap   : boolean := true;
+        IncludeMaster      : boolean := false;
         IncludeMinimal     : boolean := false   -- Creates a build to test
                                                 -- 4x16K ROM Images
     );
@@ -94,15 +97,16 @@ entity bbc_micro_duo is
         FLASH_SO       : in    std_logic;                     -- Serial input from FLASH chip SO pin
         avr_RxD        : in    std_logic;
         avr_TxD        : out   std_logic;
-        -- DIP(1..0) = Video Mode:
-        --             (00) SCART RGB mode (15.625KHz)
-        --             (01) Mode 0-6: RGBtoVGA SD, Mode 7: RGBtoVGA SD
-        --             (10) Mode 0-7: Mist SD,     Mode 7: Mist SD
-        --             (11) Mode 0-7: Mist SD,     Mode 7: SAA5050 VGA Mode
+        -- DIP(0) = Video Mode:
+        --             (0) SCART RGB mode (15.625KHz)
+        --             (1) VGA Mode (Mode 0-6: Mist SD, Mode 7: SAA5050 VGA Mode)
+        -- DIP(1) = Co Pro:
+        --             (0) Off
+        --             (1) On
         -- DIP(2) = Machine:
         --             (0) BBC Model B
         --             (1) BBC Master
-        -- DIP(3) = Co Pro:
+        -- DIP(3) = NulA:
         --             (0) Off
         --             (1) On
         DIP            : in    std_logic_vector(3 downto 0);
@@ -159,8 +163,6 @@ architecture rtl of bbc_micro_duo is
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_mode       : std_logic;
-    signal m128_mode_1     : std_logic;
-    signal m128_mode_2     : std_logic;
     signal copro_mode      : std_logic;
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
@@ -174,11 +176,19 @@ architecture rtl of bbc_micro_duo is
     signal ext_tube_do     : std_logic_vector(7 downto 0);
 
     signal ps2_mse_clk    : std_logic;
+    signal ps2_mse_clk_o  : std_logic;
     signal ps2_mse_data   : std_logic;
+    signal ps2_mse_data_o : std_logic;
     signal LED1           : std_logic;
     signal LED2           : std_logic;
     signal JOYSTICK2      : std_logic_vector(4 downto 0);
     signal ROM_D          : std_logic_vector(7 downto 0);
+
+    signal red_int        : std_logic_vector(3 downto 0);
+    signal green_int      : std_logic_vector(3 downto 0);
+    signal blue_int       : std_logic_vector(3 downto 0);
+    signal hsync_int      : std_logic;
+    signal vsync_int      : std_logic;
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -199,9 +209,9 @@ architecture rtl of bbc_micro_duo is
     -- start address of user data in FLASH as obtained from bitmerge.py
     -- this mus be beyond the end of the bitstream
 
-    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"060000";
-    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"070000";
-    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"0A0000";
+    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"200000";
+    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"210000";
+    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"240000";
     signal   user_address                 : std_logic_vector(23 downto 0);
 
     -- length of user data in FLASH = 256KB (16x 16K ROM) images
@@ -230,13 +240,14 @@ begin
 -- BBC Micro Core
 --------------------------------------------------------
 
-    copro_mode <= DIP(3);
+    copro_mode <= DIP(1);
     keyb_dip       <= "00000000";
-    m128_mode      <= DIP(2);
-    vid_mode       <= "00" & DIP(1 downto 0);
+    m128_mode      <= '1' when IncludeMaster else '0';
+    vid_mode       <= "0000" when DIP(0) = '0' else "0011";
     bbc_micro : entity work.bbc_micro_core
     generic map (
         IncludeAMXMouse    => IncludeAMXMouse,
+        IncludeSPISD       => IncludeSPISD,
         IncludeSID         => IncludeSID,
         IncludeMusic5000   => IncludeMusic5000,
         IncludeICEDebugger => IncludeICEDebugger,
@@ -245,8 +256,8 @@ begin
         IncludeCoProExt    => IncludeCoProExt,
         IncludeVideoNuLA   => IncludeVideoNuLA,
         UseOrigKeyboard    => false,
-        UseT65Core         => false,
-        UseAlanDCore       => true
+        UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
+        UseAlanDCore       => IncludeMaster       -- select the 65C02 for the Master
     )
     port map (
         clock_27       => clock_27,
@@ -258,12 +269,14 @@ begin
         ps2_kbd_clk    => ps2_kbd_clk,
         ps2_kbd_data   => ps2_kbd_data,
         ps2_mse_clk    => ps2_mse_clk,
+        ps2_mse_clk_o  => ps2_mse_clk_o,
         ps2_mse_data   => ps2_mse_data,
-        video_red      => red,
-        video_green    => green,
-        video_blue     => blue,
-        video_vsync    => vsync,
-        video_hsync    => hsync,
+        ps2_mse_data_o => ps2_mse_data_o,
+        video_red      => red_int,
+        video_green    => green_int,
+        video_blue     => blue_int,
+        video_vsync    => vsync_int,
+        video_hsync    => hsync_int,
         audio_l        => audio_l,
         audio_r        => audio_r,
         ext_nOE        => RAM_nOE,
@@ -314,8 +327,13 @@ begin
         ext_keyb_ca2   => '1',
         ext_keyb_pa7   => '1'
     );
-    LED1 <= caps_led;
-    LED2 <= shift_led;
+    LED1  <= caps_led;
+    LED2  <= shift_led;
+    red   <= red_int;
+    green <= green_int;
+    blue  <= blue_int;
+    hsync <= hsync_int;
+    vsync <= vsync_int;
 
 --------------------------------------------------------
 -- Clock Generation
@@ -422,11 +440,7 @@ begin
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            m128_mode_1 <= m128_mode;
-            m128_mode_2 <= m128_mode_1;
-            if (m128_mode_1 /= m128_mode_2) then
-                reset_counter <= (others => '0');
-            elsif (reset_counter(reset_counter'high) = '0') then
+            if (reset_counter(reset_counter'high) = '0') then
                 reset_counter <= reset_counter + 1;
             end if;
             powerup_reset_n <= not ERST and reset_counter(reset_counter'high);
@@ -556,18 +570,53 @@ begin
         accel_io(7)           <= ext_tube_ntube;
         accel_io(15 downto 8) <= ext_tube_di when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else (others => 'Z');
         JOYSTICK2             <= (others => '1');
+        ps2_mse_clk           <= ps2_mse_clk_o;
+        ps2_mse_data          <= ps2_mse_data_o;
+    end generate;
 
+    GenRGBtoHDMI: if IncludeRGBtoHDMI generate
+    begin
+        -- Mappings for RGBtoHDMI 12-bit extender V1
+        -- (V2 is different !!!)
+                                                -- pin 7 (GND)
+        accel_io(15 downto 0) <= 'Z'          &
+                                 'Z'          &
+                                 green_int(0) & -- pin 1
+                                 red_int(0)   & -- pin 2
+                                 blue_int(0)  & -- pin 3
+                                 green_int(1) & -- pin 4
+                                 red_int(1)   & -- pin 5
+                                 blue_int(1)  & -- pin 6
+                                 green_int(2) & -- pin 8
+                                 red_int(2)   & -- pin 9
+                                 blue_int(2)  & -- pin 10
+                                 red_int(3)   & -- pin 11
+                                 hsync_int    & -- pin 12
+                                 green_int(3) & -- pin 13
+                                 vsync_int    & -- pin 14
+                                 blue_int(3);   -- pin 15
+                                                -- pin 16 (VCC)
+
+        JOYSTICK2             <= (others => '1');
+        ps2_mse_clk           <= ps2_mse_clk_o;
+        ps2_mse_data          <= ps2_mse_data_o;
     end generate;
 
 
-    GenCoProNotExt: if not IncludeCoProExt generate
+    GenCoProNotExt: if not IncludeCoProExt and not IncludeRGBtoHDMI generate
     begin
         ext_tube_do  <= x"FE";
-        JOYSTICK2    <= accel_io(4 downto 1) & accel_io(5);
+        JOYSTICK2    <= accel_io(5) & accel_io(1) & accel_io(2) & accel_io(3) & accel_io(4);
         accel_io(15 downto 14) <= (others => 'Z');
         accel_io(13) <= LED2;
         accel_io(12) <= LED1;
-        accel_io(11 downto 0) <= (others => 'Z');
+        accel_io(11 downto 10) <= (others => 'Z');
+        accel_io(7 downto 0) <= (others => 'Z');
+        -- PS/2 Mouse
+        ps2_mse_clk  <= accel_io(8);
+        accel_io(8)  <= '0' when ps2_mse_clk_o  = '0' else 'Z';
+        ps2_mse_data <= accel_io(9);
+        accel_io(9)  <= '0' when ps2_mse_data_o = '0' else 'Z';
     end generate;
 
 

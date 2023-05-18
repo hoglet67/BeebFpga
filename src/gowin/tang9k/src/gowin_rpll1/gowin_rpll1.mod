@@ -26,8 +26,10 @@
 -clkfb_sel 0
 -en_lock true
 -clkout_bypass false
--en_clkoutp false
+-en_clkoutp true
 -clkoutp_bypass false
+-psda_sel 4
+-dutyda_sel 8
 -en_clkoutd true
 -clkoutd_bypass false
 -clkoutd_src CLKOUT

@@ -89,8 +89,15 @@ port (
         vga_b : out std_logic;
         vga_g : out std_logic;
         vga_hs: out std_logic;
-        vga_vs: out std_logic
-        
+        vga_vs: out std_logic;
+
+         -- Magic ports for PSRAM to be inferred
+         O_psram_ck     : out    std_logic_vector(1 downto 0);
+         O_psram_ck_n   : out    std_logic_vector(1 downto 0);
+         IO_psram_rwds  : inout  std_logic_vector(1 downto 0);
+         IO_psram_dq    : inout  std_logic_vector(15 downto 0);
+         O_psram_reset_n: out    std_logic_vector(1 downto 0);
+         O_psram_cs_n   : out    std_logic_vector(1 downto 0)
     );
 end entity;
 
@@ -103,6 +110,8 @@ architecture rtl of bbc_micro_tang9k is
 signal clock_32        : std_logic;
 signal clock_48        : std_logic;
 signal clock_96        : std_logic;
+signal clock_96_p      : std_logic;
+signal mem_ready       : std_logic;
 signal audio_l         : std_logic_vector(15 downto 0);
 signal audio_r         : std_logic_vector(15 downto 0);
 signal powerup_reset_n : std_logic;
@@ -302,6 +311,7 @@ vga_b <= i_VGA_B(i_VGA_B'high);
     pll2: entity work.Gowin_rPLL
     port map (
         clkout => clock_96,
+        clkoutp => clock_96_p,
         lock => pll_locked,
         clkoutd => clock_48,
         clkoutd3 => clock_32,
@@ -332,7 +342,7 @@ vga_b <= i_VGA_B(i_VGA_B'high);
         end if;
     end process;
 
-    hard_reset_n <= not (pll_reset or not pll_locked or not powerup_reset_n);
+    hard_reset_n <= not (pll_reset or not pll_locked or not powerup_reset_n or not mem_ready);
 
 ---- DB: TODO: Get PWM/SigDelta from Blitter --- --------------------------------------------------------
 ---- DB: TODO: Get PWM/SigDelta from Blitter --- -- Audio DACs
@@ -516,13 +526,24 @@ vga_b <= i_VGA_B(i_VGA_B'high);
    
 e_mem: entity work.mem_tang_9k
 port map (
-   CLK_48      => clock_48,
-   ext_A       => ext_A,
-   ext_Din     => ext_Din,
-   ext_Dout    => ext_Dout,
-   ext_nCS     => ext_nCS,
-   ext_nWE     => ext_nWE,
-   ext_nOE     => ext_nOE
+   CLK_96         => clock_96,
+   CLK_96_P       => clock_96_p,
+   RST_n          => powerup_reset_n,
+   READY          => mem_ready,
+   CLK_48         => clock_48,
+   ext_A          => ext_A,
+   ext_Din        => ext_Din,
+   ext_Dout       => ext_Dout,
+   ext_nCS        => ext_nCS,
+   ext_nWE        => ext_nWE,
+   ext_nOE        => ext_nOE,
+
+   O_psram_ck     => O_psram_ck,
+   IO_psram_rwds  => IO_psram_rwds,
+   IO_psram_dq    => IO_psram_dq,
+   O_psram_cs_n   => O_psram_cs_n,
+   O_psram_reset_n=> O_psram_reset_n
+
 );
 
 end architecture;

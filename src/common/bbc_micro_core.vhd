@@ -208,6 +208,149 @@ end entity;
 
 architecture rtl of bbc_micro_core is
 
+component MOS6502CpuMonCore is
+    generic (
+       UseT65Core        : boolean;
+       UseAlanDCore      : boolean;
+       -- default sizing is used by Electron/Beeb Fpga
+       num_comparators   : integer := 8;
+       avr_prog_mem_size : integer := 1024 * 8
+    );
+    port (
+        clock_avr       : in    std_logic;
+
+        busmon_clk      : in    std_logic;
+        busmon_clken    : in    std_logic;
+        cpu_clk         : in    std_logic;
+        cpu_clken       : in    std_logic;
+
+        -- 6502 Signals
+        IRQ_n           : in    std_logic;
+        NMI_n           : in    std_logic;
+        Sync            : out   std_logic;
+        Addr            : out   std_logic_vector(15 downto 0);
+        R_W_n           : out   std_logic;
+        Din             : in    std_logic_vector(7 downto 0);
+        Dout            : out   std_logic_vector(7 downto 0);
+        SO_n            : in    std_logic;
+        Res_n           : in    std_logic;
+        Rdy             : in    std_logic;
+
+        -- External trigger inputs
+        trig            : in    std_logic_vector(1 downto 0);
+
+        -- Serial Console
+        avr_RxD         : in     std_logic;
+        avr_TxD         : out    std_logic;
+
+        -- Switches
+        sw_reset_cpu    : in    std_logic;
+        sw_reset_avr    : in    std_logic;
+
+        -- LEDs
+        led_bkpt        : out   std_logic;
+        led_trig0       : out   std_logic;
+        led_trig1       : out   std_logic;
+
+        -- OHO_DY1 connected to test connector
+        tmosi           : out   std_logic;
+        tdin            : out   std_logic;
+        tcclk           : out   std_logic;
+
+        -- Test connector signals
+        test            : inout std_logic_vector(3 downto 0)
+    );
+end component;
+
+component CoPro6502 is
+    port (
+
+        -- Host
+        h_clk        : in    std_logic;
+        h_cs_b       : in    std_logic;
+        h_rdnw       : in    std_logic;
+        h_addr       : in    std_logic_vector(2 downto 0);
+        h_data_in    : in    std_logic_vector(7 downto 0);
+        h_data_out   : out   std_logic_vector(7 downto 0);
+        h_rst_b      : in    std_logic;
+        h_irq_b      : out    std_logic;
+
+        -- Parasite Clock (32 MHz)
+        clk_cpu      : in    std_logic;
+        cpu_clken    : in    std_logic;
+
+        -- External RAM
+        ram_addr     : out  std_logic_vector(15 downto 0);
+        ram_data_in  : out  std_logic_vector(7 downto 0);
+        ram_data_out : in   std_logic_vector(7 downto 0);
+        ram_wr       : out  std_logic;
+
+        -- Test signals for debugging
+        test         : out    std_logic_vector(7 downto 0)
+    );
+end component;
+
+component CoProSPI is
+    port (
+
+        -- Host
+        h_clk        : in  std_logic;
+        h_cs_b       : in  std_logic;
+        h_rdnw       : in  std_logic;
+        h_addr       : in  std_logic_vector(2 downto 0);
+        h_data_in    : in  std_logic_vector(7 downto 0);
+        h_data_out   : out std_logic_vector(7 downto 0);
+        h_rst_b      : in  std_logic;
+        h_irq_b      : out  std_logic;
+
+        -- Parasite Clock (32 MHz)
+        p_clk        : in  std_logic;
+
+        -- SPI Slave
+        p_spi_ssel   : in  std_logic;
+        p_spi_sck    : in  std_logic;
+        p_spi_mosi   : in  std_logic;
+        p_spi_miso   : out std_logic;
+
+        -- Interrupts/Control
+        p_irq_b      : out std_logic;
+        p_nmi_b      : out std_logic;
+        p_rst_b      : out std_logic;
+
+        -- Test signals for debugging
+        test         : out std_logic_vector(7 downto 0)
+    );
+end component;
+
+component Music5000 is
+    generic (
+        sumwidth : integer := 20;
+        dacwidth : integer := 16;
+        id       : std_logic_vector(3 downto 0) := "0011"
+    );
+    port (
+        -- This is the cpu clock
+        clk      : in     std_logic;
+        clken    : in     std_logic;
+        -- This is the 6MHz audio clock
+        clk6     : in     std_logic;
+        clk6en   : in     std_logic;
+        rnw      : in     std_logic;
+        rst_n    : in     std_logic;
+        pgfc_n   : in     std_logic;
+        pgfd_n   : in     std_logic;
+        a        : in     std_logic_vector (7 downto 0);
+        din      : in     std_logic_vector (7 downto 0);
+        dout     : out    std_logic_vector (7 downto 0);
+        dout_oel : out    std_logic;
+        audio_l  : out    std_logic_vector (dacwidth - 1 downto 0);
+        audio_r  : out    std_logic_vector (dacwidth - 1 downto 0);
+        cycle    : out    std_logic_vector (6 downto 0);
+        test     : out    std_logic
+    );
+end component;
+
+
 -- Use 4-bit RGB when VideoNuLA is included, other 1-bit RGB
 function calc_rgb_width(includeVideoNuLA : boolean) return integer is
 begin
@@ -552,7 +695,7 @@ begin
 
     GenDebug: if IncludeICEDebugger generate
 
-        core : entity work.MOS6502CpuMonCore
+        core : MOS6502CpuMonCore
             generic map (
                 UseT65Core   => UseT65Core,
                 UseAlanDCore => UseAlanDCore
@@ -1041,7 +1184,7 @@ begin
 
     Optional_Music5000: if IncludeMusic5000 generate
 
-        Inst_Music5000: entity work.Music5000
+        Inst_Music5000: component Music5000
             port map (
                 clk      => clock_48,
                 clken    => mhz1_clken,
@@ -1068,7 +1211,7 @@ begin
     GenCoPro6502: if IncludeCoPro6502 generate
         signal tube_cs_b : std_logic;
     begin
-        copro1 : entity work.CoPro6502
+        copro1 : CoPro6502
         port map (
             -- Host
             h_clk       => clock_48,
@@ -1100,7 +1243,7 @@ begin
     GenCoProSPI: if IncludeCoProSPI generate
         signal tube_cs_b : std_logic;
     begin
-        copro2 : entity work.CoProSPI
+        copro2 : component CoProSPI
         port map (
             -- Host
             h_clk       => clock_48,

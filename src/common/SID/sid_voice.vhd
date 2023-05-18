@@ -77,7 +77,7 @@ architecture Behavioral of sid_voice is
     signal   pulsewidth              : std_logic_vector(11 downto 0) := (others => '0');
 
     -- Envelope Generator
-    type     envelope_state_types is    (idle, attack, attack_lp, decay, decay_lp, sustain, release, release_lp);
+    type     envelope_state_types is    (idle, attack, attack_lp, decay, decay_lp, sustain, releasex, release_lp);
     signal   cur_state, next_state   : envelope_state_types;
     signal   divider_value           : integer range 0 to 2**15 - 1 :=0;
     signal   divider_attack          : integer range 0 to 2**15 - 1 :=0;
@@ -324,7 +324,7 @@ begin
     -- triggered by the Gate bit, counted from 0 to 255 at the Attack rate, from
     -- 255 down to the programmed Sustain value at the Decay rate, remained at the
     -- Sustain value until the Gate bit was cleared then counted down from the
-    -- Sustain value to 0 at the Release rate."
+    -- Sustain value to 0 at the Releasex rate."
     --
     --          /\
     --         /  \
@@ -360,7 +360,7 @@ begin
             divider_rst          <='1';
             divider_value     <= 0;
             exp_table_active  <='0';
-            Dec_rel_sel          <='0';      -- select decay as input for decay/release table
+            Dec_rel_sel          <='0';      -- select decay as input for decay/releasex table
         else
             env_cnt_clear        <='0';      -- use this statement unless stated otherwise
             env_cnt_up           <='1';      -- use this statement unless stated otherwise
@@ -374,7 +374,7 @@ begin
                 when idle =>
                     env_cnt_clear     <= '1';     -- clear envelope env_counter
                     divider_rst          <= '1';
-                    Dec_rel_sel          <= '0';     -- select decay as input for decay/release table
+                    Dec_rel_sel          <= '0';     -- select decay as input for decay/releasex table
                     if gate = '1' then
                         next_state        <= attack;
                     else
@@ -386,18 +386,18 @@ begin
                     divider_rst          <= '1';
                     divider_value     <= divider_attack;
                     next_state           <= attack_lp;
-                    Dec_rel_sel          <= '0';        -- select decay as input for decay/release table
+                    Dec_rel_sel          <= '0';        -- select decay as input for decay/releasex table
 
                 when attack_lp =>
                     env_count_hold_B  <= '0';     -- enable envelope env_counter
                     env_cnt_up           <= '1';     -- envelope env_counter must count up (increment)
                     divider_value     <= divider_attack;
-                    Dec_rel_sel          <= '0';     -- select decay as input for decay/release table
+                    Dec_rel_sel          <= '0';     -- select decay as input for decay/releasex table
                     if env_counter = "11111111" then
                         next_state        <= decay;
                     else
                         if gate = '0' then
-                            next_state     <= release;
+                            next_state     <= releasex;
                         else
                             next_state     <= attack_lp;
                         end if;
@@ -409,19 +409,19 @@ begin
                     env_cnt_up           <= '0';     -- envelope env_counter must count down (decrement)
                     divider_value     <= divider_dec_rel;
                     next_state           <= decay_lp;
-                    Dec_rel_sel          <= '0';     -- select decay as input for decay/release table
+                    Dec_rel_sel          <= '0';     -- select decay as input for decay/releasex table
 
                 when decay_lp =>
                     exp_table_active  <= '1';     -- activate exponential look-up table
                     env_count_hold_B  <= '0';     -- enable envelope env_counter
                     env_cnt_up           <= '0';     -- envelope env_counter must count down (decrement)
                     divider_value     <= divider_dec_rel;
-                    Dec_rel_sel          <= '0';     -- select decay as input for decay/release table
+                    Dec_rel_sel          <= '0';     -- select decay as input for decay/releasex table
                     if (env_counter(7 downto 4) = Sus_Rel(7 downto 4)) then
                         next_state        <= sustain;
                     else
                         if gate = '0' then
-                            next_state     <= release;
+                            next_state     <= releasex;
                         else
                             next_state     <= decay_lp;
                         end if;
@@ -444,9 +444,9 @@ begin
                 -- higher." Instead it would count down to '0'.
                 when sustain =>
                     divider_value     <= 0;
-                    Dec_rel_sel          <='1';         -- select release as input for decay/release table
+                    Dec_rel_sel          <='1';         -- select releasex as input for decay/releasex table
                     if gate = '0' then
-                        next_state        <= release;
+                        next_state        <= releasex;
                     else
                         if (env_counter(7 downto 4) = Sus_Rel(7 downto 4)) then
                             next_state     <= sustain;
@@ -455,12 +455,12 @@ begin
                         end if;
                     end  if;
 
-                when release =>
+                when releasex =>
                     divider_rst          <= '1';
                     exp_table_active  <= '1';     -- activate exponential look-up table
                     env_cnt_up           <= '0';     -- envelope env_counter must count down (decrement)
                     divider_value     <= divider_dec_rel;
-                    Dec_rel_sel          <= '1';     -- select release as input for decay/release table
+                    Dec_rel_sel          <= '1';     -- select releasex as input for decay/releasex table
                     next_state           <= release_lp;
 
                 when release_lp =>
@@ -468,7 +468,7 @@ begin
                     env_count_hold_B  <= '0';     -- enable envelope env_counter
                     env_cnt_up           <= '0';     -- envelope env_counter must count down (decrement)
                     divider_value     <= divider_dec_rel;
-                    Dec_rel_sel          <= '1';     -- select release as input for decay/release table
+                    Dec_rel_sel          <= '1';     -- select releasex as input for decay/releasex table
                     if env_counter = "00000000" then
                         next_state        <= idle;
                     else
@@ -481,7 +481,7 @@ begin
 
                 when others =>
                     divider_value  <= 0;
-                    Dec_rel_sel       <= '0';     -- select decay as input for decay/release table
+                    Dec_rel_sel       <= '0';     -- select decay as input for decay/releasex table
                     next_state        <= idle;
             end case;
         end if;
@@ -553,7 +553,7 @@ begin
     -- "In order to more closely model the exponential decay of sounds, another
     -- look-up table on the output of the Envelope Generator would sequentially
     -- divide the clock to the Envelope Generator by two at specific counts in the
-    -- Decay and Release cycles. This created a piece-wise linear approximation of
+    -- Decay and Releasex cycles. This created a piece-wise linear approximation of
     -- an exponential. I was particularly happy how well this worked considering
     -- the simplicity of the circuitry. The Attack, however, was linear, but this
     -- sounded fine."
@@ -624,7 +624,7 @@ begin
 
     -- Decay Lookup table :
     -- It takes 32 * 51 = 1632 clock cycles to fall from peak level to zero.
-    -- Release Lookup table :
+    -- Releasex Lookup table :
     -- It takes 32 * 51 = 1632 clock cycles to fall from peak level to zero.
     Decay_Release_table:process(clk_1MHz)
     begin
@@ -634,22 +634,22 @@ begin
                     divider_dec_rel <= 0;
                 else
                     case Dec_rel is
-                        when "0000" => divider_dec_rel <= 3;         --release rate: (    6mS / 1uS per clockcycle) / 1632
-                        when "0001" => divider_dec_rel <= 15;     --release rate: (   24mS / 1uS per clockcycle) / 1632
-                        when "0010" => divider_dec_rel <= 29;     --release rate: (   48mS / 1uS per clockcycle) / 1632
-                        when "0011" => divider_dec_rel <= 44;     --release rate: (   72mS / 1uS per clockcycle) / 1632
-                        when "0100" => divider_dec_rel <= 70;     --release rate: (  114mS / 1uS per clockcycle) / 1632
-                        when "0101" => divider_dec_rel <= 103;    --release rate: (  168mS / 1uS per clockcycle) / 1632
-                        when "0110" => divider_dec_rel <= 125;    --release rate: (  204mS / 1uS per clockcycle) / 1632
-                        when "0111" => divider_dec_rel <= 147;    --release rate: (  240mS / 1uS per clockcycle) / 1632
-                        when "1000" => divider_dec_rel <= 184;    --release rate: (  300mS / 1uS per clockcycle) / 1632
-                        when "1001" => divider_dec_rel <= 459;    --release rate: (  750mS / 1uS per clockcycle) / 1632
-                        when "1010" => divider_dec_rel <= 919;    --release rate: ( 1500mS / 1uS per clockcycle) / 1632
-                        when "1011" => divider_dec_rel <= 1471;   --release rate: ( 2400mS / 1uS per clockcycle) / 1632
-                        when "1100" => divider_dec_rel <= 1838;   --release rate: ( 3000mS / 1uS per clockcycle) / 1632
-                        when "1101" => divider_dec_rel <= 5515;   --release rate: ( 9000mS / 1uS per clockcycle) / 1632
-                        when "1110" => divider_dec_rel <= 9191;   --release rate: (15000mS / 1uS per clockcycle) / 1632
-                        when "1111" => divider_dec_rel <= 14706;  --release rate: (24000mS / 1uS per clockcycle) / 1632
+                        when "0000" => divider_dec_rel <= 3;         --releasex rate: (    6mS / 1uS per clockcycle) / 1632
+                        when "0001" => divider_dec_rel <= 15;     --releasex rate: (   24mS / 1uS per clockcycle) / 1632
+                        when "0010" => divider_dec_rel <= 29;     --releasex rate: (   48mS / 1uS per clockcycle) / 1632
+                        when "0011" => divider_dec_rel <= 44;     --releasex rate: (   72mS / 1uS per clockcycle) / 1632
+                        when "0100" => divider_dec_rel <= 70;     --releasex rate: (  114mS / 1uS per clockcycle) / 1632
+                        when "0101" => divider_dec_rel <= 103;    --releasex rate: (  168mS / 1uS per clockcycle) / 1632
+                        when "0110" => divider_dec_rel <= 125;    --releasex rate: (  204mS / 1uS per clockcycle) / 1632
+                        when "0111" => divider_dec_rel <= 147;    --releasex rate: (  240mS / 1uS per clockcycle) / 1632
+                        when "1000" => divider_dec_rel <= 184;    --releasex rate: (  300mS / 1uS per clockcycle) / 1632
+                        when "1001" => divider_dec_rel <= 459;    --releasex rate: (  750mS / 1uS per clockcycle) / 1632
+                        when "1010" => divider_dec_rel <= 919;    --releasex rate: ( 1500mS / 1uS per clockcycle) / 1632
+                        when "1011" => divider_dec_rel <= 1471;   --releasex rate: ( 2400mS / 1uS per clockcycle) / 1632
+                        when "1100" => divider_dec_rel <= 1838;   --releasex rate: ( 3000mS / 1uS per clockcycle) / 1632
+                        when "1101" => divider_dec_rel <= 5515;   --releasex rate: ( 9000mS / 1uS per clockcycle) / 1632
+                        when "1110" => divider_dec_rel <= 9191;   --releasex rate: (15000mS / 1uS per clockcycle) / 1632
+                        when "1111" => divider_dec_rel <= 14706;  --releasex rate: (24000mS / 1uS per clockcycle) / 1632
                         when others => divider_dec_rel <= 0;         --
                     end case;
                 end if;

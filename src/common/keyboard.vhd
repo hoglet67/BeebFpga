@@ -90,7 +90,7 @@ signal rst          :   std_logic;
 type key_matrix is array(0 to 15) of std_logic_vector(7 downto 0);
 signal keys         :   key_matrix;
 signal col          :   unsigned(3 downto 0);
-signal release      :   std_logic;
+signal releasex      :   std_logic;
 signal fn_keys      :   std_logic_vector(9 downto 0);
 signal fn_keys_last :   std_logic_vector(9 downto 0);
 
@@ -274,7 +274,7 @@ begin
     process(CLOCK,nRESET)
     begin
         if nRESET = '0' then
-            release <= '0';
+            releasex <= '0';
             --extended <= '0';
 
             BREAK_OUT <= '0';
@@ -338,93 +338,93 @@ begin
                     -- Extended key code follows
                     --extended <= '1';
                 elsif keyb_data = X"f0" then
-                    -- Release code follows
-                    release <= '1';
+                    -- Releasex code follows
+                    releasex <= '1';
                 else
-                    -- Cancel extended/release flags for next time
-                    release <= '0';
+                    -- Cancel extended/releasex flags for next time
+                    releasex <= '0';
                     --extended <= '0';
 
                     -- Decode scan codes
                     case keyb_data is
-                    when X"12" => keys(0)(0) <= not release; -- Left SHIFT
-                    when X"59" => keys(0)(0) <= not release; -- Right SHIFT
-                    when X"15" => keys(0)(1) <= not release; -- Q
-                    when X"09" => keys(0)(2) <= not release; -- F10 (F0)
-                    when X"16" => keys(0)(3) <= not release; -- 1
-                    when X"58" => keys(0)(4) <= not release; -- CAPS LOCK
-                    when X"11" => keys(0)(5) <= not release; -- LEFT ALT (SHIFT LOCK)
-                    when X"0D" => keys(0)(6) <= not release; -- TAB
-                    when X"76" => keys(0)(7) <= not release; -- ESCAPE
-                    when X"14" => keys(1)(0) <= not release; -- LEFT/RIGHT CTRL (CTRL)
-                    when X"26" => keys(1)(1) <= not release; -- 3
-                    when X"1D" => keys(1)(2) <= not release; -- W
-                    when X"1E" => keys(1)(3) <= not release; -- 2
-                    when X"1C" => keys(1)(4) <= not release; -- A
-                    when X"1B" => keys(1)(5) <= not release; -- S
-                    when X"1A" => keys(1)(6) <= not release; -- Z
-                    when X"05" => keys(1)(7) <= not release; -- F1
-                    when X"25" => keys(2)(1) <= not release; -- 4
-                    when X"24" => keys(2)(2) <= not release; -- E
-                    when X"23" => keys(2)(3) <= not release; -- D
-                    when X"22" => keys(2)(4) <= not release; -- X
-                    when X"21" => keys(2)(5) <= not release; -- C
-                    when X"29" => keys(2)(6) <= not release; -- SPACE
-                    when X"06" => keys(2)(7) <= not release; -- F2
-                    when X"2E" => keys(3)(1) <= not release; -- 5
-                    when X"2C" => keys(3)(2) <= not release; -- T
-                    when X"2D" => keys(3)(3) <= not release; -- R
-                    when X"2B" => keys(3)(4) <= not release; -- F
-                    when X"34" => keys(3)(5) <= not release; -- G
-                    when X"2A" => keys(3)(6) <= not release; -- V
-                    when X"04" => keys(3)(7) <= not release; -- F3
-                    when X"0C" => keys(4)(1) <= not release; -- F4
-                    when X"3D" => keys(4)(2) <= not release; -- 7
-                    when X"36" => keys(4)(3) <= not release; -- 6
-                    when X"35" => keys(4)(4) <= not release; -- Y
-                    when X"33" => keys(4)(5) <= not release; -- H
-                    when X"32" => keys(4)(6) <= not release; -- B
-                    when X"03" => keys(4)(7) <= not release; -- F5
-                    when X"3E" => keys(5)(1) <= not release; -- 8
-                    when X"43" => keys(5)(2) <= not release; -- I
-                    when X"3C" => keys(5)(3) <= not release; -- U
-                    when X"3B" => keys(5)(4) <= not release; -- J
-                    when X"31" => keys(5)(5) <= not release; -- N
-                    when X"3A" => keys(5)(6) <= not release; -- M
-                    when X"0B" => keys(5)(7) <= not release; -- F6
-                    when X"83" => keys(6)(1) <= not release; -- F7
-                    when X"46" => keys(6)(2) <= not release; -- 9
-                    when X"44" => keys(6)(3) <= not release; -- O
-                    when X"42" => keys(6)(4) <= not release; -- K
-                    when X"4B" => keys(6)(5) <= not release; -- L
-                    when X"41" => keys(6)(6) <= not release; -- ,
-                    when X"0A" => keys(6)(7) <= not release; -- F8
-                    when X"4E" => keys(7)(1) <= not release; -- -
-                    when X"45" => keys(7)(2) <= not release; -- 0
-                    when X"4D" => keys(7)(3) <= not release; -- P
-                    when X"0E" => keys(7)(4) <= not release; -- ` (@)
-                    when X"4C" => keys(7)(5) <= not release; -- ;
-                    when X"49" => keys(7)(6) <= not release; -- .
-                    when X"01" => keys(7)(7) <= not release; -- F9
-                    when X"55" => keys(8)(1) <= not release; -- = (^)
-                    when X"5D" => keys(8)(2) <= not release; -- # (_)
-                    when X"54" => keys(8)(3) <= not release; -- [
-                    when X"52" => keys(8)(4) <= not release; -- '
-                    when X"5B" => keys(8)(5) <= not release; -- ]
-                    when X"4A" => keys(8)(6) <= not release; -- /
-                    when X"61" => keys(8)(7) <= not release; -- \
-                    when X"6B" => keys(9)(1) <= not release; -- LEFT
-                    when X"72" => keys(9)(2) <= not release; -- DOWN
-                    when X"75" => keys(9)(3) <= not release; -- UP
-                    when X"5A" => keys(9)(4) <= not release; -- RETURN
-                    when X"66" => keys(9)(5) <= not release; -- BACKSPACE (DELETE)
-                    when X"69" => keys(9)(6) <= not release; -- END (COPY)
-                    when X"74" => keys(9)(7) <= not release; -- RIGHT
+                    when X"12" => keys(0)(0) <= not releasex; -- Left SHIFT
+                    when X"59" => keys(0)(0) <= not releasex; -- Right SHIFT
+                    when X"15" => keys(0)(1) <= not releasex; -- Q
+                    when X"09" => keys(0)(2) <= not releasex; -- F10 (F0)
+                    when X"16" => keys(0)(3) <= not releasex; -- 1
+                    when X"58" => keys(0)(4) <= not releasex; -- CAPS LOCK
+                    when X"11" => keys(0)(5) <= not releasex; -- LEFT ALT (SHIFT LOCK)
+                    when X"0D" => keys(0)(6) <= not releasex; -- TAB
+                    when X"76" => keys(0)(7) <= not releasex; -- ESCAPE
+                    when X"14" => keys(1)(0) <= not releasex; -- LEFT/RIGHT CTRL (CTRL)
+                    when X"26" => keys(1)(1) <= not releasex; -- 3
+                    when X"1D" => keys(1)(2) <= not releasex; -- W
+                    when X"1E" => keys(1)(3) <= not releasex; -- 2
+                    when X"1C" => keys(1)(4) <= not releasex; -- A
+                    when X"1B" => keys(1)(5) <= not releasex; -- S
+                    when X"1A" => keys(1)(6) <= not releasex; -- Z
+                    when X"05" => keys(1)(7) <= not releasex; -- F1
+                    when X"25" => keys(2)(1) <= not releasex; -- 4
+                    when X"24" => keys(2)(2) <= not releasex; -- E
+                    when X"23" => keys(2)(3) <= not releasex; -- D
+                    when X"22" => keys(2)(4) <= not releasex; -- X
+                    when X"21" => keys(2)(5) <= not releasex; -- C
+                    when X"29" => keys(2)(6) <= not releasex; -- SPACE
+                    when X"06" => keys(2)(7) <= not releasex; -- F2
+                    when X"2E" => keys(3)(1) <= not releasex; -- 5
+                    when X"2C" => keys(3)(2) <= not releasex; -- T
+                    when X"2D" => keys(3)(3) <= not releasex; -- R
+                    when X"2B" => keys(3)(4) <= not releasex; -- F
+                    when X"34" => keys(3)(5) <= not releasex; -- G
+                    when X"2A" => keys(3)(6) <= not releasex; -- V
+                    when X"04" => keys(3)(7) <= not releasex; -- F3
+                    when X"0C" => keys(4)(1) <= not releasex; -- F4
+                    when X"3D" => keys(4)(2) <= not releasex; -- 7
+                    when X"36" => keys(4)(3) <= not releasex; -- 6
+                    when X"35" => keys(4)(4) <= not releasex; -- Y
+                    when X"33" => keys(4)(5) <= not releasex; -- H
+                    when X"32" => keys(4)(6) <= not releasex; -- B
+                    when X"03" => keys(4)(7) <= not releasex; -- F5
+                    when X"3E" => keys(5)(1) <= not releasex; -- 8
+                    when X"43" => keys(5)(2) <= not releasex; -- I
+                    when X"3C" => keys(5)(3) <= not releasex; -- U
+                    when X"3B" => keys(5)(4) <= not releasex; -- J
+                    when X"31" => keys(5)(5) <= not releasex; -- N
+                    when X"3A" => keys(5)(6) <= not releasex; -- M
+                    when X"0B" => keys(5)(7) <= not releasex; -- F6
+                    when X"83" => keys(6)(1) <= not releasex; -- F7
+                    when X"46" => keys(6)(2) <= not releasex; -- 9
+                    when X"44" => keys(6)(3) <= not releasex; -- O
+                    when X"42" => keys(6)(4) <= not releasex; -- K
+                    when X"4B" => keys(6)(5) <= not releasex; -- L
+                    when X"41" => keys(6)(6) <= not releasex; -- ,
+                    when X"0A" => keys(6)(7) <= not releasex; -- F8
+                    when X"4E" => keys(7)(1) <= not releasex; -- -
+                    when X"45" => keys(7)(2) <= not releasex; -- 0
+                    when X"4D" => keys(7)(3) <= not releasex; -- P
+                    when X"0E" => keys(7)(4) <= not releasex; -- ` (@)
+                    when X"4C" => keys(7)(5) <= not releasex; -- ;
+                    when X"49" => keys(7)(6) <= not releasex; -- .
+                    when X"01" => keys(7)(7) <= not releasex; -- F9
+                    when X"55" => keys(8)(1) <= not releasex; -- = (^)
+                    when X"5D" => keys(8)(2) <= not releasex; -- # (_)
+                    when X"54" => keys(8)(3) <= not releasex; -- [
+                    when X"52" => keys(8)(4) <= not releasex; -- '
+                    when X"5B" => keys(8)(5) <= not releasex; -- ]
+                    when X"4A" => keys(8)(6) <= not releasex; -- /
+                    when X"61" => keys(8)(7) <= not releasex; -- \
+                    when X"6B" => keys(9)(1) <= not releasex; -- LEFT
+                    when X"72" => keys(9)(2) <= not releasex; -- DOWN
+                    when X"75" => keys(9)(3) <= not releasex; -- UP
+                    when X"5A" => keys(9)(4) <= not releasex; -- RETURN
+                    when X"66" => keys(9)(5) <= not releasex; -- BACKSPACE (DELETE)
+                    when X"69" => keys(9)(6) <= not releasex; -- END (COPY)
+                    when X"74" => keys(9)(7) <= not releasex; -- RIGHT
 
                     -- F12 is used for the BREAK key, which in the real BBC asserts
                     -- reset.  Here we pass this out to the top level which may
                     -- optionally OR it in to the system reset
-                    when X"07" => BREAK_OUT <= not release; -- F12 (BREAK)
+                    when X"07" => BREAK_OUT <= not releasex; -- F12 (BREAK)
 
                     when others => null;
                     end case;

@@ -56,3 +56,8 @@ releases/
 firmware/config.rom
 firmware/config.mem
 firmware/version.asm
+
+**/impl/pnr
+**/impl/gwsynthesis
+**/impl/temp
+

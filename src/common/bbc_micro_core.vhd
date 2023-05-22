@@ -375,25 +375,25 @@ signal clken_pixel      :   std_logic;
 signal clken_vga        :   std_logic;
 
 -- Counter to divide 96MHz down to 32MHz or 24MHz
-signal vga3_counter     :   unsigned(1 downto 0);
+signal vga3_counter     :   unsigned(1 downto 0) := (others => '0');
 
 -- Counter to divide 48MHz down to 16MHz and 8MHz
-signal div3_counter     :   unsigned(1 downto 0);
+signal div3_counter     :   unsigned(1 downto 0) := (others => '0');
 
 -- Counter to divide 48MHz down to 12MHz and 6MHz
-signal div8_counter     :   unsigned(2 downto 0);
+signal div8_counter     :   unsigned(2 downto 0) := (others => '0');
 
 -- Clock enable counter
 -- CPU and video cycles are interleaved.  The CPU runs at 2 MHz (every 16th
 -- cycle) and the video subsystem is enabled on every odd cycle.
-signal clken_counter    :   unsigned(3 downto 0);
-signal cpu_cycle_mask   :   std_logic_vector(1 downto 0); -- Set to mask CPU cycles until 1 MHz cycle is complete
+signal clken_counter    :   unsigned(3 downto 0) := (others => '0');
+signal cpu_cycle_mask   :   std_logic_vector(1 downto 0) := (others => '0'); -- Set to mask CPU cycles until 1 MHz cycle is complete
 signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabled
 signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
 -- IO cycles are out of phase with the CPU
 signal mhz16_clken      :   std_logic; -- 16 MHz, used by the Video ULA
-signal ttxt_clken       :   std_logic; -- 12 MHz used by SAA 5050 (24MHz in VGA mode)
+signal ttxt_clken       :   std_logic := '0'; -- 12 MHz used by SAA 5050 (24MHz in VGA mode)
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2

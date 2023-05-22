@@ -167,7 +167,7 @@ architecture rtl of vidproc is
     signal clken_shift      :   std_logic;
     signal clken_load       :   std_logic;
     signal clken_fetch      :   std_logic;
-    signal clken_counter    :   unsigned(3 downto 0);
+    signal clken_counter    :   unsigned(3 downto 0) := (others => '0');
     signal clken_zero       :   std_logic;
     signal pixen_prescale   :   unsigned(1 downto 0);
     signal pixen_counter    :   unsigned(3 downto 0);

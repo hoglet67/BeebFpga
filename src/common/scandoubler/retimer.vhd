@@ -30,9 +30,9 @@ entity retimer is
         clken_out : in  std_logic;
         hs_out    : out std_logic;
         vs_out    : out std_logic;
-        r_out     : out std_logic_vector(WIDTH - 1 downto 0);
-        g_out     : out std_logic_vector(WIDTH - 1 downto 0);
-        b_out     : out std_logic_vector(WIDTH - 1 downto 0)
+        r_out     : out std_logic_vector(WIDTH - 1 downto 0) := (others => '0');
+        g_out     : out std_logic_vector(WIDTH - 1 downto 0) := (others => '0');
+        b_out     : out std_logic_vector(WIDTH - 1 downto 0) := (others => '0')
 
     );
 end entity;
@@ -106,16 +106,16 @@ architecture rtl of retimer is
 
     type ram_type is array (2047 downto 0) of std_logic_vector (WIDTH * 3 - 1 downto 0);
 
-    signal line_buffer : ram_type;
-    signal addr_in     : std_logic_vector(9 downto 0);
+    signal line_buffer : ram_type := (others => (others => '0'));
+    signal addr_in     : std_logic_vector(9 downto 0) := (others => '0');
     signal addr_out    : std_logic_vector(9 downto 0);
-    signal hs_in1      : std_logic;
-    signal bank        : std_logic;
-    signal hs_out1     : std_logic;
-    signal hs_out2     : std_logic;
-    signal vs_out1     : std_logic;
-    signal vs_out2     : std_logic;
-    signal rgb_out     : std_logic_vector (WIDTH * 3 - 1 downto 0);
+    signal hs_in1      : std_logic := '0';
+    signal bank        : std_logic := '0';
+    signal hs_out1     : std_logic := '0';
+    signal hs_out2     : std_logic := '0';
+    signal vs_out1     : std_logic := '0';
+    signal vs_out2     : std_logic := '0';
+    signal rgb_out     : std_logic_vector (WIDTH * 3 - 1 downto 0) := (others => '0');
 
 begin
 

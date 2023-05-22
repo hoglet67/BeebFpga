@@ -119,7 +119,7 @@ architecture rtl of vidproc_orig is
 -- Internal clock enable generation
     signal clken_pixel      :   std_logic;
     signal clken_fetch      :   std_logic;
-    signal clken_counter    :   unsigned(3 downto 0);
+    signal clken_counter    :   unsigned(3 downto 0) := (others => '0');
 
 -- Cursor generation - can span up to 32 pixels
 -- Segments 0 and 1 are 8 pixels wide

@@ -61,7 +61,9 @@ generic (
         IncludeVideoNuLA   : boolean := false;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := true;
-        UseAlanDCore       : boolean := false
+        UseAlanDCore       : boolean := false;
+        PRJ_ROOT           : string := "../../..";
+        SIM                : boolean := false
 );
 port (
         clock_27        : in    std_logic;
@@ -103,6 +105,15 @@ end entity;
 
 architecture rtl of bbc_micro_tang9k is
 
+function RESETBITS return natural is
+begin
+    if SIM then
+        return 10;
+    else
+        return 15;
+    end if;
+end function;
+
 -------------
 -- Signals
 -------------
@@ -116,7 +127,7 @@ signal audio_l         : std_logic_vector(15 downto 0);
 signal audio_r         : std_logic_vector(15 downto 0);
 signal powerup_reset_n : std_logic;
 signal hard_reset_n    : std_logic;
-signal reset_counter   : std_logic_vector(15 downto 0);
+signal reset_counter   : std_logic_vector(RESETBITS downto 0);
 
 signal pll_reset       : std_logic;
 signal pll_locked      : std_logic;
@@ -525,6 +536,9 @@ vga_b <= i_VGA_B(i_VGA_B'high);
 
    
 e_mem: entity work.mem_tang_9k
+generic map (
+    PRJ_ROOT => PRJ_ROOT
+)
 port map (
    CLK_96         => clock_96,
    CLK_96_P       => clock_96_p,

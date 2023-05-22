@@ -61,3 +61,4 @@ firmware/version.asm
 **/impl/gwsynthesis
 **/impl/temp
 
+**/vunit_out

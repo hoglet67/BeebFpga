@@ -9,6 +9,9 @@ use work.psram_pack.all;
 
 -- Generic top-level entity for Altera DE1 board
 entity mem_tang_9k is
+generic (
+      PRJ_ROOT : string
+   );
 port(
    CLK_96         : in  std_logic;
    CLK_96_P    : in  std_logic;
@@ -53,7 +56,7 @@ architecture rtl of mem_tang_9k is
       return arr;
    end function;
 
-   signal r_mem_rom : mem_mos_t := MEM_INIT_FILE("../../../roms/bbcb/os12.bit");
+   signal r_mem_rom : mem_mos_t := MEM_INIT_FILE(PRJ_ROOT & "/roms/bbcb/os12.bit");
 
    type mem_ram_t is array(0 to 16383) of std_logic_vector(7 downto 0);
 

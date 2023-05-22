@@ -5,7 +5,7 @@
     <Version>5</Version>
     <Device name="GW1NR-9C" pn="GW1NR-LV9QN88PC6/I5">gw1nr9c-004</Device>
     <FileList>
-        <File path="src/psram_controller.v" type="file.verilog" enable="1"/>
+        <File path="src/psram_controller.vhd" type="file.verilog" enable="1"/>
         <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/AlanD/R65Cx2.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/SID/sid_coeffs.vhd" type="file.vhdl" enable="1"/>

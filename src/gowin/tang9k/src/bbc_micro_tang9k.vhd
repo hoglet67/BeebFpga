@@ -63,6 +63,7 @@ generic (
         UseT65Core         : boolean := true;
         UseAlanDCore       : boolean := false;
         PRJ_ROOT           : string := "../../..";
+        MOS_NAME           : string := "/roms/bbcb/os12.bit";
         SIM                : boolean := false
 );
 port (
@@ -135,11 +136,13 @@ signal pll_locked      : std_logic;
 signal pcm_inl         : std_logic_vector(15 downto 0);
 signal pcm_inr         : std_logic_vector(15 downto 0);
 
+signal ext_A_stb       : std_logic;
 signal ext_A           : std_logic_vector (18 downto 0);
 signal ext_Din         : std_logic_vector (7 downto 0);
 signal ext_Dout        : std_logic_vector (7 downto 0);
 signal ext_nCS         : std_logic;
 signal ext_nWE         : std_logic;
+signal ext_nWE_long    : std_logic;
 signal ext_nOE         : std_logic;
 
 signal keyb_dip        : std_logic_vector(7 downto 0);
@@ -261,8 +264,10 @@ vga_b <= i_VGA_B(i_VGA_B'high);
             audio_r        => audio_r,
             ext_nOE        => ext_nOE,
             ext_nWE        => ext_nWE,
+            ext_nWE_long   => ext_nWE_long,
             ext_nCS        => ext_nCS,
             ext_A          => ext_A,
+            ext_A_stb      => ext_A_stb,
             ext_Dout       => ext_Dout,
             ext_Din        => ext_Din,
             SDMISO         => tf_miso,
@@ -537,7 +542,8 @@ vga_b <= i_VGA_B(i_VGA_B'high);
    
 e_mem: entity work.mem_tang_9k
 generic map (
-    PRJ_ROOT => PRJ_ROOT
+    PRJ_ROOT => PRJ_ROOT,
+    MOS_NAME => MOS_NAME
 )
 port map (
    CLK_96         => clock_96,
@@ -545,11 +551,12 @@ port map (
    RST_n          => powerup_reset_n,
    READY          => mem_ready,
    CLK_48         => clock_48,
+   ext_A_stb      => ext_A_stb,
    ext_A          => ext_A,
    ext_Din        => ext_Din,
    ext_Dout       => ext_Dout,
    ext_nCS        => ext_nCS,
-   ext_nWE        => ext_nWE,
+   ext_nWE        => ext_nWE_long,
    ext_nOE        => ext_nOE,
 
    O_psram_ck     => O_psram_ck,

@@ -5,36 +5,36 @@
     <Version>5</Version>
     <Device name="GW1NR-9C" pn="GW1NR-LV9QN88PC6/I5">gw1nr9c-004</Device>
     <FileList>
-        <File path="src/psram_controller.vhd" type="file.verilog" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/AlanD/R65Cx2.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/SID/sid_coeffs.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/SID/sid_components.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/SID/sid_filters.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/SID/sid_voice.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/T65/T65.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/T65/T65_ALU.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/T65/T65_MCode.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/T65/T65_Pack.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/bbc_micro_core.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/keyboard.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/m6522.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/mc6845.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/mouse/ps2interface.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/mouse/quadrature_controller.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/mouse/quadrature_fsm.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/rtc.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/saa5050.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/scandoubler/mist_scandoubler.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/scandoubler/retimer.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/scandoubler/rgb2vga_dpram.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/scandoubler/rgb2vga_scandoubler.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/sn76489.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/spi.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/upd7002.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/vidproc.vhd" type="file.vhdl" enable="1"/>
-        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga/src/common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/psram_controller.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/AlanD/R65Cx2.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/SID/sid_coeffs.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/SID/sid_components.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/SID/sid_filters.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/SID/sid_voice.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/T65/T65.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/T65/T65_ALU.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/T65/T65_MCode.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/T65/T65_Pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/bbc_micro_core.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/keyboard.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/m6522.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/mc6845.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/mouse/ps2interface.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/mouse/quadrature_controller.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/mouse/quadrature_fsm.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/rtc.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/saa5050.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/scandoubler/mist_scandoubler.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/scandoubler/retimer.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/scandoubler/rgb2vga_dpram.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/scandoubler/rgb2vga_scandoubler.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/sn76489.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/spi.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/upd7002.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/vidproc.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang9k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/gowin_rpll1/gowin_rpll1.vhd" type="file.vhdl" enable="1"/>
         <File path="src/mem_tang_9k.vhd" type="file.vhdl" enable="1"/>

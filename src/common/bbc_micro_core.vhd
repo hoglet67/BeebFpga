@@ -109,8 +109,10 @@ entity bbc_micro_core is
 
         -- External memory (e.g. SRAM and/or FLASH)
         -- 512KB logical address space
+        ext_A_stb      : out   std_logic;
         ext_nOE        : out   std_logic;
         ext_nWE        : out   std_logic;
+        ext_nWE_long   : out   std_logic;
         ext_nCS        : out   std_logic;
         ext_A          : out   std_logic_vector (18 downto 0);
         ext_Dout       : in    std_logic_vector (7 downto 0);
@@ -1430,6 +1432,7 @@ begin
     begin
         if rising_edge(clock_48) then
 
+
             -- Divide 48MHz by 8 to get 6MHz and 12MHz
             div8_counter <= div8_counter + 1;
 
@@ -1538,19 +1541,22 @@ begin
             end if;
 
             -- CPU memory cycle
-            if clken_counter(2 downto 1) = "01" then
+            if (clken_counter(2 downto 1) = "01") or 
+               (clken_counter(2) = '0' and not IncludeCoPro6502) then
                 cpu_mem_cycle <= '1';
                 -- Latch read data at the end of the cycle
-                if div3_counter = 2 and clken_counter(0) = '1' then
-                    -- This is only held for one tick, so likely could be eliminated
+                -- DB: do we need the timing logic, just do it every cycle?
+--                if div3_counter = 2 and clken_counter(2 downto 0) = "011" then
+--                    -- This is only held for one tick, so likely could be eliminated
                     cpu_mem_data <= ext_Dout;
-                end if;
+--                end if;
             else
                 cpu_mem_cycle <= '0';
             end if;
 
             -- Video memory cycle
-            if clken_counter(2 downto 1) = "11" then
+            if (clken_counter(2 downto 1) = "11") or
+               (clken_counter(2) = '1' and not IncludeCoPro6502) then
                 vid_mem_cycle <= '1';
                 -- Latch read data at the end of the cycle
                 if div3_counter = 2 and clken_counter(0) = '1' then
@@ -1561,7 +1567,7 @@ begin
             end if;
 
             -- Tube memory cycle
-            if clken_counter(1) = '0' then
+            if clken_counter(1) = '0' and IncludeCoPro6502 then
                 tube_mem_cycle <= '1';
                 -- Latch read data at the end of the cycle
                 if div3_counter = 2 and clken_counter(0) = '1' then
@@ -1569,6 +1575,13 @@ begin
                 end if;
             else
                 tube_mem_cycle <= '0';
+            end if;
+
+            if div3_counter = 1 and clken_counter(0) = '0' and 
+                (clken_counter(1) = '0' or IncludeCoPro6502) then
+                ext_A_stb <= '1';
+            else
+                ext_A_stb <= '0';
             end if;
 
             -- Control timing of the Ram write, mid cycle
@@ -1793,7 +1806,6 @@ begin
     cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
                  not ((not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
-    ext_nCS <= '0';
 
     -- Synchronous outputs to External Memory
 
@@ -1848,14 +1860,18 @@ begin
         if hard_reset_n = '0' then
             ext_nOE <= '1';
             ext_nWE <= '1';
+            ext_nWE_long <= '1';
             ext_Din <= (others => '0');
             ext_A   <= (others => '0');
+            ext_nCS <= '1';
         elsif rising_edge(clock_48) then
             -- Tri-stating of RAM data has been pushed up a level
             ext_Din  <= cpu_do;
             -- Default to reading RAM
             ext_nWE  <= '1';
+            ext_nWE_long <= '1';
             ext_nOE  <= '0';
+            ext_nCS  <= '1';
             -- Register SRAM signals to outputs (clock must be at least 2x CPU clock)
             if vid_mem_cycle = '1' then
                 -- Fetch data from previous display cycle
@@ -1866,19 +1882,24 @@ begin
                     -- Model B
                     ext_A <= "1100" & display_a;
                 end if;
-            elsif IncludeCoPro6502 and tube_mem_cycle = '1' then
+                ext_nCS <= '0';
+            elsif tube_mem_cycle = '1' and IncludeCoPro6502 then
                 -- The Co Processor has access to the memory system on cycles 3, 11, 19, 27
                 ext_Din <= tube_ram_data_in;
                 ext_nWE <= not (tube_ram_wr and mem_write_strobe);
+                ext_nWE_long <= not (tube_ram_wr);
                 ext_nOE <= tube_ram_wr;
+                ext_nCS <= '0';
                 ext_A   <= "100" & tube_ram_addr;
             else
+                ext_nCS <= '0';
                 -- Fetch data from previous CPU cycle
                 if rom_enable = '1' then
                     if m128_mode = '1' and cpu_a(15 downto 12) = "1000" and romsel(7) = '1' then
                         -- Master 128, RAM bit maps 8000-8FFF as private RAM
                         ext_A   <= "1101000" & cpu_a(11 downto 0);
                         ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
+                        ext_nWE_long <= cpu_r_nw;
                         ext_nOE <= not cpu_r_nw;
                     else
                         case romsel(3 downto 2) is
@@ -1889,6 +1910,7 @@ begin
                                 -- ROM slots 4,5,6,7 are writeable on the Beeb and Master
                                 ext_A <= "101" & romsel(1 downto 0) & cpu_a(13 downto 0);
                                 ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
+                                ext_nWE_long <= cpu_r_nw;
                                 ext_nOE <= not cpu_r_nw;
                             when others =>
                                 if m128_mode = '0' and romsel(3 downto 0) = "1000" and cpu_a(13 downto 8) >= "110110" then
@@ -1896,6 +1918,7 @@ begin
                                     -- the SWRam version of MMFS in Beeb mode only
                                     ext_A <= "11100" & cpu_a(13 downto 0);
                                     ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
+                                    ext_nWE_long <= cpu_r_nw;
                                     ext_nOE <= not cpu_r_nw;
                                 else
                                     -- ROM slots 8,9,A,B,C,D,E,F are in ROM
@@ -1905,6 +1928,7 @@ begin
                         -- If bit 6 if ACCCON (&FE34) is set, make the ROMs writeable
                         if acc_tst = '1' then
                             ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
+                            ext_nWE_long <= cpu_r_nw;
                             ext_nOE <= not cpu_r_nw;
                         end if;
                     end if;
@@ -1913,6 +1937,7 @@ begin
                         -- Master 128, Y bit maps C000-DFFF as filing system RAM
                         ext_A   <= "11010" & cpu_a(12) & not cpu_a(12) & cpu_a(11 downto 0);
                         ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
+                        ext_nWE_long <= cpu_r_nw;
                         ext_nOE <= not cpu_r_nw;
                     else
                         -- Master OS 3.20 / Model B OS 1.20
@@ -1927,6 +1952,7 @@ begin
                         ext_A   <= "1100" & cpu_a(14 downto 0);
                     end if;
                     ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);
+                    ext_nWE_long <= cpu_r_nw;
                     ext_nOE <= not cpu_r_nw;
                 end if;
             end if;

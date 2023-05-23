@@ -14,7 +14,8 @@ entity test_tb is
    generic (
       runner_cfg : string;
       BOARD_CLOCK_FREQ : natural := 27000000;
-      PRJ_ROOT : string := "../../../../"
+      PRJ_ROOT : string := "../../../../";
+      MOS_NAME : string := "vunit_test/sim_asm/simple_mos/build/simple-mos.rom.bit"
       );
 end test_tb;
 
@@ -118,6 +119,7 @@ begin
         UseT65Core         => true,
         UseAlanDCore       => false,
         PRJ_ROOT           => PRJ_ROOT,
+        MOS_NAME           => MOS_NAME,
         SIM                => true
    )
    port map (

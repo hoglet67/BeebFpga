@@ -1,0 +1,48 @@
+ca65 V2.18 - Git edfda72a
+Main file   : simple-mos.asm
+Current file: simple-mos.asm
+
+000000r 1               ; (c) Dominic Beesley 2023
+000000r 1               ; a simple mos rom to exercise the PSRAM of the tangnano9k
+000000r 1               ; this replaces the regular MOS/BOOT rom and reads and writes a few
+000000r 1               ; addresses in PSRAM
+000000r 1               
+000000r 1               		.setcpu "6502X"
+000000r 1               
+000000r 1               vec_nmi		:=	$D00
+000000r 1               
+000000r 1               		.ZEROPAGE
+000000r 1               
+000000r 1               		.CODE
+000000r 1               
+000000r 1               mos_handle_res:
+000000r 1               
+000000r 1               	; tricky test rom prolg
+000000r 1  78           	sei
+000001r 1  D8           	cld
+000002r 1               
+000002r 1  A2 FF        	ldx	#$FF
+000004r 1  9A           	txs
+000005r 1               
+000005r 1  A2 05        	ldx	#5
+000007r 1  8A           @1:	txa
+000008r 1  9D 00 02     	sta	$200,X
+00000Br 1  CA           	dex
+00000Cr 1  D0 F9        	bne	@1
+00000Er 1               
+00000Er 1  A2 05        	ldx	#5
+000010r 1  BD 00 02     @2:	lda	$200,X
+000013r 1  CA           	dex
+000014r 1  D0 FA        	bne	@2
+000016r 1               
+000016r 1  4C rr rr     here:	jmp	here
+000019r 1               
+000019r 1               mos_handle_irq:
+000019r 1  40           		rti
+00001Ar 1               
+00001Ar 1               		.SEGMENT "VECTORS"
+000000r 1  00 0D        hanmi:  .addr   vec_nmi                         ; FFFA 00 0D                    ..
+000002r 1  rr rr        hares:  .addr   mos_handle_res                  ; FFFC CD D9                    ..
+000004r 1  rr rr        hairq:  .addr   mos_handle_irq                  ; FFFE 1C DC                    ..
+000006r 1               
+000006r 1               		.END

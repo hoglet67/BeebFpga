@@ -1,0 +1,13 @@
+al 000000 .__ZP_FILEOFFS__
+al 000000 .__ZP_LAST__
+al 000020 .__ZP_SIZE__
+al 000000 .__ZP_START__
+al 00FFFE .hairq
+al 00FFFC .hares
+al 00FFFA .hanmi
+al 00C019 .mos_handle_irq
+al 00C016 .here
+al 00C010 .@2
+al 00C007 .@1
+al 00C000 .mos_handle_res
+al 000D00 .vec_nmi

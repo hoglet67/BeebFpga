@@ -63,7 +63,7 @@ generic (
         UseT65Core         : boolean := true;
         UseAlanDCore       : boolean := false;
         PRJ_ROOT           : string := "../../..";
-        MOS_NAME           : string := "/roms/bbcb/os12.bit";
+        MOS_NAME           : string := "/roms/bbcb/os12_basic.bit";
         SIM                : boolean := false
 );
 port (

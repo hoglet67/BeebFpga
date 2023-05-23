@@ -40,7 +40,9 @@ end mem_tang_9k;
 
 architecture rtl of mem_tang_9k is
 
-   type mem_mos_t is array(0 to 16383) of std_logic_vector(7 downto 0);
+   constant ROMSIZE : natural := 32768;
+
+   type mem_mos_t is array(0 to ROMSIZE) of std_logic_vector(7 downto 0);
 
    impure function MEM_INIT_FILE(file_name:STRING) return mem_mos_t is
    FILE infile : text is in file_name;
@@ -49,7 +51,7 @@ architecture rtl of mem_tang_9k is
    variable count : integer;
    begin
       count := 0;
-      while not(endfile(infile)) and count < 16384 loop
+      while not(endfile(infile)) and count < ROMSIZE loop
          readline(infile, inl);
          read(inl, arr(count));
          count := count + 1;
@@ -113,7 +115,7 @@ begin
    begin
       if rising_edge(CLK_48) then
          if ext_A(18) = '0' then
-            ext_Dout <= r_mem_rom(to_integer(unsigned(ext_A(13 downto 0))));
+            ext_Dout <= r_mem_rom(to_integer(unsigned(ext_A(14 downto 0))));
          else
 --            ext_Dout <= r_mem_ram(to_integer(unsigned(ext_A(13 downto 0))));
             if ext_A(0) = '0' then

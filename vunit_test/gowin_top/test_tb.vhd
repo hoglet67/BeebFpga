@@ -8,6 +8,8 @@ use ieee.numeric_std.all;
 use ieee.std_logic_misc.all;
 use std.textio.all;
 
+library fmf;
+
 library work;
 
 entity test_tb is
@@ -53,7 +55,12 @@ architecture rtl of test_tb is
    signal i_O_psram_reset_n   : std_logic_vector(1 downto 0);
    signal i_O_psram_cs_n      : std_logic_vector(1 downto 0);
 
-   signal i_GSRI           : std_logic;
+   signal i_GSRI              : std_logic;
+
+   signal i_FLASH_CS          : std_logic;
+   signal i_FLASH_SI          : std_logic;
+   signal i_FLASH_CK          : std_logic;
+   signal i_FLASH_SO          : std_logic;
 
 begin
    p_clk:process
@@ -94,7 +101,7 @@ begin
 
          if run("write then read") then
    
-            wait for 500 us;
+            wait for 100000 us;
 
          end if;
 
@@ -115,6 +122,8 @@ begin
         IncludeCoProSPI    => false,
         IncludeCoProExt    => false,
         IncludeVideoNuLA   => false,
+        IncludeMinimal     => true,
+        IncludeBootStrap   => false,
         UseOrigKeyboard    => false,
         UseT65Core         => true,
         UseAlanDCore       => false,
@@ -151,7 +160,12 @@ begin
          IO_psram_rwds  => i_IO_psram_rwds,
          IO_psram_dq    => i_IO_psram_dq,
          O_psram_reset_n=> i_O_psram_reset_n,
-         O_psram_cs_n   => i_O_psram_cs_n
+         O_psram_cs_n   => i_O_psram_cs_n,
+
+         FLASH_CS       => i_FLASH_CS,
+         FLASH_SI       => i_FLASH_SI,
+         FLASH_CK       => i_FLASH_CK,
+         FLASH_SO       => i_FLASH_SO
     );
 
 
@@ -177,5 +191,26 @@ begin
    port map (
       GSRI => i_GSRI
       );
+
+
+   e_flash:entity fmf.s25fl032a
+   generic map (
+        mem_file_name       => PRJ_ROOT & "roms/rom_image_64K_beeb.hex",
+
+        UserPreload         => true,
+
+        tdevice_PU => 1 us
+
+    )
+    port map(
+        SCK             => i_FLASH_CK,
+        SI              => i_FLASH_SI,
+        CSNeg           => i_FLASH_CS,
+        HOLDNeg         => '1',
+        WNeg            => '0',
+        SO              => i_FLASH_SO
+    );
+
+   i_FLASH_SO <= 'H';
 
 end rtl;

@@ -35,10 +35,12 @@
         <File path="../../../src/common/upd7002.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/vidproc.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang9k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/gowin_rpll1/gowin_rpll1.vhd" type="file.vhdl" enable="1"/>
         <File path="src/mem_tang_9k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/psram_controller.cmp.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/bootstrap.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang9k.cst" type="file.cst" enable="1"/>
         <File path="src/bbc_micro_tang9k.sdc" type="file.sdc" enable="1"/>
     </FileList>

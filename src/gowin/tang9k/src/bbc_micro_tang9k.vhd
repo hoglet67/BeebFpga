@@ -51,56 +51,65 @@ use ieee.numeric_std.all;
 -- Generic top-level entity for Altera DE1 board
 entity bbc_micro_tang9k is
 generic (
-        IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := false;  -- The three co pro options
-        IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
-        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := false;
-        UseOrigKeyboard    : boolean := false;
-        UseT65Core         : boolean := true;
-        UseAlanDCore       : boolean := false;
-        PRJ_ROOT           : string := "../../..";
-        MOS_NAME           : string := "/roms/bbcb/os12_basic.bit";
-        SIM                : boolean := false
+   IncludeAMXMouse    : boolean := false;
+   IncludeSID         : boolean := false;
+   IncludeMusic5000   : boolean := false;
+   IncludeICEDebugger : boolean := false;
+   IncludeCoPro6502   : boolean := false;  -- The three co pro options
+   IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
+   IncludeCoProExt    : boolean := false; -- (i.e. select just one)
+   IncludeVideoNuLA   : boolean := false;
+   UseOrigKeyboard    : boolean := false;
+   UseT65Core         : boolean := true;
+   UseAlanDCore       : boolean := false;
+   IncludeBootStrap   : boolean := true;
+   IncludeMinimal     : boolean := true; -- Creates a build to test
+                                          -- 4x16K ROM Images
+   PRJ_ROOT           : string := "../../..";
+   MOS_NAME           : string := "/roms/bbcb/os12_basic.bit";
+   SIM                : boolean := false
 );
 port (
-        clock_27        : in    std_logic;
-        btn1_n          : in    std_logic;
-        btn2_n          : in    std_logic;
-        ps2_clk         : inout std_logic;
-        ps2_data        : inout std_logic;
-        ps2_mouse_clk   : inout std_logic;
-        ps2_mouse_data  : inout std_logic;
-        audiol          : out   std_logic;
-        audior          : out   std_logic;
-        tf_miso         : in    std_logic;
-        tf_cs           : out   std_logic;
-        tf_sclk         : out   std_logic;
-        tf_mosi         : out   std_logic;
-        uart_rx         : in    std_logic;
-        uart_tx         : out   std_logic;
-        led             : out   std_logic_vector (5 downto 0);
+   clock_27        : in    std_logic;
+   btn1_n          : in    std_logic;
+   btn2_n          : in    std_logic;
+   ps2_clk         : inout std_logic;
+   ps2_data        : inout std_logic;
+   ps2_mouse_clk   : inout std_logic;
+   ps2_mouse_data  : inout std_logic;
+   audiol          : out   std_logic;
+   audior          : out   std_logic;
+   tf_miso         : in    std_logic;
+   tf_cs           : out   std_logic;
+   tf_sclk         : out   std_logic;
+   tf_mosi         : out   std_logic;
+   uart_rx         : in    std_logic;
+   uart_tx         : out   std_logic;
+   led             : out   std_logic_vector (5 downto 0);
 ---        tmds_clk_p      : out   std_logic;
 ---        tmds_clk_n      : out   std_logic;
 ---        tmds_d_p        : out   std_logic_vector(2 downto 0);
 ---        tmds_d_n        : out   std_logic_vector(2 downto 0);
 
-        vga_r : out std_logic;
-        vga_b : out std_logic;
-        vga_g : out std_logic;
-        vga_hs: out std_logic;
-        vga_vs: out std_logic;
+   vga_r : out std_logic;
+   vga_b : out std_logic;
+   vga_g : out std_logic;
+   vga_hs: out std_logic;
+   vga_vs: out std_logic;
 
-         -- Magic ports for PSRAM to be inferred
-         O_psram_ck     : out    std_logic_vector(1 downto 0);
-         O_psram_ck_n   : out    std_logic_vector(1 downto 0);
-         IO_psram_rwds  : inout  std_logic_vector(1 downto 0);
-         IO_psram_dq    : inout  std_logic_vector(15 downto 0);
-         O_psram_reset_n: out    std_logic_vector(1 downto 0);
-         O_psram_cs_n   : out    std_logic_vector(1 downto 0)
+   -- Magic ports for PSRAM to be inferred
+   O_psram_ck     : out    std_logic_vector(1 downto 0);
+   O_psram_ck_n   : out    std_logic_vector(1 downto 0);
+   IO_psram_rwds  : inout  std_logic_vector(1 downto 0);
+   IO_psram_dq    : inout  std_logic_vector(15 downto 0);
+   O_psram_reset_n: out    std_logic_vector(1 downto 0);
+   O_psram_cs_n   : out    std_logic_vector(1 downto 0);
+
+   FLASH_CS          : out   std_logic;                     -- Active low FLASH chip select
+   FLASH_SI          : out   std_logic;                     -- Serial output to FLASH chip SI pin
+   FLASH_CK          : out   std_logic;                     -- FLASH clock
+   FLASH_SO          : in    std_logic                      -- Serial input from FLASH chip SO pin
+
     );
 end entity;
 
@@ -126,7 +135,7 @@ signal clock_96_p      : std_logic;
 signal mem_ready       : std_logic;
 signal audio_l         : std_logic_vector(15 downto 0);
 signal audio_r         : std_logic_vector(15 downto 0);
-signal powerup_reset_n : std_logic;
+signal powerup_reset_n : std_logic := '0';
 signal hard_reset_n    : std_logic;
 signal reset_counter   : std_logic_vector(RESETBITS downto 0);
 
@@ -542,28 +551,38 @@ vga_b <= i_VGA_B(i_VGA_B'high);
    
 e_mem: entity work.mem_tang_9k
 generic map (
+    SIM => SIM,
+    IncludeBootStrap => IncludeBootStrap,
+    IncludeMinimal => IncludeMinimal,
     PRJ_ROOT => PRJ_ROOT,
     MOS_NAME => MOS_NAME
 )
 port map (
+   m128_mode      => m128_mode,
    CLK_96         => clock_96,
    CLK_96_P       => clock_96_p,
    RST_n          => powerup_reset_n,
    READY          => mem_ready,
    CLK_48         => clock_48,
-   ext_A_stb      => ext_A_stb,
-   ext_A          => ext_A,
-   ext_Din        => ext_Din,
-   ext_Dout       => ext_Dout,
-   ext_nCS        => ext_nCS,
-   ext_nWE        => ext_nWE_long,
-   ext_nOE        => ext_nOE,
+   core_A_stb     => ext_A_stb,
+   core_A         => ext_A,
+   core_Din       => ext_Din,
+   core_Dout      => ext_Dout,
+   core_nCS       => ext_nCS,
+   core_nWE       => ext_nWE,
+   core_nWE_long  => ext_nWE_long,
+   core_nOE       => ext_nOE,
 
    O_psram_ck     => O_psram_ck,
    IO_psram_rwds  => IO_psram_rwds,
    IO_psram_dq    => IO_psram_dq,
    O_psram_cs_n   => O_psram_cs_n,
-   O_psram_reset_n=> O_psram_reset_n
+   O_psram_reset_n=> O_psram_reset_n,
+
+   FLASH_CS       => FLASH_CS,
+   FLASH_SI       => FLASH_SI,
+   FLASH_CK       => FLASH_CK,
+   FLASH_SO       => FLASH_SO
 
 );
 

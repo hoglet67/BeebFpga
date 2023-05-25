@@ -10,8 +10,9 @@ package psram_pack is
 component PsramController 
 generic (
     FREQ : positive := 81_000_000;	-- Actual clk frequency, to time 150us initialization delay
-    LATENCY : positive := 3       	-- tACC (Initial Latency) in W955D8MBYA datasheet:
+    LATENCY : positive := 3;       	-- tACC (Initial Latency) in W955D8MBYA datasheet:
                                     -- 3 (max 83Mhz), 4 (max 104Mhz), 5 (max 133Mhz) or 6 (max 166Mhz)
+    CS_DELAY: boolean
 );
 port(
    clk            : in     std_logic;

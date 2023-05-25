@@ -123,7 +123,7 @@ begin
         IncludeCoProExt    => false,
         IncludeVideoNuLA   => false,
         IncludeMinimal     => true,
-        IncludeBootStrap   => false,
+        IncludeBootStrap   => true,
         UseOrigKeyboard    => false,
         UseT65Core         => true,
         UseAlanDCore       => false,

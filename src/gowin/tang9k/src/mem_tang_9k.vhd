@@ -81,6 +81,7 @@ architecture rtl of mem_tang_9k is
    -- psram controller
    signal i_psram_cmd_read    : std_logic;
    signal i_psram_cmd_write   : std_logic;
+   signal i_psram_addr        : std_logic_vector(21 downto 0);
    signal i_psram_din         : std_logic_vector(15 downto 0);
    signal i_psram_dout        : std_logic_vector(15 downto 0);
    signal i_psram_busy        : std_logic;
@@ -145,7 +146,8 @@ begin
    e_psram:PsramController
    generic map (
       FREQ => 96000000,
-      LATENCY => 4
+      LATENCY => 4,
+      CS_DELAY => true
    )
    port map (
       clk         => CLK_96,
@@ -153,7 +155,7 @@ begin
       resetn      => rst_n,
       read        => i_psram_cmd_read,
       write       => i_psram_cmd_write,
-      addr        => "000" & i_X_A,
+      addr        => i_psram_addr,
       din         => i_PSRAM_Din,
       byte_write  => '1',                                                   
       dout        => i_psram_dout,
@@ -166,10 +168,16 @@ begin
 
    );
 
-   i_psram_cmd_read  <= not(i_X_nCS) and i_X_A_stb and not i_X_nOE;
-   i_psram_cmd_write <= not(i_X_nCS) and i_X_A_stb and not i_X_nWE_long;
-   
-   i_psram_din <= i_X_Din & i_X_Din;
+   --DB: TODO: eliminate if possible for latency, this required for timing closure
+   p_reg:process(CLK_96)
+   begin
+      if rising_edge(CLK_96) then
+         i_psram_cmd_read  <= not(i_X_nCS) and i_X_A_stb and not i_X_nOE;
+         i_psram_cmd_write <= not(i_X_nCS) and i_X_A_stb and not i_X_nWE_long;
+         i_psram_addr <= "000" & i_X_A;
+         i_psram_din <= i_X_Din & i_X_Din;
+      end if;
+   end process;
 
 
    p_reset:process(CLK_96, rst_n)

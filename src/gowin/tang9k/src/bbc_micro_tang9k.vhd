@@ -120,7 +120,7 @@ begin
     if SIM then
         return 10;
     else
-        return 15;
+        return 24; --DB: > 10ms for SPI to start up?
     end if;
 end function;
 

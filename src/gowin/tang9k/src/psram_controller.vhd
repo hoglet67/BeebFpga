@@ -16,8 +16,10 @@ use ieee.numeric_std.all;
 entity PsramController is
     generic (
         FREQ          : in integer := 96000000;               -- Actual clk frequency, to time 150us initialization delay
-        LATENCY       : in integer := 4                       -- tACC (Initial Latency) in W955D8MBYA datasheet:
-        );                                                    -- 3 (max 83Mhz), 4 (max 104Mhz), 5 (max 133Mhz) or 6 (max 166Mhz)
+        LATENCY       : in integer := 4;                      -- tACC (Initial Latency) in W955D8MBYA datasheet:
+                                                              -- 3 (max 83Mhz), 4 (max 104Mhz), 5 (max 133Mhz) or 6 (max 166Mhz)
+        CS_DELAY      : in boolean := false                   -- when true an extra cycle is inserted after CS is asserted before clocking starts
+    );
     port (
         clk           : in    std_logic;
         clk_p         : in    std_logic;                      -- phase-shifted clock for driving O_psram_ck
@@ -97,7 +99,7 @@ architecture behavioral of PsramController is
 
     signal CR_LATENCY : std_logic_vector(3 downto 0);
 
-    type state_type is (INIT_ST, CONFIG_ST, IDLE_ST, READ_ST, WRITE_ST, WRITE_STOP_ST);
+    type state_type is (INIT_ST, CONFIG_ST, IDLE_ST, CS_DELAY_ST, READ_ST, WRITE_ST, WRITE_STOP_ST);
 
     signal state              : state_type;
 
@@ -139,6 +141,8 @@ architecture behavioral of PsramController is
     
     signal i_write_cycle_active : std_logic;
 
+    signal r_cmd_save         : std_logic;
+
 begin
 
     assert LATENCY >= 3 and LATENCY <= 6 report "LATENCY must be >= 3 and <= 5";
@@ -169,11 +173,15 @@ begin
 
     -- Main FSM for HyperRAM read/write
     process (clk)
+    variable v_start_trans  : boolean;
+    variable v_my_cmd       : std_logic;
     begin
         if rising_edge(clk) then
             cycles_sr <= cycles_sr(cycles_sr'high-1 downto cycles_sr'low) & '0';
             dq_sr <= dq_sr(47 downto 0) & x"0000";          -- shift 16-bits each cycle
             ck_e_p <= ck_e;
+
+            v_start_trans := false;
 
             case state is
             when INIT_ST =>
@@ -200,21 +208,16 @@ begin
                 ck_e <= '0';
                 ram_cs_n <= '1';
                 if read = '1' or write = '1'then
-                    -- start read/write operation
-                    dq_sr <= (not write) & "0100000000000" & addr(21 downto 4) & "0000000000000" & addr(3 downto 1) & "0000010011010100";
-                    --       14-bit                          18-bit               13-bit           3-bit            total 48-bit CA
                     ram_cs_n <= '0';
-                    ck_e <= '1';
-                    dq_oen <= '0';
-                    wait_for_rd_data <= '0';
-                    w_din <= din;
-                    cycles_sr <= (1 => '1', others =>'0');    -- start from cycle 1
-                    if write = '1' then
-                        state <= WRITE_ST;
+                    r_cmd_save <= write;
+                    if CS_DELAY then
+                        state <= CS_DELAY_ST;
                     else
-                        state <= READ_ST;
+                        v_start_trans := true;
                     end if;
                 end if;
+            when CS_DELAY_ST =>
+                v_start_trans := true;
             when READ_ST =>
                 if cycles_sr(3) = '1' then
                     -- command sent, now wait for result
@@ -269,6 +272,28 @@ begin
                 additional_latency <= '0';
                 dout <= (others => '0');
             end if;
+
+            if v_start_trans then
+                if state = IDLE_ST then
+                    v_my_cmd := write;
+                else
+                    v_my_cmd := r_cmd_save;
+                end if;
+                -- start read/write operation
+                dq_sr <= (not v_my_cmd) & "0100000000000" & addr(21 downto 4) & "0000000000000" & addr(3 downto 1) & "0000010011010100";
+                --       14-bit                          18-bit               13-bit           3-bit            total 48-bit CA
+                ck_e <= '1';
+                dq_oen <= '0';
+                wait_for_rd_data <= '0';
+                w_din <= din;
+                cycles_sr <= (1 => '1', others =>'0');    -- start from cycle 1
+                if v_my_cmd = '1' then
+                    state <= WRITE_ST;
+                else
+                    state <= READ_ST;
+                end if;
+            end if;
+
         end if;
     end process;
 

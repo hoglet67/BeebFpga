@@ -434,6 +434,12 @@ signal cpu_do           :   std_logic_vector(7 downto 0);
 signal cpu_addr_us      :   unsigned (15 downto 0);
 signal cpu_dout_us      :   unsigned (7 downto 0);
 
+-- CPU probing
+attribute syn_probe: string;
+attribute syn_probe of cpu_di: signal is "probe_cpu_D";
+attribute syn_probe of cpu_r_nw: signal is "probe_cpu_RnW";
+attribute syn_probe of cpu_clken: signal is "probe_cpu_clken";
+
 -- CRTC signals
 signal crtc_clken       :   std_logic;
 signal crtc_do          :   std_logic_vector(7 downto 0);

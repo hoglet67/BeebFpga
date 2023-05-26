@@ -62,7 +62,7 @@ generic (
    UseOrigKeyboard    : boolean := false;
    UseT65Core         : boolean := true;
    UseAlanDCore       : boolean := false;
-   IncludeBootStrap   : boolean := true;
+   IncludeBootStrap   : boolean := false;
    IncludeMinimal     : boolean := true; -- Creates a build to test
                                           -- 4x16K ROM Images
    PRJ_ROOT           : string := "../../..";

@@ -364,10 +364,10 @@ vga_b <= i_VGA_B(i_VGA_B'high);
                 reset_counter <= reset_counter + 1;
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
+            hard_reset_n <= not (pll_reset or not pll_locked or not powerup_reset_n or not mem_ready);
         end if;
     end process;
 
-    hard_reset_n <= not (pll_reset or not pll_locked or not powerup_reset_n or not mem_ready);
 
 ---- DB: TODO: Get PWM/SigDelta from Blitter --- --------------------------------------------------------
 ---- DB: TODO: Get PWM/SigDelta from Blitter --- -- Audio DACs

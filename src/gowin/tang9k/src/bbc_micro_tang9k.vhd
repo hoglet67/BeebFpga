@@ -78,8 +78,6 @@ port (
    ps2_data        : inout std_logic;
    ps2_mouse_clk   : inout std_logic;
    ps2_mouse_data  : inout std_logic;
-   audiol          : out   std_logic;
-   audior          : out   std_logic;
    tf_miso         : in    std_logic;
    tf_cs           : out   std_logic;
    tf_sclk         : out   std_logic;
@@ -138,8 +136,14 @@ signal clock_48        : std_logic;
 signal clock_96        : std_logic;
 signal clock_96_p      : std_logic;
 signal mem_ready       : std_logic;
+
+signal dac_l_in        : std_logic_vector(9 downto 0);
+signal dac_r_in        : std_logic_vector(9 downto 0);
 signal audio_l         : std_logic_vector(15 downto 0);
 signal audio_r         : std_logic_vector(15 downto 0);
+signal audiol          : std_logic;
+signal audior          : std_logic;
+
 signal powerup_reset_n : std_logic := '0';
 signal hard_reset_n    : std_logic;
 signal reset_counter   : std_logic_vector(RESETBITS downto 0);
@@ -387,42 +391,36 @@ vga_b <= i_VGA_B(i_VGA_B'high);
     end process;
 
 
----- DB: TODO: Get PWM/SigDelta from Blitter --- --------------------------------------------------------
----- DB: TODO: Get PWM/SigDelta from Blitter --- -- Audio DACs
----- DB: TODO: Get PWM/SigDelta from Blitter --- --------------------------------------------------------
----- DB: TODO: Get PWM/SigDelta from Blitter --- 
----- DB: TODO: Get PWM/SigDelta from Blitter ---     i2s : entity work.i2s_intf
----- DB: TODO: Get PWM/SigDelta from Blitter ---         port map (
----- DB: TODO: Get PWM/SigDelta from Blitter ---             CLK         => clock_48,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             nRESET      => hard_reset_n,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             PCM_INL     => pcm_inl,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             PCM_INR     => pcm_inr,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             PCM_OUTL    => audio_l,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             PCM_OUTR    => audio_r,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             I2S_MCLK    => AUD_XCK,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             I2S_LRCLK   => AUD_DACLRCK,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             I2S_BCLK    => AUD_BCLK,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             I2S_DOUT    => AUD_DACDAT,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             I2S_DIN     => AUD_ADCDAT
----- DB: TODO: Get PWM/SigDelta from Blitter ---             );
----- DB: TODO: Get PWM/SigDelta from Blitter --- 
----- DB: TODO: Get PWM/SigDelta from Blitter ---     -- This is to avoid a possible conflict if the codec is in master mode
----- DB: TODO: Get PWM/SigDelta from Blitter ---     AUD_ADCLRCK <= 'Z';
----- DB: TODO: Get PWM/SigDelta from Blitter --- 
----- DB: TODO: Get PWM/SigDelta from Blitter ---     i2c : entity work.i2c_loader
----- DB: TODO: Get PWM/SigDelta from Blitter ---         generic map (
----- DB: TODO: Get PWM/SigDelta from Blitter ---             log2_divider => 7
----- DB: TODO: Get PWM/SigDelta from Blitter ---             )
----- DB: TODO: Get PWM/SigDelta from Blitter ---         port map (
----- DB: TODO: Get PWM/SigDelta from Blitter ---             CLK         => clock_48,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             nRESET      => hard_reset_n,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             I2C_SCL     => I2C_SCLK,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             I2C_SDA     => I2C_SDAT,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             IS_DONE     => is_done,
----- DB: TODO: Get PWM/SigDelta from Blitter ---             IS_ERROR    => is_error
----- DB: TODO: Get PWM/SigDelta from Blitter ---             );
----- DB: TODO: Get PWM/SigDelta from Blitter ---     LEDR(4) <= is_error;
----- DB: TODO: Get PWM/SigDelta from Blitter ---     LEDR(5) <= not is_done;
+--------------------------------------------------------
+-- Audio DACs
+--------------------------------------------------------
+
+    -- Convert from signed to unsigned
+    dac_l_in <= (not audio_l(15)) & audio_l(14 downto 6);
+    dac_r_in <= (not audio_r(15)) & audio_r(14 downto 6);
+
+    dac_l : entity work.pwm_sddac
+    generic map (
+        msbi_g => 9
+    )
+    port map (
+        clk_i => clock_48,
+        reset => '0',
+        dac_i => dac_l_in,
+        dac_o => audiol
+    );
+
+    dac_r : entity work.pwm_sddac
+    generic map (
+        msbi_g => 9
+    )
+    port map (
+        clk_i => clock_48,
+        reset => '0',
+        dac_i => dac_r_in,
+        dac_o => audior
+    );
+
 
 --- DB: -----------------------------------------------------------
 --- DB: ----- Map external memory bus to SRAM/FLASH
@@ -566,7 +564,7 @@ vga_b <= i_VGA_B(i_VGA_B'high);
 --- DB ---    GPIO_0(31 downto 15) <= (others => 'Z');
 --- DB ---    GPIO_0(13 downto 0)  <= (others => 'Z');
 
-   
+
 e_mem: entity work.mem_tang_9k
 generic map (
     SIM => SIM,

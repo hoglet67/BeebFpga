@@ -189,9 +189,7 @@ begin
          if i_psram_busy = '0' then
             i_bootstrap_reset_n <= '1';
          end if;
-         if i_psram_busy = '0' and i_bootstrap_busy = '0' then
-            READY <= '1';
-         end if;
+         READY <= not i_bootstrap_busy;
       end if;
    end process;   
 

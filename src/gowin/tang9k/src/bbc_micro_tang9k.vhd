@@ -105,10 +105,14 @@ port (
    O_psram_reset_n: out    std_logic_vector(1 downto 0);
    O_psram_cs_n   : out    std_logic_vector(1 downto 0);
 
-   FLASH_CS          : out   std_logic;                     -- Active low FLASH chip select
-   FLASH_SI          : out   std_logic;                     -- Serial output to FLASH chip SI pin
-   FLASH_CK          : out   std_logic;                     -- FLASH clock
-   FLASH_SO          : in    std_logic                      -- Serial input from FLASH chip SO pin
+   -- A general purpose 12-bit bus, that we can use for several functions
+   -- such as 6502 tracing
+   gpio           : out    std_logic_vector(13 downto 0);
+
+   flash_cs       : out   std_logic;                     -- Active low FLASH chip select
+   flash_si       : out   std_logic;                     -- Serial output to FLASH chip SI pin
+   flash_ck       : out   std_logic;                     -- FLASH clock
+   flash_so       : in    std_logic                      -- Serial input from FLASH chip SO pin
 
     );
 end entity;
@@ -202,6 +206,13 @@ signal i_VGA_B          : std_logic_vector(3 downto 0);
 
 -- A registered version to allow slow flash to be used
 signal ext_A_r         : std_logic_vector (18 downto 0);
+
+-- CPU tracing
+signal trace_data      :   std_logic_vector(7 downto 0);
+signal trace_r_nw      :   std_logic;
+signal trace_sync      :   std_logic;
+signal trace_rstn      :   std_logic;
+signal trace_phi2      :   std_logic;
 
 function hex_to_seven_seg(hex: std_logic_vector(3 downto 0))
         return std_logic_vector
@@ -318,6 +329,11 @@ vga_b <= i_VGA_B(i_VGA_B'high);
             ext_tube_a     => ext_tube_a,
             ext_tube_di    => ext_tube_di,
             ext_tube_do    => ext_tube_do,
+            trace_data     => trace_data,
+            trace_r_nw     => trace_r_nw,
+            trace_sync     => trace_sync,
+            trace_rstn     => trace_rstn,
+            trace_phi2     => trace_phi2,
             test           => test
         );
 
@@ -579,11 +595,13 @@ port map (
    O_psram_cs_n   => O_psram_cs_n,
    O_psram_reset_n=> O_psram_reset_n,
 
-   FLASH_CS       => FLASH_CS,
-   FLASH_SI       => FLASH_SI,
-   FLASH_CK       => FLASH_CK,
-   FLASH_SO       => FLASH_SO
+   FLASH_CS       => flash_cs,
+   FLASH_SI       => flash_si,
+   FLASH_CK       => flash_ck,
+   FLASH_SO       => flash_so
 
 );
+
+gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & trace_data;
 
 end architecture;

@@ -202,6 +202,13 @@ entity bbc_micro_core is
         ext_tube_di    : out   std_logic_vector(7 downto 0);
         ext_tube_do    : in    std_logic_vector(7 downto 0) := x"FE";
 
+        -- 6502 tracing outputs
+        trace_data     : out   std_logic_vector(7 downto 0);
+        trace_r_nw     : out   std_logic;
+        trace_sync     : out   std_logic;
+        trace_rstn     : out   std_logic;
+        trace_phi2     : out   std_logic;
+        
         -- Test outputs
         test           : out   std_logic_vector(7 downto 0)
 
@@ -433,12 +440,6 @@ signal cpu_di           :   std_logic_vector(7 downto 0);
 signal cpu_do           :   std_logic_vector(7 downto 0);
 signal cpu_addr_us      :   unsigned (15 downto 0);
 signal cpu_dout_us      :   unsigned (7 downto 0);
-
--- CPU probing
-attribute syn_probe: string;
-attribute syn_probe of cpu_di: signal is "probe_cpu_D";
-attribute syn_probe of cpu_r_nw: signal is "probe_cpu_RnW";
-attribute syn_probe of cpu_clken: signal is "probe_cpu_clken";
 
 -- CRTC signals
 signal crtc_clken       :   std_logic;
@@ -2371,6 +2372,26 @@ begin
     -- Debugging output
     cpu_addr <= cpu_a(15 downto 0);
 
+    -- 6502 trace outputs
+    process(clock_48)
+        variable p_delay : std_logic_vector(11 downto 0);
+    begin
+        if rising_edge(clock_48) then
+            if cpu_clken = '1' then
+                trace_data <= cpu_di when cpu_r_nw = '1' else cpu_do;
+                trace_r_nw <= cpu_r_nw;
+                trace_sync <= cpu_sync;
+                trace_rstn <= reset_n;
+            end if;
+            -- generate an 12 cycle wide fake phi2 pulse with the falling edge 12 cycles after cpu_clken
+            trace_phi2 <= p_delay(0) or p_delay(1) or p_delay(2)  or p_delay(3) or
+                          p_delay(4) or p_delay(5) or p_delay(6)  or p_delay(7) or
+                          p_delay(8) or p_delay(9) or p_delay(10) or p_delay(11);
+            -- delayed versions of cpu_clken
+            p_delay := cpu_clken & p_delay(11 downto 1);
+        end if;     
+    end process;    
+    
     -- Test output
     test <= crtc_vsync & crtc_hsync & crtc_ra(0) & crtc_enable & crtc_test(3 downto 0);
 

@@ -52,6 +52,7 @@ use ieee.numeric_std.all;
 entity bbc_micro_tang9k is
 generic (
    IncludeAMXMouse    : boolean := false;
+   IncludeSPISD       : boolean := true;
    IncludeSID         : boolean := false;
    IncludeMusic5000   : boolean := false;
    IncludeICEDebugger : boolean := false;
@@ -253,6 +254,7 @@ vga_b <= i_VGA_B(i_VGA_B'high);
     bbc_micro : entity work.bbc_micro_core
         generic map (
             IncludeAMXMouse    => IncludeAMXMouse,
+            IncludeSPISD       => IncludeSPISD,
             IncludeSID         => IncludeSID,
             IncludeMusic5000   => IncludeMusic5000,
             IncludeICEDebugger => IncludeICEDebugger,

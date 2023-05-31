@@ -169,15 +169,15 @@ begin
    );
 
    --DB: TODO: eliminate if possible for latency, this required for timing closure
---   p_reg:process(CLK_96)
---   begin
---      if rising_edge(CLK_96) then
+   p_reg:process(CLK_96)
+   begin
+      if rising_edge(CLK_96) then
          i_psram_cmd_read  <= not(i_X_nCS) and i_X_A_stb and not i_X_nOE;
          i_psram_cmd_write <= not(i_X_nCS) and i_X_A_stb and not i_X_nWE_long;
          i_psram_addr <= "000" & i_X_A;
          i_psram_din <= i_X_Din & i_X_Din;
---      end if;
---   end process;
+      end if;
+   end process;
 
 
    p_reset:process(CLK_96, rst_n)
@@ -280,6 +280,8 @@ begin
          end if;
       end process;
    end generate;
+
+   O_psram_reset_n <= rst_n & rst_n;
 
 end rtl;
 

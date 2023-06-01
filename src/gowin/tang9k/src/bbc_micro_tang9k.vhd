@@ -345,7 +345,7 @@ vga_b <= i_VGA_B(i_VGA_B'high);
 
 
     m128_mode      <= '0';       --DB: Model B
-    vid_mode       <= "0000";    --DB: 15kHz for now
+    vid_mode       <= "0011";    --DB: 15kHz for now
     copro_mode     <= '0';       --DB: ?
     keyb_dip       <= "00000000";--DB: ?;
 

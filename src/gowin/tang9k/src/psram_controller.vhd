@@ -258,7 +258,7 @@ begin
                     dq_sr(63 downto 48) <= w_din;
                     state <= WRITE_STOP_ST;
                 end if;
-            when WRITE_STOP_ST =>
+            when others =>
                 rwds_oen <= '1';
                 ram_cs_n <= '1';
                 ck_e <= '0';

@@ -94,7 +94,7 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/xilinx/hdmi/hdmidataencoder.v">
+      <File Path="$PPRDIR/../../src/common/hdmi/hdmidataencoder.v">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
@@ -640,25 +640,25 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/xilinx/hdmi/hdmidelay.vhd">
+      <File Path="$PPRDIR/../../src/common/hdmi/hdmidelay.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/xilinx/hdmi/encoder.vhd">
+      <File Path="$PPRDIR/../../src/common/hdmi/encoder.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/xilinx/hdmi/hdmi.vhd">
+      <File Path="$PPRDIR/../../src/common/hdmi/hdmi.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/xilinx/hdmi/hdmi_out_xilinx.vhd">
+      <File Path="$PPRDIR/../../src/xilinx/hdmi_out_xilinx.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>

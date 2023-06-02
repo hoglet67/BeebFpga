@@ -157,7 +157,7 @@ begin
       subpacket[1]=audioRegenPacket;
       subpacket[2]=audioRegenPacket;
       subpacket[3]=audioRegenPacket;
-      _timer <= _timer - CTS + 1;
+      _timer = _timer - CTS + 1;
    end else begin
       if (!oddLine) begin
          packetHeader=24'h0D0282;  // infoframe AVI packet
@@ -259,7 +259,7 @@ begin
       tercData=0;
    end
 
-   ctsTimer <= ctsTimer + 1;
+   ctsTimer = ctsTimer + 1;
 
    if((prevBlank == 0) && (i_blank == 1))
       firstHSyncChange <= 1;

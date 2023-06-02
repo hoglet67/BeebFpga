@@ -65,6 +65,8 @@ entity bbc_micro_core is
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
         IncludeVideoNuLA   : boolean := false;
+        IncludeHDMI        : boolean := false;
+        IncludeTrace       : boolean := false;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true;
@@ -156,8 +158,6 @@ entity bbc_micro_core is
         -- Bit 3 inverts vsync
         vid_mode       : in    std_logic_vector(3 downto 0);
 
-        -- Hint that a wide aspect ratio should be used (e.g to stretch mode 7)
-        aspect_wide    : out   std_logic;
 
         -- Main Joystick and Secondary Joystick
         -- Bit 0 - Up (active low)
@@ -208,7 +208,15 @@ entity bbc_micro_core is
         trace_sync     : out   std_logic;
         trace_rstn     : out   std_logic;
         trace_phi2     : out   std_logic;
-        
+
+        -- HDMI Video
+        hdmi_aspect    : in    std_logic_vector(1 downto 0) := "00";
+        hdmi_audio_en  : in    std_logic := '0';
+        vid_debug      : in    std_logic := '0';
+        tmds_r         : out   std_logic_vector(9 downto 0);
+        tmds_g         : out   std_logic_vector(9 downto 0);
+        tmds_b         : out   std_logic_vector(9 downto 0);
+
         -- Test outputs
         test           : out   std_logic_vector(7 downto 0)
 
@@ -501,6 +509,21 @@ signal hsync_int        :   std_logic;
 signal final_r          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal final_g          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal final_b          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+
+-- HDMI signals
+signal hsync1           :   std_logic;
+signal vsync1           :   std_logic;
+signal hcnt             :   std_logic_vector(9 downto 0);
+signal vcnt             :   std_logic_vector(9 downto 0);
+signal hdmi_aspect_169  :   std_logic;
+signal hdmi_red         :   std_logic_vector(3 downto 0);
+signal hdmi_green       :   std_logic_vector(3 downto 0);
+signal hdmi_blue        :   std_logic_vector(3 downto 0);
+signal hdmi_hsync       :   std_logic;
+signal hdmi_vsync       :   std_logic;
+signal hdmi_blank       :   std_logic;
+signal audio_l_int      :   std_logic_vector (15 downto 0);
+signal audio_r_int      :   std_logic_vector (15 downto 0);
 
 -- SAA5050 signals
 signal ttxt_data        :   std_logic_vector(6 downto 0);
@@ -1365,9 +1388,11 @@ begin
             l := l + music5000_ao_l;
             r := r + music5000_ao_r;
         end if;
-        audio_l <= l;
-        audio_r <= r;
+        audio_l_int <= l;
+        audio_r_int <= r;
     end process;
+    audio_l <= audio_l_int;
+    audio_r <= audio_r_int;
 
 --------------------------------------------------------
 -- Reset generation
@@ -1548,7 +1573,7 @@ begin
             end if;
 
             -- CPU memory cycle
-            if (clken_counter(2 downto 1) = "01") or 
+            if (clken_counter(2 downto 1) = "01") or
                (clken_counter(2) = '0' and not IncludeCoPro6502) then
                 cpu_mem_cycle <= '1';
                 -- Latch read data at the end of the cycle
@@ -1584,7 +1609,7 @@ begin
                 tube_mem_cycle <= '0';
             end if;
 
-            if div3_counter = 1 and clken_counter(0) = '0' and 
+            if div3_counter = 1 and clken_counter(0) = '0' and
                 (clken_counter(1) = '0' or IncludeCoPro6502) then
                 ext_A_stb <= '1';
             else
@@ -2240,10 +2265,6 @@ begin
     -- 10 (VGA)     MistSD    (32MHz)   MistSD    (24MHz)   Mist SD            (24MHz)
     -- 11 (VGA)     MistSD    (32Mhz)   MistSD    (24MHz)   SAA5050VGA         (24MHz)
 
-    --- Indicate to the parent module when a 12MHz Pixel Clock is being used
-    -- e.g. for HDMI aspect ratio switching
-    aspect_wide <= mhz12_active;
-
     -- The SAA5050 24MHz VGA mode is enabled
     vga_mode <= '1' when (vid_mode(0) = '1' and ttxt_active = '1') else '0';
 
@@ -2300,6 +2321,130 @@ begin
         video_red   <= (others => final_r(0));
         video_green <= (others => final_g(0));
         video_blue  <= (others => final_b(0));
+    end generate;
+
+
+--------------------------------------------------------
+-- HDMI
+--------------------------------------------------------
+
+    GenHDMI: if IncludeHDMI generate
+
+        -- Recreate the video sync/blank signals that match standard HDTV 720x576p
+        --
+        -- Modeline "720x576 @ 50hz"  27    720   732   796   864   576   581   586   625
+        --
+        -- Hcnt is set to 0 on the trailing edge of hsync from the Beeb core
+        -- so the H constants below need to be offset by 864-796=68
+        --
+        -- Vcnt is set to 0 on the trailing edge of vsync from the Beeb core
+        -- so the V constants below need to be offset by 625-586=39
+        --
+        -- This only works because the Beeb core is generating 32us lines
+        --
+        -- The hdmidataencode module inserts a two 32 pixel data packets after the
+        -- first edge of hsync. The hsync pluse + back porch needs to be at least
+        -- this width. There are also min requirements on the size of control
+        -- islands of 12 pixels.
+
+        process(clock_27)
+            variable voffset : integer;
+            variable vsize   : integer;
+        begin
+            if rising_edge(clock_27) then
+                hsync1 <= hsync_int;
+                if hsync1 = '0' and hsync_int = '1' then
+                    hcnt <= (others => '0');
+                    vsync1 <= vsync_int;
+                    if vsync1 = '0' and vsync_int = '1' then
+                        vcnt <= (others => '0');
+                    else
+                        vcnt <= vcnt + 1;
+                    end if;
+                else
+                    hcnt <= hcnt + 1;
+                end if;
+                if hdmi_audio_en = '1' then
+                    voffset := 39;
+                    vsize   := 576;
+                else
+                    voffset := 55;
+                    vsize   := 540;
+                end if;
+                if hcnt < 68 or hcnt >= 68 + 720 or vcnt < voffset or vcnt >= voffset + vsize then
+                    hdmi_blank <= '1';
+                    hdmi_red   <= (others => '0');
+                    hdmi_green <= (others => '0');
+                    hdmi_blue  <= (others => '0');
+                else
+                    hdmi_blank <= '0';
+                    if IncludeVideoNuLA then
+                        hdmi_red   <= final_r;
+                        hdmi_green <= final_g;
+                        hdmi_blue  <= final_b;
+                    else
+                        hdmi_red   <= final_r(0) & "000";
+                        hdmi_green <= final_g(0) & "000";
+                        hdmi_blue  <= final_b(0) & "000";
+                    end if;
+                    if vid_debug = '1' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = voffset or vcnt = voffset + vsize - 1) then
+                        hdmi_green <= (others => '1');
+                    end if;
+                end if;
+                if hcnt >= 732 + 68 then -- 800
+                    hdmi_hsync <= '0';
+                    if vcnt >= 581 + 39 then -- 620
+                        hdmi_vsync <= '0';
+                    else
+                        hdmi_vsync <= '1';
+                    end if;
+                else
+                    hdmi_hsync <= '1';
+                end if;
+            end if;
+        end process;
+
+        hdmi_aspect_169 <= '0' when hdmi_aspect = "01" else -- always 4:3
+                           '1' when hdmi_aspect = "10" else -- always 16:9
+                           mhz12_active;                    -- 4:3 in modes 0-6; 16:9 i mode 7
+
+        inst_hdmi: entity work.hdmi
+            generic map (
+                FREQ => 27000000,  -- pixel clock frequency
+                FS   => 48000,     -- audio sample rate - should be 32000, 44100 or 48000
+                CTS  => 27000,     -- CTS = Freq(pixclk) * N / (128 * Fs)
+                N    => 6144       -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
+                --FS   => 32000,   -- audio sample rate - should be 32000, 44100 or 48000
+                --CTS  => 27000,   -- CTS = Freq(pixclk) * N / (128 * Fs)
+                --N    => 4096     -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
+                )
+            port map (
+                -- clocks
+                I_CLK_PIXEL      => clock_27,
+                -- components
+                I_R              => hdmi_red   & "0000",
+                I_G              => hdmi_green & "0000",
+                I_B              => hdmi_blue  & "0000",
+                I_BLANK          => hdmi_blank,
+                I_HSYNC          => hdmi_hsync,
+                I_VSYNC          => hdmi_vsync,
+                I_ASPECT_169     => hdmi_aspect_169,
+                -- PCM audio
+                I_AUDIO_ENABLE   => hdmi_audio_en,
+                I_AUDIO_PCM_L    => audio_l_int,
+                I_AUDIO_PCM_R    => audio_r_int,
+                -- TMDS parallel pixel synchronous outputs (serialize LSB first)
+                O_RED            => tmds_r,
+                O_GREEN          => tmds_g,
+                O_BLUE           => tmds_b
+                );
+
+    end generate;
+
+    GenNotHDMI: if not IncludeHDMI generate
+        tmds_r <= (others => '0');
+        tmds_g <= (others => '0');
+        tmds_b <= (others => '0');
     end generate;
 
 -----------------------------------------------
@@ -2372,26 +2517,45 @@ begin
     -- Debugging output
     cpu_addr <= cpu_a(15 downto 0);
 
-    -- 6502 trace outputs
-    process(clock_48)
-        variable p_delay : std_logic_vector(11 downto 0);
-    begin
-        if rising_edge(clock_48) then
-            if cpu_clken = '1' then
-                trace_data <= cpu_di when cpu_r_nw = '1' else cpu_do;
-                trace_r_nw <= cpu_r_nw;
-                trace_sync <= cpu_sync;
-                trace_rstn <= reset_n;
+-----------------------------------------------
+-- 6502 Decoder Trace Output
+-----------------------------------------------
+
+    GenTrace: if IncludeTrace generate
+        -- 6502 trace outputs
+        process(clock_48)
+            variable p_delay : std_logic_vector(11 downto 0);
+        begin
+            if rising_edge(clock_48) then
+                if cpu_clken = '1' then
+                    if cpu_r_nw = '1' then
+                        trace_data <= cpu_di;
+                    else
+                        trace_data <= cpu_do;
+                    end if;
+                    trace_r_nw <= cpu_r_nw;
+                    trace_sync <= cpu_sync;
+                    trace_rstn <= reset_n;
+                end if;
+                -- generate an 12 cycle wide fake phi2 pulse with the falling edge 12 cycles after cpu_clken
+                trace_phi2 <= p_delay(0) or p_delay(1) or p_delay(2)  or p_delay(3) or
+                              p_delay(4) or p_delay(5) or p_delay(6)  or p_delay(7) or
+                              p_delay(8) or p_delay(9) or p_delay(10) or p_delay(11);
+                -- delayed versions of cpu_clken
+                p_delay := cpu_clken & p_delay(11 downto 1);
             end if;
-            -- generate an 12 cycle wide fake phi2 pulse with the falling edge 12 cycles after cpu_clken
-            trace_phi2 <= p_delay(0) or p_delay(1) or p_delay(2)  or p_delay(3) or
-                          p_delay(4) or p_delay(5) or p_delay(6)  or p_delay(7) or
-                          p_delay(8) or p_delay(9) or p_delay(10) or p_delay(11);
-            -- delayed versions of cpu_clken
-            p_delay := cpu_clken & p_delay(11 downto 1);
-        end if;     
-    end process;    
-    
+        end process;
+    end generate;
+
+    GenNotTrace: if not IncludeTrace generate
+        trace_data <= (others => '0');
+        trace_r_nw <= '0';
+        trace_sync <= '0';
+        trace_rstn <= '0';
+        trace_phi2 <= '0';
+    end generate;
+
+
     -- Test output
     test <= crtc_vsync & crtc_hsync & crtc_ra(0) & crtc_enable & crtc_test(3 downto 0);
 

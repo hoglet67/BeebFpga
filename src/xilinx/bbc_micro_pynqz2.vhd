@@ -196,28 +196,8 @@ architecture rtl of bbc_micro_pynqz2 is
     signal RAM_WE          : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0) := x"00";
     signal vid_mode        : std_logic_vector(3 downto 0) := "0001";
-    signal vid_debug       : std_logic;
     signal m128_mode       : std_logic;
     signal copro_mode      : std_logic;
-    signal aspect_wide     : std_logic;
-    signal hdmi_aspect     : std_logic_vector(1 downto 0);
-    signal hdmi_aspect_169 : std_logic;
-    signal red             : std_logic_vector(3 downto 0);
-    signal green           : std_logic_vector(3 downto 0);
-    signal blue            : std_logic_vector(3 downto 0);
-    signal hdmi_red        : std_logic_vector(3 downto 0);
-    signal hdmi_green      : std_logic_vector(3 downto 0);
-    signal hdmi_blue       : std_logic_vector(3 downto 0);
-    signal hdmi_hsync      : std_logic;
-    signal hdmi_vsync      : std_logic;
-    signal hdmi_blank      : std_logic;
-    signal hdmi_audio_en   : std_logic;
-    signal hsync           : std_logic;
-    signal vsync           : std_logic;
-    signal hsync1          : std_logic;
-    signal vsync1          : std_logic;
-    signal hcnt            : std_logic_vector(9 downto 0);
-    signal vcnt            : std_logic_vector(9 downto 0);
     signal ext_tube_r_nw   : std_logic;
     signal ext_tube_nrst   : std_logic;
     signal ext_tube_ntube  : std_logic;
@@ -226,9 +206,12 @@ architecture rtl of bbc_micro_pynqz2 is
     signal ext_tube_di     : std_logic_vector(7 downto 0);
     signal ext_tube_do     : std_logic_vector(7 downto 0);
 
-    signal tdms_r          : std_logic_vector(9 downto 0);
-    signal tdms_g          : std_logic_vector(9 downto 0);
-    signal tdms_b          : std_logic_vector(9 downto 0);
+    signal hdmi_aspect     : std_logic_vector(1 downto 0);
+    signal hdmi_audio_en   : std_logic;
+    signal vid_debug       : std_logic;
+    signal tmds_r          : std_logic_vector(9 downto 0);
+    signal tmds_g          : std_logic_vector(9 downto 0);
+    signal tmds_b          : std_logic_vector(9 downto 0);
 
     signal config          : std_logic_vector(9 downto 0);
 
@@ -283,6 +266,7 @@ begin
         IncludeCoProSPI    => false,
         IncludeCoProExt    => IncludeCoProExt,
         IncludeVideoNuLA   => IncludeVideoNuLA,
+        IncludeHDMI        => true,
         UseOrigKeyboard    => UseOrigKeyboard,
         UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
         UseAlanDCore       => IncludeMaster,      -- select the 65C02 for the Master
@@ -300,11 +284,11 @@ begin
         ps2_mse_clk    => open,
         ps2_mse_data   => open,
         ps2_swap       => '0',
-        video_red      => red,
-        video_green    => green,
-        video_blue     => blue,
-        video_vsync    => vsync,
-        video_hsync    => hsync,
+        video_red      => open,
+        video_green    => open,
+        video_blue     => open,
+        video_vsync    => open,
+        video_hsync    => open,
         audio_l        => audio_l,
         audio_r        => audio_r,
         ext_nOE        => RAM_nOE,
@@ -321,7 +305,6 @@ begin
         shift_led      => shift_led,
         keyb_dip       => keyb_dip,
         vid_mode       => vid_mode,
-        aspect_wide    => aspect_wide,
         joystick1      => "11111",
         joystick2      => "11111",
         avr_reset      => hard_reset,
@@ -358,8 +341,16 @@ begin
         ext_keyb_ca2   => keyb_ca2,
         ext_keyb_pa7   => keyb_pa7,
 
+        -- HDMI
+        hdmi_aspect    => hdmi_aspect,
+        hdmi_audio_en  => hdmi_audio_en,
+        vid_debug      => vid_debug,
+        tmds_r         => tmds_r,
+        tmds_g         => tmds_g,
+        tmds_b         => tmds_b,
+
         -- config
-        config        => open
+        config         => open
     );
 
 --------------------------------------------------------
@@ -719,122 +710,17 @@ begin
     end generate;
 
 --------------------------------------------------------
--- HDMI
+-- HDMI Output
 --------------------------------------------------------
-
-    -- Recreate the video sync/blank signals that match standard HDTV 720x576p
-    --
-    -- Modeline "720x576 @ 50hz"  27    720   732   796   864   576   581   586   625
-    --
-    -- Hcnt is set to 0 on the trailing edge of hsync from the Beeb core
-    -- so the H constants below need to be offset by 864-796=68
-    --
-    -- Vcnt is set to 0 on the trailing edge of vsync from the Beeb core
-    -- so the V constants below need to be offset by 625-586=39
-    --
-    -- This only works because the Beeb core is generating 32us lines
-    --
-    -- The hdmidataencode module inserts a two 32 pixel data packets after the
-    -- first edge of hsync. The hsync pluse + back porch needs to be at least
-    -- this width. There are also min requirements on the size of control
-    -- islands of 12 pixels.
-
-    process(clock_27)
-        variable voffset : integer;
-        variable vsize   : integer;
-    begin
-        if rising_edge(clock_27) then
-            hsync1 <= hsync;
-            if hsync1 = '0' and hsync = '1' then
-                hcnt <= (others => '0');
-                vsync1 <= vsync;
-                if vsync1 = '0' and vsync = '1' then
-                    vcnt <= (others => '0');
-                else
-                    vcnt <= vcnt + 1;
-                end if;
-            else
-                hcnt <= hcnt + 1;
-            end if;
-            if hdmi_audio_en = '1' then
-                voffset := 39;
-                vsize   := 576;
-            else
-                voffset := 55;
-                vsize   := 540;
-            end if;
-            if hcnt < 68 or hcnt >= 68 + 720 or vcnt < voffset or vcnt >= voffset + vsize then
-                hdmi_blank <= '1';
-                hdmi_red   <= (others => '0');
-                hdmi_green <= (others => '0');
-                hdmi_blue  <= (others => '0');
-            else
-                hdmi_blank <= '0';
-                hdmi_red   <= red;
-                if vid_debug = '1' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = voffset or vcnt = voffset + vsize - 1) then
-                    hdmi_green <= (others => '1');
-                else
-                    hdmi_green <= green;
-                end if;
-                hdmi_blue  <= blue;
-            end if;
-            if hcnt >= 732 + 68 then -- 800
-                hdmi_hsync <= '0';
-                if vcnt >= 581 + 39 then -- 620
-                    hdmi_vsync <= '0';
-                else
-                    hdmi_vsync <= '1';
-                end if;
-            else
-                hdmi_hsync <= '1';
-            end if;
-        end if;
-    end process;
-
-    hdmi_aspect_169 <= '0' when hdmi_aspect = "01" else -- always 4:3
-                       '1' when hdmi_aspect = "10" else -- always 16:9
-                       aspect_wide;                     -- 4:3 in modes 0-6;
-                                                        -- 16:9 i mode 7
-
-    inst_hdmi: entity work.hdmi
-    generic map (
-      FREQ => 27000000,  -- pixel clock frequency
-      FS   => 48000,     -- audio sample rate - should be 32000, 44100 or 48000
-      CTS  => 27000,     -- CTS = Freq(pixclk) * N / (128 * Fs)
-      N    => 6144       -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
-      --FS   => 32000,   -- audio sample rate - should be 32000, 44100 or 48000
-      --CTS  => 27000,   -- CTS = Freq(pixclk) * N / (128 * Fs)
-      --N    => 4096     -- N = 128 * Fs /1000,  128 * Fs /1500 <= N <= 128 * Fs /300
-    )
-    port map (
-      -- clocks
-      I_CLK_PIXEL      => clock_27,
-      -- components
-      I_R              => hdmi_red   & "0000",
-      I_G              => hdmi_green & "0000",
-      I_B              => hdmi_blue  & "0000",
-      I_BLANK          => hdmi_blank,
-      I_HSYNC          => hdmi_hsync,
-      I_VSYNC          => hdmi_vsync,
-      I_ASPECT_169     => hdmi_aspect_169,
-      -- PCM audio
-      I_AUDIO_ENABLE   => hdmi_audio_en,
-      I_AUDIO_PCM_L    => audio_l,
-      I_AUDIO_PCM_R    => audio_r,
-      -- TMDS parallel pixel synchronous outputs (serialize LSB first)
-      O_RED            => tdms_r,
-      O_GREEN          => tdms_g,
-      O_BLUE           => tdms_b
-      );
 
     inst_hdmi_out_xilinx: entity work.hdmi_out_xilinx
     port map (
         clock_pixel_i  => clock_27,    -- (x1)
-        clock_tdms_i   => clock_135,   -- (x5)
-        clock_tdms_n_i => clock_135_n, -- (x5)
-        red_i          => tdms_r,
-        green_i        => tdms_g,
-        blue_i         => tdms_b,
+        clock_tmds_i   => clock_135,   -- (x5)
+        clock_tmds_n_i => clock_135_n, -- (x5)
+        red_i          => tmds_r,
+        green_i        => tmds_g,
+        blue_i         => tmds_b,
         tmds_out_p     => hdmi_p,
         tmds_out_n     => hdmi_n
    );

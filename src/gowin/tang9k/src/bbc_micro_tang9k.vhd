@@ -1,8 +1,9 @@
 -- BBC Master / BBC B for the Tang Nano 9K
 --
 -- Copright (c) 2023 Dominic Beesley
+-- Copright (c) 2023 David Banks
 --
--- Based on previous work by Mike Stirling and Dave Banks
+-- Based on previous work by Mike Stirling
 --
 -- Copyright (c) 2011 Mike Stirling
 --
@@ -37,11 +38,6 @@
 -- CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 -- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 -- POSSIBILITY OF SUCH DAMAGE.
---
--- Altera/Terasic DE1 top-level
---
--- (c) 2021 David Banks
--- (C) 2011 Mike Stirling
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -56,85 +52,186 @@ generic (
    IncludeSID         : boolean := false;
    IncludeMusic5000   : boolean := false;
    IncludeICEDebugger : boolean := false;
-   IncludeCoPro6502   : boolean := false;  -- The three co pro options
+   IncludeCoPro6502   : boolean := false; -- The three co pro options
    IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
    IncludeCoProExt    : boolean := false; -- (i.e. select just one)
    IncludeVideoNuLA   : boolean := false;
+   IncludeTrace       : boolean := true;
+   IncludeHDMI        : boolean := true;
    UseOrigKeyboard    : boolean := false;
    UseT65Core         : boolean := true;
    UseAlanDCore       : boolean := false;
    IncludeBootStrap   : boolean := true;
-   IncludeMinimal     : boolean := true; -- Creates a build to test
+   IncludeMinimal     : boolean := true;  -- Creates a build to test
                                           -- 4x16K ROM Images
    PRJ_ROOT           : string := "../../..";
    MOS_NAME           : string := "/roms/bbcb/os12_basic.bit";
    SIM                : boolean := false
 );
 port (
-   clock_27        : in    std_logic;
-   btn1_n          : in    std_logic;
-   btn2_n          : in    std_logic;
+   sys_clk         : in    std_logic;
+   btn1_n          : in    std_logic;     -- Power Up Reset
+   btn2_n          : in    std_logic;     -- Config toggle
+   led             : out   std_logic_vector (5 downto 0);
+
+   -- Keyboard / Mouse
    ps2_clk         : inout std_logic;
    ps2_data        : inout std_logic;
    ps2_mouse_clk   : inout std_logic;
    ps2_mouse_data  : inout std_logic;
+
+   -- SD Card
    tf_miso         : in    std_logic;
    tf_cs           : out   std_logic;
    tf_sclk         : out   std_logic;
    tf_mosi         : out   std_logic;
+
+   -- USB UART
    uart_rx         : in    std_logic;
    uart_tx         : out   std_logic;
-   led             : out   std_logic_vector (5 downto 0);
----        tmds_clk_p      : out   std_logic;
----        tmds_clk_n      : out   std_logic;
----        tmds_d_p        : out   std_logic_vector(2 downto 0);
----        tmds_d_n        : out   std_logic_vector(2 downto 0);
 
-   vga_r : out std_logic;
-   vga_b : out std_logic;
-   vga_g : out std_logic;
-   vga_hs: out std_logic;
-   vga_vs: out std_logic;
+   -- HDMI
+   tmds_clk_p      : out   std_logic;
+   tmds_clk_n      : out   std_logic;
+   tmds_d_p        : out   std_logic_vector(2 downto 0);
+   tmds_d_n        : out   std_logic_vector(2 downto 0);
+
+   -- VGA
+   vga_r           : out   std_logic;
+   vga_b           : out   std_logic;
+   vga_g           : out   std_logic;
+   vga_hs          : out   std_logic;
+   vga_vs          : out   std_logic;
 
    -- Magic ports for PSRAM to be inferred
-   O_psram_ck     : out    std_logic_vector(1 downto 0);
-   O_psram_ck_n   : out    std_logic_vector(1 downto 0);
-   IO_psram_rwds  : inout  std_logic_vector(1 downto 0);
-   IO_psram_dq    : inout  std_logic_vector(15 downto 0);
-   O_psram_reset_n: out    std_logic_vector(1 downto 0);
-   O_psram_cs_n   : out    std_logic_vector(1 downto 0);
+   O_psram_ck      : out   std_logic_vector(1 downto 0);
+   O_psram_ck_n    : out   std_logic_vector(1 downto 0);
+   IO_psram_rwds   : inout std_logic_vector(1 downto 0);
+   IO_psram_dq     : inout std_logic_vector(15 downto 0);
+   O_psram_reset_n : out   std_logic_vector(1 downto 0);
+   O_psram_cs_n    : out   std_logic_vector(1 downto 0);
 
-   -- A general purpose 12-bit bus, that we can use for several functions
-   -- such as 6502 tracing
-   gpio           : out    std_logic_vector(13 downto 0);
+   -- A general purpose 12-bit bus, that we can use for several functions such as 6502 tracing
+   gpio            : out   std_logic_vector(13 downto 0);
 
-   flash_cs       : out   std_logic;                     -- Active low FLASH chip select
-   flash_si       : out   std_logic;                     -- Serial output to FLASH chip SI pin
-   flash_ck       : out   std_logic;                     -- FLASH clock
-   flash_so       : in    std_logic                      -- Serial input from FLASH chip SO pin
+   -- SPI Flash (for ROM data)
+   flash_cs        : out   std_logic;     -- Active low FLASH chip select
+   flash_si        : out   std_logic;     -- Serial output to FLASH chip SI pin
+   flash_ck        : out   std_logic;     -- FLASH clock
+   flash_so        : in    std_logic      -- Serial input from FLASH chip SO pin
 
-    );
+   );
 end entity;
 
 architecture rtl of bbc_micro_tang9k is
 
-function RESETBITS return natural is
-begin
-    if SIM then
-        return 10;
-    else
-        return 24; --DB: > 10ms for SPI to start up?
-    end if;
-end function;
+    component rPLL
+        generic (
+            FCLKIN: in string := "100.0";
+            DEVICE: in string := "GW1N-4";
+            DYN_IDIV_SEL: in string := "false";
+            IDIV_SEL: in integer := 0;
+            DYN_FBDIV_SEL: in string := "false";
+            FBDIV_SEL: in integer := 0;
+            DYN_ODIV_SEL: in string := "false";
+            ODIV_SEL: in integer := 8;
+            PSDA_SEL: in string := "0000";
+            DYN_DA_EN: in string := "false";
+            DUTYDA_SEL: in string := "1000";
+            CLKOUT_FT_DIR: in bit := '1';
+            CLKOUTP_FT_DIR: in bit := '1';
+            CLKOUT_DLY_STEP: in integer := 0;
+            CLKOUTP_DLY_STEP: in integer := 0;
+            CLKOUTD3_SRC: in string := "CLKOUT";
+            CLKFB_SEL: in string := "internal";
+            CLKOUT_BYPASS: in string := "false";
+            CLKOUTP_BYPASS: in string := "false";
+            CLKOUTD_BYPASS: in string := "false";
+            CLKOUTD_SRC: in string := "CLKOUT";
+            DYN_SDIV_SEL: in integer := 2
+        );
+        port (
+            CLKOUT: out std_logic;
+            LOCK: out std_logic;
+            CLKOUTP: out std_logic;
+            CLKOUTD: out std_logic;
+            CLKOUTD3: out std_logic;
+            RESET: in std_logic;
+            RESET_P: in std_logic;
+            CLKIN: in std_logic;
+            CLKFB: in std_logic;
+            FBDSEL: in std_logic_vector(5 downto 0);
+            IDSEL: in std_logic_vector(5 downto 0);
+            ODSEL: in std_logic_vector(5 downto 0);
+            PSDA: in std_logic_vector(3 downto 0);
+            DUTYDA: in std_logic_vector(3 downto 0);
+            FDLY: in std_logic_vector(3 downto 0)
+        );
+    end component;
+
+    component CLKDIV
+        generic (
+            DIV_MODE : string := "2";
+            GSREN: in string := "false"
+        );
+        port (
+            CLKOUT: out std_logic;
+            HCLKIN: in std_logic;
+            RESETN: in std_logic;
+            CALIB: in std_logic
+        );
+    end component;
+
+    component OSER10
+        generic (
+            GSREN : string := "false";
+            LSREN : string := "true"
+        );
+        port (
+            Q : out std_logic;
+            D0 : in std_logic;
+            D1 : in std_logic;
+            D2 : in std_logic;
+            D3 : in std_logic;
+            D4 : in std_logic;
+            D5 : in std_logic;
+            D6 : in std_logic;
+            D7 : in std_logic;
+            D8 : in std_logic;
+            D9 : in std_logic;
+            FCLK : in std_logic;
+            PCLK : in std_logic;
+            RESET : in std_logic
+        );
+    end component;
+
+    component ELVDS_OBUF
+        port (
+            I : in std_logic;
+            O : out std_logic;
+            OB : out std_logic
+        );
+    end component;
+
+    function RESETBITS return natural is
+    begin
+        if SIM then
+            return 10;
+        else
+            return 24; --DB: > 10ms for SPI to start up?
+        end if;
+    end function;
 
 -------------
 -- Signals
 -------------
 
+signal clock_27        : std_logic;
 signal clock_32        : std_logic;
 signal clock_48        : std_logic;
 signal clock_96        : std_logic;
 signal clock_96_p      : std_logic;
+signal clock_135       : std_logic;
 signal mem_ready       : std_logic;
 
 signal dac_l_in        : std_logic_vector(9 downto 0);
@@ -144,9 +241,16 @@ signal audio_r         : std_logic_vector(15 downto 0);
 signal audiol          : std_logic;
 signal audior          : std_logic;
 
+signal config_counter  : std_logic_vector(21 downto 0);
+signal config_last     : std_logic;
+
 signal powerup_reset_n : std_logic := '0';
 signal hard_reset_n    : std_logic;
 signal reset_counter   : std_logic_vector(RESETBITS downto 0);
+signal serialized_c    : std_logic;
+signal serialized_r    : std_logic;
+signal serialized_g    : std_logic;
+signal serialized_b    : std_logic;
 
 signal pll_reset       : std_logic;
 signal pll_locked      : std_logic;
@@ -212,6 +316,14 @@ signal i_VGA_B          : std_logic_vector(3 downto 0);
 -- A registered version to allow slow flash to be used
 signal ext_A_r         : std_logic_vector (18 downto 0);
 
+-- HDMI
+signal hdmi_aspect     : std_logic_vector(1 downto 0) := "00";
+signal hdmi_audio_en   : std_logic := '1';
+signal vid_debug       : std_logic := '0';
+signal tmds_r          : std_logic_vector(9 downto 0);
+signal tmds_g          : std_logic_vector(9 downto 0);
+signal tmds_b          : std_logic_vector(9 downto 0);
+
 -- CPU tracing
 signal trace_data      :   std_logic_vector(7 downto 0);
 signal trace_r_nw      :   std_logic;
@@ -266,6 +378,8 @@ vga_b <= i_VGA_B(i_VGA_B'high);
             IncludeCoProSPI    => IncludeCoProSPI,
             IncludeCoProExt    => IncludeCoProExt,
             IncludeVideoNuLA   => IncludeVideoNuLA,
+            IncludeTrace       => IncludeTrace,
+            IncludeHDMI        => IncludeHDMI,
             UseOrigKeyboard    => UseOrigKeyboard,
             UseT65Core         => UseT65Core,
             UseAlanDCore       => UseAlanDCore
@@ -335,6 +449,12 @@ vga_b <= i_VGA_B(i_VGA_B'high);
             ext_tube_a     => ext_tube_a,
             ext_tube_di    => ext_tube_di,
             ext_tube_do    => ext_tube_do,
+            hdmi_aspect    => hdmi_aspect,
+            hdmi_audio_en  => hdmi_audio_en,
+            vid_debug      => vid_debug,
+            tmds_r         => tmds_r,
+            tmds_g         => tmds_g,
+            tmds_b         => tmds_b,
             trace_data     => trace_data,
             trace_r_nw     => trace_r_nw,
             trace_sync     => trace_sync,
@@ -345,7 +465,7 @@ vga_b <= i_VGA_B(i_VGA_B'high);
 
 
     m128_mode      <= '0';       --DB: Model B
-    vid_mode       <= "0011";    --DB: 15kHz for now
+    vid_mode       <= "0001" when IncludeHDMI else "0000";
     copro_mode     <= '0';       --DB: ?
     keyb_dip       <= "00000000";--DB: ?;
 
@@ -355,16 +475,72 @@ vga_b <= i_VGA_B(i_VGA_B'high);
 
     -- 48 MHz master clock from 27MHz input clock
     -- plus intermediate 96MHz clock for scan doubler
-    pll2: entity work.Gowin_rPLL
-    port map (
-        clkout => clock_96,
-        clkoutp => clock_96_p,
-        lock => pll_locked,
-        clkoutd => clock_48,
-        clkoutd3 => clock_32,
-        reset => pll_reset,
-        clkin => clock_27
-    );
+
+    pll1 : rPLL
+        generic map (
+            FCLKIN => "27",
+            DEVICE => "GW1NR-9C",
+            IDIV_SEL => 8,
+            FBDIV_SEL => 31,
+            ODIV_SEL => 8,
+            DYN_SDIV_SEL => 2,
+            PSDA_SEL => "0100" -- CLKOUTP 90 degree phase shift
+        )
+        port map (
+            CLKIN    => sys_clk,
+            CLKOUT   => clock_96,
+            CLKOUTD  => clock_48,
+            CLKOUTP  => clock_96_p,
+            CLKOUTD3 => clock_32,
+            LOCK     => open,
+            RESET    => pll_reset,
+            RESET_P  => '0',
+            CLKFB    => '0',
+            FBDSEL   => (others => '0'),
+            IDSEL    => (others => '0'),
+            ODSEL    => (others => '0'),
+            PSDA     => (others => '0'),
+            DUTYDA   => (others => '0'),
+            FDLY     => (others => '0')
+        );
+
+    pll2 : rPLL
+        generic map (
+            FCLKIN => "27",
+            DEVICE => "GW1NR-9C",
+            IDIV_SEL => 0,
+            FBDIV_SEL => 4,
+            ODIV_SEL => 8
+        )
+        port map (
+            CLKIN    => sys_clk,
+            CLKOUT   => clock_135,
+            CLKOUTP  => open,
+            CLKOUTD  => open,
+            CLKOUTD3 => open,
+            LOCK     => open,
+            RESET    => pll_reset,
+            RESET_P  => '0',
+            CLKFB    => '0',
+            FBDSEL   => (others => '0'),
+            IDSEL    => (others => '0'),
+            ODSEL    => (others => '0'),
+            PSDA     => (others => '0'),
+            DUTYDA   => (others => '0'),
+            FDLY     => (others => '0')
+        );
+
+    clkdiv5 : CLKDIV
+        generic map (
+            DIV_MODE => "5",
+            GSREN => "false"
+        )
+        port map (
+            RESETN => '1', -- TODO, reset when previous PLL locked
+            HCLKIN => clock_135,
+            CLKOUT => clock_27,
+            CALIB  => '1'
+        );
 
 --------------------------------------------------------
 -- Power Up Reset Generation
@@ -421,6 +597,154 @@ vga_b <= i_VGA_B(i_VGA_B'high);
         dac_o => audior
     );
 
+--------------------------------------------------------
+-- Configuration
+--------------------------------------------------------
+
+--  config_gen : process(clock_48)
+--  begin
+--      if rising_edge(clock_48) then
+--          if powerup_reset_n = '0' then
+--              hdmi_audio_en <= '0';
+--              config_counter <= (others => '0');
+--          elsif btn2_n = '0' then
+--              config_counter <= (others => '1');
+--          elsif config_counter(config_counter'high) = '1' then
+--              config_counter <= config_counter - 1;
+--          elsif config_last = '1' then
+--              hdmi_audio_en <= not hdmi_audio_en;
+--          end if;
+--          config_last <= config_counter(config_counter'high);
+--      end if;
+--  end process;
+
+--------------------------------------------------------
+-- HDMI Output
+--------------------------------------------------------
+
+    hdmi : if (IncludeHDMI) generate
+
+        --  Serialize the three 10-bit TMDS channels to three serialized 1-bit TMDS streams
+
+        ser_b : OSER10
+            generic map (
+                GSREN => "false",
+                LSREN => "true"
+                )
+            port map(
+                PCLK  => clock_27,
+                FCLK  => clock_135,
+                RESET => '0',
+                Q     => serialized_b,
+                D0    => tmds_b(0),
+                D1    => tmds_b(1),
+                D2    => tmds_b(2),
+                D3    => tmds_b(3),
+                D4    => tmds_b(4),
+                D5    => tmds_b(5),
+                D6    => tmds_b(6),
+                D7    => tmds_b(7),
+                D8    => tmds_b(8),
+                D9    => tmds_b(9)
+                );
+
+        ser_g : OSER10
+            generic map (
+                GSREN => "false",
+                LSREN => "true"
+                )
+            port map (
+                PCLK  => clock_27,
+                FCLK  => clock_135,
+                RESET => '0',
+                Q     => serialized_g,
+                D0    => tmds_g(0),
+                D1    => tmds_g(1),
+                D2    => tmds_g(2),
+                D3    => tmds_g(3),
+                D4    => tmds_g(4),
+                D5    => tmds_g(5),
+                D6    => tmds_g(6),
+                D7    => tmds_g(7),
+                D8    => tmds_g(8),
+                D9    => tmds_g(9)
+                );
+
+        ser_r : OSER10
+            generic map (
+                GSREN => "false",
+                LSREN => "true"
+                )
+            port map (
+                PCLK  => clock_27,
+                FCLK  => clock_135,
+                RESET => '0',
+                Q     => serialized_r,
+                D0    => tmds_r(0),
+                D1    => tmds_r(1),
+                D2    => tmds_r(2),
+                D3    => tmds_r(3),
+                D4    => tmds_r(4),
+                D5    => tmds_r(5),
+                D6    => tmds_r(6),
+                D7    => tmds_r(7),
+                D8    => tmds_r(8),
+                D9    => tmds_r(9)
+                );
+
+        ser_c : OSER10
+            generic map (
+                GSREN => "false",
+                LSREN => "true"
+                )
+            port map (
+                PCLK  => clock_27,
+                FCLK  => clock_135,
+                RESET => '0',
+                Q     => serialized_c,
+                D0    => '1',
+                D1    => '1',
+                D2    => '1',
+                D3    => '1',
+                D4    => '1',
+                D5    => '0',
+                D6    => '0',
+                D7    => '0',
+                D8    => '0',
+                D9    => '0'
+                );
+
+        -- Encode the 1-bit serialized TMDS streams to Low-voltage differential signaling (LVDS) HDMI output pins
+
+        OBUFDS_c : ELVDS_OBUF
+            port map (
+                I  => serialized_c,
+                O  => tmds_clk_p,
+                OB => tmds_clk_n
+                );
+
+        OBUFDS_b : ELVDS_OBUF
+            port map (
+                I  => serialized_b,
+                O  => tmds_d_p(0),
+                OB => tmds_d_n(0)
+                );
+
+        OBUFDS_g : ELVDS_OBUF
+            port map (
+                I  => serialized_g,
+                O  => tmds_d_p(1),
+                OB => tmds_d_n(1)
+                );
+
+        OBUFDS_r : ELVDS_OBUF
+            port map (
+                I  => serialized_r,
+                O  => tmds_d_p(2),
+                OB => tmds_d_n(2)
+                );
+
+    end generate;
 
 --- DB: -----------------------------------------------------------
 --- DB: ----- Map external memory bus to SRAM/FLASH

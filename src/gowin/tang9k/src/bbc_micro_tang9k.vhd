@@ -896,6 +896,7 @@ vid_debug     <= '0';
 e_mem: entity work.mem_tang_9k
 generic map (
     SIM => SIM,
+    IncludeMonitor => false,
     IncludeBootStrap => IncludeBootStrap,
     IncludeMinimal => IncludeMinimal,
     PRJ_ROOT => PRJ_ROOT,
@@ -923,6 +924,8 @@ port map (
    O_psram_cs_n   => O_psram_cs_n,
    O_psram_reset_n=> O_psram_reset_n,
 
+   led            => led,
+
    FLASH_CS       => flash_cs,
    FLASH_SI       => flash_si,
    FLASH_CK       => flash_ck,
@@ -932,6 +935,6 @@ port map (
 
 gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & trace_data;
 
-led <= not caps_led & not shift_led & "111" & hdmi_audio_en;
+-- led <= not caps_led & not shift_led & "111" & hdmi_audio_en;
 
 end architecture;

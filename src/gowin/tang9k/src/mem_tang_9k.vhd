@@ -13,6 +13,7 @@ generic (
       PRJ_ROOT : string;
       MOS_NAME : string;
       SIM : boolean;
+      IncludeMonitor : boolean := false;
       IncludeBootstrap : boolean;
       IncludeMinimal     : boolean := false  -- Creates a build to test
                                              -- 4x16K ROM Images
@@ -43,12 +44,12 @@ port(
 
    m128_mode         : in     std_logic;
 
+   led               : out   std_logic_vector(5 downto 0);
+
    FLASH_CS          : out   std_logic;                     -- Active low FLASH chip select
    FLASH_SI          : out   std_logic;                     -- Serial output to FLASH chip SI pin
    FLASH_CK          : out   std_logic;                     -- FLASH clock
    FLASH_SO          : in    std_logic                      -- Serial input from FLASH chip SO pin
-
-   
 );
 end mem_tang_9k;
 
@@ -141,6 +142,32 @@ architecture rtl of mem_tang_9k is
 
    signal   i_bootstrap_reset_n  : std_logic;
 
+
+    -- Signals for the bootstrap health monitor
+
+    -- Bit 5 is the error bit
+    -- Bit 4 is the done bit
+    -- Bit 3 is the write/read bit (0 = write, 1 = read)
+
+    constant DBG_00 : std_logic_vector(5 downto 0) := "000000";
+    constant DBG_01 : std_logic_vector(5 downto 0) := "000001";
+    constant DBG_02 : std_logic_vector(5 downto 0) := "000010";
+    constant DBG_03 : std_logic_vector(5 downto 0) := "000011";
+    constant DBG_04 : std_logic_vector(5 downto 0) := "000100";
+    constant DBG_05 : std_logic_vector(5 downto 0) := "000101";
+    constant DBG_06 : std_logic_vector(5 downto 0) := "000110";
+    constant DBG_07 : std_logic_vector(5 downto 0) := "000111";
+    constant DBG_08 : std_logic_vector(5 downto 0) := "001000";
+    constant DBG_09 : std_logic_vector(5 downto 0) := "001001";
+    constant DBG_0A : std_logic_vector(5 downto 0) := "001010";
+    constant DBG_0B : std_logic_vector(5 downto 0) := "001011";
+    constant DBG_0C : std_logic_vector(5 downto 0) := "001100";
+    constant DBG_0D : std_logic_vector(5 downto 0) := "001101";
+    constant DBG_0E : std_logic_vector(5 downto 0) := "001110";
+    constant DBG_0F : std_logic_vector(5 downto 0) := "001111";
+    constant DBG_DONE : std_logic_vector(5 downto 0) := "011111";
+    signal   state  : std_logic_vector(5 downto 0) := DBG_00;
+
 begin
 
    e_psram:PsramController
@@ -157,7 +184,7 @@ begin
       write       => i_psram_cmd_write,
       addr        => i_psram_addr,
       din         => i_PSRAM_Din,
-      byte_write  => '1',                                                   
+      byte_write  => '1',
       dout        => i_psram_dout,
       busy        => i_psram_busy,
 
@@ -183,7 +210,7 @@ begin
    p_reset:process(CLK_96, rst_n)
    begin
       if rst_n = '0' then
-         READY <= '0';        
+         READY <= '0';
          i_bootstrap_reset_n <= '0';
       elsif rising_edge(CLK_96) then
          if i_psram_busy = '0' then
@@ -191,7 +218,7 @@ begin
          end if;
          READY <= not i_bootstrap_busy;
       end if;
-   end process;   
+   end process;
 
 
 --------------------------------------------------------
@@ -281,6 +308,159 @@ begin
 
    O_psram_reset_n <= rst_n & rst_n;
 
+
+   --------------------------------------------------------
+   -- Statemachine for debugging bootstrap failures
+   --------------------------------------------------------
+
+   mon : if IncludeMonitor generate
+       process(CLK_48)
+           variable cmd_write1 : std_logic;
+           variable cmd_write2 : std_logic;
+           variable test_write : std_logic;
+           variable cmd_read1  : std_logic;
+           variable cmd_read2  : std_logic;
+           variable test_read  : std_logic;
+           variable test_Dout  : std_logic_vector(7 downto 0);
+       begin
+           if rising_edge(CLK_48) then
+               case (state) is
+                   when DBG_00 =>
+                       if rst_n = '0' then
+                           if IncludeBootstrap then
+                               state <= DBG_01;
+                           else
+                               state <= DBG_08;
+                           end if;
+                       end if;
+                   when DBG_01 =>
+                       if rst_n = '1' then
+                           state <= DBG_02;
+                       end if;
+                   when DBG_02 =>
+                       if i_bootstrap_reset_n = '0' then
+                           state <= DBG_03;
+                       end if;
+                   when DBG_03 =>
+                       if i_bootstrap_reset_n = '1' then
+                           state <= DBG_04;
+                       end if;
+                   when DBG_04 =>
+                       if test_write = '1' then
+                           if i_X_A = ("000" & x"19CD") then
+                               if i_X_Din = x"A9" then
+                                   state <= DBG_05;
+                               else
+                                   state(5) <= '1';
+                               end if;
+                           end if;
+                       end if;
+                   when DBG_05 =>
+                       if test_write = '1' then
+                           if i_X_A = ("000" & x"19CE") then
+                               if i_X_Din = x"40" then
+                                   state <= DBG_06;
+                               else
+                                   state(5) <= '1';
+                               end if;
+                           end if;
+                       end if;
+                   when DBG_06 =>
+                       if test_write = '1' then
+                           if i_X_A = ("000" & x"3FFC") then
+                               if i_X_Din = x"CD" then
+                                   state <= DBG_07;
+                               else
+                                   state(5) <= '1';
+                               end if;
+                           end if;
+                       end if;
+                   when DBG_07 =>
+                       if  test_write = '1' then
+                           if i_X_A = ("000" & x"3FFD") then
+                               if i_X_Din = x"D9" then
+                                   state <= DBG_08;
+                               else
+                                   state(5) <= '1';
+                               end if;
+                           end if;
+                       end if;
+                   when DBG_08 =>
+                       if i_bootstrap_busy = '1' then
+                           state <= DBG_09;
+                       end if;
+                   when DBG_09 =>
+                       if i_bootstrap_busy = '0' then
+                           state <= DBG_0A;
+                       end if;
+                   when DBG_0A =>
+                       if test_read = '1' then
+                           if i_X_A = ("000" & x"3FFC") then
+                               if test_Dout = x"CD" then
+                                   state <= DBG_0B;
+                               else
+                                   state(5) <= '1';
+                               end if;
+                           end if;
+                       end if;
+                   when DBG_0B =>
+                       if test_read = '1' then
+                           if i_X_A = ("000" & x"3FFD") then
+                               if test_Dout = x"D9" then
+                                   state <= DBG_0C;
+                               else
+                                   state(5) <= '1';
+                               end if;
+                           end if;
+                       end if;
+                   when DBG_0C =>
+                       if test_read = '1' then
+                           if i_X_A = ("000" & x"19CD") then
+                               if test_Dout = x"A9" then
+                                   state <= DBG_0D;
+                               else
+                                   state(5) <= '1';
+                               end if;
+                           end if;
+                       end if;
+                   when DBG_0D =>
+                       if test_read = '1' then
+                           if i_X_A = ("000" & x"19CE") then
+                               if test_Dout = x"40" then
+                                   state <= DBG_DONE;
+                               else
+                                   state(5) <= '1';
+                               end if;
+                           end if;
+                       end if;
+                   when others =>
+                       if rst_n = '0' then
+                           state <= DBG_00;
+                       end if;
+               end case;
+               -- Check writes at the start of the write cycle
+               test_write := cmd_write1 and not cmd_write2;
+               cmd_write2 := cmd_write1;
+               if i_X_nCS = '0' and i_X_A_stb = '1' and i_X_nWE_long = '0' then
+                   cmd_write1 := i_psram_cmd_write;
+               elsif i_psram_busy = '0' then
+                   cmd_write1 := '0';
+               end if;
+               -- Check reads at the end of the read cycle
+               test_read  := not cmd_read1 and cmd_read2;
+               cmd_read2  := cmd_read1;
+               if i_X_nCS = '0' and i_X_A_stb = '1' and i_X_nOE = '0' then
+                   cmd_read1  := '1';
+               elsif i_psram_busy = '0' then
+                   cmd_read1 := '0';
+               end if;
+               -- Move dout back to 48MHz domain
+               test_Dout := i_X_Dout;
+           end if;
+       end process;
+
+       led <= state xor "111111";
+
+   end generate;
+
 end rtl;
-
-

@@ -317,9 +317,9 @@ signal i_VGA_B          : std_logic_vector(3 downto 0);
 signal ext_A_r         : std_logic_vector (18 downto 0);
 
 -- HDMI
-signal hdmi_aspect     : std_logic_vector(1 downto 0) := "00";
-signal hdmi_audio_en   : std_logic := '1';
-signal vid_debug       : std_logic := '0';
+signal hdmi_aspect     : std_logic_vector(1 downto 0);
+signal hdmi_audio_en   : std_logic;
+signal vid_debug       : std_logic;
 signal tmds_r          : std_logic_vector(9 downto 0);
 signal tmds_g          : std_logic_vector(9 downto 0);
 signal tmds_b          : std_logic_vector(9 downto 0);
@@ -546,8 +546,8 @@ vga_b <= i_VGA_B(i_VGA_B'high);
 -- Power Up Reset Generation
 --------------------------------------------------------
 
-    -- PLL is reset by external reset switch
-    pll_reset <= not btn1_n;     --DB: no keyboard yet...
+    -- PLL is running continually
+    pll_reset <= '0';
 
     -- Generate a reliable power up reset
     -- Also, perform a power up reset if the master/beeb mode switch is changed
@@ -556,13 +556,13 @@ vga_b <= i_VGA_B(i_VGA_B'high);
         if rising_edge(clock_48) then
             m128_mode_1 <= m128_mode;
             m128_mode_2 <= m128_mode_1;
-            if (m128_mode_1 /= m128_mode_2) then
+            if (m128_mode_1 /= m128_mode_2 or btn1_n = '0') then
                 reset_counter <= (others => '0');
             elsif (reset_counter(reset_counter'high) = '0') then
                 reset_counter <= reset_counter + 1;
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
-            hard_reset_n <= not (pll_reset or not pll_locked or not powerup_reset_n or not mem_ready);
+            hard_reset_n <= not (not powerup_reset_n or not mem_ready);
         end if;
     end process;
 
@@ -617,6 +617,10 @@ vga_b <= i_VGA_B(i_VGA_B'high);
 --          config_last <= config_counter(config_counter'high);
 --      end if;
 --  end process;
+
+hdmi_aspect   <= "00";
+hdmi_audio_en <= '1';
+vid_debug     <= '0';
 
 --------------------------------------------------------
 -- HDMI Output
@@ -927,5 +931,7 @@ port map (
 );
 
 gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & trace_data;
+
+led <= not caps_led & not shift_led & "111" & hdmi_audio_en;
 
 end architecture;

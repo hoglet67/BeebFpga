@@ -62,6 +62,7 @@ generic (
    UseT65Core         : boolean := true;
    UseAlanDCore       : boolean := false;
    IncludeBootStrap   : boolean := true;
+   IncludeMonitor     : boolean := true;
    IncludeMinimal     : boolean := true;  -- Creates a build to test
                                           -- 4x16K ROM Images
    PRJ_ROOT           : string := "../../..";
@@ -330,6 +331,9 @@ signal trace_r_nw      :   std_logic;
 signal trace_sync      :   std_logic;
 signal trace_rstn      :   std_logic;
 signal trace_phi2      :   std_logic;
+
+-- Mem Controller Monior LEDs
+signal monitor_leds    :   std_logic_vector(5 downto 0);
 
 function hex_to_seven_seg(hex: std_logic_vector(3 downto 0))
         return std_logic_vector
@@ -896,7 +900,7 @@ vid_debug     <= '0';
 e_mem: entity work.mem_tang_9k
 generic map (
     SIM => SIM,
-    IncludeMonitor => false,
+    IncludeMonitor => IncludeMonitor,
     IncludeBootStrap => IncludeBootStrap,
     IncludeMinimal => IncludeMinimal,
     PRJ_ROOT => PRJ_ROOT,
@@ -924,7 +928,7 @@ port map (
    O_psram_cs_n   => O_psram_cs_n,
    O_psram_reset_n=> O_psram_reset_n,
 
-   led            => led,
+   led            => monitor_leds,
 
    FLASH_CS       => flash_cs,
    FLASH_SI       => flash_si,
@@ -935,6 +939,7 @@ port map (
 
 gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & trace_data;
 
--- led <= not caps_led & not shift_led & "111" & hdmi_audio_en;
+led <= monitor_leds when IncludeMonitor else
+       not caps_led & not shift_led & "111" & hdmi_audio_en;
 
 end architecture;

@@ -347,7 +347,7 @@ begin
                        end if;
                    when DBG_04 =>
                        if test_write = '1' then
-                           if i_X_A = ("000" & x"19CD") then
+                           if i_X_A = ("001" & x"19CD") then -- Note, OS is mapped into rom slot 4 10000-13FFF
                                if i_X_Din = x"A9" then
                                    state <= DBG_05;
                                else
@@ -357,7 +357,7 @@ begin
                        end if;
                    when DBG_05 =>
                        if test_write = '1' then
-                           if i_X_A = ("000" & x"19CE") then
+                           if i_X_A = ("001" & x"19CE") then
                                if i_X_Din = x"40" then
                                    state <= DBG_06;
                                else
@@ -367,7 +367,7 @@ begin
                        end if;
                    when DBG_06 =>
                        if test_write = '1' then
-                           if i_X_A = ("000" & x"3FFC") then
+                           if i_X_A = ("001" & x"3FFC") then
                                if i_X_Din = x"CD" then
                                    state <= DBG_07;
                                else
@@ -377,7 +377,7 @@ begin
                        end if;
                    when DBG_07 =>
                        if  test_write = '1' then
-                           if i_X_A = ("000" & x"3FFD") then
+                           if i_X_A = ("001" & x"3FFD") then
                                if i_X_Din = x"D9" then
                                    state <= DBG_08;
                                else
@@ -395,7 +395,7 @@ begin
                        end if;
                    when DBG_0A =>
                        if test_read = '1' then
-                           if i_X_A = ("000" & x"3FFC") then
+                           if i_X_A = ("001" & x"3FFC") then
                                if test_Dout = x"CD" then
                                    state <= DBG_0B;
                                else
@@ -405,7 +405,7 @@ begin
                        end if;
                    when DBG_0B =>
                        if test_read = '1' then
-                           if i_X_A = ("000" & x"3FFD") then
+                           if i_X_A = ("001" & x"3FFD") then
                                if test_Dout = x"D9" then
                                    state <= DBG_0C;
                                else
@@ -415,7 +415,7 @@ begin
                        end if;
                    when DBG_0C =>
                        if test_read = '1' then
-                           if i_X_A = ("000" & x"19CD") then
+                           if i_X_A = ("001" & x"19CD") then
                                if test_Dout = x"A9" then
                                    state <= DBG_0D;
                                else
@@ -425,7 +425,7 @@ begin
                        end if;
                    when DBG_0D =>
                        if test_read = '1' then
-                           if i_X_A = ("000" & x"19CE") then
+                           if i_X_A = ("001" & x"19CE") then
                                if test_Dout = x"40" then
                                    state <= DBG_DONE;
                                else

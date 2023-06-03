@@ -7,7 +7,7 @@ library work;
 
 package psram_pack is
 
-component PsramController 
+component PsramController
 generic (
     FREQ : positive := 81_000_000;	-- Actual clk frequency, to time 150us initialization delay
     LATENCY : positive := 3;       	-- tACC (Initial Latency) in W955D8MBYA datasheet:
@@ -22,14 +22,15 @@ port(
    write          : in     std_logic;                     -- Set to 1 to write to RAM
    addr           : in     std_logic_vector(21 downto 0); -- Byte address to read / write
    din            : in     std_logic_vector(15 downto 0); -- Data word to write
-   byte_write     : in     std_logic;                     -- When writing, only write one byte instead of the whole word. 
+   byte_write     : in     std_logic;                     -- When writing, only write one byte instead of the whole word.
                                                    -- addr[0]==1 means we write the upper half of din. lower half otherwise.
    dout           : out    std_logic_vector(15 downto 0);-- Last read data. Read is always word-based.
    busy           : out    std_logic;                    -- 1 while an operation is in progress
 
-    -- HyperRAM physical interface. Gowin interface is for 2 dies. 
+    -- HyperRAM physical interface. Gowin interface is for 2 dies.
     -- We currently only use the first die (4MB).
     O_psram_ck    : out    std_logic_vector(1 downto 0);
+    O_psram_ck_n  : out    std_logic_vector(1 downto 0);
     IO_psram_rwds : inout  std_logic_vector(1 downto 0);
     IO_psram_dq   : inout  std_logic_vector(15 downto 0);
     O_psram_cs_n  : out    std_logic_vector(1 downto 0)

@@ -37,6 +37,7 @@ port(
    core_nOE          : in    std_logic;
 
    O_psram_ck        : out    std_logic_vector(1 downto 0);
+   O_psram_ck_n      : out    std_logic_vector(1 downto 0);
    IO_psram_rwds     : inout  std_logic_vector(1 downto 0);
    IO_psram_dq       : inout  std_logic_vector(15 downto 0);
    O_psram_cs_n      : out    std_logic_vector(1 downto 0);
@@ -189,6 +190,7 @@ begin
       busy        => i_psram_busy,
 
       O_psram_ck     => O_psram_ck,
+      O_psram_ck_n   => O_psram_ck_n,
       IO_psram_rwds  => IO_psram_rwds,
       IO_psram_dq    => IO_psram_dq,
       O_psram_cs_n   => O_psram_cs_n

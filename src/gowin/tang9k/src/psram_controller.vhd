@@ -37,6 +37,7 @@ entity PsramController is
         -- HyperRAM physical interface. Gowin interface is for 2 dies.
         -- We currently only use the first die (4MB).
         O_psram_ck    : out   std_logic_vector(1 downto 0);
+        O_psram_ck_n  : out   std_logic_vector(1 downto 0);
         IO_psram_rwds : inout std_logic_vector(1 downto 0);
         IO_psram_dq   : inout std_logic_vector(15 downto 0);
         O_psram_cs_n  : out   std_logic_vector(1 downto 0)
@@ -133,6 +134,7 @@ architecture behavioral of PsramController is
     signal additional_latency : std_logic;
     signal cs_n_tbuf          : std_logic;
     signal ck_tbuf            : std_logic;
+    signal ck_tbuf_n          : std_logic;
     signal rwds_oen_tbuf      : std_logic;
     signal rwds_tbuf          : std_logic;
 
@@ -207,7 +209,7 @@ begin
                 rwds_oen <= '1';
                 ck_e <= '0';
                 ram_cs_n <= '1';
-                if read = '1' or write = '1'then
+                if read = '1' or write = '1' then
                     ram_cs_n <= '0';
                     r_cmd_save <= write;
                     if CS_DELAY then
@@ -240,7 +242,7 @@ begin
                         -- If it is low, data starts at 2+LATENCY. If high, then data starts at 2+LATENCY*2.
                     end if;
                 end if;
-                if cycles_sr(2+LATENCY-1) then
+                if cycles_sr(2+LATENCY-1) = '1' then
                     --DB: apply correct rwds preamble
                     rwds_oen <= '0';
                     rwds_out_ris <= '0';
@@ -369,6 +371,16 @@ begin
 
     O_psram_ck(0) <= ck_tbuf;
 
+    -- DMB: Add the inverted clock output
+    oddr_ck_n : ODDR port map (
+        CLK => clk_p,
+        D0  => not ck_e_p,
+        D1  => '1',
+        Q0  => ck_tbuf_n,
+        TX => '0'
+        );
+
+    O_psram_ck_n(0) <= ck_tbuf_n;
 
     -- Tristate DDR input
     iddr_rwds : IDDR port map (
@@ -390,6 +402,7 @@ begin
     -- Assign outputs to avoid warnings controlling the second PSRAM to avoid warnings
     O_psram_cs_n(1)  <= '1';
     O_psram_ck(1)    <= '1';
+    O_psram_ck_n(1)  <= '0';
     IO_psram_rwds(1) <= 'Z';
     IO_psram_dq(15 downto 8) <= (others => 'Z');
 

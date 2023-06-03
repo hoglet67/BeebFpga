@@ -418,7 +418,7 @@ begin
       end if;
    end process;
 
-   p_ca1_cb1_int : process(r_pcr, ca1_ip_reg_c, ca1_ip_reg_d, cb1_ip_reg_c, cb1_ip_reg_d)
+   p_ca1_cb1_int : process(r_pcr, ca1_ip_reg_c, ca1_ip_reg_d, cb1_ip_reg_c, cb1_ip_reg_d, I_CA1)
    begin
       if (r_pcr(0) = '0') then -- ca1 control
          -- negative edge

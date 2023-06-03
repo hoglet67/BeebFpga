@@ -10,7 +10,7 @@ entity tone_generator is
     clk           : in std_logic;
     clk_div16_en  : in std_logic;
     reset         : in std_logic;
-                
+
     freq          : in std_logic_vector(9 downto 0);
 
     audio_out     : out std_logic
@@ -64,9 +64,8 @@ entity sn76489 is
     clk         : in std_logic;
     clk_en      : in std_logic;
     reset       : in std_logic;
-                
+
     d           : in std_logic_vector(0 to 7);    -- D0 is MSB!
-    ready       : out std_logic;
     we_n        : in std_logic;
     ce_n        : in std_logic;
 
@@ -95,7 +94,7 @@ architecture SYN of sn76489 is
 
   --signal shift_s        : std_logic;  -- debug only
 
-  -- yes, a shared variable! 
+  -- yes, a shared variable!
   -- - written in 1 process, read in another
   shared variable reg_a : integer range 0 to 7;
 
@@ -156,7 +155,7 @@ begin
         clk             => clk,
         clk_div16_en    => clk_div16_en,
         reset           => reset,
-                    
+
         freq            => reg(i*2),
 
         audio_out       => audio_d(i)

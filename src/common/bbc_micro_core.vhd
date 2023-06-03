@@ -632,7 +632,6 @@ signal ps2_mse_data_in  :   std_logic;
 signal ps2_mse_data_out :   std_logic;
 
 -- Sound generator
-signal sound_ready      :   std_logic;
 signal sound_di         :   std_logic_vector(7 downto 0);
 signal sound_ao         :   std_logic_vector(7 downto 0);
 
@@ -1303,6 +1302,14 @@ begin
         tube_cs_b <= '0' when int_tube_enable = '1' and cpu_clken = '1' else '1';
     end generate;
 
+    GenNotCoProSPI: if not IncludeCoProSPI generate
+    begin
+        p_spi_miso <= '1';
+        p_irq_b    <= '1';
+        p_nmi_b    <= '1';
+        p_rst_b    <= '1';
+    end generate;
+
 --------------------------------------------------------
 -- Optional External Co Processor
 --------------------------------------------------------
@@ -1322,6 +1329,15 @@ begin
         end process;
     end generate;
 
+    GenNotCoProExt: if not IncludeCoProExt generate
+        ext_tube_phi2  <= '1';
+        ext_tube_r_nw  <= '1';
+        ext_tube_nrst  <= '1';
+        ext_tube_ntube <= '1';
+        ext_tube_a     <= (others => '1');
+        ext_tube_di    <= (others => '1');
+    end generate;
+
 --------------------------------------------------------
 -- SN76489 Sound Generator
 --------------------------------------------------------
@@ -1335,7 +1351,6 @@ begin
             clk_en => mhz4_clken,
             reset => reset,
             d => sound_di,
-            ready => sound_ready,
             we_n => sound_enable_n,
             ce_n => '0',
             audio_out => sound_ao
@@ -1992,7 +2007,7 @@ begin
     end process;
 
     -- Address translation logic for calculation of display address
-    process(crtc_ma,crtc_ra,disp_addr_offs)
+    process(crtc_ma, crtc_ra, disp_addr_offs, ttxt_vdu, m128_mode)
     variable aa : unsigned(3 downto 0);
     begin
         if crtc_ma(12) = '0' then

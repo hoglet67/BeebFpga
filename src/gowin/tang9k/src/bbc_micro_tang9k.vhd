@@ -49,20 +49,20 @@ entity bbc_micro_tang9k is
 generic (
    IncludeAMXMouse    : boolean := false;
    IncludeSPISD       : boolean := true;
-   IncludeSID         : boolean := false;
+   IncludeSID         : boolean := true;
    IncludeMusic5000   : boolean := false;
    IncludeICEDebugger : boolean := false;
    IncludeCoPro6502   : boolean := false; -- The three co pro options
    IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
    IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-   IncludeVideoNuLA   : boolean := false;
+   IncludeVideoNuLA   : boolean := true;
    IncludeTrace       : boolean := true;
    IncludeHDMI        : boolean := true;
    UseOrigKeyboard    : boolean := false;
    UseT65Core         : boolean := true;
    UseAlanDCore       : boolean := false;
    IncludeBootStrap   : boolean := true;
-   IncludeMonitor     : boolean := true;
+   IncludeMonitor     : boolean := false;
    IncludeMinimal     : boolean := true;  -- Creates a build to test
                                           -- 4x16K ROM Images
    PRJ_ROOT           : string := "../../..";

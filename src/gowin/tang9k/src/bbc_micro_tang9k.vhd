@@ -605,25 +605,24 @@ vga_b <= i_VGA_B(i_VGA_B'high);
 -- Configuration
 --------------------------------------------------------
 
---  config_gen : process(clock_48)
---  begin
---      if rising_edge(clock_48) then
---          if powerup_reset_n = '0' then
---              hdmi_audio_en <= '0';
---              config_counter <= (others => '0');
---          elsif btn2_n = '0' then
---              config_counter <= (others => '1');
---          elsif config_counter(config_counter'high) = '1' then
---              config_counter <= config_counter - 1;
---          elsif config_last = '1' then
---              hdmi_audio_en <= not hdmi_audio_en;
---          end if;
---          config_last <= config_counter(config_counter'high);
---      end if;
---  end process;
+    config_gen : process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            if powerup_reset_n = '0' then
+                hdmi_audio_en <= '1';
+                config_counter <= (others => '0');
+            elsif btn2_n = '0' then
+                config_counter <= (others => '1');
+            elsif config_counter(config_counter'high) = '1' then
+                config_counter <= config_counter - 1;
+            elsif config_last = '1' then
+                hdmi_audio_en <= not hdmi_audio_en;
+            end if;
+            config_last <= config_counter(config_counter'high);
+        end if;
+    end process;
 
 hdmi_aspect   <= "00";
-hdmi_audio_en <= '1';
 vid_debug     <= '0';
 
 --------------------------------------------------------

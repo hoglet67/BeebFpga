@@ -32,6 +32,9 @@ library ieee;
 -- Data is latched into the FPGA and FLASH on the flash_clken clock edge.
 
 entity spi_flash is
+    generic (
+        IncludeInitState : boolean := false
+    );
     port (
         -- internal interface
         flash_clk   : in  std_logic := '0';
@@ -56,7 +59,7 @@ architecture RTL of spi_flash is
     signal spi_ck_en    : std_logic := '0';
     signal spi_nce      : std_logic := '1';
     type   SPI_STATE_TYPE is
-                (START, IDLE, TX_CMD, TX_AH, TX_AM, TX_AL, TX_DUMMY1, RX_DATA);
+                (START, IDLE, TX_CMD, TX_AH, TX_AM, TX_AL, TX_DUMMY1, RX_DATA, INIT);
     signal spi_state, next_spi_state : SPI_STATE_TYPE;
 
 begin
@@ -90,8 +93,15 @@ begin
                         spi_nce <= '1';                                -- Deselect FLASH
                         flash_done <= '1';                             -- FLASH comms done
                         if flash_init = '1' then
-                            next_spi_state <= START;                   -- select next state
+                            if includeInitState then                   -- The Puya P25Q32HS on the Tang Nano 9K
+                                next_spi_state <= INIT;                -- seems more reliable if the command is
+                            else                                       -- preceeded by a clock cycle with CS
+                                next_spi_state <= START;               -- high. No idea why this is!
+                            end if;
                         end if;
+                    when INIT =>                                       -- init state
+                        spi_ck_en <= '1';                              -- enable FLASH clock while CS still high
+                        next_spi_state <= START;                       -- select next state
                     when START =>                                      -- start state
                         shift <= x"0b";                                -- High Speed Read command
                         flash_done <= '0';                             -- FLASH comms not done

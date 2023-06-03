@@ -290,7 +290,11 @@ begin
         end process;
 
     -- FLASH chip SPI driver
-    u_flash : entity work.spi_flash port map (
+    u_flash : entity work.spi_flash
+    generic map (
+        IncludeInitState => true
+    )
+    port map (
         flash_clk   => clock,
         flash_clken => clock_en,
         flash_init  => flash_init,

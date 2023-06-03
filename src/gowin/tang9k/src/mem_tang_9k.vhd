@@ -463,4 +463,10 @@ begin
 
    end generate;
 
+   not_mon : if not IncludeMonitor generate
+
+       led <= "111111";
+
+   end generate;
+
 end rtl;

@@ -103,12 +103,12 @@ architecture rtl of mem_tang_9k is
     -- These are settings for use with a minimal 64K ROM config
     --
     --        Beeb          Master
-    -- 0 -> 4 MOS 1.20      3 MOS 3.20
-    -- 1 -> 8 MMFS          4 MMFS
+    -- 0 -> 4 MOS 1.20      4 MOS 3.20
+    -- 1 -> 8 MMFS          9 MMFS
     -- 2 -> E Ram Master    C Basic II
     -- 3 -> F Basic II      F Terminal
     constant user_rom_map_beeb_minimal    : std_logic_vector(63 downto 0) := x"000000000000FE84";
-    constant user_rom_map_master_minimal  : std_logic_vector(63 downto 0) := x"000000000000FC43";
+    constant user_rom_map_master_minimal  : std_logic_vector(63 downto 0) := x"000000000000FC94";
     constant user_rom_map_full            : std_logic_vector(63 downto 0) := x"FEDCBA9876543210";
     signal   user_rom_map                 : std_logic_vector(63 downto 0);
 
@@ -318,13 +318,14 @@ begin
     mon : if IncludeMonitor generate
 
         -- Note:
-        --   On the Beeb   the OS is mapped into rom slot 4 10000-13FFF
-        --   On the Master the OS is mapped into rom slot 3 0C000-0FFFF
+        --   The OS is always mapped into rom slot 4 10000-13FFF
+        --   On the Beeb the reset address of D9CD becomed 119CD
+        --   On the Master the reset address of E364 becomed 12364
 
-        ADDR_INS0 <= "000" & x"E364" when m128_mode = '1' else  "001" & x"19CD";
-        ADDR_INS1 <= "000" & x"E365" when m128_mode = '1' else  "001" & x"19CE";
-        ADDR_VEC0 <= "000" & x"FFFC" when m128_mode = '1' else  "001" & x"3FFC";
-        ADDR_VEC1 <= "000" & x"FFFD" when m128_mode = '1' else  "001" & x"3FFD";
+        ADDR_INS0 <= "001" & x"2364" when m128_mode = '1' else  "001" & x"19CD";
+        ADDR_INS1 <= "001" & x"2365" when m128_mode = '1' else  "001" & x"19CE";
+        ADDR_VEC0 <= "001" & x"3FFC";
+        ADDR_VEC1 <= "001" & x"3FFD";
 
         DATA_INS0 <= x"A9";
         DATA_INS1 <= x"40";
@@ -359,7 +360,8 @@ begin
                             state <= DBG_03;
                         end if;
                     when DBG_03 =>
-                        if i_bootstrap_reset_n = '1' then
+                        -- The i_X_A term skips over the bootstrap writing zeros
+                        if i_bootstrap_reset_n = '1' and i_X_A = ADDR_VEC1 then
                             state <= DBG_04;
                         end if;
                     when DBG_04 =>

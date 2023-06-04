@@ -10,6 +10,9 @@ create_generated_clock -name clock_96 -source [get_ports {sys_clk}] -master_cloc
 set_clock_groups -asynchronous -group [get_clocks {clock_48}] -group [get_clocks {clock_27}]
 set_clock_groups -asynchronous -group [get_clocks {clock_27}] -group [get_clocks {clock_48}]
 
+// Ingore any timing paths involving m128_main
+set_false_path -from [get_clocks {clock_48}] -through [get_nets {m128_mode*}] -to [get_clocks {clock_48}]
+
 set_multicycle_path -from [get_regs {bbc_micro/Gen*Core.core/*}] -to [get_regs {bbc_micro/Gen*Core.core/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/Gen*Core.core/*}] -to [get_regs {bbc_micro/Gen*Core.core/*}]  -hold -end 1
 
@@ -18,7 +21,6 @@ set_multicycle_path -from [get_regs {bbc_micro/Gen*Core.core/*}] -to [get_regs {
 
 set_multicycle_path -from [get_regs {bbc_micro/Gen*Core.core/*}] -to [get_regs {bbc_micro/crtc/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/Gen*Core.core/*}] -to [get_regs {bbc_micro/crtc/*}]  -hold -end 1
-
 
 set_multicycle_path -from [get_regs {bbc_micro/Gen*Core.core/*}] -to [get_regs {bbc_micro/vidproc*/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/Gen*Core.core/*}] -to [get_regs {bbc_micro/vidproc*/*}]  -hold -end 1

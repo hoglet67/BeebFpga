@@ -6,7 +6,6 @@
     <Device name="GW1NR-9C" pn="GW1NR-LV9QN88PC6/I5">gw1nr9c-004</Device>
     <FileList>
         <File path="src/psram_controller.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../src/common/AlanD/R65Cx2.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/SID/sid_coeffs.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/SID/sid_components.vhd" type="file.vhdl" enable="1"/>
@@ -40,6 +39,7 @@
         <File path="../../../src/common/hdmi/hdmi.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang9k.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
         <File path="src/mem_tang_9k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/psram_controller.cmp.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bootstrap.vhd" type="file.vhdl" enable="1"/>

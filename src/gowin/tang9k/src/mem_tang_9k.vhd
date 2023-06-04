@@ -145,6 +145,15 @@ architecture rtl of mem_tang_9k is
 
 
     -- Signals for the bootstrap health monitor
+    signal ADDR_INS0 : std_logic_vector(18 downto 0);
+    signal ADDR_INS1 : std_logic_vector(18 downto 0);
+    signal ADDR_VEC0 : std_logic_vector(18 downto 0);
+    signal ADDR_VEC1 : std_logic_vector(18 downto 0);
+
+    signal DATA_INS0 : std_logic_vector(7 downto 0);
+    signal DATA_INS1 : std_logic_vector(7 downto 0);
+    signal DATA_VEC0 : std_logic_vector(7 downto 0);
+    signal DATA_VEC1 : std_logic_vector(7 downto 0);
 
     -- Bit 5 is the error bit
     -- Bit 4 is the done bit
@@ -316,6 +325,21 @@ begin
    --------------------------------------------------------
 
    mon : if IncludeMonitor generate
+
+       -- Note:
+       --   On the Beeb   the OS is mapped into rom slot 4 10000-13FFF
+       --   On the Master the OS is mapped into rom slot 3 0C000-0FFFF
+
+       ADDR_INS0 <= "000" & x"E364" when m128_mode = '1' else  "001" & x"19CD";
+       ADDR_INS1 <= "000" & x"E365" when m128_mode = '1' else  "001" & x"19CE";
+       ADDR_VEC0 <= "000" & x"FFFC" when m128_mode = '1' else  "001" & x"3FFC";
+       ADDR_VEC1 <= "000" & x"FFFD" when m128_mode = '1' else  "001" & x"3FFD";
+
+       DATA_INS0 <= x"A9";
+       DATA_INS1 <= x"40";
+       DATA_VEC0 <= x"64" when m128_mode = '1' else x"CD";
+       DATA_VEC1 <= x"E3" when m128_mode = '1' else x"D9";
+
        process(CLK_48)
            variable cmd_write1 : std_logic;
            variable cmd_write2 : std_logic;
@@ -349,8 +373,8 @@ begin
                        end if;
                    when DBG_04 =>
                        if test_write = '1' then
-                           if i_X_A = ("001" & x"19CD") then -- Note, OS is mapped into rom slot 4 10000-13FFF
-                               if i_X_Din = x"A9" then
+                           if i_X_A = ADDR_INS0 then
+                               if i_X_Din = DATA_INS0 then
                                    state <= DBG_05;
                                else
                                    state(5) <= '1';
@@ -359,8 +383,8 @@ begin
                        end if;
                    when DBG_05 =>
                        if test_write = '1' then
-                           if i_X_A = ("001" & x"19CE") then
-                               if i_X_Din = x"40" then
+                           if i_X_A = ADDR_INS1 then
+                               if i_X_Din = DATA_INS1 then
                                    state <= DBG_06;
                                else
                                    state(5) <= '1';
@@ -369,8 +393,8 @@ begin
                        end if;
                    when DBG_06 =>
                        if test_write = '1' then
-                           if i_X_A = ("001" & x"3FFC") then
-                               if i_X_Din = x"CD" then
+                           if i_X_A = ADDR_VEC0 then
+                               if i_X_Din = DATA_VEC0 then
                                    state <= DBG_07;
                                else
                                    state(5) <= '1';
@@ -379,8 +403,8 @@ begin
                        end if;
                    when DBG_07 =>
                        if  test_write = '1' then
-                           if i_X_A = ("001" & x"3FFD") then
-                               if i_X_Din = x"D9" then
+                           if i_X_A = ADDR_VEC1 then
+                               if i_X_Din = DATA_VEC1 then
                                    state <= DBG_08;
                                else
                                    state(5) <= '1';
@@ -397,8 +421,8 @@ begin
                        end if;
                    when DBG_0A =>
                        if test_read = '1' then
-                           if i_X_A = ("001" & x"3FFC") then
-                               if test_Dout = x"CD" then
+                           if i_X_A = ADDR_VEC0 then
+                               if test_Dout = DATA_VEC0 then
                                    state <= DBG_0B;
                                else
                                    state(5) <= '1';
@@ -407,8 +431,8 @@ begin
                        end if;
                    when DBG_0B =>
                        if test_read = '1' then
-                           if i_X_A = ("001" & x"3FFD") then
-                               if test_Dout = x"D9" then
+                           if i_X_A = ADDR_VEC1 then
+                               if test_Dout = DATA_VEC1 then
                                    state <= DBG_0C;
                                else
                                    state(5) <= '1';
@@ -417,8 +441,8 @@ begin
                        end if;
                    when DBG_0C =>
                        if test_read = '1' then
-                           if i_X_A = ("001" & x"19CD") then
-                               if test_Dout = x"A9" then
+                           if i_X_A = ADDR_INS0 then
+                               if test_Dout = DATA_INS0 then
                                    state <= DBG_0D;
                                else
                                    state(5) <= '1';
@@ -427,8 +451,8 @@ begin
                        end if;
                    when DBG_0D =>
                        if test_read = '1' then
-                           if i_X_A = ("001" & x"19CE") then
-                               if test_Dout = x"40" then
+                           if i_X_A = ADDR_INS1 then
+                               if test_Dout = DATA_INS1 then
                                    state <= DBG_DONE;
                                else
                                    state(5) <= '1';

@@ -59,12 +59,9 @@ generic (
    IncludeTrace       : boolean := true;
    IncludeHDMI        : boolean := true;
    UseOrigKeyboard    : boolean := false;
-   UseT65Core         : boolean := true;
-   UseAlanDCore       : boolean := false;
+   IncludeMaster      : boolean := true;
    IncludeBootStrap   : boolean := true;
-   IncludeMonitor     : boolean := false;
-   IncludeMinimal     : boolean := true;  -- Creates a build to test
-                                          -- 4x16K ROM Images
+   IncludeMonitor     : boolean := true;
    PRJ_ROOT           : string := "../../..";
    MOS_NAME           : string := "/roms/bbcb/os12_basic.bit";
    SIM                : boolean := false
@@ -385,8 +382,8 @@ vga_b <= i_VGA_B(i_VGA_B'high);
             IncludeTrace       => IncludeTrace,
             IncludeHDMI        => IncludeHDMI,
             UseOrigKeyboard    => UseOrigKeyboard,
-            UseT65Core         => UseT65Core,
-            UseAlanDCore       => UseAlanDCore
+            UseT65Core         => not IncludeMaster,
+            UseAlanDCore       => IncludeMaster
             )
         port map (
             clock_27       => clock_27,
@@ -468,7 +465,7 @@ vga_b <= i_VGA_B(i_VGA_B'high);
         );
 
 
-    m128_mode      <= '0';       --DB: Model B
+    m128_mode      <= '1' when IncludeMaster else '0';
     vid_mode       <= "0001" when IncludeHDMI else "0000";
     copro_mode     <= '0';       --DB: ?
     keyb_dip       <= "00000000";--DB: ?;
@@ -901,7 +898,7 @@ generic map (
     SIM => SIM,
     IncludeMonitor => IncludeMonitor,
     IncludeBootStrap => IncludeBootStrap,
-    IncludeMinimal => IncludeMinimal,
+    IncludeMinimal => not IncludeMaster,
     PRJ_ROOT => PRJ_ROOT,
     MOS_NAME => MOS_NAME
 )

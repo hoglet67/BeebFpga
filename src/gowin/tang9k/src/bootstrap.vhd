@@ -103,7 +103,8 @@ signal bs_busy          : std_logic;
 -- for bootstrap state machine
 type    BS_STATE_TYPE is (
             INIT, START_READ_FLASH, READ_FLASH, FLASH0, FLASH1, FLASH2, FLASH3, FLASH4, FLASH5, FLASH6, FLASH7,
-            WAIT0, WAIT1, WAIT2, WAIT3, WAIT4, WAIT5, WAIT6, WAIT7, WAIT8, WAIT9, WAIT10, WAIT11
+            WAIT0, WAIT1, WAIT2, WAIT3, WAIT4, WAIT5, WAIT6, WAIT7, WAIT8, WAIT9, WAIT10, WAIT11,
+            ZERO0, ZERO1, ZERO2, ZERO3, ZERO4, ZERO5, ZERO6, ZERO7
         );
 
 signal bs_state : BS_STATE_TYPE := INIT;
@@ -215,7 +216,39 @@ begin
                             bs_nCS <= '0';                        -- SRAM always selected during bootstrap
                             bs_nOE <= '1';                        -- SRAM output disabled during bootstrap
                             bs_nWE <= '1';                        -- SRAM write enable inactive default state
-                            bs_state <= START_READ_FLASH;
+                            bs_Din <= x"00";                      -- place byte on SRAM data bus
+                            bs_state <= ZERO0;
+                            -- Zero the 256K of RAM that is being used for ROMs, so that when chanimg
+                            -- from master mode (full) to beeb mode (minimal), the beeb doesn't see old master ROMs
+                        when ZERO0 =>
+                            bs_A <= bs_A + 1;
+                            bs_state <= ZERO1;
+                        when ZERO1 =>
+                            bs_A_mapped <= bs_A(17 downto 14);
+                            bs_A_stb <= '1';
+                            bs_nWE_long <= '0';
+                            bs_state <= ZERO2;
+                        when ZERO2 =>
+                            bs_state <= ZERO3;
+                        when ZERO3 =>
+                            bs_nWE <= '0';
+                            bs_state <= ZERO4;
+                        when ZERO4 =>
+                            bs_state <= ZERO5;
+                        when ZERO5 =>
+                            bs_state <= ZERO6;
+                        when ZERO6 =>
+                            bs_nWE <= '1';
+                            bs_nWE_long <= '1';
+                            bs_state <= ZERO7;
+                        when ZERO7 =>
+                            if bs_A(18) = '0' then
+                                bs_state <= ZERO0;
+                            else
+                                flash_init <= '0';                    -- signal FLASH to begin init
+                                bs_A   <= (others => '1');            -- SRAM address all ones (becomes zero on first increment)
+                                bs_state <= START_READ_FLASH;
+                            end if;
                         when START_READ_FLASH =>
                             flash_init <= '1';                    -- allow FLASH to exit init state
                             if flash_Done = '0' then              -- wait for FLASH init to begin

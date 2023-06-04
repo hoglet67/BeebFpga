@@ -569,6 +569,9 @@ architecture Behavioral of R65C02 is
     signal theOpcode      : unsigned(7 downto 0);
     signal nextOpcode     : unsigned(7 downto 0);
 
+    attribute syn_romstyle : string;
+    attribute syn_romstyle of opcInfo : signal is "logic";
+
 -- Program counter
     signal PC : unsigned(15 downto 0); -- Program counter
 

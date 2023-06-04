@@ -19,19 +19,19 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="1"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="106"/>
     </file>
-    <file xil_pn:name="../src/common/T65/T65_ALU.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="../AtomBusMon/src/T6502/T65_ALU.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="2"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="59"/>
     </file>
-    <file xil_pn:name="../src/common/T65/T65_MCode.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="../AtomBusMon/src/T6502/T65_MCode.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="3"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="58"/>
     </file>
-    <file xil_pn:name="../src/common/T65/T65_Pack.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="../AtomBusMon/src/T6502/T65_Pack.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="4"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="33"/>
     </file>
-    <file xil_pn:name="../src/common/T65/T65.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="../AtomBusMon/src/T6502/T65.vhd" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="5"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="66"/>
     </file>

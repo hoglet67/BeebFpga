@@ -11,10 +11,10 @@
         <File path="../../../src/common/SID/sid_components.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/SID/sid_filters.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/SID/sid_voice.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../src/common/T65/T65.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../src/common/T65/T65_ALU.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../src/common/T65/T65_MCode.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../src/common/T65/T65_Pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../AtomBusMon/src/T6502/T65.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../AtomBusMon/src/T6502/T65_ALU.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../AtomBusMon/src/T6502/T65_MCode.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../AtomBusMon/src/T6502/T65_Pack.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/bbc_micro_core.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/keyboard.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/m6522.vhd" type="file.vhdl" enable="1"/>

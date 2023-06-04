@@ -338,25 +338,25 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/common/T65/T65_Pack.vhd">
+      <File Path="$PPRDIR/../../AtomBusMon/src/T6502/T65_Pack.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/common/T65/T65_MCode.vhd">
+      <File Path="$PPRDIR/../../AtomBusMon/src/T6502/T65_MCode.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/common/T65/T65_ALU.vhd">
+      <File Path="$PPRDIR/../../AtomBusMon/src/T6502/T65_ALU.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/common/T65/T65.vhd">
+      <File Path="$PPRDIR/../../AtomBusMon/src/T6502/T65.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>

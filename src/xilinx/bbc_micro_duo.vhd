@@ -197,12 +197,12 @@ architecture rtl of bbc_micro_duo is
     -- These are settings for use with a minimal 64K ROM config
     --
     --        Beeb          Master
-    -- 0 -> 4 MOS 1.20      3 MOS 3.20
-    -- 1 -> 8 MMFS          4 MMFS
+    -- 0 -> 4 MOS 1.20      4 MOS 3.20
+    -- 1 -> 8 MMFS          9 MMFS
     -- 2 -> E Ram Master    C Basic II
     -- 3 -> F Basic II      F Terminal
     constant user_rom_map_beeb_minimal    : std_logic_vector(63 downto 0) := x"000000000000FE84";
-    constant user_rom_map_master_minimal  : std_logic_vector(63 downto 0) := x"000000000000FC43";
+    constant user_rom_map_master_minimal  : std_logic_vector(63 downto 0) := x"000000000000FC94";
     constant user_rom_map_full            : std_logic_vector(63 downto 0) := x"FEDCBA9876543210";
     signal   user_rom_map                 : std_logic_vector(63 downto 0);
 

@@ -10,14 +10,13 @@ use work.psram_pack.all;
 -- Generic top-level entity for Altera DE1 board
 entity mem_tang_9k is
     generic (
-        PRJ_ROOT           : string;
-        MOS_NAME           : string;
-        SIM                : boolean;
-        IncludeMonitor     : boolean := false;
-        IncludeBootstrap   : boolean;
-        IncludeMinimal     : boolean := false  -- Creates a build to test
-                                               -- 4x16K ROM Images
-
+        PRJ_ROOT             : string;
+        MOS_NAME             : string;
+        SIM                  : boolean;
+        IncludeMonitor       : boolean := false;
+        IncludeBootstrap     : boolean;
+        IncludeMinimalMaster : boolean := false;  -- Creates a build to test 4x16K ROM Images
+        IncludeMinimalBeeb   : boolean := false   -- Creates a build to test 4x16K ROM Images
         );
     port(
         CLK_96            : in  std_logic;
@@ -120,23 +119,13 @@ architecture rtl of mem_tang_9k is
     constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"010000";
     constant user_address_master_full     : std_logic_vector(23 downto 0) := x"040000";
     signal   user_address                 : std_logic_vector(23 downto 0);
+    signal   user_length                  : std_logic_vector(23 downto 0);
 
     -- length of user data in FLASH = 256KB (16x 16K ROM) images
     constant user_length_full             : std_logic_vector(23 downto 0) := x"040000";
 
     -- length of user data in FLASH = 64KB (4x 16K ROM) images
     constant user_length_minimal          : std_logic_vector(23 downto 0) := x"010000";
-
-    function calc_user_length (isMinimal : in Boolean) return std_logic_vector is
-        variable tmp : std_logic_vector(23 downto 0);
-    begin
-        if isMinimal then
-            tmp := user_length_minimal;
-        else
-            tmp := user_length_full;
-        end if;
-        return tmp;
-    end calc_user_length;
 
     -- high when FLASH is being copied to SRAM, can be used by user as active high reset
     signal   i_bootstrap_busy  : std_logic;
@@ -239,23 +228,25 @@ begin
     GenBootstrap: if IncludeBootstrap generate
 
 
-        user_address <=   user_address_master_minimal when m128_mode = '1' and     IncludeMinimal else
-                          user_address_master_full    when m128_mode = '1' and not IncludeMinimal else
+        user_address <=   user_address_master_minimal when m128_mode = '1' and     IncludeMinimalMaster else
+                          user_address_master_full    when m128_mode = '1' and not IncludeMinimalMaster else
                           user_address_beeb;
 
-        user_rom_map <=   user_rom_map_master_minimal when m128_mode = '1' and     IncludeMinimal else
-                          user_rom_map_beeb_minimal   when m128_mode = '0' and     IncludeMinimal else
+        user_length  <=   user_length_minimal         when m128_mode = '1' and     IncludeMinimalMaster else
+                          user_length_minimal         when m128_mode = '0' and     IncludeMinimalBeeb   else
+                          user_length_full;
+
+        user_rom_map <=   user_rom_map_master_minimal when m128_mode = '1' and     IncludeMinimalMaster else
+                          user_rom_map_beeb_minimal   when m128_mode = '0' and     IncludeMinimalBeeb   else
                           user_rom_map_full;
 
         inst_bootstrap: entity work.bootstrap
-            generic map (
-                user_length     => calc_user_length(IncludeMinimal)
-                )
             port map(
                 clock           => CLK_48,
                 powerup_reset_n => i_bootstrap_reset_n,
                 bootstrap_busy  => i_bootstrap_busy,
                 user_address    => user_address,
+                user_length     => user_length,
                 user_rom_map    => user_rom_map,
                 RAM_A_stb       => core_A_stb,
                 RAM_nOE         => core_nOE,

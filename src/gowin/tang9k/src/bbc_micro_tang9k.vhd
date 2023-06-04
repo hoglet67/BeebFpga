@@ -47,6 +47,9 @@ use ieee.numeric_std.all;
 -- Generic top-level entity for Altera DE1 board
 entity bbc_micro_tang9k is
 generic (
+   IncludeMaster      : boolean := true; -- if both included, the CPU is the AlanD 65C02
+   IncludeBeeb        : boolean := true; -- and btn1 can toggle between the ROM images
+
    IncludeAMXMouse    : boolean := false;
    IncludeSPISD       : boolean := true;
    IncludeSID         : boolean := true;
@@ -59,7 +62,6 @@ generic (
    IncludeTrace       : boolean := true;
    IncludeHDMI        : boolean := true;
    UseOrigKeyboard    : boolean := false;
-   IncludeMaster      : boolean := true;
    IncludeBootStrap   : boolean := true;
    IncludeMonitor     : boolean := true;
    PRJ_ROOT           : string := "../../..";
@@ -267,9 +269,7 @@ signal ext_nOE         : std_logic;
 
 signal keyb_dip        : std_logic_vector(7 downto 0);
 signal vid_mode        : std_logic_vector(3 downto 0);
-signal m128_mode       : std_logic;
-signal m128_mode_1     : std_logic;
-signal m128_mode_2     : std_logic;
+signal m128_mode       : std_logic := '1';
 signal copro_mode      : std_logic;
 
 signal p_spi_ssel      : std_logic;
@@ -465,7 +465,6 @@ vga_b <= i_VGA_B(i_VGA_B'high);
         );
 
 
-    m128_mode      <= '1' when IncludeMaster else '0';
     vid_mode       <= "0001" when IncludeHDMI else "0000";
     copro_mode     <= '0';       --DB: ?
     keyb_dip       <= "00000000";--DB: ?;
@@ -550,23 +549,28 @@ vga_b <= i_VGA_B(i_VGA_B'high);
     -- PLL is running continually
     pll_reset <= '0';
 
-    -- Generate a reliable power up reset
-    -- Also, perform a power up reset if the master/beeb mode switch is changed
+    -- Generate a reliable power up reset on powerup, and if bt1n is pressed
+    -- Also, if both IncludeMaster and IncludeBeeb then toggle m128mode
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            m128_mode_1 <= m128_mode;
-            m128_mode_2 <= m128_mode_1;
-            if (m128_mode_1 /= m128_mode_2 or btn1_n = '0') then
+            if (btn1_n = '0') then
                 reset_counter <= (others => '0');
             elsif (reset_counter(reset_counter'high) = '0') then
                 reset_counter <= reset_counter + 1;
+            elsif powerup_reset_n = '0' then
+                if IncludeBeeb and IncludeMaster then
+                    m128_mode <= not m128_mode;
+                elsif IncludeMaster then
+                    m128_mode <= '1';
+                else
+                    m128_mode <= '0';
+                end if;
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
             hard_reset_n <= not (not powerup_reset_n or not mem_ready);
         end if;
     end process;
-
 
 --------------------------------------------------------
 -- Audio DACs
@@ -898,7 +902,8 @@ generic map (
     SIM => SIM,
     IncludeMonitor => IncludeMonitor,
     IncludeBootStrap => IncludeBootStrap,
-    IncludeMinimal => not IncludeMaster,
+    IncludeMinimalBeeb => true,
+    IncludeMinimalMaster => false,
     PRJ_ROOT => PRJ_ROOT,
     MOS_NAME => MOS_NAME
 )

@@ -22,10 +22,6 @@ use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
 entity bootstrap is
-    generic (
-        -- length user data in flash
-        user_length    : std_logic_vector(23 downto 0) := x"040000"
-    );
     port (
         clock           : in    std_logic;
 
@@ -37,6 +33,9 @@ entity bootstrap is
 
         -- start address of user data in FLASH
         user_address    : in std_logic_vector(23 downto 0);
+
+        -- length user data in flash
+        user_length    : std_logic_vector(23 downto 0) := x"040000";
 
         -- map of where in the SRAM to write each successive ROM chunk
         user_rom_map    : in std_logic_vector(63 downto 0) := x"FEDCBA9876543210";

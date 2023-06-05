@@ -22,6 +22,8 @@
         <File path="../../../src/common/mouse/ps2interface.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/mouse/quadrature_controller.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/mouse/quadrature_fsm.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/music5000/Music5000.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/music5000/LogLinRom.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/rtc.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/saa5050.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/scandoubler/mist_scandoubler.vhd" type="file.vhdl" enable="1"/>
@@ -44,6 +46,7 @@
         <File path="src/psram_controller.cmp.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bootstrap.vhd" type="file.vhdl" enable="1"/>
         <File path="src/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang9k.cst" type="file.cst" enable="1"/>
         <File path="src/bbc_micro_tang9k.sdc" type="file.sdc" enable="1"/>
     </FileList>

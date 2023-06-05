@@ -249,10 +249,6 @@ architecture rtl of bbc_micro_tang9k is
     signal powerup_reset_n : std_logic := '0';
     signal hard_reset_n    : std_logic;
     signal reset_counter   : std_logic_vector(RESETBITS downto 0);
-    signal serialized_c    : std_logic;
-    signal serialized_r    : std_logic;
-    signal serialized_g    : std_logic;
-    signal serialized_b    : std_logic;
 
     signal ext_A_stb       : std_logic;
     signal ext_A           : std_logic_vector (18 downto 0);
@@ -555,9 +551,14 @@ begin
     -- HDMI Output
     --------------------------------------------------------
 
-    hdmi : if (IncludeHDMI) generate
+    --  Serialize the three 10-bit TMDS channels to three serialized 1-bit TMDS streams
 
-        --  Serialize the three 10-bit TMDS channels to three serialized 1-bit TMDS streams
+    hdmi : if (IncludeHDMI) generate
+        signal serialized_c : std_logic;
+        signal serialized_r : std_logic;
+        signal serialized_g : std_logic;
+        signal serialized_b : std_logic;
+    begin
 
         ser_b : OSER10
             generic map (

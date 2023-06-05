@@ -53,24 +53,20 @@ entity bbc_micro_tang9k is
         IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := true;
         IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := false; -- The three co pro options
-        IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
-        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
         IncludeVideoNuLA   : boolean := true;
         IncludeTrace       : boolean := true;
         IncludeHDMI        : boolean := true;
-        UseOrigKeyboard    : boolean := false;
         IncludeBootStrap   : boolean := true;
         IncludeMonitor     : boolean := true;
-        PRJ_ROOT           : string := "../../..";
-        MOS_NAME           : string := "/roms/bbcb/os12_basic.bit";
+
+        PRJ_ROOT           : string  := "../../..";
+        MOS_NAME           : string  := "/roms/bbcb/os12_basic.bit";
         SIM                : boolean := false
         );
     port (
         sys_clk         : in    std_logic;
-        btn1_n          : in    std_logic;     -- Power Up Reset
-        btn2_n          : in    std_logic;     -- Config toggle
+        btn1_n          : in    std_logic;     -- Toggle Master / Beeb modes
+        btn2_n          : in    std_logic;     -- Toggle HDMI / DVI modes
         led             : out   std_logic_vector (5 downto 0);
 
         -- Keyboard / Mouse
@@ -110,7 +106,8 @@ entity bbc_micro_tang9k is
         O_psram_reset_n : out   std_logic_vector(1 downto 0);
         O_psram_cs_n    : out   std_logic_vector(1 downto 0);
 
-        -- A general purpose 12-bit bus, that we can use for several functions such as 6502 tracing
+        -- A general purpose 14-bit bus, that we can use for several functions such as 6502 tracing
+        -- Bits 12/13 double as audio
         gpio            : out   std_logic_vector(13 downto 0);
 
         -- SPI Flash (for ROM data)
@@ -118,7 +115,6 @@ entity bbc_micro_tang9k is
         flash_si        : out   std_logic;     -- Serial output to FLASH chip SI pin
         flash_ck        : out   std_logic;     -- FLASH clock
         flash_so        : in    std_logic      -- Serial input from FLASH chip SO pin
-
         );
 end entity;
 
@@ -234,7 +230,6 @@ architecture rtl of bbc_micro_tang9k is
     --------------------------------------------------------
 
     signal clock_27        : std_logic;
-    signal clock_32        : std_logic;
     signal clock_48        : std_logic;
     signal clock_96        : std_logic;
     signal clock_96_p      : std_logic;
@@ -259,12 +254,6 @@ architecture rtl of bbc_micro_tang9k is
     signal serialized_g    : std_logic;
     signal serialized_b    : std_logic;
 
-    signal pll_reset       : std_logic;
-    signal pll_locked      : std_logic;
-
-    signal pcm_inl         : std_logic_vector(15 downto 0);
-    signal pcm_inr         : std_logic_vector(15 downto 0);
-
     signal ext_A_stb       : std_logic;
     signal ext_A           : std_logic_vector (18 downto 0);
     signal ext_Din         : std_logic_vector (7 downto 0);
@@ -277,49 +266,13 @@ architecture rtl of bbc_micro_tang9k is
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_mode       : std_logic := '1';
-    signal copro_mode      : std_logic;
-
-    signal p_spi_ssel      : std_logic;
-    signal p_spi_sck       : std_logic;
-    signal p_spi_mosi      : std_logic;
-    signal p_spi_miso      : std_logic;
-    signal p_irq_b         : std_logic;
-    signal p_nmi_b         : std_logic;
-    signal p_rst_b         : std_logic;
 
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
-    signal is_done         : std_logic;
-    signal is_error        : std_logic;
 
-    signal cpu_addr        : std_logic_vector (15 downto 0);
-
-    signal test            : std_logic_vector (7 downto 0);
-
-    signal ext_keyb_led1   : std_logic;
-    signal ext_keyb_led2   : std_logic;
-    signal ext_keyb_led3   : std_logic;
-    signal ext_keyb_1mhz   : std_logic;
-    signal ext_keyb_en_n   : std_logic;
-    signal ext_keyb_pa     : std_logic_vector(6 downto 0);
-    signal ext_keyb_rst_n  : std_logic;
-    signal ext_keyb_ca2    : std_logic;
-    signal ext_keyb_pa7    : std_logic;
-
-    signal ext_tube_r_nw   : std_logic;
-    signal ext_tube_nrst   : std_logic;
-    signal ext_tube_ntube  : std_logic;
-    signal ext_tube_phi2   : std_logic;
-    signal ext_tube_a      : std_logic_vector(6 downto 0);
-    signal ext_tube_di     : std_logic_vector(7 downto 0);
-    signal ext_tube_do     : std_logic_vector(7 downto 0);
-
-    signal i_VGA_R          : std_logic_vector(3 downto 0);
-    signal i_VGA_G          : std_logic_vector(3 downto 0);
-    signal i_VGA_B          : std_logic_vector(3 downto 0);
-
-    -- A registered version to allow slow flash to be used
-    signal ext_A_r         : std_logic_vector (18 downto 0);
+    signal i_VGA_R         : std_logic_vector(3 downto 0);
+    signal i_VGA_G         : std_logic_vector(3 downto 0);
+    signal i_VGA_B         : std_logic_vector(3 downto 0);
 
     -- HDMI
     signal hdmi_aspect     : std_logic_vector(1 downto 0);
@@ -351,20 +304,20 @@ begin
             IncludeSPISD       => IncludeSPISD,
             IncludeSID         => IncludeSID,
             IncludeMusic5000   => IncludeMusic5000,
-            IncludeICEDebugger => IncludeICEDebugger,
-            IncludeCoPro6502   => IncludeCoPro6502,
-            IncludeCoProSPI    => IncludeCoProSPI,
-            IncludeCoProExt    => IncludeCoProExt,
+            IncludeICEDebugger => false,
+            IncludeCoPro6502   => false,
+            IncludeCoProSPI    => false,
+            IncludeCoProExt    => false,
             IncludeVideoNuLA   => IncludeVideoNuLA,
             IncludeTrace       => IncludeTrace,
             IncludeHDMI        => IncludeHDMI,
-            UseOrigKeyboard    => UseOrigKeyboard,
+            UseOrigKeyboard    => false,
             UseT65Core         => not IncludeMaster,
             UseAlanDCore       => IncludeMaster
         )
         port map (
             clock_27       => clock_27,
-            clock_32       => clock_32,
+            clock_32       => '0',                 -- Unused now in the core
             clock_48       => clock_48,
             clock_96       => clock_96,
             clock_avr      => '0',                 -- DB: no AVR yet
@@ -395,38 +348,38 @@ begin
             caps_led       => caps_led,
             shift_led      => shift_led,
             keyb_dip       => keyb_dip,
-            ext_keyb_led1  => ext_keyb_led1,
-            ext_keyb_led2  => ext_keyb_led2,
-            ext_keyb_led3  => ext_keyb_led3,
-            ext_keyb_1mhz  => ext_keyb_1mhz,
-            ext_keyb_en_n  => ext_keyb_en_n,
-            ext_keyb_pa    => ext_keyb_pa,
-            ext_keyb_rst_n => ext_keyb_rst_n,
-            ext_keyb_ca2   => ext_keyb_ca2,
-            ext_keyb_pa7   => ext_keyb_pa7,
+            ext_keyb_led1  => open,
+            ext_keyb_led2  => open,
+            ext_keyb_led3  => open,
+            ext_keyb_1mhz  => open,
+            ext_keyb_en_n  => open,
+            ext_keyb_pa    => open,
+            ext_keyb_rst_n => '1',
+            ext_keyb_ca2   => '0',
+            ext_keyb_pa7   => '0',
             vid_mode       => vid_mode,
             joystick1      => (others => '1'),
             joystick2      => (others => '1'),
             avr_reset      => not hard_reset_n,
             avr_RxD        => uart_rx,
             avr_TxD        => uart_tx,
-            cpu_addr       => cpu_addr,
+            cpu_addr       => open,
             m128_mode      => m128_mode,
-            copro_mode     => copro_mode,
-            p_spi_ssel     => p_spi_ssel,
-            p_spi_sck      => p_spi_sck,
-            p_spi_mosi     => p_spi_mosi,
-            p_spi_miso     => p_spi_miso,
-            p_irq_b        => p_irq_b,
-            p_nmi_b        => p_nmi_b,
-            p_rst_b        => p_rst_b,
-            ext_tube_r_nw  => ext_tube_r_nw,
-            ext_tube_nrst  => ext_tube_nrst,
-            ext_tube_ntube => ext_tube_ntube,
-            ext_tube_phi2  => ext_tube_phi2,
-            ext_tube_a     => ext_tube_a,
-            ext_tube_di    => ext_tube_di,
-            ext_tube_do    => ext_tube_do,
+            copro_mode     => '0',
+            p_spi_ssel     => '0',
+            p_spi_sck      => '0',
+            p_spi_mosi     => '0',
+            p_spi_miso     => open,
+            p_irq_b        => open,
+            p_nmi_b        => open,
+            p_rst_b        => open,
+            ext_tube_r_nw  => open,
+            ext_tube_nrst  => open,
+            ext_tube_ntube => open,
+            ext_tube_phi2  => open,
+            ext_tube_a     => open,
+            ext_tube_di    => open,
+            ext_tube_do    => (others => '0'),
             hdmi_aspect    => hdmi_aspect,
             hdmi_audio_en  => hdmi_audio_en,
             vid_debug      => vid_debug,
@@ -438,12 +391,11 @@ begin
             trace_sync     => trace_sync,
             trace_rstn     => trace_rstn,
             trace_phi2     => trace_phi2,
-            test           => test
+            test           => open
         );
 
     vid_mode       <= "0001" when IncludeHDMI else "0000";
-    copro_mode     <= '0';       --DB: ?
-    keyb_dip       <= "00000000";--DB: ?;
+    keyb_dip       <= "00000000";
     hdmi_aspect    <= "00";
     vid_debug      <= '0';
 
@@ -454,9 +406,6 @@ begin
     -- 48 MHz master clock from 27MHz input clock
     -- plus intermediate 96MHz clock for scan doubler
 
-        -- PLL is running continually
-    pll_reset <= '0';
-
     pll1 : rPLL
         generic map (
             FCLKIN => "27",
@@ -465,16 +414,16 @@ begin
             FBDIV_SEL => 31,
             ODIV_SEL => 8,
             DYN_SDIV_SEL => 2,
-            PSDA_SEL => "0100" -- CLKOUTP 90 degree phase shift
+            PSDA_SEL => "0100"          -- 90 degree phase shift
         )
         port map (
             CLKIN    => sys_clk,
-            CLKOUT   => clock_96,
-            CLKOUTD  => clock_48,
-            CLKOUTP  => clock_96_p,
-            CLKOUTD3 => clock_32,
+            CLKOUT   => clock_96,       -- 96MHz clock for PSRAM
+            CLKOUTP  => clock_96_p,     -- 96MHz clock for PSRAM, phase shifted 90 degrees
+            CLKOUTD  => clock_48,       -- 48MHz main clock
+            CLKOUTD3 => open,
             LOCK     => open,
-            RESET    => pll_reset,
+            RESET    => '0',
             RESET_P  => '0',
             CLKFB    => '0',
             FBDSEL   => (others => '0'),
@@ -495,12 +444,12 @@ begin
         )
         port map (
             CLKIN    => sys_clk,
-            CLKOUT   => clock_135,
+            CLKOUT   => clock_135,      -- 135MHz HDMI Serial Clock (5x the HDMI Pixel Clock)
             CLKOUTP  => open,
             CLKOUTD  => open,
             CLKOUTD3 => open,
             LOCK     => open,
-            RESET    => pll_reset,
+            RESET    => '0',
             RESET_P  => '0',
             CLKFB    => '0',
             FBDSEL   => (others => '0'),
@@ -513,13 +462,13 @@ begin
 
     clkdiv5 : CLKDIV
         generic map (
-            DIV_MODE => "5",
+            DIV_MODE => "5",            -- Divide by 5
             GSREN => "false"
         )
         port map (
             RESETN => '1',
             HCLKIN => clock_135,
-            CLKOUT => clock_27,
+            CLKOUT => clock_27,         -- 27MHz HDMI Pixel Clock
             CALIB  => '1'
         );
 

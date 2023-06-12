@@ -59,7 +59,7 @@ entity bbc_micro_spec_next is
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
-        IncludeCoProExt    : boolean := false;
+        IncludeCoProExt    : boolean := true;
         IncludeVideoNuLA   : boolean := true;
         IncludeMaster      : boolean := true
     );
@@ -198,7 +198,9 @@ architecture rtl of bbc_micro_spec_next is
     signal reconfig_ctr    : std_logic_vector(23 downto 0);
     signal reconfig        : std_logic := '0';
     signal m128_mode       : std_logic;
-    signal copro_mode      : std_logic := '0';
+    signal copro           : std_logic_vector(1 downto 0);
+    signal copro_mode      : std_logic;
+    signal copro_ext       : std_logic;
     signal red             : std_logic_vector(3 downto 0);
     signal green           : std_logic_vector(3 downto 0);
     signal blue            : std_logic_vector(3 downto 0);
@@ -211,6 +213,7 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_tube_a      : std_logic_vector(6 downto 0);
     signal ext_tube_di     : std_logic_vector(7 downto 0);
     signal ext_tube_do     : std_logic_vector(7 downto 0);
+    signal ext_tube_enable : std_logic := '0';
 
     signal hdmi_aspect     : std_logic_vector(1 downto 0) := "00";
     signal hdmi_audio_en   : std_logic := '1';
@@ -318,6 +321,7 @@ begin
         cpu_addr       => open,
         m128_mode      => m128_mode,
         copro_mode     => copro_mode,
+        copro_ext      => copro_ext,
         p_spi_ssel     => '0',
         p_spi_sck      => '0',
         p_spi_mosi     => '0',
@@ -356,6 +360,10 @@ begin
         config         => yellow_config_ps2
 
     );
+
+    -- The copro config setting is only relevant to the model b
+    copro_mode <= '1' when IncludeMaster else (copro(0) or copro(1));
+    copro_ext  <= '0' when IncludeMaster else (copro(1) and ext_tube_enable);
 
     -- Joystick 1/2
     --   Bit 0 - Up (active low)
@@ -600,6 +608,13 @@ begin
                 reset_counter <= (others => '0');
             elsif reset_counter(reset_counter'high) = '0' then
                 reset_counter <= reset_counter + 1;
+            elsif powerup_reset_n = '0' then
+                -- At the end of power up reset, test for the presence of PiTubeDirect
+                if ext_tube_do = x"55" then
+                    ext_tube_enable <= '1';
+                else
+                    ext_tube_enable <= '0';
+                end if;
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
 
@@ -632,7 +647,13 @@ begin
             elsif yellow_config(8) = '1' then
                 hdmi_aspect <= "10";
             elsif yellow_config(9) = '1' then
-                copro_mode <= not copro_mode;
+                if copro = "00" then
+                    copro <= "01";
+                elsif copro = "01" and ext_tube_enable = '1' and not IncludeMaster then
+                    copro <= "10";
+                else
+                    copro <= "00";
+                end if;
             elsif yellow_config(0) = '1' then
                 vid_debug <= not vid_debug;
             end if;
@@ -648,7 +669,7 @@ begin
 					when x"2" =>
                         hdmi_aspect <= RAM_Din(1 downto 0);
 					when x"3" =>
-                        copro_mode <= RAM_Din(0);
+                        copro <= RAM_Din(1 downto 0);
 					when x"4" =>
                         vid_debug <= RAM_Din(0);
 					when x"5" =>
@@ -815,26 +836,26 @@ begin
         ext_tube_do  <= accel_io(25 downto 22) & accel_io(11 downto 8);
         accel_io(0)  <= 'Z';
         accel_io(1)  <= 'Z';
-        accel_io(2)  <= ext_tube_a(1);
-        accel_io(3)  <= ext_tube_a(2);
-        accel_io(4)  <= ext_tube_nrst;
+        accel_io(2)  <= ext_tube_a(1) when ext_tube_enable = '1' else 'Z';
+        accel_io(3)  <= ext_tube_a(2) when ext_tube_enable = '1' else 'Z';
+        accel_io(4)  <= ext_tube_nrst when ext_tube_enable = '1' else 'Z';
         accel_io(5)  <= 'Z'; -- reserved for ext_tube_a(3);
         accel_io(6)  <= 'Z';
-        accel_io(7)  <= ext_tube_phi2;
-        accel_io(11 downto 8) <= ext_tube_di(3 downto 0) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else (others => 'Z');
+        accel_io(7)  <= ext_tube_phi2 when ext_tube_enable = '1' else 'Z';
+        accel_io(11 downto 8) <= ext_tube_di(3 downto 0) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' and ext_tube_enable = '1' else (others => 'Z');
         accel_io(12) <= 'Z';
         accel_io(13) <= 'Z';
         accel_io(14) <= 'Z'; -- Serial Tx
         accel_io(15) <= '1'; -- Serial Rx
         accel_io(16) <= 'Z';
-        accel_io(17) <= ext_tube_ntube;
-        accel_io(18) <= ext_tube_r_nw;
+        accel_io(17) <= ext_tube_ntube when ext_tube_enable = '1' else 'Z';
+        accel_io(18) <= ext_tube_r_nw when ext_tube_enable = '1' else 'Z';
         accel_io(19) <= 'Z';
         accel_io(20) <= 'Z';
         accel_io(21) <= 'Z';
-        accel_io(25 downto 22) <= ext_tube_di(7 downto 4) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else (others => 'Z');
+        accel_io(25 downto 22) <= ext_tube_di(7 downto 4) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' and ext_tube_enable = '1' else (others => 'Z');
         accel_io(26) <= 'Z';
-        accel_io(27) <= ext_tube_a(0);
+        accel_io(27) <= ext_tube_a(0) when ext_tube_enable = '1' else 'Z';
     end generate;
 
     GenCoProNotExt: if not IncludeCoProExt generate

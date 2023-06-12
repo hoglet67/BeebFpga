@@ -48,12 +48,6 @@ cat > $1 <<EOF
 
 hdmi_aspect = 0
 
-; Internal 6502 Co Processor
-;     0=off
-;     1=on
-
-copro = 0
-
 ; ICE Debugger (via UART on Joystick2)
 ;     0=off
 ;     1=on
@@ -89,6 +83,13 @@ cat >> $1 <<EOF
 ; =====================================
 ; BBC Model B specific settings
 ; =====================================
+
+; Co Processor selection
+;     0=disabled
+;     1=internal
+;     2=external
+
+copro = 0
 
 ; Keyboard DIP settings
 ; See p246 of Advanced User Guide
@@ -127,6 +128,9 @@ cat >> $1 <<EOF
 ; CMOS RAM Settings
 ; See http://beebwiki.mdfs.net/CMOS_configuration_RAM_allocation
 
+; cmos0f bit 0 is 0:NOTUBE 1:TUBE
+; cmos10 bit 2 is 0:INTUBE 1:EXTUBE
+
 cmos05 = C9 ; Default Filing System / Language
 cmos06 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
 cmos07 = FF ; ROM frugal bits (*INSERT/*UNPLUG)
@@ -137,8 +141,8 @@ cmos0B = 63 ; ADFS startup options, keyboard settings, floppy params
 cmos0C = 20 ; Keyboard auto-repeat delay
 cmos0D = 08 ; Keyboard auto-repeat rate
 cmos0E = 0A ; Printer ignore character
-cmos0F = 2D ; Default printer type, serial baud rate, ignore status and TUBE select
-cmos10 = 80 ; Default serial data format, auto boot option, int/ext TUBE, bell amplitude
+cmos0F = 2C ; Default printer type, serial baud rate, ignore status and TUBE select
+cmos10 = 84 ; Default serial data format, auto boot option, int/ext TUBE, bell amplitude
 
 ; ROM CRCs, for checking during boot
 

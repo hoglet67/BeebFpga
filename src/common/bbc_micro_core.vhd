@@ -179,8 +179,9 @@ entity bbc_micro_core is
         -- Master Mode
         m128_mode      : in    std_logic;
 
-        -- Co Pro 6502 Mode
-        copro_mode     : in    std_logic;
+        -- Copro
+        copro_mode     : in    std_logic;        -- Runtime enable for both internal/external Co Processors
+        copro_ext      : in    std_logic := '0'; -- Model B, indicates external Co Pro has priority if both enabled
 
         -- Co Pro SPI - slave interface
         p_spi_ssel     : in    std_logic;
@@ -1707,7 +1708,7 @@ begin
     -- 0xFEC0 - 0xFEDB = uPD7002 ADC
     -- 0xFEDC - 0xFEDF = SPI SD Card Controller (Master)
     -- 0xFEE0 - 0xFEFF = Tube ULA
-    process(cpu_a,io_sheila,m128_mode,copro_mode,cpu_r_nw,acc_itu)
+    process(cpu_a,io_sheila,m128_mode,copro_mode,copro_ext,cpu_r_nw,acc_itu)
     begin
         -- All regions normally de-selected
         crtc_enable <= '0';
@@ -1801,13 +1802,18 @@ begin
                                     int_tube_enable <= '1';
                                 end if;
                             end if;
-                        elsif IncludeCoProExt then
-                            -- On the Model B, the external tube takes precesence
-                            ext_tube_enable <= '1';
-                        elsif IncludeCoPro6502 or IncludeCoProSPI then
-                            -- On the Model B, the internal tube can only be
-                            -- used if the external tube is not "compiled in"
-                            int_tube_enable <= '1';
+                        else
+                            -- On the Model B, the copro_ext input selects
+                            -- between internal and external tube
+                            if copro_ext = '1' then
+                                if IncludeCoProExt then
+                                    ext_tube_enable <= '1';
+                                end if;
+                            else
+                                if IncludeCoPro6502 or IncludeCoProSPI then
+                                    int_tube_enable <= '1';
+                                end if;
+                            end if;
                         end if;
                     end if;
                 when others =>

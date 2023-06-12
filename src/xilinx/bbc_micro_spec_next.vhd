@@ -361,9 +361,9 @@ begin
 
     );
 
-    -- The copro config setting is only relevant to the model b
-    copro_mode <= '1' when IncludeMaster else (copro(0) or copro(1));
-    copro_ext  <= '0' when IncludeMaster else (copro(1) and ext_tube_enable);
+    -- The copro_ext setting is only relevant to the model b
+    copro_mode <= '1' when IncludeMaster or config_mode = '1' else (copro(0) or copro(1));
+    copro_ext  <= '1' when IncludeMaster or config_mode = '1' else (copro(1) and ext_tube_enable);
 
     -- Joystick 1/2
     --   Bit 0 - Up (active low)
@@ -605,10 +605,11 @@ begin
             elsif btn_reset_n_i = '0' then
                 -- Enter config mode when red button presset
                 config_mode <= '1';
+                ext_tube_enable <= '0';
                 reset_counter <= (others => '0');
             elsif reset_counter(reset_counter'high) = '0' then
                 reset_counter <= reset_counter + 1;
-            elsif powerup_reset_n = '0' then
+            elsif powerup_reset_n = '0' and config_mode = '0' then
                 -- At the end of power up reset, test for the presence of PiTubeDirect
                 if ext_tube_do = x"55" then
                     ext_tube_enable <= '1';

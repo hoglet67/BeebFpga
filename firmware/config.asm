@@ -1322,6 +1322,35 @@ INCLUDE "version.asm"
 
 .skip_crc_checks
 
+    ;; Detect the presence or not of PiTubeDirect by probing &FEF0
+    ;; this reads from the external tube without asserting
+    LDA #2
+    STA cursor_x
+    LDA #28
+    STA cursor_y
+    JSR print_string
+    EQUB "External PiTube "
+    NOP
+    ; Probe the external tube databus value
+    ; (ntube is supressed in config mode)
+    LDA &FEE0
+    PHA
+    CMP #&55
+    BEQ pitube_detected
+    JSR print_string
+    EQUB "not "
+    NOP
+.pitube_detected
+    JSR print_string
+    EQUB "detected "
+    NOP
+    LDA #'('
+    JSR oswrch
+    PLA
+    JSR print_hex
+    LDA #')'
+    JSR oswrch
+
     PLA
     TAX
 

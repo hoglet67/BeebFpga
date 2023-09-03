@@ -1,6 +1,6 @@
--- BBC Master / BBC B for the Spectrum Next
+-- BBC Master / BBC B for the Spectrum Next Issue 4
 --
--- Copright (c) 2022 David Banks
+-- Copright (c) 2023 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -38,9 +38,9 @@
 -- ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 -- POSSIBILITY OF SUCH DAMAGE.
 --
--- Spectrum Next top-level
+-- Spectrum Next Issue 4 top-level
 --
--- (c) 2022 David Banks
+-- (c) 2023 David Banks
 -- (C) 2011 Mike Stirling
 
 library ieee;
@@ -51,7 +51,7 @@ library UNISIM;
 use UNISIM.Vcomponents.all;
 
 -- Generic top-level entity for Spectrum Next board
-entity bbc_micro_spec_next is
+entity bbc_micro_spec_next_issue4 is
     generic (
         IncludeAMXMouse    : boolean := true;
         IncludeSPISD       : boolean := true;
@@ -77,24 +77,27 @@ entity bbc_micro_spec_next is
         bus_clk35_o           : out   std_logic;
         bus_data_io           : inout std_logic_vector(7 downto 0);
         bus_halt_n_o          : out   std_logic;
-        bus_int_n_io          : out   std_logic;
+        bus_int_in_i          : in    std_logic;
+        bus_int_n_o           : out   std_logic;
         bus_iorq_n_o          : out   std_logic;
         bus_iorqula_n_i       : in    std_logic;
         bus_m1_n_o            : out   std_logic;
         bus_mreq_n_o          : out   std_logic;
         bus_nmi_n_i           : in    std_logic;
-        bus_ramcs_i           : in    std_logic;
-        bus_rd_n_o            : out   std_logic;
+        bus_ramcs_io          : inout std_logic;
+        bus_rd_n_io           : inout std_logic;
         bus_rfsh_n_o          : out   std_logic;
         bus_romcs_i           : in    std_logic;
         bus_rst_n_io          : inout std_logic;
         bus_wait_n_i          : in    std_logic;
         bus_wr_n_o            : out   std_logic;
+        bus_y_o               : out   std_logic;
         clock_50_i            : in    std_logic;
-        csync_o               : out   std_logic;
         ear_port_i            : in    std_logic;
+        esp_cts_n_o           : out   std_logic;
         esp_gpio0_io          : inout std_logic;
         esp_gpio2_io          : inout std_logic;
+        esp_rtr_n_i           : in    std_logic;
         esp_rx_i              : in    std_logic;
         esp_tx_o              : out   std_logic;
         flash_cs_n_o          : out   std_logic;
@@ -123,10 +126,12 @@ entity bbc_micro_spec_next is
         ps2_data_io           : inout std_logic;
         ps2_pin2_io           : inout std_logic;
         ps2_pin6_io           : inout std_logic;
-        ram_addr_o            : out   std_logic_vector(18 downto 0);
-        ram_ce_n_o            : out   std_logic_vector(3 downto 0);
+        ram_addr_o            : out   std_logic_vector(19 downto 0);
+        ram_cs_n_o            : out   std_logic;
         ram_data_io           : inout std_logic_vector(15 downto 0);
+        ram_lb_n_o            : out   std_logic;
         ram_oe_n_o            : out   std_logic;
+        ram_ub_n_o            : out   std_logic;
         ram_we_n_o            : out   std_logic;
         rgb_b_o               : out   std_logic_vector(2 downto 0);
         rgb_g_o               : out   std_logic_vector(2 downto 0);
@@ -137,33 +142,40 @@ entity bbc_micro_spec_next is
         sd_mosi_o             : out   std_logic;
         sd_sclk_o             : out   std_logic;
         vsync_o               : out   std_logic;
-        extras_io             : inout std_logic
+        adc_control_o         : out   std_logic;
+        XADC_15N              : in    std_logic;
+        XADC_15P              : in    std_logic;
+        XADC_7N               : in    std_logic;
+        XADC_7P               : in    std_logic;
+        XADC_VN               : in    std_logic;
+        XADC_VP               : in    std_logic;
+        extras_2_io           : inout std_logic;
+        extras_3_io           : inout std_logic;
+        extras_o              : out   std_logic
     );
 end entity;
 
-architecture rtl of bbc_micro_spec_next is
+architecture rtl of bbc_micro_spec_next_issue4 is
 
 -------------
 -- Signals
 -------------
 
+    -- PLL 1
     signal clk0            : std_logic;
     signal clk1            : std_logic;
     signal clk2            : std_logic;
-    signal clk3            : std_logic;
-    signal clk4            : std_logic;
     signal clkfb           : std_logic;
     signal clkfb_buf       : std_logic;
-    signal clk100          : std_logic;
 
-    signal hclk0            : std_logic;
-    signal hclk1            : std_logic;
-    signal hclk2            : std_logic;
-    signal hclkfb           : std_logic;
-    signal hclkfb_buf       : std_logic;
+    -- PLL 2
+    signal hclk0           : std_logic;
+    signal hclk1           : std_logic;
+    signal hclk2           : std_logic;
+    signal hclkfb          : std_logic;
+    signal hclkfb_buf      : std_logic;
 
---  signal fx_clk_27       : std_logic;
-
+    -- Core clocks
     signal clock_16        : std_logic; -- for ICAP (flashreboot) only
     signal clock_27        : std_logic;
     signal clock_32        : std_logic;
@@ -406,51 +418,24 @@ begin
 -- Clock Generation
 --------------------------------------------------------
 
-    -- 50MHz to 100MHz
+    -- 50MHz to 48/32/24 MHz
 
-    inst_DCM1 : DCM
-        generic map (
-            CLK_FEEDBACK         => "2X"
-            )
-        port map (
-            CLKIN                => clock_50_i,
-            CLKFB                => clk100,
-            RST                  => '0',
-            DSSEN                => '0',
-            PSINCDEC             => '0',
-            PSEN                 => '0',
-            PSCLK                => '0',
-            CLK2X                => clk100
-            );
-
-
-    -- 100MHz to 96/48/32 MHz
-
-    inst_PLL1 : PLL_BASE
+    inst_PLL1 : MMCM_BASE
         generic map (
             BANDWIDTH            => "OPTIMIZED",
-            CLK_FEEDBACK         => "CLKFBOUT",
-            COMPENSATION         => "DCM2PLL",
-            DIVCLK_DIVIDE        => 5,
-            CLKFBOUT_MULT        => 24,
+            DIVCLK_DIVIDE        => 1,
+            CLKFBOUT_MULT_F      => 24.0,      -- VCO 1200
             CLKFBOUT_PHASE       => 0.000,
-            CLKOUT0_DIVIDE       => 5,         -- 100 * (24/5/5) = 96MHz
+            CLKOUT0_DIVIDE_F     => 75.0,      -- 1200 / 75 = 16MHz
             CLKOUT0_PHASE        => 0.000,
             CLKOUT0_DUTY_CYCLE   => 0.500,
-            CLKOUT1_DIVIDE       => 10,        -- 100 * (24/5/10) = 48MHz
+            CLKOUT1_DIVIDE       => 25,        -- 1200 / 25 = 48MHz
             CLKOUT1_PHASE        => 0.000,
             CLKOUT1_DUTY_CYCLE   => 0.500,
-            CLKOUT2_DIVIDE       => 15,        -- 100 * (24/5/15) = 32MHz
+            CLKOUT2_DIVIDE       => 50,        -- 1200 / 50 = 24MHz
             CLKOUT2_PHASE        => 0.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
-            CLKOUT3_DIVIDE       => 20,        -- 100 * (24/5/20) = 24MHz
-            CLKOUT3_PHASE        => 0.000,
-            CLKOUT3_DUTY_CYCLE   => 0.500,
-            CLKOUT4_DIVIDE       => 30,        -- 100 * (24/5/30) = 16MHz
-            CLKOUT4_PHASE        => 0.000,
-            CLKOUT4_DUTY_CYCLE   => 0.500,
-            CLKIN_PERIOD         => 10.000,
-            REF_JITTER           => 0.010
+            CLKIN1_PERIOD        => 20.000
             )
         port map (
             -- Output clocks
@@ -458,12 +443,11 @@ begin
             CLKOUT0             => clk0,
             CLKOUT1             => clk1,
             CLKOUT2             => clk2,
-            CLKOUT3             => clk3,
-            CLKOUT4             => clk4,
             RST                 => '0',
+            PWRDWN              => '0',
             -- Input clock control
             CLKFBIN             => clkfb_buf,
-            CLKIN               => clk100
+            CLKIN1              => clock_50_i
             );
 
     inst_clkfb_buf : BUFG
@@ -475,7 +459,7 @@ begin
     inst_clk0_buf : BUFG
         port map (
             I => clk0,
-            O => clock_96
+            O => clock_16
             );
 
     inst_clk1_buf : BUFG
@@ -487,42 +471,27 @@ begin
     inst_clk2_buf : BUFG
         port map (
             I => clk2,
-            O => clock_32
-            );
-
-    inst_clk3_buf : BUFG
-        port map (
-            I => clk3,
             O => clock_avr
             );
 
-    inst_clk4_buf : BUFG
-        port map (
-            I => clk4,
-            O => clock_16
-            );
+    -- 50MHz to 27MHz/135MHz for HDMI (and the alternative scan doubler)
 
-    -- 27MHz for HDMI (and the alternative scan doubler)
-
-    inst_PLL2 : PLL_BASE
+    inst_PLL2 : MMCM_BASE
         generic map (
             BANDWIDTH            => "OPTIMIZED",
-            CLK_FEEDBACK         => "CLKFBOUT",
-            COMPENSATION         => "DCM2PLL",
-            DIVCLK_DIVIDE        => 2,
-            CLKFBOUT_MULT        => 27,
+            DIVCLK_DIVIDE        => 1,
+            CLKFBOUT_MULT_F      => 13.5,      -- VCO 675 MHz
             CLKFBOUT_PHASE       => 0.000,
-            CLKOUT0_DIVIDE       => 25,       -- 50 * (27/2/25) = 27MHz
+            CLKOUT0_DIVIDE_F     => 25.0,      -- 675 / 25 = 27MHz
             CLKOUT0_PHASE        => 0.000,
             CLKOUT0_DUTY_CYCLE   => 0.500,
-            CLKOUT1_DIVIDE       => 5,        -- 50 * (27/2/5) = 135MHz
+            CLKOUT1_DIVIDE       => 5,         -- 675 / 5 = 135MHz
             CLKOUT1_PHASE        => 0.000,
             CLKOUT1_DUTY_CYCLE   => 0.500,
-            CLKOUT2_DIVIDE       => 5,        -- 50 * (27/2/5) = 135MHz (inverted)
+            CLKOUT2_DIVIDE       => 5,         -- 675 / 5 = 135MHz (inverted)
             CLKOUT2_PHASE        => 180.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
-            CLKIN_PERIOD         => 20.000,
-            REF_JITTER           => 0.010
+            CLKIN1_PERIOD        => 20.000
             )
         port map (
             -- Output clocks
@@ -531,9 +500,10 @@ begin
             CLKOUT1             => hclk1,
             CLKOUT2             => hclk2,
             RST                 => '0',
+            PWRDWN              => '0',
             -- Input clock control
             CLKFBIN             => hclkfb_buf,
-            CLKIN               => clock_50_i
+            CLKIN1              => clock_50_i
             );
 
 
@@ -561,30 +531,6 @@ begin
             O => clock_135_n
             );
 
-
---    inst_DCM2 : DCM
---        generic map (
---            CLKFX_MULTIPLY    => 27,
---            CLKFX_DIVIDE      => 25,
---            CLKIN_DIVIDE_BY_2 => TRUE,
---            CLK_FEEDBACK      => "NONE"
---            )
---        port map (
---            CLKIN             => clock_50_i,
---            CLKFB             => '0',
---            RST               => '0',
---            DSSEN             => '0',
---            PSINCDEC          => '0',
---            PSEN              => '0',
---            PSCLK             => '0',
---            CLKFX             => fx_clk_27
---            );
---
---    inst_clk27_buf : BUFG
---    port map (
---        I => fx_clk_27,
---        O => clock_27
---        );
 
 --------------------------------------------------------
 -- Power Up Reset Generation
@@ -785,10 +731,9 @@ begin
 
     ram_oe_n_o              <= RAM_nOE;
     ram_we_n_o              <= RAM_nWE;
-    ram_ce_n_o(0)           <= RAM_nCS when RAM_A(0) = '0' else '1';
-    ram_ce_n_o(1)           <= RAM_nCS when RAM_A(0) = '1' else '1';
-    ram_ce_n_o(2)           <= '1';
-    ram_ce_n_o(3)           <= '1';
+    ram_cs_n_o              <= RAM_nCS;
+    ram_lb_n_o              <= '0' when RAM_A(0) = '0' else '1';
+    ram_ub_n_o              <= '0' when RAM_A(0) = '1' else '1';
 
     -- In all modes:
     --    8000-BFFF slots 0-3 => SRAM Pages 00-03
@@ -808,8 +753,8 @@ begin
     -- In the 3.01.06 Spec Next Core the memory becomes 16-bits wide
     -- and A(0) selects between the lower and upper bytes
 
-    ram_addr_o              <= "0001" & RAM_A(15 downto 1) when config_remap = '1' and RAM_A(18 downto 16) = "101" else
-                               "0"    & RAM_A(18 downto 1);
+    ram_addr_o              <= "00001" & RAM_A(15 downto 1) when config_remap = '1' and RAM_A(18 downto 16) = "101" else
+                               "00"    & RAM_A(18 downto 1);
 
     ram_data_io             <= RAM_Din & RAM_Din when RAM_nWE = '0' else (others => 'Z');
 
@@ -898,19 +843,19 @@ begin
     bus_iorq_n_o   <= 'Z';
     bus_m1_n_o     <= 'Z';
     bus_mreq_n_o   <= 'Z';
-    bus_rd_n_o     <= 'Z';
+    bus_ramcs_io   <= 'Z';
+    bus_rd_n_io    <= 'Z';
     bus_rfsh_n_o   <= 'Z';
     bus_rst_n_io   <= 'Z';
     bus_wr_n_o     <= 'Z';
-    bus_int_n_io   <= 'Z';
-
-    -- TODO: add support for sRGB output
-    csync_o        <= '1';
+    bus_int_n_o    <= 'Z';
+    bus_y_o        <= 'Z';
 
     -- ESP 8266 module
     esp_gpio0_io   <= 'Z';
     esp_gpio2_io   <= 'Z';
     esp_tx_o       <= '1';
+    esp_cts_n_o    <= '1';
 
     -- Addtional flash pins; used at IO2 and IO3 in Quad SPI Mode
     flash_hold_o   <= '1';
@@ -931,7 +876,12 @@ begin
     -- CS2 is for internal SD socket
     sd_cs1_n_o <= '1';
 
+    -- ADC Control output
+    adc_control_o <= 'Z';
+
     -- Extra unused pin
-    extras_io <= 'Z';
+    extras_o    <= 'Z';
+    extras_2_io <= 'Z';
+    extras_3_io <= 'Z';
 
 end architecture;

@@ -67,17 +67,17 @@
           <Attr Name="UsedIn" Val="implementation"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
-        <CompFileExtendedInfo CompFileName="ProcessingSystemOnly.bd" FileRelPathName="ip/ProcessingSystemOnly_axi_gpio_1_0/ProcessingSystemOnly_axi_gpio_1_0.xci">
-          <Proxy FileSetName="ProcessingSystemOnly_axi_gpio_1_0"/>
-        </CompFileExtendedInfo>
         <CompFileExtendedInfo CompFileName="ProcessingSystemOnly.bd" FileRelPathName="ip/ProcessingSystemOnly_xbar_0/ProcessingSystemOnly_xbar_0.xci">
           <Proxy FileSetName="ProcessingSystemOnly_xbar_0"/>
+        </CompFileExtendedInfo>
+        <CompFileExtendedInfo CompFileName="ProcessingSystemOnly.bd" FileRelPathName="ip/ProcessingSystemOnly_processing_system7_0_0/ProcessingSystemOnly_processing_system7_0_0.xci">
+          <Proxy FileSetName="ProcessingSystemOnly_processing_system7_0_0"/>
         </CompFileExtendedInfo>
         <CompFileExtendedInfo CompFileName="ProcessingSystemOnly.bd" FileRelPathName="ip/ProcessingSystemOnly_axi_gpio_0_0/ProcessingSystemOnly_axi_gpio_0_0.xci">
           <Proxy FileSetName="ProcessingSystemOnly_axi_gpio_0_0"/>
         </CompFileExtendedInfo>
-        <CompFileExtendedInfo CompFileName="ProcessingSystemOnly.bd" FileRelPathName="ip/ProcessingSystemOnly_processing_system7_0_0/ProcessingSystemOnly_processing_system7_0_0.xci">
-          <Proxy FileSetName="ProcessingSystemOnly_processing_system7_0_0"/>
+        <CompFileExtendedInfo CompFileName="ProcessingSystemOnly.bd" FileRelPathName="ip/ProcessingSystemOnly_axi_gpio_1_0/ProcessingSystemOnly_axi_gpio_1_0.xci">
+          <Proxy FileSetName="ProcessingSystemOnly_axi_gpio_1_0"/>
         </CompFileExtendedInfo>
       </File>
       <File Path="$PSRCDIR/sources_1/ip/WatchEvents/WatchEvents.xci">
@@ -628,18 +628,6 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../../src/common/rtc.vhd">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/../../src/common/bbc_micro_core.vhd">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
       <File Path="$PPRDIR/../../src/common/hdmi/hdmidelay.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -653,6 +641,18 @@
         </FileInfo>
       </File>
       <File Path="$PPRDIR/../../src/common/hdmi/hdmi.vhd">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PPRDIR/../../src/common/rtc.vhd">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PPRDIR/../../src/common/bbc_micro_core.vhd">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>

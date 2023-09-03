@@ -1,3 +1,13 @@
+create_clock -period 20.000 [get_ports clock_50_i]
+
+# Ignore timing paths from the main to the HDMI video clock domain, as
+# these should all be correctly synchronized through the scan converter.
+#   clk1 is the 48MHz domain
+#   hclk0 is the 27MHz domain
+#   hclk1 is the 135MHz domain
+
+set_clock_groups -name async_clk1_hclk01 -asynchronous -group {clk1} -group {hclk0 hclk1}
+
 set_property CFGBVS VCCO [current_design]
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 
@@ -431,8 +441,6 @@ set_property IOSTANDARD LVTTL [get_ports sd_sclk_o]
 set_property DRIVE 4 [get_ports sd_sclk_o]
 set_property IOSTANDARD LVCMOS33 [get_ports vsync_o]
 set_property DRIVE 8 [get_ports vsync_o]
-
-create_clock -period 20.000 [get_ports clock_50_i]
 
 set_property IOSTANDARD LVCMOS33 [get_ports XADC_7N]
 set_property IOSTANDARD LVCMOS33 [get_ports XADC_7P]

@@ -217,6 +217,7 @@ entity bbc_micro_core is
         tmds_r         : out   std_logic_vector(9 downto 0);
         tmds_g         : out   std_logic_vector(9 downto 0);
         tmds_b         : out   std_logic_vector(9 downto 0);
+        hsync_ref      : out   std_logic;
 
         -- Test outputs
         test           : out   std_logic_vector(7 downto 0)
@@ -2467,6 +2468,8 @@ begin
         tmds_g <= (others => '0');
         tmds_b <= (others => '0');
     end generate;
+
+    hsync_ref <= crtc_hsync;
 
 -----------------------------------------------
 -- Master 128 additions

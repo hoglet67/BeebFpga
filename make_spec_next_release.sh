@@ -2,6 +2,8 @@
 
 PATH=/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin64:$PATH
 
+UPDATEMEM=/tools/Xilinx/Vivado/2023.1/bin/updatemem
+
 # Lookup the last commit ID
 GITVERSION="$(git rev-parse --short HEAD)"
 
@@ -307,6 +309,15 @@ master_settings $DIR/machines/${MACH}/beeb.cfg $MMFS_M128_CRC
 master_config $DIR/machines/${MACH}/core.cfg
 
 data2mem -bm xilinx/spec_next_config_master_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_master_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
+
+IMPLDIR=xilinx/bbc_master_spec_next_issue4/bbc_master_spec_next_issue4.runs/impl_1/
+
+echo "@00000000" > tmp.mem
+cat firmware/config.mem >> tmp.mem
+
+${UPDATEMEM} -debug -force -meminfo ${IMPLDIR}/config_rom.mmi -data tmp.mem --bit ${IMPLDIR}/bbc_micro_spec_next_issue4.bit --proc dummy --out $DIR/machines/${MACH}/core2.bit
+
+rm -f tmp.mem updatemem*.log updatemem*.jou
 
 # ====================================================
 # Zip

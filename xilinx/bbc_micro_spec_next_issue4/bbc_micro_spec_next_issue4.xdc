@@ -1,3 +1,5 @@
+set_property BITSTREAM.CONFIG.USERID 0x19811201
+
 create_clock -period 20.000 [get_ports clock_50_i]
 
 # Ignore timing paths from the main to the HDMI video clock domain, as

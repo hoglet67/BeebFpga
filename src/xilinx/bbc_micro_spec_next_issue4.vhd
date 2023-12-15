@@ -652,12 +652,12 @@ begin
         end if;
     end process;
 
-    flash_reboot_inst : entity work.flashboot
+    flash_reboot_inst : entity work.flashboot_256
     port map (
-        reset_i    => '0',
-        clock_i    => clock_16,
-        start_i    => reconfig,
-        spiaddr_i  => x"6B" & "00001" & "0000000000000000000"
+        i_CLK      => clock_16,
+        i_reset    => '0',
+        i_start    => reconfig,
+        i_coreid   => "0001"
         );
 
 --------------------------------------------------------

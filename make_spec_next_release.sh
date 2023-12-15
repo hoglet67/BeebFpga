@@ -287,6 +287,15 @@ modelb_config $DIR/machines/${MACH}/core.cfg
 
 data2mem -bm xilinx/spec_next_config_modelb_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_micro_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
 
+IMPLDIR=xilinx/bbc_micro_spec_next_issue4/bbc_micro_spec_next_issue4.runs/impl_1/
+
+echo "@00000000" > tmp.mem
+cat firmware/config.mem >> tmp.mem
+
+${UPDATEMEM} -debug -force -meminfo ${IMPLDIR}/config_rom.mmi -data tmp.mem --bit ${IMPLDIR}/bbc_micro_spec_next_issue4.bit --proc dummy --out $DIR/machines/${MACH}/core2.bit
+
+rm -f tmp.mem updatemem*.log updatemem*.jou
+
 # ====================================================
 # Acorn BBC Master
 # ====================================================

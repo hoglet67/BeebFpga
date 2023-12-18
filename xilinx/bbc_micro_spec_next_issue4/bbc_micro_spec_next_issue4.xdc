@@ -1,4 +1,4 @@
-set_property BITSTREAM.CONFIG.USERID 0x19811201
+set_property BITSTREAM.CONFIG.USERID 0x19811201 [current_design]
 
 create_clock -period 20.000 [get_ports clock_50_i]
 

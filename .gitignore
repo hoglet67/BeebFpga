@@ -62,3 +62,6 @@ firmware/version.asm
 **/impl/temp
 
 **/vunit_out
+
+/firmware/config.lst
+/src/common/BeebWifi/gh_16550

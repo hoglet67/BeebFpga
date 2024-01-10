@@ -2,7 +2,10 @@
 
 PATH=/opt/Xilinx/14.7/ISE_DS/ISE/bin/lin64:$PATH
 
-UPDATEMEM=/tools/Xilinx/Vivado/2023.1/bin/updatemem
+UPDATEMEM=$(which updatemem)
+if [[ -z "$UPDATEMEM" ]]; then
+    UPDATEMEM=/tools/Xilinx/Vivado/2023.1/bin/updatemem
+fi
 
 # Lookup the last commit ID
 GITVERSION="$(git rev-parse --short HEAD)"

@@ -129,6 +129,7 @@ entity bbc_micro_core is
         -- KeyBoard LEDs (active high)
         caps_led       : out   std_logic;
         shift_led      : out   std_logic;
+        motor_led      : out   std_logic;
 
         -- Keyboard DIP switches
         keyb_dip       : in    std_logic_vector(7 downto 0);
@@ -720,6 +721,9 @@ signal inton_enable    : std_logic;     -- 0xFE3C-0xFE3F
 
 signal vdu_op          : std_logic;     -- last opcode was 0xC000-0xDFFF
 
+-- Serial ULA
+signal serula_casmo    : std_logic;     -- 1 for on
+
 begin
 
     -------------------------
@@ -1056,7 +1060,7 @@ begin
 
     -- Original Keyboard Enabled
     keyboard_orig: if UseOrigKeyboard generate
-        ext_keyb_led3  <= '1';     -- motor LED would be driven off serial ULA
+        ext_keyb_led3  <= not serula_casmo;
         ext_keyb_led2  <= ic32(7); -- caps LED
         ext_keyb_led1  <= ic32(6); -- shift LED
         ext_keyb_1mhz  <= mhz1_clken;
@@ -1102,6 +1106,10 @@ begin
 
     -- PS/2 Keyboard Controller
     keyboard_controller : entity work.keyboard
+        generic map(
+            MainClockSpeed => 48000000,
+            LEDUpdateSpeed => 20
+        )
         port map (
             CLOCK      => clock_48,
             nRESET     => hard_reset_n,
@@ -1119,7 +1127,10 @@ begin
             INT        => ps2_keyb_int,
             BREAK_OUT  => ps2_keyb_break,
             DIP_SWITCH => keyb_dip,
-            CONFIG     => config
+            CONFIG     => config,
+            LED_MOTOR => serula_casmo,
+            LED_SHIFT => not ic32(7),
+            LED_CAPS  => not ic32(6)
             );
 
     -- Logic to swap the mouse and keyboard, and handle open collector driving
@@ -1727,8 +1738,9 @@ begin
         acccon_enable <= '0';
         intoff_enable <= '0';
         inton_enable  <= '0';
+
         if io_sheila = '1' then
-            case cpu_a(7 downto 5) is
+            case cpu_a(7 downto 5) is            
                 when "000" =>
                     -- 0xFE00
                     if cpu_a(4) = '0' then
@@ -1788,7 +1800,7 @@ begin
                         end if;
                     else
                         adc_enable <= '1';
-                    end if;
+                    end if;                
                 when "111" =>                           -- 0xFEE0
                     if copro_mode = '1' then
                         if m128_mode = '1' then
@@ -2159,6 +2171,7 @@ begin
     -- Keyboard LEDs
     caps_led <= not ic32(6);
     shift_led <= not ic32(7);
+    motor_led <= serula_casmo;
 
     process(clock_48,reset_n)
     variable bit_num : integer;
@@ -2540,6 +2553,25 @@ begin
 
     -- Debugging output
     cpu_addr <= cpu_a(15 downto 0);
+
+
+-----------------------------------------------
+-- SERPROC - just the cassette motor LED
+-----------------------------------------------
+    process(clock_48,reset_n)
+    begin
+        if reset_n = '0' then
+            serula_casmo <= '0';
+        elsif rising_edge(clock_48) then
+            if (cpu_clken = '1') then
+                -- Serial ULA register FE1x
+                if serproc_enable = '1' and cpu_r_nw = '0' then
+                    serula_casmo <= cpu_do(7);
+                end if;
+            end if;
+        end if;
+    end process;
+
 
 -----------------------------------------------
 -- 6502 Decoder Trace Output

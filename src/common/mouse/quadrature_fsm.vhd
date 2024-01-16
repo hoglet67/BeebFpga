@@ -29,7 +29,7 @@ type quad_state is
 signal state   : quad_state := idle;
 signal dir     : std_logic;
 signal count   : std_logic_vector(7 downto 0);
-signal delay   : std_logic_vector(13 downto 0);
+signal delay   : std_logic_vector(15 downto 0);
 signal a       : std_logic;
 signal b       : std_logic;
 begin

@@ -165,7 +165,7 @@ cat >> $1 <<EOF
 crc0A = e7c4
 crc0B = b5b6
 crc0C = 61d7
-crc0D = b733
+crc0D = b279
 crc0E = 7621
 crc0F = 64af
 

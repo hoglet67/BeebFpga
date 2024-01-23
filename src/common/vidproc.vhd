@@ -449,7 +449,7 @@ begin
             -- Syncronize pixen_prescale and pixen_counter to clken_counter
             -- (otherwise there is a random shift of the cursor alignment on hard reset)
             if clken_counter = 0 then
-                if clken_zero <= '0' then
+                if clken_zero = '0' then
                     pixen_counter  <= (others => '0');
                     pixen_prescale <= (others => '0');
                 end if;

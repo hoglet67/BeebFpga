@@ -67,6 +67,7 @@ entity bbc_micro_core is
         IncludeMusic5000SPDIF  : boolean := false; -- Music 5000 20-bit SPDIF Output
         IncludeMixerResampler  : boolean := false; -- Audio Mixer / Volume / 48KHz resampler
         IncludePSGSPDIF        : boolean := false; -- PSG (SN76489) 20-bit SPDIF Output
+        IncludeSpeech          : boolean := false;
         IncludeICEDebugger     : boolean := false;
         IncludeCoPro6502       : boolean := false; -- The three co pro options
         IncludeCoProSPI        : boolean := false; -- are currently mutually exclusive
@@ -550,6 +551,36 @@ component acia6850 is
     );
 end component;
 
+component TMS5220 is
+   port (
+      -- inputs
+      I_OSC    : in  std_logic;                    -- pin  6 typ 640KHz
+      I_ENA    : in  std_logic;                    -- active high enable input
+      I_WSn    : in  std_logic;                    -- pin 27 Write Select
+      I_RSn    : in  std_logic;                    -- pin 28 Read Select
+      I_DATA   : in  std_logic;                    -- pin 21 Serial Data In (alt function)
+      I_TEST   : in  std_logic;                    -- pin 20 Test use only
+      I_DBUS   : in  std_logic_vector(7 downto 0); -- pins 1,26,24,22,19,12,13,14
+      -- outputs
+      O_DBUS   : out std_logic_vector(7 downto 0); -- pins 1,26,24,22,19,12,13,14
+      O_RDYn   : out std_logic;                    -- pin 18 Transfer cycle complete
+      O_INTn   : out std_logic;                    -- pin 17 Interrupt
+
+      O_M0     : out std_logic;                    -- pin 15 VSM command bit 0
+      O_M1     : out std_logic;                    -- pin 16 VSM command bit 1
+      O_ADD8   : out std_logic;                    -- pin 21 VSM Addr (alt function)
+      O_ADD4   : out std_logic;                    -- pin 23 VSM Addr
+      O_ADD2   : out std_logic;                    -- pin 25 VSM Addr
+      O_ADD1   : out std_logic;                    -- pin  2 VSM Addr
+      O_ROMCLK : out std_logic;                    -- pin  3 VSM clock
+
+      O_T11    : out std_logic;                    -- pin  7 Sync
+      O_IO     : out std_logic;                    -- pin  9 Serial Data Out
+      O_PRMOUT : out std_logic;                    -- pin 10 Test use only
+      O_SPKR   : out signed(13 downto 0)           -- pin  8 Audio Output
+   );
+end component;
+
 -- Use 4-bit RGB when VideoNuLA is included, other 1-bit RGB
 function calc_rgb_width(includeVideoNuLA : boolean) return integer is
 begin
@@ -753,8 +784,19 @@ signal spisd_do         :   std_logic_vector(7 downto 0);
 -- IC32 latch on System VIA
 signal ic32             :   std_logic_vector(7 downto 0);
 signal psg_enable_n     :   std_logic;
---signal speech_read_n    :   std_logic;
---signal speech_write_n   :   std_logic;
+signal speech_read_n    :   std_logic;
+signal speech_write_n   :   std_logic;
+signal speech_rdy_n     :   std_logic;
+signal speech_int_n     :   std_logic;
+signal speech_clken     :   std_logic;
+signal speech_ctr       :   unsigned(6 downto 0);
+signal speech_di        :   std_logic_vector(7 downto 0);
+signal speech_do        :   std_logic_vector(7 downto 0);
+signal speech_audio_int :   signed(13 downto 0);
+signal vsm_cmd          :   std_logic_vector(1 downto 0);
+signal vsm_addr         :   std_logic_vector(3 downto 0);
+signal vsm_data         :   std_logic;
+signal vsm_clk          :   std_logic;
 signal keyb_enable_n    :   std_logic;
 signal disp_addr_offs   :   std_logic_vector(1 downto 0);
 
@@ -1762,18 +1804,97 @@ begin
     end generate;
 
 --------------------------------------------------------
+-- TMS5220/TMS6100 Speech
+--------------------------------------------------------
+
+    GenSpeech: if IncludeSpeech generate
+
+        -- 48MHz / 75 = 640KHz
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                if hard_reset_n = '0' then
+                    speech_ctr <= (others => '0');
+                    speech_clken <= '0';
+                elsif speech_ctr = to_unsigned(74, 7) then
+                    speech_ctr <= (others => '0');
+                    speech_clken <= '1';
+                else
+                    speech_ctr <= speech_ctr + 1;
+                    speech_clken <= '0';
+                end if;
+            end if;
+        end process;
+
+        Inst_Speech: component TMS5220
+            port map (
+                -- inputs
+                I_OSC    => clock_48,         -- pin  6 typ 640KHz
+                I_ENA    => speech_clken,     -- active high enable input
+                I_WSn    => speech_write_n,   -- pin 27 Write Select
+                I_RSn    => speech_read_n,    -- pin 28 Read Select
+                I_DATA   => vsm_data,         -- pin 21 Serial Data In (alt function)
+                I_TEST   => '0',              -- pin 20 Test use only
+                I_DBUS   => speech_di,        -- pins 1,26,24,22,19,12,13,14
+                -- outputs
+                O_DBUS   => speech_do,        -- pins 1,26,24,22,19,12,13,14
+                O_RDYn   => speech_rdy_n,     -- pin 18 Transfer cycle complete
+                O_INTn   => speech_int_n,     -- pin 17 Interrupt
+
+                O_M0     => vsm_cmd(0),       -- pin 15 VSM command bit 0
+                O_M1     => vsm_cmd(1),       -- pin 16 VSM command bit 1
+                O_ADD8   => vsm_addr(3),      -- pin 21 VSM Addr (alt function)
+                O_ADD4   => vsm_addr(2),      -- pin 23 VSM Addr
+                O_ADD2   => vsm_addr(1),      -- pin 25 VSM Addr
+                O_ADD1   => vsm_addr(0),      -- pin  2 VSM Addr
+                O_ROMCLK => vsm_clk,          -- pin  3 VSM clock
+
+                O_T11    => open,             -- pin  7 Sync
+                O_IO     => open,             -- pin  9 Serial Data Out
+                O_PRMOUT => open,             -- pin 10 Test use only
+                O_SPKR   => speech_audio_int  -- pin  8 Audio Output
+                );
+
+        speech_di <= sys_via_pa_out;
+
+        vsm_data <= '1';
+
+    end generate;
+
+--------------------------------------------------------
 -- Legacy Sound Mixer
 --------------------------------------------------------
 
     -- All inputs to the legacy mixer are now 18-bit signed
 
-    process(psg_audio_int, sid_audio_int, m5k_audio_l_int, m5k_audio_r_int)
+    process(psg_audio_int, speech_audio_int, sid_audio_int, m5k_audio_l_int, m5k_audio_r_int)
+        variable s : signed(9 downto 0);
         variable m : signed(17 downto 0);
         variable l : signed(17 downto 0);
         variable r : signed(17 downto 0);
     begin
         -- SN76489 PSG (mono)
         m := psg_audio_int;
+        if IncludeSpeech then
+            -- Speech output is 14-bit signed
+            -- 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+            -- S  C1 C0 D6 D5 D4 D3 D2 D1 D0  X  X  X  X
+            --  9  8  7  6  5  4  3  2  1  0
+            s := speech_audio_int(13 downto 4); -- Discard the X bits, leaving a 10 bit value
+            -- Clip according to the TMS5220 datasheet
+            if s(9) = '0' then
+                -- Handle clipping of positive values
+                if s(8) = '1' or s(7) = '1' then
+                    s := "0001111111"; -- +127
+                end if;
+            else
+                -- Handle clipping of negative values
+                if s(8) = '0' or s(7) = '0' then
+                    s := "1110000000"; -- -127
+                end if;
+            end if;
+            m := m + (s & "00000000");
+        end if;
         -- optional SID (mono)
         if IncludeSID then
             m := m + sid_audio_int;
@@ -1910,10 +2031,10 @@ begin
 
     -- Keyboard and System VIA and Video are by a power up reset signal
     -- Rest of system is reset by all of the above plus keyboard BREAK key
-	 -- Syncronise the reset to cpu_clken. This seems to be needed for reliable
-	 -- operation of the Alan D core. I think without this, depending on when
-	 -- reset is release, there may be too short a time to read the the first
-	 -- byte of the reset vector from slow FLASH (on the Altera DE1).
+    -- Syncronise the reset to cpu_clken. This seems to be needed for reliable
+    -- operation of the Alan D core. I think without this, depending on when
+    -- reset is release, there may be too short a time to read the the first
+    -- byte of the reset vector from slow FLASH (on the Altera DE1).
     sync_reset: process(clock_48)
     begin
         if rising_edge(clock_48) then
@@ -2650,6 +2771,7 @@ begin
 
     -- TODO more work needed here, but this might be enough
     sys_via_pa_in <= rtc_do when m128_mode = '1' and rtc_ce = '1' and rtc_ds = '1' and rtc_r_nw = '1' else
+                     speech_do when m128_mode = '0' and IncludeSpeech and speech_read_n = '0' else
                      -- Must loop back output pins or keyboard won't work
                      keyb_out & sys_via_pa_out(6 downto 0) when keyb_enable_n = '0' else
                      -- Emulate PA_OUT being connected to PA_IN
@@ -2664,7 +2786,7 @@ begin
     -- Sound
     psg_di <= sys_via_pa_out;
     -- Others (idle until missing bits implemented)
-    sys_via_pb_in(7 downto 6) <= (others => '1');
+    sys_via_pb_in(7 downto 6) <= (speech_rdy_n & speech_int_n) when IncludeSpeech else (others => '1');
     sys_via_pb_in(3 downto 0) <= sys_via_pb_out(3 downto 0);
 
     -- SPI SD Card Interface (for Memory Mapped SPI)
@@ -2705,8 +2827,8 @@ begin
 
     -- IC32 latch
     psg_enable_n <= ic32(0);
- -- speech_write_n <= ic32(1);
- -- speech_read_n <= ic32(2);
+    speech_read_n <= ic32(1) when IncludeSpeech and m128_mode = '0' else '1';
+    speech_write_n <= ic32(2) when IncludeSpeech and m128_mode = '0' else '1';
     keyb_enable_n <= ic32(3);
     disp_addr_offs <= ic32(5 downto 4);
 
@@ -2721,8 +2843,10 @@ begin
         if hard_reset_n = '0' then
             ic32 <= (others => '1');
         elsif rising_edge(clock_48) then
-            bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
-            ic32(bit_num) <= sys_via_pb_out(3);
+            if mhz1_clken = '1' then
+                bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
+                ic32(bit_num) <= sys_via_pb_out(3);
+            end if;
         end if;
     end process;
 
@@ -3049,8 +3173,8 @@ begin
     rtc_adi    <= sys_via_pa_out;
     rtc_as     <= sys_via_pb_out(7);
     rtc_ce     <= sys_via_pb_out(6);
-    rtc_ds     <= ic32(2);
-    rtc_r_nw   <= ic32(1);
+    rtc_ds     <= ic32(2) when m128_mode = '1' or not IncludeSpeech else '1';
+    rtc_r_nw   <= ic32(1) when m128_mode = '1' or not IncludeSpeech else '1';
 
     process(clock_48,reset_n)
     begin

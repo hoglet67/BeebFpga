@@ -804,7 +804,7 @@ begin
             t2c_active <= false;
          end if;
 
-         if t2c_active and t2c_done and t2_int_enable then
+         if t2c_active and t2c_done and t2_int_enable and ena then
             t2_int_enable <= false;
             t2_irq <= '1';
          elsif t2_w_reset_int or t2_r_reset_int or (clear_irq(5) = '1') then

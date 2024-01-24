@@ -60,6 +60,7 @@ entity bbc_micro_core is
         IncludeSPISD       : boolean := false;
         IncludeSID         : boolean := false;
         IncludeMusic5000   : boolean := false;
+        IncludeSpeech      : boolean := false;
         IncludeICEDebugger : boolean := false;
         IncludeCoPro6502   : boolean := false; -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
@@ -601,8 +602,19 @@ signal spisd_do         :   std_logic_vector(7 downto 0);
 -- IC32 latch on System VIA
 signal ic32             :   std_logic_vector(7 downto 0);
 signal sound_enable_n   :   std_logic;
---signal speech_read_n    :   std_logic;
---signal speech_write_n   :   std_logic;
+signal speech_read_n    :   std_logic;
+signal speech_write_n   :   std_logic;
+signal speech_rdy_n     :   std_logic;
+signal speech_int_n     :   std_logic;
+signal speech_clken     :   std_logic;
+signal speech_ctr       :   unsigned(6 downto 0);
+signal speech_di        :   std_logic_vector(7 downto 0);
+signal speech_do        :   std_logic_vector(7 downto 0);
+signal speech_ao        :   signed(13 downto 0);
+signal vsm_cmd          :   std_logic_vector(1 downto 0);
+signal vsm_addr         :   std_logic_vector(3 downto 0);
+signal vsm_data         :   std_logic;
+signal vsm_clk          :   std_logic;
 signal keyb_enable_n    :   std_logic;
 signal disp_addr_offs   :   std_logic_vector(1 downto 0);
 
@@ -1370,6 +1382,63 @@ begin
             );
 
 --------------------------------------------------------
+-- TMS5220/TMS6100 Speech
+--------------------------------------------------------
+
+    GenSpeech: if IncludeSpeech generate
+
+        -- 48MHz / 75 = 640KHz
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                if hard_reset_n = '0' then
+                    speech_ctr <= (others => '0');
+                    speech_clken <= '0';
+                elsif speech_ctr = to_unsigned(74, 7) then
+                    speech_ctr <= (others => '0');
+                    speech_clken <= '1';
+                else
+                    speech_ctr <= speech_ctr + 1;
+                    speech_clken <= '0';
+                end if;
+            end if;
+        end process;
+
+        speech: entity work.TMS5220
+            port map (
+                -- inputs
+                I_OSC    => clock_48,         -- pin  6 typ 640KHz
+                I_ENA    => speech_clken,     -- active high enable input
+                I_WSn    => speech_write_n,   -- pin 27 Write Select
+                I_RSn    => speech_read_n,    -- pin 28 Read Select
+                I_DATA   => vsm_data,         -- pin 21 Serial Data In (alt function)
+                I_TEST   => '0',              -- pin 20 Test use only
+                I_DBUS   => speech_di,        -- pins 1,26,24,22,19,12,13,14
+                -- outputs
+                O_DBUS   => speech_do,        -- pins 1,26,24,22,19,12,13,14
+                O_RDYn   => speech_rdy_n,     -- pin 18 Transfer cycle complete
+                O_INTn   => speech_int_n,     -- pin 17 Interrupt
+
+                O_M0     => vsm_cmd(0),       -- pin 15 VSM command bit 0
+                O_M1     => vsm_cmd(1),       -- pin 16 VSM command bit 1
+                O_ADD8   => vsm_addr(3),      -- pin 21 VSM Addr (alt function)
+                O_ADD4   => vsm_addr(2),      -- pin 23 VSM Addr
+                O_ADD2   => vsm_addr(1),      -- pin 25 VSM Addr
+                O_ADD1   => vsm_addr(0),      -- pin  2 VSM Addr
+                O_ROMCLK => vsm_clk,          -- pin  3 VSM clock
+
+                O_T11    => open,             -- pin  7 Sync
+                O_IO     => open,             -- pin  9 Serial Data Out
+                O_PRMOUT => open,             -- pin 10 Test use only
+                O_SPKR   => speech_ao         -- pin  8 Audio Output
+                );
+
+        speech_di <= sys_via_pa_out;
+
+        vsm_data <= '1';
+
+    end generate;
+--------------------------------------------------------
 -- Sound Mixer
 --------------------------------------------------------
 
@@ -1399,18 +1468,23 @@ begin
 
     -- This version assumes only one source is playing at once
     process(sound_ao, sid_ao, music5000_ao_l, music5000_ao_r)
-        variable l : std_logic_vector(15 downto 0);
-        variable r : std_logic_vector(15 downto 0);
+        variable mono : std_logic_vector(15 downto 0);
+        variable    l : std_logic_vector(15 downto 0);
+        variable    r : std_logic_vector(15 downto 0);
     begin
         -- SN76489 output is 8-bit unsigned and is 0x00 when no sound is playing
         -- attenuate by one bit as to try to match level with other sources
-        l := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
-        r := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
+        mono := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
+        if IncludeSpeech then
+            -- Speech output is 14-bit signed, sign extend to 16 bits
+            mono := mono + std_logic_vector(speech_ao(13) & speech_ao(13) & speech_ao);
+        end if;
         if IncludeSID then
             -- SID output is 16-bit unsigned
-            l := l + (sid_ao(17 downto 2) - x"8000");
-            r := r + (sid_ao(17 downto 2) - x"8000");
+            mono := mono + (sid_ao(17 downto 2) - x"8000");
         end if;
+        l := mono;
+        r := mono;
         if IncludeMusic5000 then
             -- Music 5000 output is 16-bit signed
             l := l + music5000_ao_l;
@@ -1740,7 +1814,7 @@ begin
         inton_enable  <= '0';
 
         if io_sheila = '1' then
-            case cpu_a(7 downto 5) is            
+            case cpu_a(7 downto 5) is
                 when "000" =>
                     -- 0xFE00
                     if cpu_a(4) = '0' then
@@ -1800,7 +1874,7 @@ begin
                         end if;
                     else
                         adc_enable <= '1';
-                    end if;                
+                    end if;
                 when "111" =>                           -- 0xFEE0
                     if copro_mode = '1' then
                         if m128_mode = '1' then
@@ -2114,6 +2188,7 @@ begin
 
     -- TODO more work needed here, but this might be enough
     sys_via_pa_in <= rtc_do when m128_mode = '1' and rtc_ce = '1' and rtc_ds = '1' and rtc_r_nw = '1' else
+                     speech_do when m128_mode = '0' and IncludeSpeech and speech_read_n = '0' else
                      -- Must loop back output pins or keyboard won't work
                      keyb_out & sys_via_pa_out(6 downto 0);
 
@@ -2122,7 +2197,7 @@ begin
     -- Sound
     sound_di <= sys_via_pa_out;
     -- Others (idle until missing bits implemented)
-    sys_via_pb_in(7 downto 6) <= (others => '1');
+    sys_via_pb_in(7 downto 6) <= (speech_rdy_n & speech_int_n) when IncludeSpeech else (others => '1');
     sys_via_pb_in(3 downto 0) <= sys_via_pb_out(3 downto 0);
 
     -- SPI SD Card Interface (for Memory Mapped SPI)
@@ -2163,8 +2238,8 @@ begin
 
     -- IC32 latch
     sound_enable_n <= ic32(0);
- -- speech_write_n <= ic32(1);
- -- speech_read_n <= ic32(2);
+    speech_read_n <= ic32(1) when IncludeSpeech and m128_mode = '0' else '1';
+    speech_write_n <= ic32(2) when IncludeSpeech and m128_mode = '0' else '1';
     keyb_enable_n <= ic32(3);
     disp_addr_offs <= ic32(5 downto 4);
 
@@ -2179,8 +2254,10 @@ begin
         if reset_n = '0' then
             ic32 <= (others => '0');
         elsif rising_edge(clock_48) then
-            bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
-            ic32(bit_num) <= sys_via_pb_out(3);
+            if mhz1_clken = '1' then
+                bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
+                ic32(bit_num) <= sys_via_pb_out(3);
+            end if;
         end if;
     end process;
 
@@ -2516,8 +2593,8 @@ begin
     rtc_adi    <= sys_via_pa_out;
     rtc_as     <= sys_via_pb_out(7);
     rtc_ce     <= sys_via_pb_out(6);
-    rtc_ds     <= ic32(2);
-    rtc_r_nw   <= ic32(1);
+    rtc_ds     <= ic32(2) when m128_mode = '1' or not IncludeSpeech else '1';
+    rtc_r_nw   <= ic32(1) when m128_mode = '1' or not IncludeSpeech else '1';
 
     process(clock_48,reset_n)
     begin
@@ -2613,6 +2690,6 @@ begin
 
 
     -- Test output
-    test <= crtc_vsync & crtc_hsync & crtc_ra(0) & crtc_enable & crtc_test(3 downto 0);
+    test <= speech_rdy_n & speech_int_n & speech_read_n & speech_write_n & speech_clken & ic32(6 downto 5) & mhz1_clken;
 
 end architecture;

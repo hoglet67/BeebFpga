@@ -55,7 +55,8 @@ entity bbc_micro_spec_next is
     generic (
         IncludeAMXMouse    : boolean := true;
         IncludeSPISD       : boolean := true;
-        IncludeSID         : boolean := true;
+        IncludeSID         : boolean := false;
+        IncludeSpeech      : boolean := true;
         IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
@@ -269,6 +270,7 @@ begin
         IncludeSPISD       => IncludeSPISD,
         IncludeSID         => IncludeSID,
         IncludeMusic5000   => IncludeMusic5000,
+        IncludeSpeech      => IncludeSpeech and not IncludeMaster,
         IncludeICEDebugger => IncludeICEDebugger,
         IncludeCoPro6502   => IncludeCoPro6502,
         IncludeCoProSPI    => false,

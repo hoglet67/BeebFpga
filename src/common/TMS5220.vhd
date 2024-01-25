@@ -201,6 +201,11 @@ architecture RTL of TMS5220 is
 	signal
 		phictr
 								: std_logic_vector( 1 downto 0) := (others=>'0');
+
+	signal
+		rdyctr
+								: std_logic_vector( 3 downto 0) := (others=>'0');
+
 	signal
 		m_PHI
 								: std_logic_vector( 4 downto 1) := (others=>'0');
@@ -241,7 +246,7 @@ begin
 	m_DBI    <= I_DBUS;
 
 	O_DBUS   <= m_DBO;
-	O_RDYn   <= not (m_io_ready or (not m_DDIS));
+	O_RDYn   <= not m_io_ready;
 	O_INTn   <= not m_irq_pin;
 	O_SPKR   <= to_signed(this_sample, 14);
 
@@ -337,10 +342,20 @@ begin
 	begin
 		wait until rising_edge(m_CLK);
 		if (m_ENA = '1') then
-			if (m_FIFO_ptr < 8) then
+			-- default to ready
+			m_io_ready <= '1';
+			-- not ready for ~20us (15 ticks) after each access
+			if (((m_RSn_last = '1') and (m_RSn = '0')) or ((m_WSn_last = '1') and (m_WSn = '0'))) then
 				m_io_ready <= '0';
-			else
-				m_io_ready <= '1';
+				rdyctr <= (others => '1');
+			elsif (rdyctr > 0) then
+				m_io_ready <= '0';
+				rdyctr <= rdyctr - 1;
+			end if;
+			-- not ready if there is no space in the FIFO and we are in speak external mode
+			-- DMB: this affects reads as well, which it shouldn't....
+			if (m_FIFO_ptr < 8 and m_DDIS = '1') then
+				m_io_ready <= '0';
 			end if;
 		end if;
 	end process;

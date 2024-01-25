@@ -1497,16 +1497,33 @@ begin
 
     -- This version assumes only one source is playing at once
     process(sound_ao, sid_ao, music5000_ao_l, music5000_ao_r)
-        variable mono : std_logic_vector(15 downto 0);
-        variable    l : std_logic_vector(15 downto 0);
-        variable    r : std_logic_vector(15 downto 0);
+        variable speech : std_logic_vector(9 downto 0);
+        variable   mono : std_logic_vector(15 downto 0);
+        variable      l : std_logic_vector(15 downto 0);
+        variable      r : std_logic_vector(15 downto 0);
     begin
         -- SN76489 output is 8-bit unsigned and is 0x00 when no sound is playing
         -- attenuate by one bit as to try to match level with other sources
         mono := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
         if IncludeSpeech then
-            -- Speech output is 14-bit signed, sign extend to 16 bits
-            mono := mono + std_logic_vector(speech_ao(13) & speech_ao(13) & speech_ao);
+            -- Speech output is 14-bit signed
+            -- 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+            -- S  C1 C0 D6 D5 D4 D3 D2 D1 D0  X  X  X  X
+            --  9  8  7  6  5  4  3  2  1  0
+            speech := std_logic_vector(speech_ao(13 downto 4)); -- Discard the X bits, leaving a 10 bit value
+            -- Clip according to the TMS5220 datasheet
+            if speech(9) = '0' then
+                -- Handle clipping of positive values
+                if speech(8) = '1' or speech(7) = '1' then
+                    speech := "0001111111"; -- +127
+                end if;
+            else
+                -- Handle clipping of negative values
+                if speech(8) = '0' or speech(7) = '0' then
+                    speech := "1110000000"; -- -127
+                end if;
+            end if;
+            mono := mono + (speech & "000000");
         end if;
         if IncludeSID then
             -- SID output is 16-bit unsigned

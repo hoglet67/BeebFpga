@@ -371,6 +371,35 @@ component Music5000 is
     );
 end component;
 
+component TMS5220 is
+	port (
+		-- inputs
+		I_OSC    : in  std_logic;                    -- pin  6 typ 640KHz
+		I_ENA    : in  std_logic;                    -- active high enable input
+		I_WSn    : in  std_logic;                    -- pin 27 Write Select
+		I_RSn    : in  std_logic;                    -- pin 28 Read Select
+		I_DATA   : in  std_logic;                    -- pin 21 Serial Data In (alt function)
+		I_TEST   : in  std_logic;                    -- pin 20 Test use only
+		I_DBUS   : in  std_logic_vector(7 downto 0); -- pins 1,26,24,22,19,12,13,14
+		-- outputs
+		O_DBUS   : out std_logic_vector(7 downto 0); -- pins 1,26,24,22,19,12,13,14
+		O_RDYn   : out std_logic;                    -- pin 18 Transfer cycle complete
+		O_INTn   : out std_logic;                    -- pin 17 Interrupt
+
+		O_M0     : out std_logic;                    -- pin 15 VSM command bit 0
+		O_M1     : out std_logic;                    -- pin 16 VSM command bit 1
+		O_ADD8   : out std_logic;                    -- pin 21 VSM Addr (alt function)
+		O_ADD4   : out std_logic;                    -- pin 23 VSM Addr
+		O_ADD2   : out std_logic;                    -- pin 25 VSM Addr
+		O_ADD1   : out std_logic;                    -- pin  2 VSM Addr
+		O_ROMCLK : out std_logic;                    -- pin  3 VSM clock
+
+		O_T11    : out std_logic;                    -- pin  7 Sync
+		O_IO     : out std_logic;                    -- pin  9 Serial Data Out
+		O_PRMOUT : out std_logic;                    -- pin 10 Test use only
+		O_SPKR   : out signed(13 downto 0)           -- pin  8 Audio Output
+	);
+end component;
 
 -- Use 4-bit RGB when VideoNuLA is included, other 1-bit RGB
 function calc_rgb_width(includeVideoNuLA : boolean) return integer is
@@ -1404,7 +1433,7 @@ begin
             end if;
         end process;
 
-        speech: entity work.TMS5220
+        Inst_Speech: component TMS5220
             port map (
                 -- inputs
                 I_OSC    => clock_48,         -- pin  6 typ 640KHz

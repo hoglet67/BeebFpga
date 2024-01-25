@@ -84,7 +84,11 @@ architecture RTL of TMS5220 is
 	constant E_bits      : integer := 4;   -- Energy bits
 	constant R_bits      : integer := 1;   -- Repeat bits
 	constant P_bits      : integer := 6;   -- Pitch bits
-	constant K_bits      : BL_ARRAY := (5, 5, 4, 4, 4, 4, 4, 3, 3, 3); -- K1...K10 bit lengths
+--	constant K_bits      : BL_ARRAY := (5, 5, 4, 4, 4, 4, 4, 3, 3, 3); -- K1...K10 bit lengths
+	constant K12_bits    : integer := 5;   -- K bit lengths
+	constant K34567_bits : integer := 4;   -- K bit lengths
+	constant K8910_bits  : integer := 3;   -- K bit lengths
+
 	constant ZERO        : std_logic_vector( 7 downto 0) := (others=>'0');
 
 	constant interp_coeff: IP_ARRAY := (0, 3, 3, 3, 2, 2, 1, 1);
@@ -794,23 +798,45 @@ begin
 							end if;
 						end if;
 
-					when 2 to 5 =>  -- K1-K4  5 bits
+					when 2 to 3 =>  -- K1-K2  5 bits
 						if ((m_new_frame_repeat = '0') and ((m_new_frame_voiced = '1') or (m_new_frame_unvoiced = '1'))) then
-							if (m_FIFO_ptr <= FIFO_bits - K_bits(m_PC-2)) then
-								m_FIFO_ptr <= m_FIFO_ptr + K_bits(m_PC-2);
-								m_FIFO <= m_FIFO(FIFO_bits - 1 - K_bits(m_PC-2) downto 0) & ZERO(K_bits(m_PC-2) downto 1);
-								tmp_new_frame_k_idx(m_PC-2) <= to_integer(unsigned(m_FIFO(FIFO_bits - 1 downto FIFO_bits - K_bits(m_PC-2))));
+							if (m_FIFO_ptr <= FIFO_bits - K12_bits) then
+								m_FIFO_ptr <= m_FIFO_ptr + K12_bits;
+								m_FIFO <= m_FIFO(FIFO_bits - 1 - K12_bits downto 0) & ZERO(K12_bits downto 1);
+								tmp_new_frame_k_idx(m_PC-2) <= to_integer(unsigned(m_FIFO(FIFO_bits - 1 downto FIFO_bits - K12_bits)));
 							else
 								m_UF <= '1'; -- FIFO underflow
 							end if;
 						end if;
 
-					when 6 to 11 =>  -- K5-K10  4 bits
+                when 4 to 5 =>  -- K3-K4  4 bits
+						if ((m_new_frame_repeat = '0') and ((m_new_frame_voiced = '1') or (m_new_frame_unvoiced = '1'))) then
+							if (m_FIFO_ptr <= FIFO_bits - K34567_bits) then
+								m_FIFO_ptr <= m_FIFO_ptr + K34567_bits;
+								m_FIFO <= m_FIFO(FIFO_bits - 1 - K34567_bits downto 0) & ZERO(K34567_bits downto 1);
+								tmp_new_frame_k_idx(m_PC-2) <= to_integer(unsigned(m_FIFO(FIFO_bits - 1 downto FIFO_bits - K34567_bits)));
+							else
+								m_UF <= '1'; -- FIFO underflow
+							end if;
+						end if;
+
+					when 6 to 8 =>  -- K5-K7  4 bits
 						if ((m_new_frame_repeat = '0') and (m_new_frame_voiced = '1')) then
-							if (m_FIFO_ptr <= FIFO_bits - K_bits(m_PC-2)) then
-								m_FIFO_ptr <= m_FIFO_ptr + K_bits(m_PC-2);
-								m_FIFO <= m_FIFO(FIFO_bits - 1 - K_bits(m_PC-2) downto 0) & ZERO(K_bits(m_PC-2) downto 1);
-								tmp_new_frame_k_idx(m_PC-2) <= to_integer(unsigned(m_FIFO(FIFO_bits - 1 downto FIFO_bits - K_bits(m_PC-2))));
+							if (m_FIFO_ptr <= FIFO_bits - K34567_bits) then
+								m_FIFO_ptr <= m_FIFO_ptr + K34567_bits;
+								m_FIFO <= m_FIFO(FIFO_bits - 1 - K34567_bits downto 0) & ZERO(K34567_bits downto 1);
+								tmp_new_frame_k_idx(m_PC-2) <= to_integer(unsigned(m_FIFO(FIFO_bits - 1 downto FIFO_bits - K34567_bits)));
+							else
+								m_UF <= '1'; -- FIFO underflow
+							end if;
+						end if;
+
+					when 9 to 11 =>  -- K8-K10  3 bits
+						if ((m_new_frame_repeat = '0') and (m_new_frame_voiced = '1')) then
+							if (m_FIFO_ptr <= FIFO_bits - K8910_bits) then
+								m_FIFO_ptr <= m_FIFO_ptr + K8910_bits;
+								m_FIFO <= m_FIFO(FIFO_bits - 1 - K8910_bits downto 0) & ZERO(K8910_bits downto 1);
+								tmp_new_frame_k_idx(m_PC-2) <= to_integer(unsigned(m_FIFO(FIFO_bits - 1 downto FIFO_bits - K8910_bits)));
 							else
 								m_UF <= '1'; -- FIFO underflow
 							end if;

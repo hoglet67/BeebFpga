@@ -57,6 +57,7 @@ entity bbc_micro_spec_next_issue4 is
         IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := true;
         IncludeMusic5000   : boolean := true;
+        IncludeSpeech      : boolean := true;
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := true;
@@ -281,6 +282,7 @@ begin
         IncludeSPISD       => IncludeSPISD,
         IncludeSID         => IncludeSID,
         IncludeMusic5000   => IncludeMusic5000,
+        IncludeSpeech      => IncludeSpeech and not IncludeMaster,
         IncludeICEDebugger => IncludeICEDebugger,
         IncludeCoPro6502   => IncludeCoPro6502,
         IncludeCoProSPI    => false,

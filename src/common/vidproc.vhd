@@ -601,6 +601,7 @@ begin
         variable green_val : std_logic;
         variable blue_val : std_logic;
         variable do_flash : std_logic;
+        variable mode16 : std_logic;
     begin
         if nRESET = '0' then
             phys_col <= (others =>'0');
@@ -638,11 +639,24 @@ begin
                 green_val := (dot_val(3) and do_flash) xor not dot_val(1);
                 blue_val := (dot_val(3) and do_flash) xor not dot_val(2);
 
+                -- DOB: 2024-11-20 - experimentation suggests that top bit of ULA palette is 
+                -- is ignored in NULA look in modes other than where cols=20 and f=2Mhz or
+                -- cols=10 and f=1Mhz
+                if r0_pixel_rate = "01" and r0_crtc_2mhz = '1' then -- 20 cols fast = 16 colours
+                    mode16 := '1';
+                elsif r0_pixel_rate = "00" and r0_crtc_2mhz = '0' then -- 10 cols slow = 16 colours
+                    mode16 := '1';
+                else
+                    mode16 := '0';
+                end if;
+
                 -- Output physical colour, to be used by VideoNuLA
                 if nula_palette_mode = '1' or nula_speccy_attr_mode = '1' then
                     phys_col <= palette_a;
-                else
+                elsif mode16 = '1' then
                     phys_col <= dot_val(3) & blue_val & green_val & red_val;
+                else
+                    phys_col <= '0' & blue_val & green_val & red_val;
                 end if;
             end if;
         end if;

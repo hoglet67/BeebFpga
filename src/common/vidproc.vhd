@@ -192,6 +192,9 @@ architecture rtl of vidproc is
     signal phys_col_delay_out         : std_logic_vector(3 downto 0);
     signal phys_col_final             : std_logic_vector(3 downto 0);
 
+-- Delay line for DISEN - this is character cell rather than pixel based
+    signal disen_delay_reg            : std_logic_vector(15 downto 0);
+
     signal invert_delay_reg           : std_logic_vector(7 downto 0);
     signal invert_final               : std_logic;
 
@@ -206,7 +209,7 @@ architecture rtl of vidproc is
 -- Additional VideoNuLA registers
     signal nula_palette_mode          : std_logic;
     signal nula_hor_scroll_offset     : std_logic_vector(2 downto 0);
-    signal nula_left_banking_size     : std_logic_vector(3 downto 0);
+    signal nula_left_blanking_size    : std_logic_vector(3 downto 0);
     signal nula_disable_a1            : std_logic;
     signal nula_normal_attr_mode      : std_logic;
     signal nula_text_attr_mode        : std_logic;
@@ -285,7 +288,7 @@ begin
                 if nula_nreset = '0' then
                     nula_palette_mode          <= '0';
                     nula_hor_scroll_offset     <= (others => '0');
-                    nula_left_banking_size     <= (others => '0');
+                    nula_left_blanking_size     <= (others => '0');
                     nula_disable_a1            <= '0';
                     nula_reg6                  <= (others => '0');
                     nula_reg7                  <= (others => '0');
@@ -319,7 +322,7 @@ begin
                             when x"2" =>
                                 nula_hor_scroll_offset     <= DI_CPU(2 downto 0);
                             when x"3" =>
-                                nula_left_banking_size     <= DI_CPU(3 downto 0);
+                                nula_left_blanking_size     <= DI_CPU(3 downto 0);
                             when x"4" =>
                                 nula_nreset                <= '0';
                             when x"5" =>
@@ -562,8 +565,16 @@ begin
             cursor_counter <= (others => '0');
         elsif rising_edge(PIXCLK) then
             if clken_load = '1' then
-                -- Display enable signal delayed by one character
-                disen1 <= disen0;
+                -- Display enable signal delayed by one character 
+                if nula_left_blanking_size = "0000" then
+                    disen1 <= disen0;
+                else
+                    -- add left hand blanking
+                    disen1 <= disen0 and disen_delay_reg(to_integer(unsigned(nula_left_blanking_size)) - 1);
+                end if;
+
+                disen_delay_reg <= disen_delay_reg(disen_delay_reg'high - 1 downto 0) & disen0;
+
                 disen2 <= disen1;
                 if cursor0 = '1' or cursor_active = '1' then
                     -- Latch cursor

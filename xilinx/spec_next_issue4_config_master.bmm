@@ -1,0 +1,38 @@
+ADDRESS_MAP avrmap PPC405 0
+
+    ADDRESS_SPACE rom_code RAMB16 [0x00000000:0x00003fff]
+        BUS_BLOCK
+            config_rom_inst/RAM_Inst[0].Ram [7:0];
+        END_BUS_BLOCK;
+
+        BUS_BLOCK
+            config_rom_inst/RAM_Inst[1].Ram [7:0];
+        END_BUS_BLOCK;
+
+        BUS_BLOCK
+            config_rom_inst/RAM_Inst[2].Ram [7:0];
+        END_BUS_BLOCK;
+
+        BUS_BLOCK
+            config_rom_inst/RAM_Inst[3].Ram [7:0];
+        END_BUS_BLOCK;
+
+        BUS_BLOCK
+            config_rom_inst/RAM_Inst[4].Ram [7:0];
+        END_BUS_BLOCK;
+
+        BUS_BLOCK
+            config_rom_inst/RAM_Inst[5].Ram [7:0];
+        END_BUS_BLOCK;
+
+        BUS_BLOCK
+            config_rom_inst/RAM_Inst[6].Ram [7:0];
+        END_BUS_BLOCK;
+
+        BUS_BLOCK
+            config_rom_inst/RAM_Inst[7].Ram [7:0];
+        END_BUS_BLOCK;
+
+    END_ADDRESS_SPACE;
+
+END_ADDRESS_MAP;

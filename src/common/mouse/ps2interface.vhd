@@ -169,7 +169,9 @@ port(
     rx_data  : out std_logic_vector(7 downto 0);
     read     : out std_logic;
     busy     : out std_logic;
-    err      : out std_logic
+    err      : out std_logic;
+
+    dom_debug: out std_logic_vector(7 downto 0)
 );
 
 -- forces the extraction of distributed ram for
@@ -350,6 +352,8 @@ signal clk_count,data_count: std_logic_vector(3 downto 0);
 signal clk_inter,data_inter: std_logic := '1';
 
 begin
+
+    dom_debug <= std_logic_vector(to_unsigned(fsm_state'pos(state), 8));
 
     ---------------------------------------------------------------------
     -- FLAGS and PS2 CLOCK AND DATA LINES

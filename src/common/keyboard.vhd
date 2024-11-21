@@ -42,8 +42,13 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+use IEEE.MATH_REAL.ALL;
 
 entity keyboard is
+generic (
+        MainClockSpeed : natural := 48000000;
+        LEDUpdateSpeed : natural := 20    
+    );
 port (
     CLOCK       :   in  std_logic;
     nRESET      :   in  std_logic;
@@ -58,6 +63,11 @@ port (
     KEYB_VALID   :  in std_logic;
     KEYB_ERROR   :  in std_logic;
     KEYB_BUSY    :  in std_logic;
+
+    -- LEDs (in from core out to PS/2)
+    LED_MOTOR    :  in std_logic;
+    LED_CAPS     :  in std_logic;
+    LED_SHIFT    :  in std_logic;
 
     -- If 1 then column is incremented automatically at
     -- 1 MHz rate
@@ -83,6 +93,12 @@ end entity;
 
 architecture rtl of keyboard is
 
+    function ceil_log2(i : natural) return natural is
+    begin
+        return integer(ceil(log2(real(i)))); 
+    end function;
+
+
 -- Active high version of reset
 signal rst          :   std_logic;
 
@@ -90,9 +106,17 @@ signal rst          :   std_logic;
 type key_matrix is array(0 to 15) of std_logic_vector(7 downto 0);
 signal keys         :   key_matrix;
 signal col          :   unsigned(3 downto 0);
-signal releasex      :   std_logic;
+signal releasex     :   std_logic;
 signal fn_keys      :   std_logic_vector(9 downto 0);
 signal fn_keys_last :   std_logic_vector(9 downto 0);
+
+constant LED_CTR_MAX : natural := integer(MainClockSpeed / LEDUpdateSpeed) - 1;
+signal   r_led_ctr   : unsigned(ceil_log2(LED_CTR_MAX) downto 0);
+signal   i_cur_leds  : std_logic_vector(2 downto 0);
+signal   r_cur_leds  : std_logic_vector(2 downto 0);
+
+signal   i_keyb_write_ack : std_logic; -- '1' when our write has been ack'd (write asserted and busy deasserted)
+signal   i_keyb_write     : std_logic;
 
 -- Initialization state machine
 type init_state is (
@@ -108,23 +132,40 @@ type init_state is (
 --  ack_disable_cmd,
     enabled,
     disabled,
-    protocol_error
+    protocol_error,
+    update_leds,
+    update_leds_data,
+    update_led_ack
     );
 
 signal state: init_state;
-
 begin
+
+    i_keyb_write_ack <= i_keyb_write and not KEYB_BUSY;
+    KEYB_WRITE <= i_keyb_write;
+
+    i_cur_leds <= LED_CAPS & LED_SHIFT & LED_MOTOR;
 
     rst <= not nRESET;
 
     -- Initialization State Machine
     process(CLOCK)
+        procedure WR(cmd:std_logic_vector(7 downto 0); next_state:init_state) is
+        begin
+            keyb_cmd <= cmd;
+            i_keyb_write <= '1';
+            if i_keyb_write_ack = '1' then
+                i_keyb_write <= '0';
+                state <= next_state;
+            end if;
+        end procedure WR;
     begin
         if rising_edge(CLOCK) then
 
             if rst = '1' then
                 state <= reset;
-                keyb_write <= '0';
+                i_keyb_write <= '0';
+                r_led_ctr <= to_unsigned(LED_CTR_MAX, r_led_ctr'length);
             else
                 case state is
                     when reset =>
@@ -133,14 +174,9 @@ begin
                         end if;
                     when send_rst_cmd =>
                         -- Send the RST command
-                        if keyb_busy = '0' then
-                            keyb_cmd   <= x"FF";
-                            keyb_write <= '1';
-                            state      <= ack_rst_cmd;
-                        end if;
+                        WR(x"FF", ack_rst_cmd);
                     when ack_rst_cmd =>
                         -- A keyboard/mouse responds with FA (Ack) then AA or FC
-                        keyb_write <= '0';
                         if keyb_valid = '1' then
                             if keyb_data = x"FA" then
                                 state <= get_bat_result;
@@ -158,17 +194,12 @@ begin
                         end if;
                     when send_id_cmd =>
                         -- Send the ID command
-                        if keyb_busy = '0' then
-                            keyb_cmd   <= x"F2";
-                            keyb_write <= '1';
-                            state      <= ack_id_cmd;
-                        end if;
+                        WR(x"F2", ack_id_cmd);
                     when ack_id_cmd =>
                         -- A keyboard responds with FA (Ack) then AB 83
                         -- A mouse responds with FA (Ack) then 00
                         -- Under some circumstances a MS intelli mouse response
                         -- with FA (Ack) then 03 or 04
-                        keyb_write <= '0';
                         if keyb_valid = '1' then
                             if keyb_data = x"FA" then
                                 state <= get_id1;
@@ -192,7 +223,7 @@ begin
                     when get_id2 =>
                         if keyb_valid = '1' then
                             if keyb_data = x"83" then
-                                state <= enabled;
+                                state <= update_leds;
                             else
                                 state <= protocol_error;
                             end if;
@@ -214,17 +245,45 @@ begin
 --                            end if;
 --                        end if;
 
+                    when update_leds =>
+                        
+                        WR(x"ED", update_led_ack);
+
+                    when update_led_ack =>
+                        r_cur_leds <= i_cur_leds;
+                        if r_led_ctr(r_led_ctr'high) = '1' then
+                            state <= enabled;
+                            r_led_ctr <= to_unsigned(LED_CTR_MAX, r_led_ctr'length);
+                        else
+                            r_led_ctr <= r_led_ctr - 1;
+                        end if;
+                        if keyb_valid = '1' then
+                            if keyb_data = x"FA" then
+                                state <= update_leds_data;
+                            else
+                                state <= enabled;
+                            end if;
+                        end if;
+
+                    when update_leds_data =>
+                        WR("00000" & r_cur_leds, enabled);
+
                     when enabled =>
-                        -- Sit in this state until the next reset
-                        keyb_write <= '0';
+                        if r_led_ctr(r_led_ctr'high) = '1' then
+                            r_led_ctr <= to_unsigned(LED_CTR_MAX, r_led_ctr'length);
+                            if r_cur_leds /= i_cur_leds then
+                                state <= update_leds;
+                            end if;
+                        else
+                            r_led_ctr <= r_led_ctr - 1;
+                        end if;
+
 
                     when disabled =>
                         -- Sit in this state until the next reset
-                        keyb_write <= '0';
 
                     when protocol_error =>
                         -- Sit in this state until the next reset
-                        keyb_write <= '0';
 
                 end case;
             end if;

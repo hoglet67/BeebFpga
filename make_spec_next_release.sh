@@ -105,7 +105,7 @@ keydip = 00
 
 crc00 = 0000
 crc01 = 0000
-crc02 = 0000
+crc02 = bf0c
 crc03 = 0000
 crc04 = 5cbf
 crc06 = 0000
@@ -153,7 +153,7 @@ cmos10 = 84 ; Default serial data format, auto boot option, int/ext TUBE, bell a
 
 crc00 = 0000
 crc01 = 0000
-crc02 = 0000
+crc02 = bf0c
 crc03 = 81db
 crc04 = 9402
 crc06 = 0000
@@ -180,7 +180,7 @@ name=Acorn BBC Model B
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
 resource=blank.rom,0
 resource=blank.rom,1
-resource=blank.rom,2
+resource=vnula.rom,2
 resource=blank.rom,3
 resource=os12.rom,4
 resource=blank.rom,5
@@ -211,7 +211,7 @@ name=Acorn BBC Master
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
 resource=blank.rom,0
 resource=blank.rom,1
-resource=blank.rom,2
+resource=vnula.rom,2
 resource=owl.rom,3
 resource=mos.rom,4
 resource=blank.rom,5
@@ -272,7 +272,7 @@ MACH=bbcmodelb
 
 mkdir -p $DIR/machines/$MACH
 
-for i in os12 basic2 ram_master_v6 ${MMFS}/M/SWMMFS
+for i in os12 basic2 ram_master_v6 ${MMFS}/M/SWMMFS vnula
 do
     cp roms/bbcb/$i.rom $DIR/machines/${MACH}
 done
@@ -307,7 +307,7 @@ MACH=bbcmaster
 
 mkdir -p $DIR/machines/$MACH
 
-for i in adfs basic4 dfs edit ${MMFS}/M/MAMMFS mos owl terminal view viewsht
+for i in adfs basic4 dfs edit ${MMFS}/M/MAMMFS mos owl terminal view viewsht vnula
 do
     cp roms/m128/$i.rom $DIR/machines/${MACH}
 done

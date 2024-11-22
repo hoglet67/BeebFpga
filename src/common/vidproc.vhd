@@ -657,6 +657,8 @@ begin
                     mode16 := '1';
                 elsif r0_pixel_rate = "00" and r0_crtc_2mhz = '0' then -- 10 cols slow = 16 colours
                     mode16 := '1';
+                elsif nula_reg6 /= "00" then
+                    mode16 := '1';
                 else
                     mode16 := '0';
                 end if;

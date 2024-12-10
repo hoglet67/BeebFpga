@@ -174,8 +174,8 @@ EOF
 
 
 function modelb_config {
-cat > $1 <<EOF
-name=Acorn BBC Model B
+echo "name=Acorn BBC Model B $2" > $1
+cat >> $1 <<EOF
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
 resource=blank.rom,0
@@ -205,8 +205,8 @@ EOF
 
 
 function master_config {
-cat > $1 <<EOF
-name=Acorn BBC Master
+echo "name=Acorn BBC Master $2" > $1
+cat >> $1 <<EOF
 
 ; Beeb ROM Slots 0-15 map to Spec Next Pages 0-15
 resource=blank.rom,0
@@ -234,6 +234,15 @@ config=5,16128
 EOF
 }
 
+NAME=beeb_fpga_spec_next_${BUILD}
+
+DIR=releases/$NAME
+
+echo "Release name: $NAME"
+
+rm -rf $DIR
+mkdir -p $DIR
+
 for MMFS in MMFS MMFS2
 do
 
@@ -244,14 +253,6 @@ echo "CRC for $MMFS for BBC B is $MMFS_BBCB_CRC"
 echo "CRC for $MMFS for Master 128 is $MMFS_M128_CRC"
 
 
-NAME=beeb_fpga_spec_next_${BUILD}_${MMFS}
-
-DIR=releases/$NAME
-
-echo "Release name: $NAME"
-
-rm -rf $DIR
-mkdir -p $DIR
 
 # ====================================================
 # Compile Config Firmware
@@ -268,9 +269,9 @@ popd
 # Acorn BBC Model B
 # ====================================================
 
-MACH=bbcmodelb
+MACH=bbcmodelb_${MMFS}
 
-mkdir -p $DIR/machines/$MACH
+mkdir -p $DIR/machines/${MACH}
 
 for i in os12 basic2 ram_master_v6 ${MMFS}/M/SWMMFS vnula
 do
@@ -286,7 +287,7 @@ mv $DIR/machines/${MACH}/ram_master_v6.rom $DIR/machines/${MACH}/rammas6.rom
 common_settings $DIR/machines/${MACH}/beeb.cfg
 modelb_settings $DIR/machines/${MACH}/beeb.cfg $MMFS_BBCB_CRC
 
-modelb_config $DIR/machines/${MACH}/core.cfg
+modelb_config $DIR/machines/${MACH}/core.cfg ${MMFS}
 
 data2mem -bm xilinx/spec_next_config_modelb_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_micro_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
 
@@ -303,9 +304,9 @@ rm -f tmp.mem updatemem*.log updatemem*.jou
 # Acorn BBC Master
 # ====================================================
 
-MACH=bbcmaster
+MACH=bbcmaster_${MMFS}
 
-mkdir -p $DIR/machines/$MACH
+mkdir -p $DIR/machines/${MACH}
 
 for i in adfs basic4 dfs edit ${MMFS}/M/MAMMFS mos owl terminal view viewsht vnula
 do
@@ -318,7 +319,7 @@ dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
 common_settings $DIR/machines/${MACH}/beeb.cfg
 master_settings $DIR/machines/${MACH}/beeb.cfg $MMFS_M128_CRC
 
-master_config $DIR/machines/${MACH}/core.cfg
+master_config $DIR/machines/${MACH}/core.cfg ${MMFS}
 
 data2mem -bm xilinx/spec_next_config_master_bd.bmm -bd firmware/config.mem -bt xilinx/working/bbc_master_spec_next/bbc_micro_spec_next.bit -o b $DIR/machines/${MACH}/core.bit
 

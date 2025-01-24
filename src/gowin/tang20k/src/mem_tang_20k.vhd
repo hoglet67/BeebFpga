@@ -143,6 +143,7 @@ architecture rtl of mem_tang_20k is
     signal i_sdram_din         : std_logic_vector(7 downto 0);
     signal i_sdram_dout        : std_logic_vector(7 downto 0);
     signal i_sdram_busy        : std_logic;
+    signal i_sdram_data_ready  : std_logic;
 
     -- from bootstrap to sdram controller
     signal i_X_Din         : std_logic_vector(7 downto 0);
@@ -241,7 +242,7 @@ begin
             refresh => '0',
             din => i_sdram_din,
             dout => i_sdram_dout,
-            data_ready => open,
+            data_ready => i_sdram_data_ready,
             busy => i_sdram_busy,
 
             SDRAM_DQ => IO_sdram_dq,
@@ -405,7 +406,6 @@ begin
             variable cmd_read1  : std_logic;
             variable cmd_read2  : std_logic;
             variable test_read  : std_logic;
-            variable test_Dout  : std_logic_vector(7 downto 0);
         begin
             if rising_edge(CLK_48) then
                 case (state) is
@@ -481,7 +481,7 @@ begin
                     when DBG_0A =>
                         if test_read = '1' then
                             if i_X_A = ADDR_VEC0 then
-                                if test_Dout = DATA_VEC0 then
+                                if i_X_Dout = DATA_VEC0 then
                                     state <= DBG_0B;
                                 else
                                     state(5) <= '1';
@@ -491,7 +491,7 @@ begin
                     when DBG_0B =>
                         if test_read = '1' then
                             if i_X_A = ADDR_VEC1 then
-                                if test_Dout = DATA_VEC1 then
+                                if i_X_Dout = DATA_VEC1 then
                                     state <= DBG_0C;
                                 else
                                     state(5) <= '1';
@@ -501,7 +501,7 @@ begin
                     when DBG_0C =>
                         if test_read = '1' then
                             if i_X_A = ADDR_INS0 then
-                                if test_Dout = DATA_INS0 then
+                                if i_X_Dout = DATA_INS0 then
                                     state <= DBG_0D;
                                 else
                                     state(5) <= '1';
@@ -511,7 +511,7 @@ begin
                     when DBG_0D =>
                         if test_read = '1' then
                             if i_X_A = ADDR_INS1 then
-                                if test_Dout = DATA_INS1 then
+                                if i_X_Dout = DATA_INS1 then
                                     state <= DBG_DONE;
                                 else
                                     state(5) <= '1';
@@ -527,7 +527,7 @@ begin
                 test_write := cmd_write1 and not cmd_write2;
                 cmd_write2 := cmd_write1;
                 if i_X_nCS = '0' and i_X_A_stb = '1' and i_X_nWE_long = '0' then
-                    cmd_write1 := i_sdram_cmd_write;
+                    cmd_write1 := '1';
                 elsif i_sdram_busy = '0' then
                     cmd_write1 := '0';
                 end if;
@@ -535,16 +535,13 @@ begin
                 test_read  := not cmd_read1 and cmd_read2;
                 cmd_read2  := cmd_read1;
                 if i_X_nCS = '0' and i_X_A_stb = '1' and i_X_nOE = '0' then
-                    cmd_read1  := '1';
-                elsif i_sdram_busy = '0' then
+                    cmd_read1 := '1';
+                elsif i_sdram_data_ready = '1' then
                     cmd_read1 := '0';
                 end if;
-                -- Move dout back to 48MHz domain
-                test_Dout := i_X_Dout;
             end if;
         end process;
 
---        led <= (i_sdram_busy & state(4 downto 0))  xor "111111";
         led <= state(5 downto 0)  xor "111111";
 
     end generate;

@@ -263,7 +263,16 @@ begin
         if rising_edge(CLK_48) then
             i_sdram_cmd_read  <= not(i_X_nCS) and i_X_A_stb and not i_X_nOE;
             i_sdram_cmd_write <= not(i_X_nCS) and i_X_A_stb and not i_X_nWE_long;
-            i_sdram_addr <= "0000" & i_X_A;
+            -- SDRAM address is structured as:
+            --   bits 22..21 are the bank (4 banks)
+            --   bits 20..10 are the row (2048 rows)
+            --   bits 9..2 are the column (256 cols)
+            --   bits 1..0 are the byte offset (selecting 8 bits out of 32)
+            --
+            --
+            -- i_X_A(9:0) is the BBC refresh address: feed this in as the row
+
+            i_sdram_addr <= "000" & i_X_A(9 downto 0) & "0" & i_X_A(18 downto 10);
             i_sdram_din <= i_X_Din;
         end if;
     end process;

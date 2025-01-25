@@ -205,7 +205,17 @@ begin
 
     O_sdram_clk <= CLK_96_P;
 
-    i_sdramctl_A <= "0000" & i_X_A;
+    -- SDRAM address is structured as:
+    --   bits 22..21 are the bank (4 banks)
+    --   bits 20..10 are the row (2048 rows)
+    --   bits 9..2 are the column (256 cols)
+    --   bits 1..0 are the byte offset (selecting 8 bits out of 32)
+    --
+    --
+    -- i_X_A(9:0) is the BBC refresh address: feed this in as the row
+
+    i_sdramctl_A <= "000" & i_X_A(9 downto 0) & "0" & i_X_A(18 downto 10);
+
     i_sdramctl_cyc <= i_X_A_stb;
     i_sdramctl_rfsh <= i_X_stb and not i_X_A_stb;
     i_sdramctl_we <= i_X_nOE;

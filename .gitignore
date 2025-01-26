@@ -60,6 +60,7 @@ firmware/version.asm
 **/impl/pnr
 **/impl/gwsynthesis
 **/impl/temp
+*.gprj.user
 
 **/vunit_out
 

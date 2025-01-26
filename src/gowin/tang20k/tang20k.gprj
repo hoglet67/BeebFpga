@@ -5,17 +5,28 @@
     <Version>5</Version>
     <Device name="GW2AR-18C" pn="GW2AR-LV18QN88C8/I7">gw2ar18c-000</Device>
     <FileList>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/hp_byte.v" type="file.verilog" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/hp_bytequad.v" type="file.verilog" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/hp_flag_m.v" type="file.verilog" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/hp_reg3.v" type="file.verilog" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_byte.v" type="file.verilog" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_bytequad.v" type="file.verilog" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_flag_m.v" type="file.verilog" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_reg3.v" type="file.verilog" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/tube.v" type="file.verilog" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/hdmi/hdmidataencoder.v" type="file.verilog" enable="1"/>
         <File path="src/sdram.v" type="file.verilog" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65_ALU.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65_MCode.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65_Pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/CoPro6502.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_coeffs.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_components.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_filters.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_voice.vhd" type="file.vhdl" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/tube_comp_pack.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/bbc_micro_core.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/hdmi/encoder.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/hdmi/hdmi.vhd" type="file.vhdl" enable="1"/>
@@ -36,6 +47,7 @@
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/scandoubler/rgb2vga_scandoubler.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/sn76489.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/spi.vhd" type="file.vhdl" enable="1"/>
+        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/tuberom_65c102.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/upd7002.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/vidproc.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>

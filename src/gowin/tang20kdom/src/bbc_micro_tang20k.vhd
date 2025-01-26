@@ -58,6 +58,7 @@ entity bbc_micro_tang20k is
         IncludeHDMI        : boolean := true;
         IncludeBootStrap   : boolean := true;
         IncludeMonitor     : boolean := true;
+        IncludeCoPro6502   : boolean := true;
 
         PRJ_ROOT           : string  := "../../..";
         MOS_NAME           : string  := "/roms/bbcb/os12_basic.bit";
@@ -266,6 +267,7 @@ architecture rtl of bbc_micro_tang20k is
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_mode       : std_logic := '1';
+    signal copro_mode      : std_logic := '1';
 
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
@@ -312,7 +314,7 @@ begin
             IncludeSID         => IncludeSID,
             IncludeMusic5000   => IncludeMusic5000,
             IncludeICEDebugger => false,
-            IncludeCoPro6502   => false,
+            IncludeCoPro6502   => IncludeCoPro6502,
             IncludeCoProSPI    => false,
             IncludeCoProExt    => false,
             IncludeVideoNuLA   => IncludeVideoNuLA,
@@ -372,7 +374,7 @@ begin
             avr_TxD        => uart_tx,
             cpu_addr       => open,
             m128_mode      => m128_mode,
-            copro_mode     => '0',
+            copro_mode     => copro_mode,
             p_spi_ssel     => '0',
             p_spi_sck      => '0',
             p_spi_mosi     => '0',
@@ -510,10 +512,15 @@ begin
             elsif powerup_reset_n = '0' then
                 if IncludeBeeb and IncludeMaster then
                     m128_mode <= not m128_mode;
+                    if m128_mode = '1' then
+                        copro_mode <= not copro_mode;
+                    end if;
                 elsif IncludeMaster then
                     m128_mode <= '1';
+                    copro_mode <= not copro_mode;
                 else
                     m128_mode <= '0';
+                    copro_mode <= not copro_mode;
                 end if;
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
@@ -706,7 +713,7 @@ begin
     end generate;
 
     --------------------------------------------------------
-    -- PSRAM Memory Controller
+    -- SDRAM Memory Controller
     --------------------------------------------------------
 
     e_mem: entity work.mem_tang_20k

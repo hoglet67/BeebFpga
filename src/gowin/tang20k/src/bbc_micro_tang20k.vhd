@@ -236,9 +236,8 @@ architecture rtl of bbc_micro_tang20k is
 
     signal clock_27        : std_logic;
     signal clock_48        : std_logic;
-    signal clock_48_p      : std_logic;
---    signal clock_96        : std_logic;
---    signal clock_96_p      : std_logic;
+    signal clock_96        : std_logic;
+    signal clock_96_p      : std_logic;
     signal clock_135       : std_logic;
     signal mem_ready       : std_logic;
 
@@ -329,7 +328,7 @@ begin
             clock_27       => clock_27,
             clock_32       => '0',                 -- Unused now in the core
             clock_48       => clock_48,
-            clock_96       => '0',                 -- TODO - 96 MHz needed for MIST ScanDoubler
+            clock_96       => clock_96,
             clock_avr      => '0',                 -- DB: no AVR yet
             hard_reset_n   => hard_reset_n,
             ps2_kbd_clk    => ps2_clk,
@@ -415,24 +414,23 @@ begin
     --------------------------------------------------------
 
     -- 48 MHz master clock from 27MHz input clock
-    -- 48 MHz phase shifted clock for SDRAM
-    -- (plus intermediate 96MHz clock for scan doubler, TODO)
+    -- plus intermediate 96MHz clock for scan doubler
 
     pll1 : rPLL
         generic map (
             FCLKIN => "27",
             DEVICE => "GW2AR-18C",
             IDIV_SEL => 8,
-            FBDIV_SEL => 15,
-            ODIV_SEL => 16,
+            FBDIV_SEL => 31,
+            ODIV_SEL => 8,
             DYN_SDIV_SEL => 2,
             PSDA_SEL => "1000"          -- 180 degree phase shift
         )
         port map (
             CLKIN    => sys_clk,
-            CLKOUT   => clock_48,       -- 48MHz clock for SDRAM and also main clock
-            CLKOUTP  => clock_48_p,     -- 48MHz clock for SDRAM, phase shifted 180 degrees
-            CLKOUTD  => open,           --
+            CLKOUT   => clock_96,       -- 96MHz clock for SDRAM
+            CLKOUTP  => clock_96_p,     -- 96MHz clock for SDRAM, phase shifted 180 degrees
+            CLKOUTD  => clock_48,       -- 48MHz main clock
             CLKOUTD3 => open,
             LOCK     => pll1_lock,
             RESET    => '0',
@@ -732,8 +730,9 @@ begin
             m128_mode      => m128_mode,
             RST_n          => powerup_reset_n,
             READY          => mem_ready,
+            CLK_96         => clock_96,
+            CLK_96_p       => clock_96_p,
             CLK_48         => clock_48,
-            CLK_48_p       => clock_48_p,
             core_A_stb     => ext_A_stb,
             core_A         => ext_A,
             core_Din       => ext_Din,

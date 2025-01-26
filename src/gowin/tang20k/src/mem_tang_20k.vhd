@@ -17,8 +17,9 @@ entity mem_tang_20k is
         IncludeMinimalBeeb   : boolean := false   -- Creates a build to test 4x16K ROM Images
         );
     port(
+        CLK_96            : in  std_logic;
+        CLK_96_P          : in  std_logic;
         CLK_48            : in  std_logic;
-        CLK_48_p          : in  std_logic;
 
         rst_n             : in  std_logic;
 
@@ -229,12 +230,12 @@ begin
 
     e_sdram : sdram
 --        generic map (
---            FREQ => "48000000"
+--            FREQ => "96000000"
 --            )
         port map (
 
-            clk => CLK_48,
-            clk_sdram => CLK_48_p,
+            clk => CLK_96,
+            clk_sdram => CLK_96_p,
             resetn => rst_n,
             addr => i_sdram_addr,
             rd => i_sdram_cmd_read,

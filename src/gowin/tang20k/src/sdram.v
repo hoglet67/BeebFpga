@@ -27,9 +27,8 @@
 
 module sdram
 #(
-    // Clock frequency, max 66.7Mhz with current set of T_xx/CAS parameters.
 //    parameter         FREQ = 64_800_000,
-    parameter         FREQ = 48_000_000,
+    parameter         FREQ = 96_000_000,
     parameter         DATA_WIDTH = 32,
     parameter         ROW_WIDTH = 11,  // 2K rows
     parameter         COL_WIDTH = 8,   // 256 words per row (1Kbytes)
@@ -40,9 +39,9 @@ module sdram
     parameter [3:0]   CAS  = 4'd2,     // 2/3 cycles, set in mode register
     parameter [3:0]   T_WR = 4'd2,     // 2 cycles, write recovery
     parameter [3:0]   T_MRD= 4'd2,     // 2 cycles, mode register set
-    parameter [3:0]   T_RP = 4'd1,     // 15ns, precharge to active
-    parameter [3:0]   T_RCD= 4'd1,     // 15ns, active to r/w
-    parameter [3:0]   T_RC = 4'd4      // 60ns, ref/active to ref/active
+    parameter [3:0]   T_RP = 4'd2,     // 15ns, precharge to active
+    parameter [3:0]   T_RCD= 4'd2,     // 15ns, active to r/w
+    parameter [3:0]   T_RC = 4'd8      // 60ns, ref/active to ref/active
 )
 (
     // SDRAM side interface

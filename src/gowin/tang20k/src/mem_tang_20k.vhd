@@ -11,7 +11,7 @@ entity mem_tang_20k is
         PRJ_ROOT             : string;
         MOS_NAME             : string;
         SIM                  : boolean;
-        UseDBSDRAMCtrl       : boolean := false;
+        UseDBSDRAMCtrl       : boolean;
         IncludeMonitor       : boolean := false;
         IncludeBootstrap     : boolean;
         IncludeMinimalMaster : boolean := false;  -- Creates a build to test 4x16K ROM Images
@@ -234,7 +234,7 @@ begin
                 sdram_DQM_o  => O_sdram_dqm,
 
                 ctl_rfsh_i   => '0',
-                ctl_reset_i  => rst_n,
+                ctl_reset_i  => not rst_n,
                 ctl_stall_o  => i_sdram_busy,
                 ctl_cyc_i    => i_sdram_cyc,
                 ctl_we_i     => i_sdram_we,

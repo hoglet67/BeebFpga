@@ -25,7 +25,7 @@
 // This can be generated with PLL's clkoutp output.
 //
 
-module sdram
+module sdramctl_nestang
 #(
 //    parameter         FREQ = 64_800_000,
     parameter         FREQ = 96_000_000,

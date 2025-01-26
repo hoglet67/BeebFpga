@@ -11,10 +11,12 @@ entity mem_tang_20k is
         PRJ_ROOT             : string;
         MOS_NAME             : string;
         SIM                  : boolean;
+        UseDBSDRAMCtrl       : boolean := false;
         IncludeMonitor       : boolean := false;
         IncludeBootstrap     : boolean;
         IncludeMinimalMaster : boolean := false;  -- Creates a build to test 4x16K ROM Images
         IncludeMinimalBeeb   : boolean := false   -- Creates a build to test 4x16K ROM Images
+
         );
     port(
         CLK_96            : in  std_logic;
@@ -59,28 +61,9 @@ end mem_tang_20k;
 architecture rtl of mem_tang_20k is
 
     --------------------------------------------------------
-    -- SDRAM Controllrt Components
+    -- NESTang SDRAM Controller Component (Verilog)
     --------------------------------------------------------
-
---    parameter         FREQ = 64_800_000,
---    parameter         DATA_WIDTH = 32,
---    parameter         ROW_WIDTH = 11,  // 2K rows
---    parameter         COL_WIDTH = 8,   // 256 words per row (1Kbytes)
---    parameter         BANK_WIDTH = 2,  // 4 banks
---
---    // Time delays for 66.7Mhz max clock (min clock cycle 15ns)
---    // The SDRAM supports max 166.7Mhz (RP/RCD/RC need changes)
---    parameter [3:0]   CAS  = 4'd2,     // 2/3 cycles, set in mode register
---    parameter [3:0]   T_WR = 4'd2,     // 2 cycles, write recovery
---    parameter [3:0]   T_MRD= 4'd2,     // 2 cycles, mode register set
---    parameter [3:0]   T_RP = 4'd1,     // 15ns, precharge to active
---    parameter [3:0]   T_RCD= 4'd1,     // 15ns, active to r/w
---    parameter [3:0]   T_RC = 4'd4      // 60ns, ref/active to ref/active
-
-    component sdram
---        generic (
---           FREQ : string
---        );
+    component sdramctl_nestang
         port (
             -- SDRAM side interface
 
@@ -140,6 +123,8 @@ architecture rtl of mem_tang_20k is
     -- sdram controller
     signal i_sdram_cmd_read    : std_logic;
     signal i_sdram_cmd_write   : std_logic;
+    signal i_sdram_cyc         : std_logic;
+    signal i_sdram_we          : std_logic;
     signal i_sdram_addr        : std_logic_vector(22 downto 0);
     signal i_sdram_din         : std_logic_vector(7 downto 0);
     signal i_sdram_dout        : std_logic_vector(7 downto 0);
@@ -228,43 +213,81 @@ architecture rtl of mem_tang_20k is
 
 begin
 
-    e_sdram : sdram
---        generic map (
---            FREQ => "96000000"
---            )
-        port map (
+    -- Dominic's SDRAM Controller
+    gen_sdramctl_dominic : if UseDBSDRAMCtrl generate
+        inst_sdramclt_dominic : entity work.sdramctl_dominic
+            generic map (
+                CLOCKSPEED  => 96000000,
+                T_CAS_EXTRA => 1
+                )
+            port map (
+                Clk          => CLK_96,
 
-            clk => CLK_96,
-            clk_sdram => CLK_96_p,
-            resetn => rst_n,
-            addr => i_sdram_addr,
-            rd => i_sdram_cmd_read,
-            wr => i_sdram_cmd_write,
-            refresh => '0',
-            din => i_sdram_din,
-            dout => i_sdram_dout,
-            data_ready => i_sdram_data_ready,
-            busy => i_sdram_busy,
+                sdram_DQ_io  => IO_sdram_dq,
+                sdram_A_o    => O_sdram_addr,
+                sdram_BS_o   => O_sdram_ba,
+                sdram_CKE_o  => O_sdram_cke,
+                sdram_nCS_o  => O_sdram_cs_n,
+                sdram_nRAS_o => O_sdram_ras_n,
+                sdram_nCAS_o => O_sdram_cas_n,
+                sdram_nWE_o  => O_sdram_wen_n,
+                sdram_DQM_o  => O_sdram_dqm,
 
-            SDRAM_DQ => IO_sdram_dq,
-            SDRAM_A => O_sdram_addr,
-            SDRAM_BA => O_sdram_ba,
-            SDRAM_nCS => O_sdram_cs_n,
-            SDRAM_nWE => O_sdram_wen_n,
-            SDRAM_nRAS => O_sdram_ras_n,
-            SDRAM_nCAS => O_sdram_cas_n,
-            SDRAM_CLK => O_sdram_clk,
-            SDRAM_CKE => O_sdram_cke,
-            SDRAM_DQM => O_sdram_dqm
-    );
+                ctl_rfsh_i   => '0',
+                ctl_reset_i  => rst_n,
+                ctl_stall_o  => i_sdram_busy,
+                ctl_cyc_i    => i_sdram_cyc,
+                ctl_we_i     => i_sdram_we,
+                ctl_A_i      => i_sdram_addr,
+                ctl_D_wr_i   => i_sdram_din,
+                ctl_D_rd_o   => i_sdram_dout,
+                ctl_ack_o    => i_sdram_data_ready
+                );
+
+        O_sdram_clk <= CLK_96_P;
+    end generate;
+
+    -- NESTang SDRAM Controller
+    gen_sdramclt_nestang : if not UseDBSDRAMCtrl generate
+        inst_sdramctl_nestang : sdramctl_nestang
+            port map (
+                clk        => CLK_96,
+                clk_sdram  => CLK_96_p,
+
+                resetn     => rst_n,
+                addr       => i_sdram_addr,
+                rd         => i_sdram_cmd_read,
+                wr         => i_sdram_cmd_write,
+                refresh    => '0',
+                din        => i_sdram_din,
+                dout       => i_sdram_dout,
+                data_ready => i_sdram_data_ready,
+                busy       => i_sdram_busy,
+
+                SDRAM_DQ   => IO_sdram_dq,
+                SDRAM_A    => O_sdram_addr,
+                SDRAM_BA   => O_sdram_ba,
+                SDRAM_nCS  => O_sdram_cs_n,
+                SDRAM_nWE  => O_sdram_wen_n,
+                SDRAM_nRAS => O_sdram_ras_n,
+                SDRAM_nCAS => O_sdram_cas_n,
+                SDRAM_CLK  => O_sdram_clk,
+                SDRAM_CKE  => O_sdram_cke,
+                SDRAM_DQM  => O_sdram_dqm
+                );
+    end generate;
 
 
     --DB: TODO: eliminate if possible for latency, this required for timing closure
     p_reg:process(CLK_48)
     begin
         if rising_edge(CLK_48) then
+            -- Controls for NESTang Controller
             i_sdram_cmd_read  <= not(i_X_nCS) and i_X_A_stb and not i_X_nOE;
             i_sdram_cmd_write <= not(i_X_nCS) and i_X_A_stb and not i_X_nWE_long;
+            -- Controls for Dominic SDRAM Controller
+            i_sdram_cyc  <= not(i_X_nCS) and i_X_A_stb;
+            i_sdram_we   <= not i_X_nWE_long;
             -- SDRAM address is structured as:
             --   bits 22..21 are the bank (4 banks)
             --   bits 20..10 are the row (2048 rows)
@@ -273,7 +296,6 @@ begin
             --
             --
             -- i_X_A(9:0) is the BBC refresh address: feed this in as the row
-
             i_sdram_addr <= "000" & i_X_A(9 downto 0) & "0" & i_X_A(18 downto 10);
             i_sdram_din <= i_X_Din;
         end if;

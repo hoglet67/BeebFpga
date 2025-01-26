@@ -15,7 +15,7 @@
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_reg3.v" type="file.verilog" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/tube.v" type="file.verilog" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/common/hdmi/hdmidataencoder.v" type="file.verilog" enable="1"/>
-        <File path="src/sdram.v" type="file.verilog" enable="1"/>
+        <File path="src/sdramctl_nestang.v" type="file.verilog" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65_ALU.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65_MCode.vhd" type="file.vhdl" enable="1"/>
@@ -54,9 +54,11 @@
         <File path="src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang20k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bootstrap.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/common.vhd" type="file.vhdl" enable="1"/>
         <File path="src/mem_tang_20k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="src/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/sdramctl_dominic.vhd" type="file.vhdl" enable="1"/>
         <File path="/disk1/home/dmb/atom/BeebFpga/src/xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang20k.cst" type="file.cst" enable="1"/>
         <File path="src/bbc_micro_tang20k.sdc" type="file.sdc" enable="1"/>

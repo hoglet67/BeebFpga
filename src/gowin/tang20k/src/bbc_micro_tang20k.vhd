@@ -1,7 +1,7 @@
 -- BBC Master / BBC B for the Tang Nano 20K
 --
--- Copright (c) 2023 Dominic Beesley
--- Copright (c) 2023 David Banks
+-- Copright (c) 2025 Dominic Beesley
+-- Copright (c) 2025 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -48,6 +48,8 @@ entity bbc_micro_tang20k is
     generic (
         IncludeMaster      : boolean := true; -- if both included, the CPU is the AlanD 65C02
         IncludeBeeb        : boolean := true; -- and btn1 can toggle between the ROM images
+
+        UseDBSDRAMCtrl     : boolean := true; -- if true, use Dominic's SDRAM Controller rather than the NESTang one
 
         IncludeAMXMouse    : boolean := false;
         IncludeSPISD       : boolean := true;
@@ -723,6 +725,7 @@ begin
             IncludeBootStrap => IncludeBootStrap,
             IncludeMinimalBeeb => true,
             IncludeMinimalMaster => false,
+            UseDBSDRAMCtrl => UseDBSDRAMCtrl,
             PRJ_ROOT => PRJ_ROOT,
             MOS_NAME => MOS_NAME
         )

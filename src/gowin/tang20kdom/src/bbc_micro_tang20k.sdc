@@ -53,4 +53,4 @@ set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}]
 set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}]  -hold -end 1
 
-set_operating_conditions -grade c -model fast -speed 8 -setup -hold
+set_operating_conditions -grade c -model slow -speed 8 -setup -hold

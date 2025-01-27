@@ -129,7 +129,6 @@ architecture rtl of mem_tang_20k is
     signal i_sdram_din         : std_logic_vector(7 downto 0);
     signal i_sdram_dout        : std_logic_vector(7 downto 0);
     signal i_sdram_busy        : std_logic;
-    signal i_sdram_data_ready  : std_logic;
 
     -- from bootstrap to sdram controller
     signal i_X_Din         : std_logic_vector(7 downto 0);
@@ -241,7 +240,7 @@ begin
                 ctl_A_i      => i_sdram_addr,
                 ctl_D_wr_i   => i_sdram_din,
                 ctl_D_rd_o   => i_sdram_dout,
-                ctl_ack_o    => i_sdram_data_ready
+                ctl_ack_o    => open
                 );
 
         O_sdram_clk <= CLK_96_P;
@@ -261,7 +260,7 @@ begin
                 refresh    => '0',
                 din        => i_sdram_din,
                 dout       => i_sdram_dout,
-                data_ready => i_sdram_data_ready,
+                data_ready => open,
                 busy       => i_sdram_busy,
 
                 SDRAM_DQ   => IO_sdram_dq,
@@ -407,7 +406,23 @@ begin
 
     mon : if IncludeMonitor generate
 
-        -- Note:
+         -- Notes:
+        --
+        --   The monitor runs from the system clock domain (CLK_48)
+        --   not the memory clock domain, so it better checks what
+        --   bbc_micro_core sees.
+        --
+        --   Writes are checked at the start of the memory access.
+        --
+        --   Reads need to be checked at the end of the memory access,
+        --   when the read data is avilable. It's problematic to use
+        --   the data ready signal as a trigger, as the memory clock
+        --   is faster (CLK_96), so sampling this back to CLK_48 is
+        --   unreliable. So instead we check a fixed amount (5 system
+        --   clocks cycle) later. This matches how bbc_micro_core
+        --   latches the read data at the end of the 6 cycle memory
+        --   access slot.
+        --
         --   The OS is always mapped into rom slot 4 10000-13FFF
         --   On the Beeb the reset address of D9CD becomed 119CD
         --   On the Master the reset address of E364 becomed 12364
@@ -423,14 +438,14 @@ begin
         DATA_VEC1 <= x"E3" when m128_mode = '1' else x"D9";
 
         process(CLK_48)
-            variable cmd_write1 : std_logic;
-            variable cmd_write2 : std_logic;
             variable test_write : std_logic;
-            variable cmd_read1  : std_logic;
-            variable cmd_read2  : std_logic;
             variable test_read  : std_logic;
+            variable read_delay : std_logic_vector(3 downto 0);
         begin
             if rising_edge(CLK_48) then
+                test_write := i_sdram_cmd_write;
+                test_read  := read_delay(0);
+                read_delay := i_sdram_cmd_read & read_delay(read_delay'high downto 1);
                 case (state) is
                     when DBG_00 =>
                         if rst_n = '0' then
@@ -546,26 +561,10 @@ begin
                             state <= DBG_00;
                         end if;
                 end case;
-                -- Check writes at the start of the write cycle
-                test_write := cmd_write1 and not cmd_write2;
-                cmd_write2 := cmd_write1;
-                if i_X_nCS = '0' and i_X_A_stb = '1' and i_X_nWE_long = '0' then
-                    cmd_write1 := '1';
-                elsif i_sdram_busy = '0' then
-                    cmd_write1 := '0';
-                end if;
-                -- Check reads at the end of the read cycle
-                test_read  := not cmd_read1 and cmd_read2;
-                cmd_read2  := cmd_read1;
-                if i_X_nCS = '0' and i_X_A_stb = '1' and i_X_nOE = '0' then
-                    cmd_read1 := '1';
-                elsif i_sdram_data_ready = '1' then
-                    cmd_read1 := '0';
-                end if;
             end if;
         end process;
 
-        led <= state(5 downto 0)  xor "111111";
+        led <= state xor "111111";
 
     end generate;
 

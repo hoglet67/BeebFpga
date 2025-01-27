@@ -34,14 +34,28 @@ module sdramctl_nestang
     parameter         COL_WIDTH = 8,   // 256 words per row (1Kbytes)
     parameter         BANK_WIDTH = 2,  // 4 banks
 
-    // Time delays for 66.7Mhz max clock (min clock cycle 15ns)
+    // Time delays for 96Mhz max clock (min clock cycle 10.4ns)
     // The SDRAM supports max 166.7Mhz (RP/RCD/RC need changes)
     parameter [3:0]   CAS  = 4'd2,     // 2/3 cycles, set in mode register
     parameter [3:0]   T_WR = 4'd2,     // 2 cycles, write recovery
-    parameter [3:0]   T_MRD= 4'd2,     // 2 cycles, mode register set
+    parameter [3:0]   T_MRD= 4'd3,     // 2 cycles, mode register set (**)
     parameter [3:0]   T_RP = 4'd2,     // 15ns, precharge to active
     parameter [3:0]   T_RCD= 4'd2,     // 15ns, active to r/w
-    parameter [3:0]   T_RC = 4'd8      // 60ns, ref/active to ref/active
+    parameter [3:0]   T_RC = 4'd6      // 60ns, ref/active to ref/active
+
+    // (**) DMB: With memory clocked at 96MHz, it seems that
+    // T_RP+T_RC+T_RC+T_MRD needs to be odd, otherwise the bootstrap
+    // state machine hangs in DBG_03.
+    //
+    // T_RP=1 T_RC=6 T_MRD=2 works (total = 15)
+    // T_RP=2 T_RC=6 T_MRD=2 hangs (total = 16)
+    // T_RP=3 T_RC=6 T_MRD=2 works (total = 17)
+    // T_RP=2 T_RC=6 T_MRD=3 works (total = 17)
+    //
+    // I don't quite see why this is happening, as it suggests the
+    // bootstrap state machine never sees busy go low. It's sampling
+    // busy at 48MHz, so possible busy is only ever low for one
+    // cycle. But why?
 )
 (
     // SDRAM side interface

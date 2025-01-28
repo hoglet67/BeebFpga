@@ -432,12 +432,9 @@ begin
         process(CLK_48)
             variable test_write : std_logic;
             variable test_read  : std_logic;
-            variable read_delay : std_logic_vector(3 downto 0);
+            variable read_delay : std_logic_vector(2 downto 0);
         begin
             if rising_edge(CLK_48) then
-                test_write := i_sdram_cmd_write;
-                test_read  := read_delay(0);
-                read_delay := i_sdram_cmd_read & read_delay(read_delay'high downto 1);
                 case (state) is
                     when DBG_00 =>
                         if rst_n = '0' then
@@ -553,6 +550,9 @@ begin
                             state <= DBG_00;
                         end if;
                 end case;
+                test_write := i_sdram_cmd_write;
+                test_read  := read_delay(0);
+                read_delay := i_sdram_cmd_read & read_delay(read_delay'high downto 1);
             end if;
         end process;
 

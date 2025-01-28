@@ -54,7 +54,7 @@ entity bbc_micro_tang20k is
         IncludeAMXMouse    : boolean := false;
         IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := true;
-        IncludeMusic5000   : boolean := false; -- doesn't meet timing, but seems to work
+        IncludeMusic5000   : boolean := true;
         IncludeVideoNuLA   : boolean := true;
         IncludeTrace       : boolean := true;
         IncludeHDMI        : boolean := true;

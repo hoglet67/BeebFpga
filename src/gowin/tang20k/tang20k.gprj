@@ -5,62 +5,62 @@
     <Version>5</Version>
     <Device name="GW2AR-18C" pn="GW2AR-LV18QN88C8/I7">gw2ar18c-000</Device>
     <FileList>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/hp_byte.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/hp_bytequad.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/hp_flag_m.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/hp_reg3.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_byte.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_bytequad.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_flag_m.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/ph_reg3.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/tube.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/hdmi/hdmidataencoder.v" type="file.verilog" enable="1"/>
-        <File path="src/sdramctl_nestang.v" type="file.verilog" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65_ALU.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65_MCode.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/AtomBusMon/src/T6502/T65_Pack.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/CoPro6502.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_coeffs.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_components.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_filters.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/SID/sid_voice.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/Tube/tube_comp_pack.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/bbc_micro_core.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/hdmi/encoder.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/hdmi/hdmi.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/hdmi/hdmidelay.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/keyboard.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/m6522.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/mc6845.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/mouse/ps2interface.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/mouse/quadrature_controller.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/mouse/quadrature_fsm.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/music5000/LogLinRom.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/music5000/Music5000.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/rtc.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/saa5050.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/scandoubler/mist_scandoubler.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/scandoubler/retimer.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/scandoubler/rgb2vga_dpram.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/scandoubler/rgb2vga_scandoubler.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/sn76489.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/spi.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/tuberom_65c102.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/upd7002.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/vidproc.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>
-        <File path="src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../AtomBusMon/src/T6502/T65_ALU.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../AtomBusMon/src/T6502/T65_MCode.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../AtomBusMon/src/T6502/T65_Pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../AtomBusMon/src/T6502/T65.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/bbc_micro_core.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/CoPro6502.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/hdmi/encoder.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/hdmi/hdmidataencoder.v" type="file.verilog" enable="1"/>
+        <File path="../../common/hdmi/hdmidelay.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/hdmi/hdmi.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/keyboard.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/m6522.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/mc6845.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/mouse/ps2interface.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/mouse/quadrature_controller.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/mouse/quadrature_fsm.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/music5000/LogLinRom.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/music5000/Music5000.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/rtc.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/saa5050.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/scandoubler/mist_scandoubler.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/scandoubler/retimer.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/scandoubler/rgb2vga_dpram.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/scandoubler/rgb2vga_scandoubler.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/SID/sid_coeffs.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/SID/sid_components.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/SID/sid_filters.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/SID/sid_voice.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/sn76489.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/spi.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/Tube/hp_bytequad.v" type="file.verilog" enable="1"/>
+        <File path="../../common/Tube/hp_byte.v" type="file.verilog" enable="1"/>
+        <File path="../../common/Tube/hp_flag_m.v" type="file.verilog" enable="1"/>
+        <File path="../../common/Tube/hp_reg3.v" type="file.verilog" enable="1"/>
+        <File path="../../common/Tube/ph_bytequad.v" type="file.verilog" enable="1"/>
+        <File path="../../common/Tube/ph_byte.v" type="file.verilog" enable="1"/>
+        <File path="../../common/Tube/ph_flag_m.v" type="file.verilog" enable="1"/>
+        <File path="../../common/Tube/ph_reg3.v" type="file.verilog" enable="1"/>
+        <File path="../../common/tuberom_65c102.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/Tube/tube_comp_pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/Tube/tube.v" type="file.verilog" enable="1"/>
+        <File path="../../common/upd7002.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/vidproc.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/bbc_micro_tang20k.cst" type="file.cst" enable="1"/>
+        <File path="src/bbc_micro_tang20k.sdc" type="file.sdc" enable="1"/>
         <File path="src/bbc_micro_tang20k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bootstrap.vhd" type="file.vhdl" enable="1"/>
         <File path="src/common.vhd" type="file.vhdl" enable="1"/>
         <File path="src/mem_tang_20k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
         <File path="src/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="src/sdramctl_dominic.vhd" type="file.vhdl" enable="1"/>
-        <File path="/disk1/home/dmb/atom/BeebFpga/src/xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
-        <File path="src/bbc_micro_tang20k.cst" type="file.cst" enable="1"/>
-        <File path="src/bbc_micro_tang20k.sdc" type="file.sdc" enable="1"/>
+        <File path="src/sdramctl_nestang.v" type="file.verilog" enable="1"/>
     </FileList>
 </Project>

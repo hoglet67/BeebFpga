@@ -78,7 +78,7 @@
  "Show_All_Warnings" : false,
  "Synthesize_tool" : "GowinSyn",
  "TclPre" : "",
- "TopModule" : "",
+ "TopModule" : "bbc_micro_tang20k",
  "USERCODE" : "default",
  "Unused_Pin" : "As_input_tri_stated_with_pull_up",
  "VCC" : "1.0",

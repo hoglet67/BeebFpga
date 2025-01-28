@@ -53,8 +53,9 @@ entity bbc_micro_tang20k is
 
         IncludeAMXMouse    : boolean := false;
         IncludeSPISD       : boolean := true;
-        IncludeSID         : boolean := true;
-        IncludeMusic5000   : boolean := true;
+        IncludeSID         : boolean := false;
+        IncludeMusic5000   : boolean := false;
+        IncludeICEDebugger : boolean := true;
         IncludeVideoNuLA   : boolean := true;
         IncludeTrace       : boolean := true;
         IncludeHDMI        : boolean := true;
@@ -236,6 +237,7 @@ architecture rtl of bbc_micro_tang20k is
     -- Signals
     --------------------------------------------------------
 
+    signal clock_24        : std_logic;
     signal clock_27        : std_logic;
     signal clock_48        : std_logic;
     signal clock_96        : std_logic;
@@ -315,7 +317,7 @@ begin
             IncludeSPISD       => IncludeSPISD,
             IncludeSID         => IncludeSID,
             IncludeMusic5000   => IncludeMusic5000,
-            IncludeICEDebugger => false,
+            IncludeICEDebugger => IncludeICEDebugger,
             IncludeCoPro6502   => IncludeCoPro6502,
             IncludeCoProSPI    => false,
             IncludeCoProExt    => false,
@@ -331,7 +333,7 @@ begin
             clock_32       => '0',                 -- Unused now in the core
             clock_48       => clock_48,
             clock_96       => clock_96,
-            clock_avr      => '0',                 -- DB: no AVR yet
+            clock_avr      => clock_24,
             hard_reset_n   => hard_reset_n,
             ps2_kbd_clk    => ps2_clk,
             ps2_kbd_data   => ps2_data,
@@ -484,6 +486,17 @@ begin
             CALIB  => '1'
         );
 
+    clkdiv2 : CLKDIV
+        generic map (
+            DIV_MODE => "4",            -- Divide by 4
+            GSREN => "false"
+        )
+        port map (
+            RESETN => clkdiv_reset_n,
+            HCLKIN => clock_96,
+            CLKOUT => clock_24,         -- 24MHz AVR Clock
+            CALIB  => '1'
+        );
 
     process(clock_135)
     begin

@@ -486,13 +486,13 @@ begin
             CALIB  => '1'
         );
 
-    clkdiv2 : CLKDIV
+    clkdiv4 : CLKDIV
         generic map (
             DIV_MODE => "4",            -- Divide by 4
             GSREN => "false"
         )
         port map (
-            RESETN => clkdiv_reset_n,
+            RESETN => powerup_reset_n,
             HCLKIN => clock_96,
             CLKOUT => clock_24,         -- 24MHz AVR Clock
             CALIB  => '1'

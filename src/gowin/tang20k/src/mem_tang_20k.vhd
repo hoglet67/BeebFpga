@@ -435,121 +435,120 @@ begin
             variable read_delay : std_logic_vector(2 downto 0);
         begin
             if rising_edge(CLK_48) then
-                case (state) is
-                    when DBG_00 =>
-                        if rst_n = '0' then
+                if rst_n = '0' then
+                    state <= DBG_00;
+                else
+                    case (state) is
+                        when DBG_00 =>
                             if IncludeBootstrap then
                                 state <= DBG_01;
                             else
                                 state <= DBG_08;
                             end if;
-                        end if;
-                    when DBG_01 =>
-                        if rst_n = '1' then
-                            state <= DBG_02;
-                        end if;
-                    when DBG_02 =>
-                        if i_bootstrap_reset_n = '0' then
-                            state <= DBG_03;
-                        end if;
-                    when DBG_03 =>
-                        -- The i_X_A term skips over the bootstrap writing zeros
-                        if i_bootstrap_reset_n = '1' and i_X_A = ADDR_VEC1 then
-                            state <= DBG_04;
-                        end if;
-                    when DBG_04 =>
-                        if test_write = '1' then
-                            if i_X_A = ADDR_INS0 then
-                                if i_X_Din = DATA_INS0 then
-                                    state <= DBG_05;
-                                else
-                                    state(5) <= '1';
+                        when DBG_01 =>
+                            if rst_n = '1' then
+                                state <= DBG_02;
+                            end if;
+                        when DBG_02 =>
+                            if i_bootstrap_reset_n = '0' then
+                                state <= DBG_03;
+                            end if;
+                        when DBG_03 =>
+                            -- The i_X_A term skips over the bootstrap writing zeros
+                            if i_bootstrap_reset_n = '1' and i_X_A = ADDR_VEC1 then
+                                state <= DBG_04;
+                            end if;
+                        when DBG_04 =>
+                            if test_write = '1' then
+                                if i_X_A = ADDR_INS0 then
+                                    if i_X_Din = DATA_INS0 then
+                                        state <= DBG_05;
+                                    else
+                                        state(5) <= '1';
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                    when DBG_05 =>
-                        if test_write = '1' then
-                            if i_X_A = ADDR_INS1 then
-                                if i_X_Din = DATA_INS1 then
-                                    state <= DBG_06;
-                                else
-                                    state(5) <= '1';
+                        when DBG_05 =>
+                            if test_write = '1' then
+                                if i_X_A = ADDR_INS1 then
+                                    if i_X_Din = DATA_INS1 then
+                                        state <= DBG_06;
+                                    else
+                                        state(5) <= '1';
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                    when DBG_06 =>
-                        if test_write = '1' then
-                            if i_X_A = ADDR_VEC0 then
-                                if i_X_Din = DATA_VEC0 then
-                                    state <= DBG_07;
-                                else
-                                    state(5) <= '1';
+                        when DBG_06 =>
+                            if test_write = '1' then
+                                if i_X_A = ADDR_VEC0 then
+                                    if i_X_Din = DATA_VEC0 then
+                                        state <= DBG_07;
+                                    else
+                                        state(5) <= '1';
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                    when DBG_07 =>
-                        if  test_write = '1' then
-                            if i_X_A = ADDR_VEC1 then
-                                if i_X_Din = DATA_VEC1 then
-                                    state <= DBG_08;
-                                else
-                                    state(5) <= '1';
+                        when DBG_07 =>
+                            if  test_write = '1' then
+                                if i_X_A = ADDR_VEC1 then
+                                    if i_X_Din = DATA_VEC1 then
+                                        state <= DBG_08;
+                                    else
+                                        state(5) <= '1';
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                    when DBG_08 =>
-                        if i_bootstrap_busy = '1' then
-                            state <= DBG_09;
-                        end if;
-                    when DBG_09 =>
-                        if i_bootstrap_busy = '0' then
-                            state <= DBG_0A;
-                        end if;
-                    when DBG_0A =>
-                        if test_read = '1' then
-                            if i_X_A = ADDR_VEC0 then
-                                if i_X_Dout = DATA_VEC0 then
-                                    state <= DBG_0B;
-                                else
-                                    state(5) <= '1';
+                        when DBG_08 =>
+                            if i_bootstrap_busy = '1' then
+                                state <= DBG_09;
+                            end if;
+                        when DBG_09 =>
+                            if i_bootstrap_busy = '0' then
+                                state <= DBG_0A;
+                            end if;
+                        when DBG_0A =>
+                            if test_read = '1' then
+                                if i_X_A = ADDR_VEC0 then
+                                    if i_X_Dout = DATA_VEC0 then
+                                        state <= DBG_0B;
+                                    else
+                                        state(5) <= '1';
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                    when DBG_0B =>
-                        if test_read = '1' then
-                            if i_X_A = ADDR_VEC1 then
-                                if i_X_Dout = DATA_VEC1 then
-                                    state <= DBG_0C;
-                                else
-                                    state(5) <= '1';
+                        when DBG_0B =>
+                            if test_read = '1' then
+                                if i_X_A = ADDR_VEC1 then
+                                    if i_X_Dout = DATA_VEC1 then
+                                        state <= DBG_0C;
+                                    else
+                                        state(5) <= '1';
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                    when DBG_0C =>
-                        if test_read = '1' then
-                            if i_X_A = ADDR_INS0 then
-                                if i_X_Dout = DATA_INS0 then
-                                    state <= DBG_0D;
-                                else
-                                    state(5) <= '1';
+                        when DBG_0C =>
+                            if test_read = '1' then
+                                if i_X_A = ADDR_INS0 then
+                                    if i_X_Dout = DATA_INS0 then
+                                        state <= DBG_0D;
+                                    else
+                                        state(5) <= '1';
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                    when DBG_0D =>
-                        if test_read = '1' then
-                            if i_X_A = ADDR_INS1 then
-                                if i_X_Dout = DATA_INS1 then
-                                    state <= DBG_DONE;
-                                else
-                                    state(5) <= '1';
+                        when DBG_0D =>
+                            if test_read = '1' then
+                                if i_X_A = ADDR_INS1 then
+                                    if i_X_Dout = DATA_INS1 then
+                                        state <= DBG_DONE;
+                                    else
+                                        state(5) <= '1';
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                    when others =>
-                        if rst_n = '0' then
-                            state <= DBG_00;
-                        end if;
-                end case;
+                        when others => null;
+                    end case;
+                end if;
                 test_write := i_sdram_cmd_write;
                 test_read  := read_delay(0);
                 read_delay := i_sdram_cmd_read & read_delay(read_delay'high downto 1);

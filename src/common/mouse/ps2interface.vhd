@@ -443,14 +443,9 @@ begin
 
     -- For the current state establish next state
     -- and give necessary commands
-    manage_fsm: process(clk,rst,state,ps2_clk_s,ps2_data_s,write,tx_data,
-                              bit_count,rx_parity,frame,delay_100us_done,
-                              delay_20us_done,delay_63clk_done)
+    manage_fsm: process(clk)
     begin
-        -- if reset occurs, go to idle state.
-        if(rst = '1') then
-            state <= idle;
-        elsif(rising_edge(clk)) then
+        if(rising_edge(clk)) then
 
             -- default values for these signals
             -- ensures signals are reset to default value
@@ -465,7 +460,11 @@ begin
             read <= '0';
             err <= '0';
 
-            case state is
+            -- if reset occurs, go to idle state.
+            if(rst = '1') then
+                state <= idle;
+            else
+                case state is
 
                 -- wait for the device to begin a transmission
                 -- by pulling the clock line low and go to state
@@ -683,7 +682,8 @@ begin
                     err <= '1';
                     state    <= idle;
 
-            end case;
+                end case;
+            end if;
         end if;
     end process manage_fsm;
 

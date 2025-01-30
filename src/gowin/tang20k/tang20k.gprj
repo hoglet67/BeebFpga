@@ -139,6 +139,7 @@
         <File path="../../common/mouse/quadrature_fsm.vhd" type="file.vhdl" enable="1"/>
         <File path="../../common/music5000/LogLinRom.vhd" type="file.vhdl" enable="1"/>
         <File path="../../common/music5000/Music5000.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../common/music5000/iir_filter.vhd" type="file.vhdl" enable="1"/>
         <File path="../../common/rtc.vhd" type="file.vhdl" enable="1"/>
         <File path="../../common/saa5050.vhd" type="file.vhdl" enable="1"/>
         <File path="../../common/scandoubler/mist_scandoubler.vhd" type="file.vhdl" enable="1"/>

@@ -46,28 +46,29 @@ use ieee.numeric_std.all;
 
 entity bbc_micro_tang20k is
     generic (
-        IncludeMaster      : boolean := true; -- if both included, the CPU is the AlanD 65C02
-        IncludeBeeb        : boolean := true; -- and btn1 can toggle between the ROM images
+        IncludeMaster          : boolean := true; -- if both included, the CPU is the AlanD 65C02
+        IncludeBeeb            : boolean := true; -- and btn1 can toggle between the ROM images
 
-        UseDBSDRAMCtrl     : boolean := true; -- if true, use Dominic's SDRAM Controller rather than the NESTang one
+        UseDBSDRAMCtrl         : boolean := true; -- if true, use Dominic's SDRAM Controller rather than the NESTang one
 
-        IncludeAMXMouse    : boolean := false;
-        IncludeSPISD       : boolean := true;
-        IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := true;
-        IncludeICEDebugger : boolean := true;
-        IncludeVideoNuLA   : boolean := true;
-        IncludeTrace       : boolean := true;
-        IncludeHDMI        : boolean := true;
-        IncludeBootStrap   : boolean := true;
-        IncludeMonitor     : boolean := true;
-        IncludeCoPro6502   : boolean := true;
-        IncludeSoftLEDs    : boolean := true;
-        IncludeI2SAudio    : boolean := false;
+        IncludeAMXMouse        : boolean := false;
+        IncludeSPISD           : boolean := true;
+        IncludeSID             : boolean := false;
+        IncludeMusic5000       : boolean := true;
+        IncludeMusic5000Filter : boolean := true; -- Music 5000 Low Pass IIR Filter
+        IncludeICEDebugger     : boolean := true;
+        IncludeVideoNuLA       : boolean := true;
+        IncludeTrace           : boolean := true;
+        IncludeHDMI            : boolean := true;
+        IncludeBootStrap       : boolean := true;
+        IncludeMonitor         : boolean := true;
+        IncludeCoPro6502       : boolean := true;
+        IncludeSoftLEDs        : boolean := true;
+        IncludeI2SAudio        : boolean := false;
 
-        PRJ_ROOT           : string  := "../../..";
-        MOS_NAME           : string  := "/roms/bbcb/os12_basic.bit";
-        SIM                : boolean := false
+        PRJ_ROOT               : string  := "../../..";
+        MOS_NAME               : string  := "/roms/bbcb/os12_basic.bit";
+        SIM                    : boolean := false
         );
     port (
         sys_clk         : in    std_logic;
@@ -269,6 +270,7 @@ architecture rtl of bbc_micro_tang20k is
     signal audio_r         : std_logic_vector(15 downto 0);
     signal audiol          : std_logic;
     signal audior          : std_logic;
+    signal m5k_filter_en   : std_logic := '0';
 
     signal config_counter  : std_logic_vector(21 downto 0);
     signal config_last     : std_logic;
@@ -344,20 +346,21 @@ begin
 
     bbc_micro : entity work.bbc_micro_core
         generic map (
-            IncludeAMXMouse    => IncludeAMXMouse,
-            IncludeSPISD       => IncludeSPISD,
-            IncludeSID         => IncludeSID,
-            IncludeMusic5000   => IncludeMusic5000,
-            IncludeICEDebugger => IncludeICEDebugger,
-            IncludeCoPro6502   => IncludeCoPro6502,
-            IncludeCoProSPI    => false,
-            IncludeCoProExt    => false,
-            IncludeVideoNuLA   => IncludeVideoNuLA,
-            IncludeTrace       => IncludeTrace,
-            IncludeHDMI        => IncludeHDMI,
-            UseOrigKeyboard    => false,
-            UseT65Core         => not IncludeMaster,
-            UseAlanDCore       => IncludeMaster
+            IncludeAMXMouse        => IncludeAMXMouse,
+            IncludeSPISD           => IncludeSPISD,
+            IncludeSID             => IncludeSID,
+            IncludeMusic5000       => IncludeMusic5000,
+            IncludeMusic5000Filter => IncludeMusic5000Filter,
+            IncludeICEDebugger     => IncludeICEDebugger,
+            IncludeCoPro6502       => IncludeCoPro6502,
+            IncludeCoProSPI        => false,
+            IncludeCoProExt        => false,
+            IncludeVideoNuLA       => IncludeVideoNuLA,
+            IncludeTrace           => IncludeTrace,
+            IncludeHDMI            => IncludeHDMI,
+            UseOrigKeyboard        => false,
+            UseT65Core             => not IncludeMaster,
+            UseAlanDCore           => IncludeMaster
         )
         port map (
             clock_27       => clock_27,
@@ -377,6 +380,7 @@ begin
             video_vsync    => vga_vs,
             audio_l        => audio_l,
             audio_r        => audio_r,
+            m5k_filter_en  => m5k_filter_en,
             ext_nOE        => ext_nOE,
             ext_nWE        => ext_nWE,
             ext_nWE_long   => ext_nWE_long,
@@ -586,12 +590,19 @@ begin
 
     --------------------------------------------------------
     -- Button 2: HDMI / DVI mode toggle
+    --
+    -- If the Music5000 filter is included then cycle through:
+    --     HDMI Filter On
+    --     HDMI Filter Off
+    --      DVI Filter On
+    --      DV  Filter Off
     --------------------------------------------------------
 
     config_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
             if powerup_reset_n = '0' then
+                m5k_filter_en <= '1';
                 hdmi_audio_en <= '1';
                 config_counter <= (others => '0');
             elsif btn2 = '1' then
@@ -599,7 +610,14 @@ begin
             elsif config_counter(config_counter'high) = '1' then
                 config_counter <= config_counter - 1;
             elsif config_last = '1' then
-                hdmi_audio_en <= not hdmi_audio_en;
+                if IncludeMusic5000Filter then
+                    m5k_filter_en <= not m5k_filter_en;
+                    if m5k_filter_en = '0' then
+                        hdmi_audio_en <= not hdmi_audio_en;
+                    end if;
+                else
+                    hdmi_audio_en <= not hdmi_audio_en;
+                end if;
             end if;
             config_last <= config_counter(config_counter'high);
         end if;

@@ -62,6 +62,7 @@ entity bbc_micro_tang20k is
         IncludeBootStrap   : boolean := true;
         IncludeMonitor     : boolean := true;
         IncludeCoPro6502   : boolean := true;
+        IncludeSoftLEDs    : boolean := true;
 
         PRJ_ROOT           : string  := "../../..";
         MOS_NAME           : string  := "/roms/bbcb/os12_basic.bit";
@@ -72,6 +73,8 @@ entity bbc_micro_tang20k is
         btn1            : in    std_logic;     -- Toggle Master / Beeb modes
         btn2            : in    std_logic;     -- Toggle HDMI / DVI modes
         led             : out   std_logic_vector (5 downto 0);
+        ws2812_din      : out   std_logic;
+
 
         -- Keyboard / Mouse
         ps2_clk         : inout std_logic;
@@ -220,6 +223,14 @@ architecture rtl of bbc_micro_tang20k is
         );
     end component;
 
+    component ws2812
+        port (
+            clk : in std_logic;
+            color : in std_logic_vector(23 downto 0);
+            data : out std_logic
+        );
+    end component;
+
     --------------------------------------------------------
     -- Functions
     --------------------------------------------------------
@@ -304,6 +315,19 @@ architecture rtl of bbc_micro_tang20k is
     signal clkdiv_reset_n  : std_logic := '0';
     signal pll1_lock       : std_logic;
     signal pll2_lock       : std_logic;
+
+    -- 1MHz Bus
+    signal ext_1mhz_clk    : std_logic; -- the system clock
+    signal ext_1mhz_clken  : std_logic; -- a 1MHz strobe, valid for one system clock cycle
+    signal ext_1mhz_nrst   : std_logic;
+    signal ext_1mhz_pgfc_n : std_logic;
+    signal ext_1mhz_r_nw   : std_logic;
+    signal ext_1mhz_addr   : std_logic_vector(7 downto 0);
+    signal ext_1mhz_di     : std_logic_vector(7 downto 0);
+    signal ext_1mhz_do     : std_logic_vector(7 downto 0);
+
+    -- Test
+    signal test            : std_logic_vector(7 downto 0);
 
 begin
 
@@ -393,6 +417,16 @@ begin
             ext_tube_a     => open,
             ext_tube_di    => open,
             ext_tube_do    => (others => '0'),
+            ext_1mhz_clken => ext_1mhz_clken, -- a 1MHz strobe, valid for one system clock cycle
+            ext_1mhz_nrst  => ext_1mhz_nrst,
+            ext_1mhz_pgfc_n=> ext_1mhz_pgfc_n,
+            ext_1mhz_pgfd_n=> open,
+            ext_1mhz_r_nw  => ext_1mhz_r_nw,
+            ext_1mhz_addr  => ext_1mhz_addr,
+            ext_1mhz_di    => ext_1mhz_di,
+            ext_1mhz_do    => ext_1mhz_do,
+            ext_1mhz_irq_n => open,
+            ext_1mhz_nmi_n => open,
             hdmi_aspect    => hdmi_aspect,
             hdmi_audio_en  => hdmi_audio_en,
             vid_debug      => vid_debug,
@@ -405,7 +439,7 @@ begin
             trace_sync     => trace_sync,
             trace_rstn     => trace_rstn,
             trace_phi2     => trace_phi2,
-            test           => open
+            test           => test
         );
 
     vid_mode       <= "0001" when IncludeHDMI else "0000";
@@ -778,6 +812,85 @@ begin
         );
 
     --------------------------------------------------------
+    -- 1MHz Bus LEDs
+    --------------------------------------------------------
+
+    GenLEDS: if IncludeSoftLEDs generate
+        signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
+        signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
+        signal ws2812_g        : std_logic_vector(7 downto 0) := (others => '0');
+        signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
+
+        function bit_reverse (a: in std_logic_vector)
+            return std_logic_vector is
+            variable result: std_logic_vector(a'RANGE);
+            alias aa: std_logic_vector(a'REVERSE_RANGE) is a;
+        begin
+            for i in aa'RANGE loop
+                result(i) := aa(i);
+            end loop;
+            return result;
+        end;
+
+    begin
+
+        -- This module is in Verilog and comes from MisteryNano
+        inst_ws2812 : entity work.ws2812
+            port map (
+                clk   => clock_48,
+                color => bit_reverse(ws2812_g & ws2812_r & ws2812_b),
+                data  => ws2812_din
+                );
+
+        led <= soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
+               test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
+               monitor_leds                       when IncludeMonitor               else
+               not caps_led & not shift_led & "111" & hdmi_audio_en;
+
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                if ext_1mhz_clken = '1' then
+                    if ext_1mhz_nrst = '0' then
+                        soft_leds <= x"00";
+                        ws2812_r  <= x"00";
+                        ws2812_g  <= x"00";
+                        ws2812_b  <= x"00";
+                    elsif ext_1mhz_pgfc_n = '0' and ext_1mhz_r_nw = '0' then
+                        case ext_1mhz_addr is
+                            when x"50" =>
+                                soft_leds <= ext_1mhz_di;
+                            when x"51" =>
+                                ws2812_r  <= ext_1mhz_di;
+                            when x"52" =>
+                                ws2812_g  <= ext_1mhz_di;
+                            when x"53" =>
+                                ws2812_b  <= ext_1mhz_di;
+                            when others =>
+                                null;
+                        end case;
+                    end if;
+                end if;
+            end if;
+        end process;
+
+        ext_1mhz_do <= soft_leds when ext_1mhz_addr = x"50" else
+                       ws2812_r  when ext_1mhz_addr = x"51" else
+                       ws2812_g  when ext_1mhz_addr = x"52" else
+                       ws2812_b  when ext_1mhz_addr = x"53" else
+                       x"FF";
+
+    end generate;
+
+    NotGenLEDS: if not IncludeSoftLEDs generate
+
+        led <= monitor_leds when IncludeMonitor else
+               not caps_led & not shift_led & "111" & hdmi_audio_en;
+        ws2812_din <= '0';
+
+    end generate;
+
+    --------------------------------------------------------
     -- Output Assignments
     --------------------------------------------------------
 
@@ -788,8 +901,5 @@ begin
     -- gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & trace_data;
 
     -- gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & not clock_48 & pll1_lock & not clock_27 & pll2_lock & hsync_ref & clkdiv_reset_n & "00";
-
-    led <= monitor_leds when IncludeMonitor else
-           not caps_led & not shift_led & "111" & hdmi_audio_en;
 
 end architecture;

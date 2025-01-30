@@ -180,5 +180,6 @@
         <File path="src/sdramctl_nestang.v" type="file.verilog" enable="1"/>
         <File path="src/WatchEvents.vhd" type="file.vhdl" enable="1"/>
         <File path="src/fifo_sc_hs/WatchEventsCore.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/ws2812.v" type="file.verilog" enable="1"/>
     </FileList>
 </Project>

@@ -73,7 +73,7 @@
  "SEU_HANDLER" : false,
  "SEU_HANDLER_CHECKSUM" : false,
  "SEU_HANDLER_MODE" : "auto",
- "SSPI" : false,
+ "SSPI" : true,
  "STOP_SEU_HANDLER" : false,
  "Show_All_Warnings" : false,
  "Synthesize_tool" : "GowinSyn",

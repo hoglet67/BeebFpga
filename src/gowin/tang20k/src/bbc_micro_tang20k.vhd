@@ -54,7 +54,7 @@ entity bbc_micro_tang20k is
         IncludeAMXMouse    : boolean := false;
         IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
+        IncludeMusic5000   : boolean := true;
         IncludeICEDebugger : boolean := true;
         IncludeVideoNuLA   : boolean := true;
         IncludeTrace       : boolean := true;
@@ -63,6 +63,7 @@ entity bbc_micro_tang20k is
         IncludeMonitor     : boolean := true;
         IncludeCoPro6502   : boolean := true;
         IncludeSoftLEDs    : boolean := true;
+        IncludeI2SAudio    : boolean := false;
 
         PRJ_ROOT           : string  := "../../..";
         MOS_NAME           : string  := "/roms/bbcb/os12_basic.bit";
@@ -104,6 +105,12 @@ entity bbc_micro_tang20k is
         vga_g           : out   std_logic;
         vga_hs          : out   std_logic;
         vga_vs          : out   std_logic;
+
+        -- I2S Audio
+        i2s_bclk        : out   std_logic;
+        i2s_lrclk       : out   std_logic;
+        i2s_din         : out   std_logic;
+        pa_en           : out   std_logic;
 
         -- Magic ports for SDRAM to be inferred
         O_sdram_clk     : out   std_logic;
@@ -759,6 +766,36 @@ begin
                 OB => tmds_d_n(2)
             );
 
+    end generate;
+
+    --------------------------------------------------------
+    -- I2S Audio Usimg On-Board MAX98357A
+    --------------------------------------------------------
+
+    gen_i2s : if IncludeI2SAudio generate
+
+        i2s : entity work.i2s_simple
+            generic map (
+                CLOCKSPEED => 48000000,
+                SAMPLERATE => 46875      -- Sample Rate of Music 5000
+                )
+            port map (
+                clock      => clock_48,
+                reset_n    => hard_reset_n,
+                audio_l    => audio_l,
+                audio_r    => audio_r,
+                i2s_lrclk  => i2s_lrclk,
+                i2s_bclk   => i2s_bclk,
+                i2s_din    => i2s_din,
+                pa_en      => pa_en
+                );
+    end generate;
+
+    not_gen_i2s : if not IncludeI2SAudio generate
+        i2s_lrclk  <= 'Z';
+        i2s_bclk   <= 'Z';
+        i2s_din    <= 'Z';
+        pa_en      <= '0';
     end generate;
 
     --------------------------------------------------------

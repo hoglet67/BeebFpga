@@ -44,6 +44,16 @@ IO_PORT "tmds_d_p[2]" PULL_MODE=NONE;
 IO_LOC "tmds_clk_p" 33;
 IO_PORT "tmds_clk_p" PULL_MODE=NONE;
 
+// I2S Audio
+IO_LOC "i2s_bclk" 56;
+IO_PORT "i2s_bclk" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "i2s_lrclk" 55;
+IO_PORT "i2s_lrclk" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "i2s_din" 54;
+IO_PORT "i2s_din" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "pa_en" 51;
+IO_PORT "pa_en" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+
 // GPIO
 //IO_LOC  "gpio[13]" ;
 //IO_PORT "gpio[13]" IO_TYPE=LVCMOS33;

@@ -26,7 +26,7 @@ entity Music5000 is
         sumwidth : integer := 20;
         dacwidth : integer := 16;
         id       : std_logic_vector(3 downto 0) := "0011"
-    );
+        );
     port (
         -- This is the cpu clock
         clk      : in     std_logic;
@@ -46,65 +46,64 @@ entity Music5000 is
         audio_r  : out    std_logic_vector (dacwidth - 1 downto 0);
         cycle    : out    std_logic_vector (6 downto 0);
         test     : out    std_logic
-    );
+        );
 end Music5000;
 
 architecture Behavioral of Music5000 is
 
-signal sum : std_logic_vector (8 downto 0);
-signal sum1 : std_logic_vector (7 downto 0);
-signal aa : std_logic_vector (7 downto 0);
-signal bb : std_logic_vector (7 downto 0);
+    signal sum : std_logic_vector (8 downto 0);
+    signal sum1 : std_logic_vector (7 downto 0);
+    signal aa : std_logic_vector (7 downto 0);
+    signal bb : std_logic_vector (7 downto 0);
 
-signal ram_clk : std_logic;
-signal ram_din : std_logic_vector (7 downto 0);
-signal ram_dout : std_logic_vector (7 downto 0);
-signal ram_addr : std_logic_vector (10 downto 0);
-signal ram_we : std_logic;
-signal wave_dout : std_logic_vector (7 downto 0);
-signal wave_dout_int : std_logic_vector (7 downto 0);
-signal wave_addr : std_logic_vector (10 downto 0);
+    signal ram_clk : std_logic;
+    signal ram_clken : std_logic;
+    signal ram_din : std_logic_vector (7 downto 0);
+    signal ram_dout : std_logic_vector (7 downto 0);
+    signal ram_addr : std_logic_vector (10 downto 0);
+    signal ram_we : std_logic;
+    signal wave_dout : std_logic_vector (7 downto 0);
+    signal wave_addr : std_logic_vector (10 downto 0);
 
-signal phase_we : std_logic;
-signal phase_addr : std_logic_vector (10 downto 0);
-signal phase_dout : std_logic_vector (7 downto 0);
-signal phase_dout_int : std_logic_vector (7 downto 0);
+    signal phase_we : std_logic;
+    signal phase_addr : std_logic_vector (10 downto 0);
+    signal phase_dout : std_logic_vector (7 downto 0);
 
-signal addr : std_logic_vector (6 downto 0);
-signal pa   : std_logic_vector (2 downto 1);
+    signal addr : std_logic_vector (6 downto 0);
+    signal pa   : std_logic_vector (2 downto 1);
 
-signal s0_n : std_logic;
-signal s1_n : std_logic;
-signal s4_n : std_logic;
-signal s6_n : std_logic;
-signal s7_n : std_logic;
-signal sx_n : std_logic;
-signal index : std_logic;
-signal invert : std_logic;
-signal c0 : std_logic_vector(0 downto 0);
-signal c4 : std_logic;
-signal c4tmp : std_logic;
-signal c4d : std_logic;
-signal sign : std_logic;
-signal gate_n: std_logic;
-signal load : std_logic;
+    signal s0_n : std_logic;
+    signal s1_n : std_logic;
+    signal s4_n : std_logic;
+    signal s6_n : std_logic;
+    signal s7_n : std_logic;
+    signal sx_n : std_logic;
+    signal index : std_logic;
+    signal invert : std_logic;
+    signal c0 : std_logic_vector(0 downto 0);
+    signal c4 : std_logic;
+    signal c4tmp : std_logic;
+    signal c4d : std_logic;
+    signal sign : std_logic;
+    signal gate_n: std_logic;
+    signal load : std_logic;
 
-signal dac_input_log : std_logic_vector (6 downto 0);
-signal dac_input_lin : std_logic_vector (12 downto 0);
-signal dac_input_lin_l : unsigned (sumwidth - 1 downto 0);
-signal dac_input_lin_r : unsigned(sumwidth - 1 downto 0);
-signal dac_pos : std_logic_vector (3 downto 0);
-signal dac_sign : std_logic;
-signal dac_sb : std_logic;
-signal dac_ed : std_logic;
+    signal dac_input_log : std_logic_vector (6 downto 0);
+    signal dac_input_lin : std_logic_vector (12 downto 0);
+    signal dac_input_lin_l : unsigned (sumwidth - 1 downto 0);
+    signal dac_input_lin_r : unsigned(sumwidth - 1 downto 0);
+    signal dac_pos : std_logic_vector (3 downto 0);
+    signal dac_sign : std_logic;
+    signal dac_sb : std_logic;
+    signal dac_ed : std_logic;
 
-signal reg_s0 : std_logic_vector (2 downto 0);
-signal reg_s4 : std_logic_vector (3 downto 0);
+    signal reg_s0 : std_logic_vector (2 downto 0);
+    signal reg_s4 : std_logic_vector (3 downto 0);
 
 -- bits of address fcff
-signal wrg : std_logic;
-signal bank : std_logic_vector(2 downto 0);
-signal spare : std_logic;
+    signal wrg : std_logic;
+    signal bank : std_logic_vector(2 downto 0);
+    signal spare : std_logic;
 
 begin
 
@@ -142,33 +141,34 @@ begin
     ------------------------------------------------
 
     -- Running Wave RAM of seperate clocks
-    ram_we <= '1' when clken = '1' and pgfd_n = '0' and rnw = '0' and wrg = '1' else '0';
-    ram_clk <= clk;
+    -- ram_we <= '1' when clk6en = '1' and pgfd_n = '0' and rnw = '0' and wrg = '1' else '0';
+    -- ram_clk <= clk;
 
     -- Running Wave RAM of the same clock
     -- this is a cludge to workaround an issue with early Cyclone II parts
     -- google for:
-    --ram_clk <= clk6;
-    --process (clk6)
-    --    variable we1 : std_logic;
-    --    variable we2 : std_logic;
-    --begin
-    --    if rising_edge(clk6) then
-    --        if clk6en = '1' then
-    --            if we2 = '0' and we1 = '1' then
-    --                ram_we <= '1';
-    --            else
-    --                ram_we <= '0';
-    --            end if;
-    --            we2 := we1;
-    --            if pgfd_n = '0' and rnw = '0' and wrg = '1' then
-    --                we1 := '1';
-    --            else
-    --                we1 := '0';
-    --            end if;
-    --        end if;
-    --    end if;
-    --end process;
+    ram_clk <= clk6;
+    ram_clken <= clk6en;
+    process (clk6)
+        variable we1 : std_logic;
+        variable we2 : std_logic;
+    begin
+        if rising_edge(clk6) then
+            if clk6en = '1' then
+                if we2 = '0' and we1 = '1' then
+                    ram_we <= '1';
+                else
+                    ram_we <= '0';
+                end if;
+                we2 := we1;
+                if pgfd_n = '0' and rnw = '0' and wrg = '1' then
+                    we1 := '1';
+                else
+                    we1 := '0';
+                end if;
+            end if;
+        end if;
+    end process;
 
     ram_addr <= bank & a;
 
@@ -181,26 +181,19 @@ begin
         port map (
             -- port A connects to 1MHz Bus
             clka  => ram_clk,
+            ena   => ram_clken,
             wea   => ram_we,
             addra => ram_addr,
             dina  => ram_din,
             douta => ram_dout,
             -- port B connects to DSP
             clkb  => clk6,
+            enb   => clk6en,
             web   => not rst_n,    -- write zero to the RAM on reset
             addrb => wave_addr,
             dinb  => (others => '0'),
-            doutb => wave_dout_int
+            doutb => wave_dout
             );
-
-    waveram_reg : process(clk6)
-    begin
-        if rising_edge(clk6) then
-            if clk6en = '1' then
-                wave_dout <= wave_dout_int;
-            end if;
-        end if;
-    end process;
 
     ------------------------------------------------
     -- Controller
@@ -233,7 +226,7 @@ begin
                 end if;
             end if;
         end if;
-     end process;
+    end process;
 
     invert <= reg_s0(0);
 
@@ -255,26 +248,20 @@ begin
         port map (
             -- port A
             clka  => clk6,
+            ena   => clk6en,
             wea   => phase_we,
             addra => phase_addr,
             dina  => sum(7 downto 0),
-            douta => phase_dout_int,
+            douta => phase_dout,
             -- port B is not used
             clkb  => '0',
+            enb   => '0',
             web   => '0',
             addrb => (others => '0'),
             dinb  => (others => '0'),
             doutb => open
             );
 
-    phaseram_reg : process(clk6)
-    begin
-        if rising_edge(clk6) then
-            if clk6en = '1' then
-                phase_dout <= phase_dout_int;
-            end if;
-        end if;
-    end process;
 
     ------------------------------------------------
     -- ALU
@@ -298,9 +285,47 @@ begin
     end process;
 
     c0(0) <= addr(2) and c4d;
-    bb <= sum1 when s0_n = '0' and load = '0' else
-         phase_dout when addr(0) = '0' and load = '0' else
-         (others => '0');
+
+    -- The final log sample value is calculated in cycle 0 (when s0_n = 0)
+    -- and latched into the DAC at the end of that cycle
+    --
+    -- During cycle 0 the ALU needs to be configured so that:
+    --   the aa input is the output of the wave ram (wave data)
+    --   the bb input is the current amplitude
+    --
+    -- The amplitude is output by the wave ram during cycle 7, but
+    -- changes in amplitude must be delayed until the next zero
+    -- crossing of the waveform. This is achieved by using the phase
+    -- ram to store the old amplitude value.
+    --
+    -- A zero crossing is flagged by sx_n = 0, so this signal is used
+    -- control whether the amplitude value in the phase ram is updated
+    -- at the end of cycle 7.
+    --
+    -- In the TTL implementation the phase ram has a bidirectional
+    -- data bus, so regardless of whether a phase ram write happens on
+    -- cycle 7, at the end of the cycle the data bus as the correct
+    -- amplitude value. This just needs to be delayed one cycle (by
+    -- IC12) so it is valid during cycle 0.
+    --
+    -- In the FPGA implemention, the block RAMs are registered and
+    -- have seperate data in/data out connections. There isn't time
+    -- for the write of the amplitude at the end of cycle 7 to
+    -- propagate to the phase ram output. So some additional logic is
+    -- needed.
+    --
+    -- So compared to the TTL implementation, the FPGA has one
+    -- additional Mux, where a zero crossing in cycle 0 is flagged by
+    -- c4d = '1'
+    --
+    -- Note: the load = '0' term here is the latched phase set bit
+    -- which originated as bit 0 of the Freq Lo register. This is
+    -- pretty much the same as the TTL implementation, where this
+    -- signal is unlabelled, but comes from IC3.
+
+    bb <= sum1       when load = '0' and s0_n = '0' and c4d = '1' else  -- cycle 0 (zero crossing)
+          phase_dout when load = '0' and addr(0) = '0'            else  -- cycle 0 (not zero crossing), 2, 4, 6
+          (others => '0');                                              -- cycle 1, 3, 5, 7
 
     sum <= std_logic_vector(unsigned("0" & aa) + unsigned("0" & bb) + unsigned("00000000" & c0));
     c4 <= sum(8);
@@ -340,10 +365,10 @@ begin
 
     inst_LogLinRom : entity work.LogLinRom
         port map (
-          CLK  => clk6,
-          ADDR => dac_input_log,
-          DATA => dac_input_lin
-       );
+            CLK  => clk6,
+            ADDR => dac_input_log,
+            DATA => dac_input_lin
+            );
 
     ------------------------------------------------
     -- Mixer

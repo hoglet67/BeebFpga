@@ -56,21 +56,22 @@ use ieee.numeric_std.all;
 
 entity bbc_micro_core is
     generic (
-        IncludeAMXMouse    : boolean := false;
-        IncludeSPISD       : boolean := false;
-        IncludeSID         : boolean := false;
-        IncludeMusic5000   : boolean := false;
-        IncludeICEDebugger : boolean := false;
-        IncludeCoPro6502   : boolean := false; -- The three co pro options
-        IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
-        IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := false;
-        IncludeHDMI        : boolean := false;
-        IncludeTrace       : boolean := false;
-        UseOrigKeyboard    : boolean := false;
-        UseT65Core         : boolean := false;
-        UseAlanDCore       : boolean := true;
-        OverrideCMOS       : boolean := true   -- Overide CMOS/RTC mode settings with keyb_dip
+        IncludeAMXMouse        : boolean := false;
+        IncludeSPISD           : boolean := false;
+        IncludeSID             : boolean := false;
+        IncludeMusic5000       : boolean := false;
+        IncludeMusic5000Filter : boolean := false; -- Music 5000 IIR Filter
+        IncludeICEDebugger     : boolean := false;
+        IncludeCoPro6502       : boolean := false; -- The three co pro options
+        IncludeCoProSPI        : boolean := false; -- are currently mutually exclusive
+        IncludeCoProExt        : boolean := false; -- (i.e. select just one)
+        IncludeVideoNuLA       : boolean := false;
+        IncludeHDMI            : boolean := false;
+        IncludeTrace           : boolean := false;
+        UseOrigKeyboard        : boolean := false;
+        UseT65Core             : boolean := false;
+        UseAlanDCore           : boolean := true;
+        OverrideCMOS           : boolean := true   -- Overide CMOS/RTC mode settings with keyb_dip
     );
     port (
         -- Clocks
@@ -108,6 +109,7 @@ entity bbc_micro_core is
         -- Audio
         audio_l        : out   std_logic_vector (15 downto 0);
         audio_r        : out   std_logic_vector (15 downto 0);
+        m5k_filter_en  : in    std_logic := '1';
 
         -- External memory (e.g. SRAM and/or FLASH)
         -- 512KB logical address space
@@ -382,6 +384,23 @@ component Music5000 is
     );
 end component;
 
+component iir_filter is
+    generic (
+        W_IO        : integer := 18; -- Width of external data inputs/outputs
+        W_DAT       : integer := 25; -- Width of internal data data nodes, giving headroom for filter gain
+        W_SUM       : integer := 48; -- Width of internal summers
+        W_COEFF     : integer := 18; -- Width of coefficients -- This needs to match the multipier width
+        W_FRAC      : integer := 16  -- Width of fractional part of coefficients
+    );
+    port (
+        clk         : in  std_logic;
+        load        : in  std_logic;
+        lin         : in  std_logic_vector(W_IO - 1 downto 0);
+        lout        : out std_logic_vector(W_IO - 1 downto 0);
+        rin         : in  std_logic_vector(W_IO - 1 downto 0);
+        rout        : out std_logic_vector(W_IO - 1 downto 0)
+    );
+end component;
 
 -- Use 4-bit RGB when VideoNuLA is included, other 1-bit RGB
 function calc_rgb_width(includeVideoNuLA : boolean) return integer is
@@ -1240,7 +1259,27 @@ begin
 
     Optional_Music5000: if IncludeMusic5000 generate
 
+        -- This value is chosen so the IIR filter gain is close to unity
+        constant dacwidth : integer := 18;
+
+        signal cycle          : std_logic_vector(6 downto 0);
+        signal filt_load      : std_logic;
+        signal audio_l_fin    : std_logic_vector (dacwidth - 1 downto 0);
+        signal audio_r_fin    : std_logic_vector (dacwidth - 1 downto 0);
+        signal audio_l_fout   : std_logic_vector (dacwidth - 1 downto 0);
+        signal audio_r_fout   : std_logic_vector (dacwidth - 1 downto 0);
+        signal audio_l_tmp    : std_logic_vector (dacwidth - 1 downto 0);
+        signal audio_r_tmp    : std_logic_vector (dacwidth - 1 downto 0);
+    begin
+
+        ------------------------------------------------
+        -- Music5000 Core
+        ------------------------------------------------
+
         Inst_Music5000: component Music5000
+            generic map (
+                dacwidth => dacwidth
+            )
             port map (
                 clk      => clock_48,
                 clken    => mhz1_clken,
@@ -1253,12 +1292,43 @@ begin
                 a        => cpu_a(7 downto 0),
                 din      => cpu_do,
                 dout     => music5000_do,
-                audio_l  => music5000_ao_l,
-                audio_r  => music5000_ao_r
+                audio_l  => audio_l_fin,
+                audio_r  => audio_r_fin,
+                cycle    => cycle
             );
 
-    end generate;
+        ------------------------------------------------
+        -- Music5000 IIR Filter
+        ------------------------------------------------
 
+        inst_filter: if IncludeMusic5000Filter generate
+            filt_load <= '1' when unsigned(cycle) = 0 else '0';
+            iir_filter_inst : component iir_filter
+                generic map (
+                    W_IO => dacwidth
+                    )
+                port map (
+                    clk  => clock_48,
+                    load => filt_load,
+                    lin  => audio_l_fin,
+                    lout => audio_l_fout,
+                    rin  => audio_r_fin,
+                    rout => audio_r_fout
+                    );
+            audio_l_tmp <= audio_l_fout when m5k_filter_en = '1' else audio_l_fin;
+            audio_r_tmp <= audio_r_fout when m5k_filter_en = '1' else audio_r_fin;
+        end generate;
+
+        inst_no_filter: if not IncludeMusic5000Filter generate
+            audio_l_tmp <= audio_l_fin;
+            audio_r_tmp <= audio_r_fin;
+        end generate;
+
+        -- Convert from 18-bit back to 16-bit when is what the Beeb Core expects
+        music5000_ao_l <= audio_l_tmp(dacwidth - 1 downto dacwidth - 16);
+        music5000_ao_r <= audio_r_tmp(dacwidth - 1 downto dacwidth - 16);
+
+    end generate;
 
 --------------------------------------------------------
 -- Optional 6502 Co Processor

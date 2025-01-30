@@ -204,6 +204,18 @@ entity bbc_micro_core is
         ext_tube_di    : out   std_logic_vector(7 downto 0);
         ext_tube_do    : in    std_logic_vector(7 downto 0) := x"FE";
 
+        -- External 1MHz bus
+        ext_1mhz_clken : out   std_logic; -- a 1MHz strobe, valid for one system clock cycle
+        ext_1mhz_nrst  : out   std_logic;
+        ext_1mhz_pgfc_n: out   std_logic;
+        ext_1mhz_pgfd_n: out   std_logic;
+        ext_1mhz_r_nw  : out   std_logic;
+        ext_1mhz_addr  : out   std_logic_vector(7 downto 0);
+        ext_1mhz_di    : out   std_logic_vector(7 downto 0);
+        ext_1mhz_do    : in    std_logic_vector(7 downto 0) := (others => '1');
+        ext_1mhz_irq_n : in    std_logic := '1';
+        ext_1mhz_nmi_n : in    std_logic := '1';
+
         -- 6502 tracing outputs
         trace_data     : out   std_logic_vector(7 downto 0);
         trace_r_nw     : out   std_logic;
@@ -1654,11 +1666,31 @@ begin
         end if;
     end process;
 
-    -- CPU configuration and fixed signals
+--------------------------------------------------------
+-- External 1MHz Bus
+--------------------------------------------------------
+
+-- This is always included as it's cheap, and all inputs default to
+-- sensible values
+
+-- TODO: Allow better sharing of JIM with Music5000
+
+    ext_1mhz_clken  <= mhz1_clken;
+    ext_1mhz_nrst   <= reset_n;
+    ext_1mhz_pgfc_n <= io_fred_n;
+    ext_1mhz_pgfd_n <= io_jim_n;
+    ext_1mhz_r_nw   <= cpu_r_nw;
+    ext_1mhz_addr   <= cpu_a(7 downto 0);
+    ext_1mhz_di     <= cpu_do;
+
+--------------------------------------------------------
+-- CPU configuration and fixed signals
+--------------------------------------------------------
+
     cpu_mode <= "00"; -- 6502
     cpu_ready <= '1';
     cpu_abort_n <= '1';
-    cpu_nmi_n <= '1';
+    cpu_nmi_n <= ext_1mhz_nmi_n;
     cpu_so_n <= '1';
     cpu_nr_w <= not cpu_r_nw;
 
@@ -1740,7 +1772,7 @@ begin
         inton_enable  <= '0';
 
         if io_sheila = '1' then
-            case cpu_a(7 downto 5) is            
+            case cpu_a(7 downto 5) is
                 when "000" =>
                     -- 0xFE00
                     if cpu_a(4) = '0' then
@@ -1800,7 +1832,7 @@ begin
                         end if;
                     else
                         adc_enable <= '1';
-                    end if;                
+                    end if;
                 when "111" =>                           -- 0xFEE0
                     if copro_mode = '1' then
                         if m128_mode = '1' then
@@ -1866,11 +1898,11 @@ begin
         romsel         when romsel_enable = '1' and m128_mode = '1' else
         acccon         when acccon_enable = '1' and m128_mode = '1' else
         "11111110"     when io_sheila = '1' else
-        "11111111"     when io_fred = '1' or io_jim = '1' else
+        ext_1mhz_do     when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
 
-    cpu_irq_n <= not ((not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
-                 not ((not sys_via_irq_n) or (not user_via_irq_n));
+    cpu_irq_n <= not ((not ext_1mhz_irq_n) or (not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
+                 not ((not ext_1mhz_irq_n) or (not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
 
     -- Synchronous outputs to External Memory

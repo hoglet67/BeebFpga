@@ -56,6 +56,7 @@ entity bbc_micro_tang20k is
         IncludeSID             : boolean := false;
         IncludeMusic5000       : boolean := true;
         IncludeMusic5000Filter : boolean := true; -- Music 5000 Low Pass IIR Filter
+        IncludeMusic5000SPDIF  : boolean := true; -- Music 5000 20-bit SPDIF Output
         IncludeICEDebugger     : boolean := true;
         IncludeVideoNuLA       : boolean := true;
         IncludeTrace           : boolean := true;
@@ -112,6 +113,9 @@ entity bbc_micro_tang20k is
         i2s_lrclk       : out   std_logic;
         i2s_din         : out   std_logic;
         pa_en           : out   std_logic;
+
+        -- Music 5000 SPDIF Audio
+        m5k_spdif       : out   std_logic;
 
         -- Magic ports for SDRAM to be inferred
         O_sdram_clk     : out   std_logic;
@@ -351,6 +355,7 @@ begin
             IncludeSID             => IncludeSID,
             IncludeMusic5000       => IncludeMusic5000,
             IncludeMusic5000Filter => IncludeMusic5000Filter,
+            IncludeMusic5000SPDIF  => IncludeMusic5000SPDIF,
             IncludeICEDebugger     => IncludeICEDebugger,
             IncludeCoPro6502       => IncludeCoPro6502,
             IncludeCoProSPI        => false,
@@ -381,6 +386,7 @@ begin
             audio_l        => audio_l,
             audio_r        => audio_r,
             m5k_filter_en  => m5k_filter_en,
+            m5k_spdif      => m5k_spdif,
             ext_nOE        => ext_nOE,
             ext_nWE        => ext_nWE,
             ext_nWE_long   => ext_nWE_long,

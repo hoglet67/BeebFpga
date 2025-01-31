@@ -49,14 +49,15 @@ use work.common.all;
 entity i2s_simple is
     generic (
         CLOCKSPEED : natural;
-        SAMPLERATE : natural
+        SAMPLERATE : natural;
+        ATTENUATE  : natural := 0
     );
     port (
         -- Clock/Reset
         clock      : in  std_logic;
         reset_n    : in  std_logic;
 
-        -- Parallel Audio In
+        -- Parallel Audio In (signed)
         audio_l    : in  std_logic_vector(15 downto 0);
         audio_r    : in  std_logic_vector(15 downto 0);
 
@@ -70,20 +71,22 @@ end entity;
 
 architecture rtl of i2s_simple is
 
-    constant MAXCOUNT : natural := CLOCKSPEED / (SAMPLERATE * 32) / 2 - 1;
+    -- Use 32-bit mode of the MAX98357A for full 105dB dynamic range
+    constant MAXCOUNT : natural := CLOCKSPEED / (SAMPLERATE * 64) / 2 - 1;
 
     signal clk_audio     : std_logic := '0';
     signal aclk_cnt      : std_logic_vector(numbits(MAXCOUNT) downto 0);
-    signal audio_mixed   : std_logic_vector(15 downto 0);
-    signal audio         : std_logic_vector(15 downto 0);
-    signal audio_bit_cnt : std_logic_vector(4 downto 0);
+    signal audio_mixed   : std_logic_vector(16 downto 0);
+    signal audio         : std_logic_vector(31 downto 0);
+    signal audio_bit_cnt : std_logic_vector(5 downto 0);
 
 begin
 
     pa_en <= reset_n; -- enable amplifier
 
     -- mix both stereo channels into one mono channel
-    audio_mixed <= audio_l + audio_r;
+    -- audio-1 and audio-r are 16-bit signed; result is a 17-bit signed so overflow is impossible
+    audio_mixed <= (audio_l(15) & audio_l) + (audio_r(15) & audio_r);
 
     process(clock)
     begin
@@ -101,20 +104,25 @@ begin
                         audio_bit_cnt <= audio_bit_cnt + '1';
                     end if;
                     -- latch data so it's stable during transmission
-                    if audio_bit_cnt = "11111" then
-                        audio <= x"8000" + audio_mixed;
+                    if audio_bit_cnt = "111111" then
+                        -- convert to 17-bit to 32-bit, attenuated by shift of ATTENUATE of bits
+                        -- audio_mixed:    SBBBBBBBBBBBBBBBB
+                        -- audio:       SSSSBBBBBBBBBBBBBBBB000000000000
+                        --                 ^^^^^^^^^^^^^^^^^ (audio_mixed)
+                        if (ATTENUATE = 0) then
+                            audio <= audio_mixed & (14 downto 0 => '0');
+                        else
+                            audio <= (31 downto 32-ATTENUATE => audio_mixed(16)) & audio_mixed & (14-ATTENUATE downto 0 => '0');
+                        end if;
                     end if;
                 end if;
             end if;
         end if;
     end process;
 
-    -- mix both stereo channels into one mono channel
-    audio_mixed <= audio_l + audio_r;
-
     -- generate i2s signals
     i2s_bclk  <= clk_audio;
-    i2s_lrclk <= '0' when reset_n = '0' else audio_bit_cnt(4);
-    i2s_din   <= '0' when reset_n = '0' else audio(to_integer(15 - unsigned(audio_bit_cnt(3 downto 0))));
+    i2s_lrclk <= '0' when reset_n = '0' else audio_bit_cnt(5);
+    i2s_din   <= '0' when reset_n = '0' else audio(to_integer(31 - unsigned(audio_bit_cnt(4 downto 0))));
 
 end architecture;

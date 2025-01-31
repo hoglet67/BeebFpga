@@ -61,6 +61,7 @@ entity bbc_micro_core is
         IncludeSID             : boolean := false;
         IncludeMusic5000       : boolean := false;
         IncludeMusic5000Filter : boolean := false; -- Music 5000 IIR Filter
+        IncludeMusic5000SPDIF  : boolean := false; -- Music 5000 20-bit SPDIF Output
         IncludeICEDebugger     : boolean := false;
         IncludeCoPro6502       : boolean := false; -- The three co pro options
         IncludeCoProSPI        : boolean := false; -- are currently mutually exclusive
@@ -110,6 +111,7 @@ entity bbc_micro_core is
         audio_l        : out   std_logic_vector (15 downto 0);
         audio_r        : out   std_logic_vector (15 downto 0);
         m5k_filter_en  : in    std_logic := '1';
+        m5k_spdif      : out   std_logic;
 
         -- External memory (e.g. SRAM and/or FLASH)
         -- 512KB logical address space
@@ -399,6 +401,18 @@ component iir_filter is
         lout        : out std_logic_vector(W_IO - 1 downto 0);
         rin         : in  std_logic_vector(W_IO - 1 downto 0);
         rout        : out std_logic_vector(W_IO - 1 downto 0)
+    );
+end component;
+
+component spdif_serializer is
+    port (
+        clk          : in  std_logic;
+        clken        : in  std_logic := '1';
+        auxAudioBits : in  std_logic_vector (3 downto 0);
+        sample       : in  std_logic_vector (19 downto 0);
+        load         : in  std_logic;
+        channelA     : out std_logic;
+        spdifOut     : out std_logic
     );
 end component;
 
@@ -1327,6 +1341,29 @@ begin
         -- Convert from 18-bit back to 16-bit when is what the Beeb Core expects
         music5000_ao_l <= audio_l_tmp(dacwidth - 1 downto dacwidth - 16);
         music5000_ao_r <= audio_r_tmp(dacwidth - 1 downto dacwidth - 16);
+
+        ------------------------------------------------
+        -- Music5000 SPDIF Output
+        ------------------------------------------------
+
+        inst_spdif: if IncludeMusic5000SPDIF generate
+            signal channelA : std_logic;
+            signal load     : std_logic;
+            signal sample   : std_logic_vector(19 downto 0);
+        begin
+            load   <= '1' when unsigned(cycle(5 downto 0)) = 1 else '0';
+            sample <= audio_l_tmp & "00" when channelA = '1' else audio_r_tmp & "00";
+            spdif_serialize_inst : component spdif_serializer
+                port map (
+                    clk          => clock_48,
+                    clken        => mhz6_clken,
+                    auxAudioBits => (others => '0'),
+                    sample       => sample,
+                    load         => load,
+                    channelA     => channelA,
+                    spdifOut     => m5k_spdif
+                    );
+        end generate;
 
     end generate;
 

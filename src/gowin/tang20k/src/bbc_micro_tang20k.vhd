@@ -44,6 +44,9 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
+library work;
+use work.board_config_pack.all;
+
 entity bbc_micro_tang20k is
     generic (
         IncludeMaster          : boolean := true; -- if both included, the CPU is the AlanD 65C02
@@ -57,7 +60,7 @@ entity bbc_micro_tang20k is
         IncludeMusic5000       : boolean := true;
         IncludeMusic5000Filter : boolean := true; -- Music 5000 Low Pass IIR Filter
         IncludeMusic5000SPDIF  : boolean := true; -- Music 5000 20-bit SPDIF Output
-        IncludeICEDebugger     : boolean := true;
+        IncludeICEDebugger     : boolean := G_CONFIG_DEBUGGER;
         IncludeVideoNuLA       : boolean := true;
         IncludeTrace           : boolean := true;
         IncludeHDMI            : boolean := true;
@@ -67,7 +70,7 @@ entity bbc_micro_tang20k is
         IncludeSoftLEDs        : boolean := true;
         IncludeI2SAudio        : boolean := false;
 
-        PRJ_ROOT               : string  := "../../..";
+        PRJ_ROOT               : string  := "../../../..";
         MOS_NAME               : string  := "/roms/bbcb/os12_basic.bit";
         SIM                    : boolean := false
         );

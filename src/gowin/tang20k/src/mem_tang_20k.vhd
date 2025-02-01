@@ -455,7 +455,7 @@ begin
                             end if;
                         when DBG_03 =>
                             -- The i_X_A term skips over the bootstrap writing zeros
-                            if i_bootstrap_reset_n = '1' and i_X_A = ADDR_VEC1 then
+                            if i_bootstrap_reset_n = '1' and test_write = '1' and i_X_A = ADDR_VEC1 then
                                 state <= DBG_04;
                             end if;
                         when DBG_04 =>

@@ -64,8 +64,8 @@ architecture BEHAVIORAL of CoPro6502 is
 -------------------------------------------------
 
     signal cpu_R_W_n  : std_logic;
-    signal cpu_addr   : std_logic_vector (23 downto 0);
-    signal cpu_addr_us: unsigned (23 downto 0);
+    signal cpu_addr   : std_logic_vector (15 downto 0);
+    signal cpu_addr_us: unsigned (15 downto 0);
     signal cpu_din    : std_logic_vector (7 downto 0);
     signal cpu_dout   : std_logic_vector (7 downto 0);
     signal cpu_dout_us: unsigned (7 downto 0);

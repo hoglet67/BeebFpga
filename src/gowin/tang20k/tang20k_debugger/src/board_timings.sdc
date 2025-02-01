@@ -27,10 +27,21 @@ set_false_path -from [get_clocks {clock_48}] -through [get_nets {m128_mode*}] -t
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -hold -end 1
 
-// Bus Monitor -> Debugger 65C02 has 23 cycles
-// TODO
+// Debugger 65C02 -> MOS6502CPUMonCore has 24 cycles in practice!
+set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenDebug.core/*}]  -setup -end 2
+set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenDebug.core/*}]  -hold -end 1
 
-// Debugger 65C02 -> Bus Monitor only has one cycle (cpu_clken -> cpu_clken1)
+// MOS6502CPUMonCore -> Debugger 65C02 has 24 cycles in practice!
+set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -setup -end 2
+set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -hold -end 1
+
+// Bus Monitor -> Debugger 65C02 has 22 cycles (cpu_clken2 -> cpu_clken)
+set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/mon/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -setup -end 2
+set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/mon/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -hold -end 1
+
+// Debugger 65C02 -> Bus Monitor has 2 cycles (cpu_clken -> cpu_clken2)
+set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenDebug.core/mon/*}]  -setup -end 2
+set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenDebug.core/mon/*}]  -hold -end 1
 
 // Debugger 65C02 -> Peripherals
 

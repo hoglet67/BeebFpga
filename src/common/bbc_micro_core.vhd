@@ -85,6 +85,9 @@ entity bbc_micro_core is
         -- Hard reset (active low)
         hard_reset_n   : in    std_logic;
 
+        -- Powerup reset (active low)
+        powerup_reset_n : in    std_logic := '1';
+
         -- Keyboard
         ps2_kbd_clk    : inout std_logic;
         ps2_kbd_clk_o  : out   std_logic;
@@ -1478,7 +1481,7 @@ begin
         port  map (
             clk_i => clock_48,
             en_clk_psg_i => mhz4_clken,
-            --reset => sound_reset,
+            reset_n_i => powerup_reset_n,
             data_i => sound_di,
             wr_n_i => sound_enable_n,
             ce_n_i => '0',

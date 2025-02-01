@@ -17,11 +17,22 @@ set_clock_groups -asynchronous -group [get_clocks {clock_24}] -group [get_clocks
 // Ingore any timing paths involving m128_main
 set_false_path -from [get_clocks {clock_48}] -through [get_nets {m128_mode*}] -to [get_clocks {clock_48}]
 
+// Tracing currently disabled in project
+//set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/trace*}]  -setup -end 2
+//set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/trace*}]  -hold -end 1
+
+// MULTI CYCLE PATHS
+
+// Debugger 65C02 -> Debugger 65C02 has 24 cycles in practice!
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -hold -end 1
 
-//set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/trace*}]  -setup -end 2
-//set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/trace*}]  -hold -end 1
+// Bus Monitor -> Debugger 65C02 has 23 cycles
+// TODO
+
+// Debugger 65C02 -> Bus Monitor only has one cycle (cpu_clken -> cpu_clken1)
+
+// Debugger 65C02 -> Peripherals
 
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/crtc/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/crtc/*}]  -hold -end 1
@@ -32,30 +43,39 @@ set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/user_via/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/user_via/*}]  -hold -end 1
 
-set_multicycle_path -from [get_regs {bbc_micro/user_via/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -setup -end 2
-set_multicycle_path -from [get_regs {bbc_micro/user_via/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -hold -end 1
-
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/system_via/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/system_via/*}]  -hold -end 1
+
+// Peripherals -> Debugger 65C02
+
+set_multicycle_path -from [get_regs {bbc_micro/user_via/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -setup -end 2
+set_multicycle_path -from [get_regs {bbc_micro/user_via/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -hold -end 1
 
 set_multicycle_path -from [get_regs {bbc_micro/system_via/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/system_via/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -hold -end 1
 
- // Set some multi-cycle paths for the host reading/writing the tube
+// COPROCESSOR
 
-set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}]  -setup -end 2
-set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}]  -hold -end 1
-
+// Tube ULA -> Debugger 65C02
 set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}] -to [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}]  -hold -end 1
 
+// Debugger 65C02 -> Tube ULA
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenDebug.core/GenAlanDCore.inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}]  -hold -end 1
 
+// Co Pro 65C02 -> Co Pro 65C02 has 12 cycles (4MHz)
+set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}]  -setup -end 2
+set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}]  -hold -end 1
+
+// Tube ULA -> Co Pro 65C02
 set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}]  -hold -end 1
 
+// Co Pro 65C02 -> Tube ULA
 set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}]  -setup -end 2
 set_multicycle_path -from [get_regs {bbc_micro/GenCoPro6502.copro1/inst_r65c02/*}] -to [get_regs {bbc_micro/GenCoPro6502.copro1/inst_tube/*}]  -hold -end 1
+
+// OPERATING CONDITIONS
 
 set_operating_conditions -grade c -model slow -speed 8 -setup -hold

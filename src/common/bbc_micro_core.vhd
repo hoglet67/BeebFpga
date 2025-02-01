@@ -681,7 +681,7 @@ signal ps2_mse_data_out :   std_logic;
 
 -- Sound generator
 signal sound_di         :   std_logic_vector(7 downto 0);
-signal sound_ao         :   std_logic_vector(7 downto 0);
+signal sound_ao         :   unsigned(13 downto 0);
 
 -- Optional SID
 signal sid_ao           :   std_logic_vector(17 downto 0);
@@ -1474,18 +1474,15 @@ begin
 -- SN76489 Sound Generator
 --------------------------------------------------------
 
-    sound : entity work.sn76489
-        generic map (
-            AUDIO_RES => 8
-            )
+    sound : entity work.sn76489_audio
         port  map (
-            clk => clock_48,
-            clk_en => mhz4_clken,
-            reset => reset,
-            d => sound_di,
-            we_n => sound_enable_n,
-            ce_n => '0',
-            audio_out => sound_ao
+            clk_i => clock_48,
+            en_clk_psg_i => mhz4_clken,
+            --reset => sound_reset,
+            data_i => sound_di,
+            wr_n_i => sound_enable_n,
+            ce_n_i => '0',
+            mix_audio_o => sound_ao
             );
 
 --------------------------------------------------------
@@ -1521,10 +1518,10 @@ begin
         variable l : std_logic_vector(15 downto 0);
         variable r : std_logic_vector(15 downto 0);
     begin
-        -- SN76489 output is 8-bit unsigned and is 0x00 when no sound is playing
+        -- SN76489 output is 14-bit unsigned and is 0x00 when no sound is playing
         -- attenuate by one bit as to try to match level with other sources
-        l := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
-        r := std_logic_vector("00" & sound_ao(7 downto 0) & "000000");
+        l := "00" & std_logic_vector(sound_ao);
+        r := "00" & std_logic_vector(sound_ao);
         if IncludeSID then
             -- SID output is 16-bit unsigned
             l := l + (sid_ao(17 downto 2) - x"8000");

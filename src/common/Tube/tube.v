@@ -109,15 +109,10 @@ module tube (
 
    wire       p_r3_two_bytes_available_w;
 
-   wire [3:0] h_select_fifo_d_w;
-   wire       h_select_reg0_d_w;
    reg        h_select_reg0_q_r;
    reg [3:0]  h_select_fifo_q_r;
    reg [3:0]  p_select_fifo_r;
-   reg        h_rdnw_q_r;
    reg        n_flag;
-
-
 
    reg [7:0]    h_data_r;
    reg [7:0]    p_data_r;
@@ -172,13 +167,6 @@ module tube (
 `else // SEPARATE_PARASITE_DATABUSSES_D
    assign p_data = ( p_rdnw && !p_cs_b ) ? p_data_r : 8'bzzzzzzzz;
 `endif // SEPARATE_PARASITE_DATABUSSES_D
-
-   // Compute register selects for host side
-   assign h_select_reg0_d_w    = !h_cs_b && ( h_addr == 3'b0);
-   assign h_select_fifo_d_w[0] = !h_cs_b & ( h_addr == 3'h1);
-   assign h_select_fifo_d_w[1] = !h_cs_b & ( h_addr == 3'h3);
-   assign h_select_fifo_d_w[2] = !h_cs_b & ( h_addr == 3'h5);
-   assign h_select_fifo_d_w[3] = !h_cs_b & ( h_addr == 3'h7);
 
    // Flag definitions from the Tube Application Note
    //
@@ -323,7 +311,7 @@ module tube (
 
    ph_bytequad  ph_fifo (
                          .h_rst_b(local_rst_b_w),
-                         .h_rd( h_rdnw_q_r ),// Use latched version of rdnw
+                         .h_rd(h_rdnw),
                          .h_selectData(  h_select_fifo_q_r),
                          .h_phi2(h_phi2 ),
                          .p_data(p_data),
@@ -344,27 +332,20 @@ module tube (
      else
        h_reg0_q_r <= h_reg0_d_w;
 
-   // Latch host side register select signals on phi2 - found that the L1B CPLD was
-   // more robust when this was done avoiding bus hold issues ?
-   always @ (negedge h_phi2 or negedge h_rst_b)
+   // Compute register selects for host side
+   //
+   // NOTE: On Matchbox Tube ULA these signals are registered on the
+   // rising edge of h_phi2. This made them more immune to
+   // noise. Doing the same on BeebFPGA causes some very tight timing
+   // paths, and is entirely unnecessary!
+   always @ (h_addr or h_cs_b)
      begin
-        if ( ! h_rst_b )
-          begin
-             h_select_fifo_q_r <= 4'h0;
-             h_select_reg0_q_r <= 1'b0;
-             h_rdnw_q_r <= 1'b0;
-          end
-        else
-          begin
-             h_rdnw_q_r <= h_rdnw;
-             h_select_reg0_q_r    <= h_select_reg0_d_w;
-             h_select_fifo_q_r[0] <= h_select_fifo_d_w[0];
-             h_select_fifo_q_r[1] <= h_select_fifo_d_w[1];
-             h_select_fifo_q_r[2] <= h_select_fifo_d_w[2];
-             h_select_fifo_q_r[3] <= h_select_fifo_d_w[3];
-          end
-     end // always @ ( negedge h_phi2 or negedge h_rst_b )
-
+        h_select_reg0_q_r    <= !h_cs_b & ( h_addr == 3'b0); // REG 0
+        h_select_fifo_q_r[0] <= !h_cs_b & ( h_addr == 3'h1); // REG 1
+        h_select_fifo_q_r[1] <= !h_cs_b & ( h_addr == 3'h3); // REG 3
+        h_select_fifo_q_r[2] <= !h_cs_b & ( h_addr == 3'h5); // REG 5
+        h_select_fifo_q_r[3] <= !h_cs_b & ( h_addr == 3'h7); // REG 7
+     end // always @ (h_addr or h_cs_b)
 
    // Provide option for retiming read of status/command reg from host to parasite
    always @ ( posedge p_phi2 or negedge h_rst_b )

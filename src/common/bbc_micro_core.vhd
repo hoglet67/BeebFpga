@@ -457,7 +457,6 @@ signal div8_counter     :   unsigned(2 downto 0) := (others => '0');
 signal clken_counter    :   unsigned(3 downto 0) := (others => '0');
 signal cpu_cycle_mask   :   std_logic_vector(1 downto 0) := (others => '0'); -- Set to mask CPU cycles until 1 MHz cycle is complete
 signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabled
-signal cpu_clken1       :   std_logic; -- delayed one cycle for BusMonitor
 
 -- IO cycles are out of phase with the CPU
 signal mhz16_clken      :   std_logic; -- 16 MHz, used by the Video ULA
@@ -779,6 +778,9 @@ begin
     -------------------------
 
     GenDebug: if IncludeICEDebugger generate
+        signal cpu_clken1 : std_logic;
+        signal cpu_clken2 : std_logic; -- delayed two cycles for BusMonitor
+    begin
 
         core : MOS6502CpuMonCore
             generic map (
@@ -788,7 +790,7 @@ begin
             port map (
                 clock_avr    => clock_avr,
                 busmon_clk   => clock_48,
-                busmon_clken => cpu_clken1,
+                busmon_clken => cpu_clken2,
                 cpu_clk      => clock_48,
                 cpu_clken    => cpu_clken,
                 IRQ_n        => cpu_irq_n,
@@ -818,6 +820,7 @@ begin
         begin
             if rising_edge(clock_48) then
                 cpu_clken1 <= cpu_clken;
+                cpu_clken2 <= cpu_clken1;
             end if;
         end process;
 

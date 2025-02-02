@@ -741,6 +741,12 @@ signal adc_ch3          :   std_logic_vector(11 downto 0);
 -- ROM select latch
 signal romsel           :   std_logic_vector(7 downto 0);
 
+-- Split ROM/RAM Slot
+signal split_rom_slot_enable : std_logic;
+signal split_rom_page_enable : std_logic;
+signal split_rom_slot   : std_logic_vector(7 downto 0); -- &FE1E (Model B)
+signal split_rom_page   : std_logic_vector(7 downto 0); -- &FE1F (Model B)
+
 signal mhz1_enable      :   std_logic;      -- Set for access to any 1 MHz peripheral
 
 -- Master Real Time Clock / CMOS RAM
@@ -1846,13 +1852,33 @@ begin
         end if;
     end process;
 
+    -- Split ROM Control Registers
+    process(clock_48, reset_n)
+    begin
+        if reset_n = '0' then
+            split_rom_slot <= x"08";
+            split_rom_page <= x"b6";
+        elsif rising_edge(clock_48) then
+            if cpu_clken = '1' then
+                if cpu_r_nw = '0' then
+                    if split_rom_slot_enable = '1' then
+                        split_rom_slot <= cpu_do;
+                    elsif split_rom_page_enable = '1' then
+                        split_rom_page <= cpu_do;
+                    end if;
+                end if;
+            end if;
+        end if;
+    end process;
+
     -- SHEILA address demux
     -- All the system peripherals are mapped into this page as follows:
     -- 0xFE00 - 0xFE07 = MC6845 CRTC
     -- 0xFE08 - 0xFE0F = MC6850 ACIA (Serial/Tape)
     -- 0xFE10 - 0xFE17 = Serial ULA
     -- 0xFE18 - 0xFE1B = Econet Station ID (Model B)
-    -- 0xFE1C - 0xFE1F = SPI SD Card Controller (Model B)
+    -- 0xFE1C - 0xFE1D = SPI SD Card Controller (Model B)
+    -- 0xFE1D - 0xFE1E = Split ROM Slot/Page Registers (Model B)
     -- 0xFE20 - 0xFE2F = Video ULA
     -- 0xFE30 - 0xFE3F = Paged ROM select latch
     -- 0xFE40 - 0xFE5F = System VIA (6522)
@@ -1874,6 +1900,8 @@ begin
         user_via_enable <= '0';
  --     adlc_enable <= '0';
         spisd_enable <= '0';
+        split_rom_slot_enable <= '0';
+        split_rom_page_enable <= '0';
         adc_enable <= '0';
         int_tube_enable <= '0';
         ext_tube_enable <= '0';
@@ -1901,8 +1929,14 @@ begin
                             -- 0xFE18
                             if m128_mode = '1' then
                                 adc_enable <= '1';     -- 0xFE18-0xFE1F
-                            elsif cpu_a(2) = '1' then
-                                spisd_enable <= '1';   -- 0xFE1C-0xFE1F
+                            elsif cpu_a(2 downto 1) = "10" then
+                                spisd_enable <= '1';   -- 0xFE1C-&FE1D
+                            elsif cpu_a(2 downto 1) = "11" then
+                                if cpu_a(0) = '0' then
+                                    split_rom_slot_enable <= '1'; -- &FE1E
+                                else
+                                    split_rom_page_enable <= '1'; -- &FE1F
+                                end if;
                             end if;
                         end if;
                     end if;
@@ -1999,6 +2033,8 @@ begin
         sys_via_do_r   when sys_via_enable = '1' else
         user_via_do_r  when user_via_enable = '1' else
         spisd_do       when spisd_enable = '1' else
+        split_rom_slot when split_rom_slot_enable = '1' else
+        split_rom_page when split_rom_page_enable = '1' else
         -- Optional peripherals
         sid_do         when sid_enable = '1' and IncludeSid else
         music5000_do   when io_jim = '1' and IncludeMusic5000 else
@@ -2033,7 +2069,7 @@ begin
     -- 001 01xx xxxx xxxx xxxx = unused
     -- 001 10xx xxxx xxxx xxxx = unused
     -- 001 11xx xxxx xxxx xxxx = unused
-    -- 010 00xx xxxx xxxx xxxx = ROM Slot 8 (8000-B5FF)
+    -- 010 00xx xxxx xxxx xxxx = ROM Slot 8 (8000-SPLIT) [ SPLIT now programmable ]
     -- 010 01xx xxxx xxxx xxxx = ROM Slot 9
     -- 010 10xx xxxx xxxx xxxx = ROM Slot A
     -- 010 11xx xxxx xxxx xxxx = ROM Slot B
@@ -2057,7 +2093,7 @@ begin
     -- 110 1010 xxxx xxxx xxxx = Filing System RAM (4K, at D000-DFFF) (unused in Beeb Mode)
     -- 110 1011 xxxx xxxx xxxx = Shadow memory (4K, at 3000-3FFF)     (unused in Beeb Mode)
     -- 110 11xx xxxx xxxx xxxx = Shadow memory (16K, at 4000-7FFF)    (unused in Beeb Mode)
-    -- 111 00xx xxxx xxxx xxxx = RAM Slot 8 (B600-BFFF)
+    -- 111 00xx xxxx xxxx xxxx = RAM Slot 8 (SPLIT+1-BFFF)
     -- 111 01xx xxxx xxxx xxxx = unused
     -- 111 10xx xxxx xxxx xxxx = unused
     -- 111 11xx xxxx xxxx xxxx = unused
@@ -2121,8 +2157,8 @@ begin
                                 ext_nWE_long <= cpu_r_nw;
                                 ext_nOE <= not cpu_r_nw;
                             when others =>
-                                if m128_mode = '0' and romsel(3 downto 0) = "1000" and cpu_a(13 downto 8) >= "110110" then
-                                    -- ROM slot 8 >= B600 is mapped to RAM for
+                                if m128_mode = '0' and romsel(3 downto 0) = split_rom_slot and cpu_a(15 downto 8) >= split_rom_page then
+                                    -- ROM slot <Split_Slot>  Address >= <Split Page> is mapped to RAM for
                                     -- the SWRam version of MMFS in Beeb mode only
                                     ext_A <= "11100" & cpu_a(13 downto 0);
                                     ext_nWE <= not ((not cpu_r_nw) and mem_write_strobe);

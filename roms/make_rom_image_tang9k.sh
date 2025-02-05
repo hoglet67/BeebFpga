@@ -2,7 +2,10 @@
 
 # Create the ROM images for the Tang 9K and 20K builds
 
-MMFS=MMFS
+
+for MMFS in MMFS MMFS2
+do
+
 
 # Beeb ROM Images
 
@@ -50,7 +53,7 @@ cat m128/terminal.rom          >> $IMAGE3
 #
 # NB: ROM 4 is the MOS in both Beeb and Master
 
-IMAGE=tmp/tang_image_combined.bin
+IMAGE=tmp/tang_image_combined_${MMFS}.bin
 rm -f $IMAGE
 
 cat $IMAGE1 >> $IMAGE
@@ -63,3 +66,5 @@ echo $IMAGE
 ls -l $IMAGE
 echo "On a TANG Nano  9K program to external FLASH address 0x000000"
 echo "On a TANG Nano 20K program to external FLASH address 0x500000"
+
+done

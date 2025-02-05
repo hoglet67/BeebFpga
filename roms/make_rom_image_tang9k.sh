@@ -2,6 +2,7 @@
 
 # Create the ROM images for the Tang 9K and 20K builds
 
+mkdir -p tmp
 
 for MMFS in MMFS MMFS2
 do

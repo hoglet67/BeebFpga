@@ -73,6 +73,8 @@ entity sample_rate_converter is
 
         -- Stereo output
         mixer_strobe      : out std_logic;
+        clip_l            : out std_logic;
+        clip_r            : out std_logic;
         mixer_l           : out signed(OUTPUT_WIDTH - 1 downto 0);
         mixer_r           : out signed(OUTPUT_WIDTH - 1 downto 0)
         );
@@ -781,15 +783,23 @@ begin
                     tmp := mixer_sum_l(2 * SAMPLE_WIDTH - 1 downto OUTPUT_SHIFT);
                     if tmp < MIN_OUTPUT then
                         tmp := to_signed(MIN_OUTPUT, tmp'length);
+                        clip_l <= '1';
                     elsif tmp > MAX_OUTPUT then
                         tmp := to_signed(MAX_OUTPUT, tmp'length);
+                        clip_l <= '1';
+                    else
+                        clip_l <= '0';
                     end if;
                     mixer_l <= tmp(OUTPUT_WIDTH - 1 downto 0);
                     tmp := mixer_sum_r(2 * SAMPLE_WIDTH - 1 downto OUTPUT_SHIFT);
                     if tmp < MIN_OUTPUT then
                         tmp := to_signed(MIN_OUTPUT, tmp'length);
+                        clip_r <= '1';
                     elsif tmp > MAX_OUTPUT then
+                        clip_r <= '1';
                         tmp := to_signed(MAX_OUTPUT, tmp'length);
+                    else
+                        clip_r <= '0';
                     end if;
                     mixer_r <= tmp(OUTPUT_WIDTH - 1 downto 0);
                 else

@@ -367,6 +367,7 @@ architecture rtl of bbc_micro_tang20k is
 
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
+    signal clip_led        : std_logic;
 
     signal i_VGA_R         : std_logic_vector(3 downto 0);
     signal i_VGA_G         : std_logic_vector(3 downto 0);
@@ -751,9 +752,12 @@ begin
         signal channel_load    : std_logic_vector(NUM_CHANNELS - 1 downto 0);
         signal mixer_l         : signed(19 downto 0);
         signal mixer_r         : signed(19 downto 0);
+        signal clip_l          : std_logic;
+        signal clip_r          : std_logic;
         signal spdif_in        : std_logic_vector(19 downto 0);
         signal channelA        : std_logic;
         signal div64           : unsigned(5 downto 0) := (others => '0');
+        signal clip_counter    : unsigned(13 downto 0) := (others => '0');
 --        signal mhz6_clken      : std_logic;
     begin
 
@@ -789,6 +793,8 @@ begin
                 channel_load      => channel_load,
                 channel_in        => channel_in,
                 mixer_strobe      => mixer_strobe,
+                clip_l            => clip_l,
+                clip_r            => clip_r,
                 mixer_l           => mixer_l,
                 mixer_r           => mixer_r
                 );
@@ -818,12 +824,19 @@ begin
             if rising_edge(spdif_clk) then
                 div64 <= div64 + 1;
                 if div64 = 0 then
+                    if clip_l = '1' or clip_r = '1' then
+                        clip_counter <= (others => '0');
+                    elsif clip_counter(clip_counter'left) = '0' then
+                        clip_counter <= clip_counter + 1;
+                    end if;
                     spdif_load <= '1';
                 else
                     spdif_load <= '0';
                 end if;
             end if;
         end process;
+
+        clip_led <= not clip_counter(clip_counter'left);
 
         spdif_serialize: entity work.spdif_serializer
             port map (
@@ -1107,7 +1120,7 @@ begin
     -- 1MHz Bus LEDs
     --------------------------------------------------------
 
-    normal_leds <= (caps_led & shift_led & m5k_spdif_en & m5k_filter_en & hdmi_audio_src & hdmi_audio_en) xor "111111";
+    normal_leds <= (caps_led & shift_led & m5k_spdif_en & m5k_filter_en & hdmi_audio_src & clip_led) xor "111111";
 
     GenLEDS: if IncludeSoftLEDs generate
         signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');

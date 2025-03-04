@@ -71,6 +71,7 @@ entity bbc_micro_tang20k is
         IncludeCoPro6502       : boolean := true;
         IncludeSoftLEDs        : boolean := true;
         IncludeI2SAudio        : boolean := true;
+        IncludeVGADAC          : boolean := true;
 
         MinVolume              : integer := 0;  -- -60dB
         DefaultVolume          : integer := 10; -- -30dB
@@ -93,7 +94,7 @@ entity bbc_micro_tang20k is
 
 
         -- Test/GPIO
-        gpio            : out   std_logic_vector(3 downto 0);
+        --gpio            : out   std_logic_vector(3 downto 0);
 
         -- Keyboard / Mouse
         ps2_clk         : inout std_logic;
@@ -309,6 +310,8 @@ architecture rtl of bbc_micro_tang20k is
     signal clock_96        : std_logic;
     signal clock_96_p      : std_logic;
     signal clock_135       : std_logic;
+    signal clock_81        : std_logic;
+    signal clock_405       : std_logic;
     signal mem_ready       : std_logic;
 
     -- Audio
@@ -592,15 +595,15 @@ begin
             FCLKIN => "27",
             DEVICE => "GW2AR-18C",
             IDIV_SEL => 0,
-            FBDIV_SEL => 4,
-            ODIV_SEL => 8
+            FBDIV_SEL => 14,
+            ODIV_SEL => 2
         )
         port map (
             CLKIN    => sys_clk,
-            CLKOUT   => clock_135,      -- 135MHz HDMI Serial Clock (5x the HDMI Pixel Clock)
+            CLKOUT   => clock_405,      -- 405MHz VGA 1-bit DAC clock
             CLKOUTP  => open,
             CLKOUTD  => open,
-            CLKOUTD3 => open,
+            CLKOUTD3 => clock_135,      -- 135MHz HDMI Serial Clock (5x the HDMI Pixel Clock)
             LOCK     => pll2_lock,
             RESET    => '0',
             RESET_P  => '0',
@@ -611,7 +614,20 @@ begin
             PSDA     => (others => '0'),
             DUTYDA   => (others => '0'),
             FDLY     => (others => '0')
+            );
+
+    clkdiv_dac : CLKDIV
+        generic map (
+            DIV_MODE => "5",            -- Divide by 5
+            GSREN => "false"
+        )
+        port map (
+            RESETN => clkdiv_reset_n,
+            HCLKIN => clock_405,
+            CLKOUT => clock_81,
+            CALIB  => '1'
         );
+
 
     clkdiv5 : CLKDIV
         generic map (
@@ -1213,17 +1229,52 @@ begin
 
     end generate;
 
+    vga_1bit_dac : if IncludeVGADAC generate
+    begin
+
+        e_vidr:entity work.dac1_oser
+            port map (
+                rst_i               => not hard_reset_n,
+                clk_sample_i        => clock_27,
+                clk_dac_px_i        => clock_81,
+                clk_dac_i           => clock_405,
+                sample_i            => unsigned(i_VGA_r),
+                bitstream_o         => vga_r
+                );
+        e_vidg:entity work.dac1_oser
+            port map (
+                rst_i               => not hard_reset_n,
+                clk_sample_i        => clock_27,
+                clk_dac_px_i        => clock_81,
+                clk_dac_i           => clock_405,
+                sample_i            => unsigned(i_VGA_g),
+                bitstream_o         => vga_g
+                );
+        e_vidb:entity work.dac1_oser
+            port map (
+                rst_i               => not hard_reset_n,
+                clk_sample_i        => clock_27,
+                clk_dac_px_i        => clock_81,
+                clk_dac_i           => clock_405,
+                sample_i            => unsigned(i_VGA_b),
+                bitstream_o         => vga_b
+                );
+
+    end generate;
+
+
+
+   not_vga_1bit_dac : if not IncludeVGADAC generate
+
+       vga_r <= i_VGA_R(i_VGA_R'high);
+       vga_g <= i_VGA_G(i_VGA_G'high);
+       vga_b <= i_VGA_B(i_VGA_B'high);
+
+   end generate;
+
     --------------------------------------------------------
     -- Output Assignments
     --------------------------------------------------------
-
-    vga_r <= i_VGA_R(i_VGA_R'high);
-    vga_g <= i_VGA_G(i_VGA_G'high);
-    vga_b <= i_VGA_B(i_VGA_B'high);
-
-    -- gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & trace_data;
-
-    -- gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & not clock_48 & pll1_lock & not clock_27 & pll2_lock & hsync_ref & clkdiv_reset_n & "00";
 
     -- Toggle is a test output, for comparison with spdif_load
     process(clock_48)
@@ -1235,6 +1286,6 @@ begin
         end if;
     end process;
 
-    gpio <= psg_strobe & mixer_strobe & spdif_load & toggle;
+    --gpio <= psg_strobe & mixer_strobe & spdif_load & toggle;
 
 end architecture;

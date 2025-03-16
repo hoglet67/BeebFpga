@@ -15,15 +15,15 @@ IO_LOC  "btn2" 87;
 IO_PORT "btn2" PULL_MODE=DOWN;
 
 // Keyboard
-IO_LOC  "ps2_clk" 73;
+IO_LOC  "ps2_clk" 27;
 IO_PORT "ps2_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
-IO_LOC  "ps2_data" 74;
+IO_LOC  "ps2_data" 28;
 IO_PORT "ps2_data" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
 // Mouse
-IO_LOC  "ps2_mouse_clk" 75;
+IO_LOC  "ps2_mouse_clk" 25;
 IO_PORT "ps2_mouse_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
-IO_LOC  "ps2_mouse_data" 77;
+IO_LOC  "ps2_mouse_data" 26;
 IO_PORT "ps2_mouse_data" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
 // I2S Audio
@@ -88,26 +88,18 @@ IO_PORT "flash_so" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
 // 1 bit video 
 
-IO_LOC "vid_r_o" 27;
+IO_LOC "vid_r_o" 73;
 IO_PORT "vid_r_o" IO_TYPE=LVCMOS33 DRIVE=24;
 
-IO_LOC "vid_g_o" 28;
+IO_LOC "vid_g_o" 74;
 IO_PORT "vid_g_o" IO_TYPE=LVCMOS33 DRIVE=24;
 
-IO_LOC "vid_b_o" 25;
+IO_LOC "vid_b_o" 75;
 IO_PORT "vid_b_o" IO_TYPE=LVCMOS33 DRIVE=24;
 
-IO_LOC "vid_cs_o" 26;
+IO_LOC "vid_cs_o" 85;
 IO_PORT "vid_cs_o" IO_TYPE=LVCMOS33 DRIVE=24;
 
-IO_LOC "vid_chr_o" 29;
+IO_LOC "vid_chr_o" 77;
 IO_PORT "vid_chr_o" IO_TYPE=LVCMOS33 DRIVE=24;
 
-IO_LOC "vid_car_ry_o" 30;
-IO_PORT "vid_car_ry_o" IO_TYPE=LVCMOS33 DRIVE=24;
-
-//IO_LOC "vid_pal_sw_o" 31;
-//IO_PORT "vid_pal_sw_o" IO_TYPE=LVCMOS33 DRIVE=24;
-
-IO_LOC "vid_ry_o" 31;
-IO_PORT "vid_ry_o" IO_TYPE=LVCMOS33 DRIVE=24;

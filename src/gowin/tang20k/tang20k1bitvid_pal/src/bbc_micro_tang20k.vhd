@@ -83,6 +83,8 @@ entity bbc_micro_tang20k is
 
         spdif_clk       : in    std_logic;     -- 6.144MHz clock from the SI5351 CLK1 (pin 11)
 
+        chroma_clk      : in    std_logic;     -- 17.734475MHz chroma x4 clock for PAL
+
         btn1            : in    std_logic;     -- Toggle Master / Beeb modes
         btn2            : in    std_logic;     -- Toggle HDMI / DVI modes
         led             : out   std_logic_vector (5 downto 0);
@@ -115,6 +117,9 @@ entity bbc_micro_tang20k is
         vid_cs_o        : out   std_logic;
         vid_chr_o       : out   std_logic;
   		
+        -- debug 1 bit vide
+        car_ry_o        : out   std_logic;
+
   		-- I2S Audio
         i2s_bclk        : out   std_logic;
         i2s_lrclk       : out   std_logic;
@@ -351,21 +356,29 @@ architecture rtl of bbc_micro_tang20k is
 
 	-- 1 bit DAC
 
-    signal r_vid_r          : unsigned(3 downto 0);
-    signal r_vid_g          : unsigned(3 downto 0);
-    signal r_vid_b          : unsigned(3 downto 0);
+    constant C_VID_SAMPLE_SIZE  : natural := 5;
+    constant C_PEDESTAL         : natural := 8;
 
-    signal r2_vid_r         : unsigned(3 downto 0);
-    signal r2_vid_g         : unsigned(3 downto 0);
-    signal r2_vid_b         : unsigned(3 downto 0);
+    signal r0_vid_r         : unsigned(3 downto 0);
+    signal r0_vid_g         : unsigned(3 downto 0);
+    signal r0_vid_b         : unsigned(3 downto 0);
+
+    signal r_vid_r          : unsigned(C_VID_SAMPLE_SIZE-1 downto 0);
+    signal r_vid_g          : unsigned(C_VID_SAMPLE_SIZE-1 downto 0);
+    signal r_vid_b          : unsigned(C_VID_SAMPLE_SIZE-1 downto 0);
+
+    signal r2_vid_r         : unsigned(C_VID_SAMPLE_SIZE-1 downto 0);
+    signal r2_vid_g         : unsigned(C_VID_SAMPLE_SIZE-1 downto 0);
+    signal r2_vid_b         : unsigned(C_VID_SAMPLE_SIZE-1 downto 0);
 
     signal r_vid_req        : std_logic;
     signal r_vid_ack        : std_logic;
 
-    signal i_clk_216        : std_logic;
+    signal i_clk_dac        : std_logic;
 
-    signal i_chroma_s       : signed(3 downto 0);
-    signal r2_vid_chroma    : unsigned(3 downto 0);
+    signal i_chroma_s       : signed(4 downto 0);
+    signal r2_vid_chroma    : unsigned(4 downto 0);
+    signal i_clk_chroma_x4  : std_logic;
 
     -- 1MHz Bus
     signal ext_1mhz_clk    : std_logic; -- the system clock
@@ -382,6 +395,10 @@ architecture rtl of bbc_micro_tang20k is
 
     -- Test
     signal test            : std_logic_vector(7 downto 0);
+
+    -- debug keyboard
+
+    signal dbg_keyboard_state : std_logic_vector(3 downto 0);
 
 
 begin
@@ -421,6 +438,7 @@ begin
             ps2_kbd_data   => ps2_data,
             ps2_mse_clk    => ps2_mouse_clk,
             ps2_mse_data   => ps2_mouse_data,
+            dbg_keyboard_state => dbg_keyboard_state,
             video_red      => i_VGA_R,
             video_green    => i_VGA_G,
             video_blue     => i_VGA_B,
@@ -922,10 +940,13 @@ begin
                 data  => ws2812_din
                 );
 
-        led <= soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
-               test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
-               monitor_leds                       when IncludeMonitor               else
-               normal_leds;
+--        led <= soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
+--               test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
+--               monitor_leds                       when IncludeMonitor               else
+--               normal_leds;
+
+        led <= ("00" & dbg_keyboard_state) xor "111111";
+
 
         process(clock_48)
         begin
@@ -982,6 +1003,7 @@ begin
     NotGenLEDS: if not IncludeSoftLEDs generate
 
         led <= monitor_leds when IncludeMonitor else normal_leds;
+
         ws2812_din <= '0';
 
     end generate;
@@ -1013,42 +1035,52 @@ begin
     
     e_pll2: entity work.pll2v
     port map (
-        clkout => i_clk_216,
+        clkout => i_clk_dac,
         clkin => sys_clk
     );
 
 
     vid_cs_o <= not (i_VGA_hs xor i_VGA_vs); 
 
-    p_v1:process(clock_48)
+    p_v1:process(sys_clk)
+        function U(S : in std_logic) return unsigned is
+        variable r : unsigned(0 downto 0);
+        begin
+            r(0) := S;
+            return r;
+        end function U;
     begin
-        if rising_edge(clock_48) then
-            if i_VGA_CLKEN = '1' then
-                r_vid_r <= not unsigned(i_VGA_R);
-                r_vid_g <= not unsigned(i_VGA_G);
-                r_vid_b <= not unsigned(i_VGA_B);
+        if rising_edge(sys_clk) then
+            --if i_VGA_CLKEN = '1' then
+
+                r0_vid_r <= unsigned(i_VGA_R);
+                r0_vid_g <= unsigned(i_VGA_G);
+                r0_vid_b <= unsigned(i_VGA_B);
+
+                -- note inverted for analogue circuits
+                r_vid_r <= ("0" & r0_vid_r) + to_unsigned(C_PEDESTAL, r_vid_r'length); -- + resize(U(i_rnd_r), r_vid_r'length);                
+                r_vid_g <= ("0" & r0_vid_g) + to_unsigned(C_PEDESTAL, r_vid_g'length); -- + resize(U(i_rnd_r), r_vid_r'length);                
+                r_vid_b <= ("0" & r0_vid_b) + to_unsigned(C_PEDESTAL, r_vid_b'length); -- + resize(U(i_rnd_r), r_vid_r'length);                
+
+
                 if r_vid_req = '1' then
                     r_vid_req <= '0';
                 else
                     r_vid_req <= '1';
                 end if;
-            end if;
+            --end if;
         end if;
     end process;
 
-    p_v2:process(i_clk_216)
+    p_v2:process(i_clk_dac)
     variable v_vr2 : std_logic;
     begin
-        if rising_edge(i_clk_216) then
+        if rising_edge(i_clk_dac) then
             if v_vr2 /= r_vid_ack then
                 r2_vid_r <= r_vid_r;
                 r2_vid_g <= r_vid_g;
                 r2_vid_b <= r_vid_b;
-                if r_vid_ack = '1' then
-                    r_vid_ack <= '0';
-                else
-                    r_vid_ack <= '1';
-                end if;
+                r_vid_ack <= v_vr2;
             end if;
             v_vr2 := r_vid_req;
         end if;
@@ -1056,77 +1088,82 @@ begin
 
     e_vidr:entity work.dac_1bit
     generic map (
-        G_SAMPLE_SIZE       => 4,
+        G_SAMPLE_SIZE       => C_VID_SAMPLE_SIZE,
         G_SYNC_DEPTH        => 1,
         G_PWM               => FALSE
     )
     port map (
         rst_i               => not hard_reset_n,
-        clk_dac             => i_clk_216,
+        clk_dac             => i_clk_dac,
 
-        sample              => r2_vid_r,
+        sample              => not r2_vid_r,
         
         bitstream           => vid_r_o
     );
 
     e_vidg:entity work.dac_1bit
     generic map (
-        G_SAMPLE_SIZE       => 4,
+        G_SAMPLE_SIZE       => C_VID_SAMPLE_SIZE,
         G_SYNC_DEPTH        => 1,
         G_PWM               => FALSE
     )
     port map (
         rst_i               => not hard_reset_n,
-        clk_dac             => i_clk_216,
+        clk_dac             => i_clk_dac,
 
-        sample              => r2_vid_g,
+        sample              => not r2_vid_g,
         
         bitstream           => vid_g_o
     );
 
     e_vidb:entity work.dac_1bit
     generic map (
-        G_SAMPLE_SIZE       => 4,
+        G_SAMPLE_SIZE       => C_VID_SAMPLE_SIZE,
         G_SYNC_DEPTH        => 1,
         G_PWM               => FALSE
     )
     port map (
         rst_i               => not hard_reset_n,
-        clk_dac             => i_clk_216,
+        clk_dac             => i_clk_dac,
 
-        sample              => r2_vid_b,
+        sample              => not r2_vid_b,
         
         bitstream           => vid_b_o
     );
 
 
     e_chroma_gen:entity work.dossy_chroma
+    generic map (
+        G_USE_EXT_x4_CLK  => true
+
+        )
     port map (
 
-      clk_i    => clock_48,
+      clk_i             => clock_48,
+      clk_chroma_x4_i   => chroma_clk,
 
-      r_i      => unsigned(i_VGA_R),
-      g_i      => unsigned(i_VGA_G),
-      b_i      => unsigned(i_VGA_B),
+      r_i               => unsigned(i_VGA_R),
+      g_i               => unsigned(i_VGA_G),
+      b_i               => unsigned(i_VGA_B),
 
-      hs_i     => i_VGA_hs,
-      vs_i     => i_VGA_vs,
+      hs_i              => i_VGA_hs,
+      vs_i              => i_VGA_vs,
 
-      chroma_o => i_chroma_s,
+      chroma_o          => i_chroma_s,
+      clk_chroma_x4_o   => open,
 
-      car_ry_o => open,
 
-      pal_sw_o => open,
-
-      base_ry_o => open
+      car_ry_o          => car_ry_o,
+      pal_sw_o          => open,
+      base_ry_o         => open
    );
 
 
-    p_chrom_s2u:process(clock_48)
+    p_chrom_s2u:process(chroma_clk)
     begin
-        if rising_edge(clock_48) then
+        if rising_edge(chroma_clk) then
             
-            r2_vid_chroma <= to_unsigned(8+to_integer(i_chroma_s), 4);
+            r2_vid_chroma <= to_unsigned(16+to_integer(i_chroma_s), 5);
 
         end if;
 
@@ -1134,13 +1171,13 @@ begin
 
     e_chrom:entity work.dac_1bit
     generic map (
-        G_SAMPLE_SIZE       => 4,
+        G_SAMPLE_SIZE       => 5,
         G_SYNC_DEPTH        => 1,
         G_PWM               => FALSE
     )
     port map (
         rst_i               => not hard_reset_n,
-        clk_dac             => i_clk_216,
+        clk_dac             => i_clk_dac,
 
         sample              => r2_vid_chroma,
         

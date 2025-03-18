@@ -46,18 +46,19 @@ use work.common.all;
 
 entity dossy_chroma is
    generic (
-      G_BREEZE : natural := 40;
-      G_BURST  : natural := 100;
+      G_BREEZE          : natural := 40;
+      G_BURST           : natural := 100;
 
-      G_INBITS : natural := 4;
+      G_INBITS          : natural := 4;
 
-      G_OUTBITS: natural := 4;
+      G_OUTBITS         : natural := 5;
 
-      G_CLOCKSPEED : natural := 48000000;
+      G_CLOCKSPEED      : natural := 48000000;
 
-      G_PAL     : boolean := true;
-      G_CAR_DIV : natural := 709379;
-      G_CAR_NUM : natural := 1920000    -- PAL * 4 with 25Hz offset
+      G_USE_EXT_x4_CLK  : boolean := false;
+      G_PAL             : boolean := true;
+      G_CAR_DIV         : natural := 709379;
+      G_CAR_NUM         : natural := 1920000    -- PAL * 4 with 25Hz offset
 
 --      G_PAL     : boolean := true;
 --      G_CAR_DIV : natural := 1135;
@@ -69,21 +70,23 @@ entity dossy_chroma is
    );
    port (
 
-      clk_i       : in  std_logic;
+      clk_i             : in  std_logic;
+      clk_chroma_x4_i   : in  std_logic;
 
-      r_i         : in  unsigned(G_INBITS-1 downto 0);
-      g_i         : in  unsigned(G_INBITS-1 downto 0);
-      b_i         : in  unsigned(G_INBITS-1 downto 0);
+      r_i               : in  unsigned(G_INBITS-1 downto 0);
+      g_i               : in  unsigned(G_INBITS-1 downto 0);
+      b_i               : in  unsigned(G_INBITS-1 downto 0);
 
-      hs_i        : in  std_logic;
-      vs_i        : in  std_logic;
+      hs_i              : in  std_logic;
+      vs_i              : in  std_logic;
 
-      chroma_o    : out signed(G_OUTBITS-1 downto 0);
+      chroma_o          : out signed(G_OUTBITS-1 downto 0);
+      clk_chroma_x4_o   : out std_logic;
 
-      car_ry_o    : out std_logic;
-      pal_sw_o    : out std_logic;
-      base_by_o   : out signed(G_OUTBITS-1 downto 0);
-      base_ry_o   : out signed(G_OUTBITS-1 downto 0)
+      car_ry_o          : out std_logic;
+      pal_sw_o          : out std_logic;
+      base_by_o         : out signed(G_OUTBITS-1 downto 0);
+      base_ry_o         : out signed(G_OUTBITS-1 downto 0)
       
    );
 end dossy_chroma;
@@ -106,12 +109,15 @@ signal r_burst  : std_logic;
 
 signal r_pal_swich : std_logic := '0';
 
+signal i_clk_chroma_x4 : std_logic;
+
 begin
 
    car_ry_o <= r_car_ry;
    pal_sw_o <= r_pal_swich;
    base_by_o <= r_base_by;
    base_ry_o <= r_base_ry;
+   clk_chroma_x4_o <= i_clk_chroma_x4;
 
    p_ident:process(clk_i)
    variable vlast : std_logic;
@@ -127,24 +133,40 @@ begin
    end process;
 
 
-   p_chrom:process(clk_i)
-   constant div : natural := G_CAR_DIV;
-   constant num : natural := G_CAR_NUM;
-   variable r_acc : unsigned(numbits(num) downto 0) := (others => '0');
+   g_int_x4_clk:if not G_USE_EXT_x4_CLK generate
+
+      p_car_gen:process(clk_i)
+      constant div : natural := G_CAR_DIV;
+      constant num : natural := G_CAR_NUM;
+      variable r_acc : unsigned(numbits(num) downto 0) := (others => '0');
+      begin
+         if rising_edge(clk_i) then
+            r_acc := r_acc + div;
+            if r_acc >= num then
+               r_acc := r_acc - num;
+               i_clk_chroma_x4 <= '1';
+            else
+               i_clk_chroma_x4 <= '0';
+            end if;
+         end if;
+      end process;
+   end generate;
+
+   g_ext_x4_clk:if G_USE_EXT_x4_CLK generate
+      i_clk_chroma_x4 <= clk_chroma_x4_i;
+   end generate;
+
+
+   p_quad_gen:process(i_clk_chroma_x4)
    variable vsr_by : std_logic_vector(3 downto 0) := "1100";
    variable vsr_ry : std_logic_vector(3 downto 0) := "1001";
    begin
-      if rising_edge(clk_i) then
-         r_acc := r_acc + div;
+      if rising_edge(i_clk_chroma_x4) then
          r_car_by <= vsr_by(0);
          r_car_ry <= vsr_ry(0) xor r_pal_swich;
-         if r_acc >= num then
-            r_acc := r_acc - num;
-            vsr_by := vsr_by(2 downto 0) & vsr_by(3);
-            vsr_ry := vsr_ry(2 downto 0) & vsr_ry(3);
-         end if;
+         vsr_by := vsr_by(2 downto 0) & vsr_by(3);
+         vsr_ry := vsr_ry(2 downto 0) & vsr_ry(3);
       end if;
-
    end process;
 
 
@@ -178,7 +200,7 @@ begin
             if G_PAL then
                r_base_by <= to_signed(-2, r_base_by'length);
             else
-               r_base_by <= to_signed(-3, r_base_by'length);
+               r_base_by <= to_signed(-6, r_base_by'length);
             end if;
          else
             r_base_by <= to_signed(to_integer(
@@ -186,7 +208,7 @@ begin
                   (to_signed(to_integer(r_i), 10 + G_INBITS+1) * (-37))
                +  (to_signed(to_integer(g_i), 10 + G_INBITS+1) * (-73))
                +  (to_signed(to_integer(b_i), 10 + G_INBITS+1) * (111))
-               , 9)),
+               , 8)),
                r_base_by'length
                );
          end if;
@@ -208,16 +230,16 @@ begin
                   (to_signed(to_integer(r_i), 10 + G_INBITS+1) * (157))
                +  (to_signed(to_integer(g_i), 10 + G_INBITS+1) * (-132))
                +  (to_signed(to_integer(b_i), 10 + G_INBITS+1) * (-25))
-               , 9)),
+               , 8)),
                r_base_ry'length
                );
          end if;
       end if;
    end process;
 
-   p_mod_ry:process(clk_i)
+   p_mod_ry:process(i_clk_chroma_x4)
    begin
-      if rising_edge(clk_i) then
+      if rising_edge(i_clk_chroma_x4) then
          if r_car_ry = '1' then
             r_mod_ry <= r_base_ry;
          else
@@ -226,9 +248,9 @@ begin
       end if;
    end process;
 
-   p_mod_by:process(clk_i)
+   p_mod_by:process(i_clk_chroma_x4)
    begin
-      if rising_edge(clk_i) then
+      if rising_edge(i_clk_chroma_x4) then
          if r_car_by = '1' then
             r_mod_by <= r_base_by;
          else
@@ -237,9 +259,9 @@ begin
       end if;
    end process;
 
-   p_sum:process(clk_i)
+   p_sum:process(i_clk_chroma_x4)
    begin
-      if rising_edge(clk_i) then
+      if rising_edge(i_clk_chroma_x4) then
          chroma_o <= r_mod_by + r_mod_ry;
       end if;
    end process;

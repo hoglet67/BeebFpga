@@ -72,7 +72,7 @@ architecture rtl of mem_tang_20k is
         return arr;
     end function;
 
-    signal r_mem_rom : mem_mos_t;-- := MEM_INIT_FILE(PRJ_ROOT & MOS_NAME);
+    signal r_mem_rom : mem_mos_t := MEM_INIT_FILE(PRJ_ROOT & MOS_NAME);
     signal r_mem_ram : mem_ram_t;
 
     -- from bootstrap to bsram controller

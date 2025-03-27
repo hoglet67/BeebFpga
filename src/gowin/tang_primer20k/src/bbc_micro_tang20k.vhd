@@ -1,4 +1,4 @@
--- BBC Master / BBC B for the Tang Nano 20K
+-- BBC Master / BBC B for the Tang Primer 20K
 --
 -- Copright (c) 2025 Dominic Beesley
 -- Copright (c) 2025 David Banks
@@ -50,22 +50,23 @@ use work.sample_rate_converter_pkg.all;
 
 entity bbc_micro_tang20k is
     generic (
-        IncludeMaster          : boolean := true; -- if both included, the CPU is the AlanD 65C02
-        IncludeBeeb            : boolean := true; -- and btn1 can toggle between the ROM images
-        IncludeAMXMouse        : boolean := false;
-        IncludeSPISD           : boolean := true;
-        IncludeSID             : boolean := true;
+        IncludeMaster      : boolean := false; -- if both included, the CPU is the AlanD 65C02
+        IncludeBeeb        : boolean := true; -- and btn1 can toggle between the ROM images
+
+        IncludeAMXMouse    : boolean := false;
+        IncludeSPISD       : boolean := true;
+        IncludeSID         : boolean := true;
         IncludeMusic5000       : boolean := true;
         IncludeMusic5000Filter : boolean := true; -- Music 5000 Low Pass IIR Filter
         IncludeMusic5000SPDIF  : boolean := true; -- Music 5000 20-bit SPDIF Output
-        IncludeMixerResampler  : boolean := true;
+        IncludeMixerResampler  : boolean := false;                      -- TODO: DB: runs out of resources
         IncludeICEDebugger     : boolean := G_CONFIG_DEBUGGER;
-        IncludeVideoNuLA       : boolean := true;
-        IncludeTrace           : boolean := true;
-        IncludeHDMI            : boolean := true;
-        IncludeBootStrap       : boolean := true;
-        IncludeMonitor         : boolean := false; -- So we see the normal status LEDs
-        IncludeCoPro6502       : boolean := true;
+        IncludeVideoNuLA   : boolean := true;
+        IncludeTrace       : boolean := false;
+        IncludeHDMI        : boolean := true;
+        IncludeBootStrap   : boolean := true;
+        IncludeMonitor     : boolean := true;
+        IncludeCoPro6502       : boolean := false;
         IncludeSoftLEDs        : boolean := true;
         IncludeI2SAudio        : boolean := true;
 
@@ -73,24 +74,17 @@ entity bbc_micro_tang20k is
         DefaultVolume          : integer := 10; -- -30dB
         MaxVolume              : integer := 20; --   0dB
 
-        PRJ_ROOT               : string  := "../../../..";
-        MOS_NAME               : string  := "/roms/bbcb/os12_basic.bit";
-        SIM                    : boolean := false
+        PRJ_ROOT           : string  := "../../../..";
+        --MOS_NAME           : string  := "/roms/bbcb/os12x3.bit";
+        MOS_NAME           : string  := "/roms/bbcb/os_tester3x.bit";
+        SIM                : boolean := false
         );
     port (
-        sys_clk         : in    std_logic;     -- 27MHz clock from the oscillator (pin 4)
-                                               -- or from the SI5351 CLK1 (pin 10)
-
-        spdif_clk       : in    std_logic;     -- 6.144MHz clock from the SI5351 CLK1 (pin 11)
-
-        btn1            : in    std_logic;     -- Toggle Master / Beeb modes
-        btn2            : in    std_logic;     -- Toggle HDMI / DVI modes
+        sys_clk         : in    std_logic;
+        btn1_n          : in    std_logic;     -- Toggle Master / Beeb modes
+        btn2_n          : in    std_logic;     -- Toggle HDMI / DVI modes
+        btn3_n          : in    std_logic;
         led             : out   std_logic_vector (5 downto 0);
-        ws2812_din      : out   std_logic;
-
-
-        -- Test/GPIO
-        gpio            : out   std_logic_vector(3 downto 0);
 
         -- Keyboard / Mouse
         ps2_clk         : inout std_logic;
@@ -127,24 +121,6 @@ entity bbc_micro_tang20k is
         i2s_din         : out   std_logic;
         pa_en           : out   std_logic;
 
-        -- SPDIF Audio
-        audio_spdif     : out   std_logic;
-
-        -- Magic ports for SDRAM to be inferred
-        O_sdram_clk     : out   std_logic;
-        O_sdram_cke     : out   std_logic;
-        O_sdram_cs_n    : out   std_logic;
-        O_sdram_cas_n   : out   std_logic;
-        O_sdram_ras_n   : out   std_logic;
-        O_sdram_wen_n   : out   std_logic;
-        IO_sdram_dq     : inout std_logic_vector(31 downto 0);
-        O_sdram_addr    : out   std_logic_vector(10 downto 0);
-        O_sdram_ba      : out   std_logic_vector(1 downto 0);
-        O_sdram_dqm     : out   std_logic_vector(3 downto 0);
-
-        -- A general purpose 14-bit bus, that we can use for several functions such as 6502 tracing
-        -- Bits 12/13 double as audio
-        -- gpio            : out   std_logic_vector(13 downto 0);
 
         -- SPI Flash (for ROM data)
         flash_cs        : out   std_logic;     -- Active low FLASH chip select
@@ -155,6 +131,8 @@ entity bbc_micro_tang20k is
 end entity;
 
 architecture rtl of bbc_micro_tang20k is
+
+
 
     --------------------------------------------------------
     -- FPGA Primitive Components
@@ -248,19 +226,11 @@ architecture rtl of bbc_micro_tang20k is
         );
     end component;
 
-    component ws2812
-        port (
-            clk : in std_logic;
-            color : in std_logic_vector(23 downto 0);
-            data : out std_logic
-        );
-    end component;
-
     --------------------------------------------------------
     -- Functions
     --------------------------------------------------------
 
-    function VOLUME_FN(log : in natural) return natural is
+function VOLUME_FN(log : in natural) return natural is
     begin
         case log is
             when  1 => return    1;
@@ -328,14 +298,7 @@ architecture rtl of bbc_micro_tang20k is
     signal m5k_audio_r     : signed(17 downto 0);
     signal m5k_strobe      : std_logic;
     signal mixer_strobe    : std_logic;
-    signal mixer_spdif     : std_logic;
-
-    ---test output toggled by the mixer_strobe (system clock domain)
-    -- for comparison with spdif_load
-    signal toggle          : std_logic := '0';
-
-    -- output used to load sample into SPDIF (spdif clock domain)
-    signal spdif_load      : std_logic;
+    signal i2s_clk         : std_logic;
 
     signal config_counter  : std_logic_vector(21 downto 0);
     signal config_last     : std_logic;
@@ -366,7 +329,6 @@ architecture rtl of bbc_micro_tang20k is
     signal i_VGA_G         : std_logic_vector(3 downto 0);
     signal i_VGA_B         : std_logic_vector(3 downto 0);
 
-
     -- HDMI
     signal hdmi_aspect     : std_logic_vector(1 downto 0);
     signal hdmi_audio_en   : std_logic := '1';
@@ -389,8 +351,9 @@ architecture rtl of bbc_micro_tang20k is
     signal monitor_leds    :   std_logic_vector(5 downto 0);
 
     -- HDMI PLL synchronization
-    signal hsync_ref       : std_logic;
-    signal hsync_del       : std_logic_vector(4 downto 0) := (others => '0');
+    signal hsync_ref : std_logic;
+    signal hsync_del : std_logic_vector(4 downto 0) := (others => '0');
+
     signal clkdiv_reset_n  : std_logic := '0';
     signal pll1_lock       : std_logic;
     signal pll2_lock       : std_logic;
@@ -419,40 +382,40 @@ begin
 
     bbc_micro : entity work.bbc_micro_core
         generic map (
-            IncludeAMXMouse        => IncludeAMXMouse,
-            IncludeSPISD           => IncludeSPISD,
-            IncludeSID             => IncludeSID,
-            IncludeMusic5000       => IncludeMusic5000,
+            IncludeAMXMouse    => IncludeAMXMouse,
+            IncludeSPISD       => IncludeSPISD,
+            IncludeSID         => IncludeSID,
+            IncludeMusic5000   => IncludeMusic5000,
             IncludeMusic5000Filter => IncludeMusic5000Filter,
             IncludeMusic5000SPDIF  => IncludeMusic5000SPDIF,
             IncludeICEDebugger     => IncludeICEDebugger,
             IncludeCoPro6502       => IncludeCoPro6502,
-            IncludeCoProSPI        => false,
-            IncludeCoProExt        => false,
-            IncludeVideoNuLA       => IncludeVideoNuLA,
-            IncludeTrace           => IncludeTrace,
-            IncludeHDMI            => IncludeHDMI,
-            UseOrigKeyboard        => false,
-            UseT65Core             => not IncludeMaster,
-            UseAlanDCore           => IncludeMaster
+            IncludeCoProSPI    => false,
+            IncludeCoProExt    => false,
+            IncludeVideoNuLA   => IncludeVideoNuLA,
+            IncludeTrace       => IncludeTrace,
+            IncludeHDMI        => IncludeHDMI,
+            UseOrigKeyboard    => false,
+            UseT65Core         => not IncludeMaster,
+            UseAlanDCore       => IncludeMaster
         )
         port map (
-            clock_27        => clock_27,
-            clock_32        => '0',                 -- Unused now in the core
-            clock_48        => clock_48,
-            clock_96        => clock_96,
+            clock_27       => clock_27,
+            clock_32       => '0',                 -- Unused now in the core
+            clock_48       => clock_48,
+            clock_96       => clock_96,
             clock_avr       => clock_24,
-            hard_reset_n    => hard_reset_n,
+            hard_reset_n   => hard_reset_n,
             powerup_reset_n => powerup_reset_n,
-            ps2_kbd_clk     => ps2_clk,
-            ps2_kbd_data    => ps2_data,
-            ps2_mse_clk     => ps2_mouse_clk,
-            ps2_mse_data    => ps2_mouse_data,
-            video_red       => i_VGA_R,
-            video_green     => i_VGA_G,
-            video_blue      => i_VGA_B,
-            video_hsync     => vga_hs,
-            video_vsync     => vga_vs,
+            ps2_kbd_clk    => ps2_clk,
+            ps2_kbd_data   => ps2_data,
+            ps2_mse_clk    => ps2_mouse_clk,
+            ps2_mse_data   => ps2_mouse_data,
+            video_red      => i_VGA_R,
+            video_green    => i_VGA_G,
+            video_blue     => i_VGA_B,
+            video_hsync    => vga_hs,
+            video_vsync    => vga_vs,
             audio_l         => audio_l_legacy,
             audio_r         => audio_r_legacy,
             hdmi_audio_ext  => '1',
@@ -467,54 +430,54 @@ begin
             m5k_audio_r     => m5k_audio_r,
             m5k_strobe      => m5k_strobe,
             m5k_spdif       => m5k_spdif,
-            ext_nOE         => ext_nOE,
-            ext_nWE         => ext_nWE,
-            ext_nWE_long    => ext_nWE_long,
-            ext_nCS         => ext_nCS,
-            ext_A           => ext_A,
-            ext_A_stb       => ext_A_stb,
-            ext_Dout        => ext_Dout,
-            ext_Din         => ext_Din,
-            SDMISO          => tf_miso,
-            SDSS            => tf_cs,
-            SDCLK           => tf_sclk,
-            SDMOSI          => tf_mosi,
-            caps_led        => caps_led,
-            shift_led       => shift_led,
-            keyb_dip        => keyb_dip,
-            ext_keyb_led1   => open,
-            ext_keyb_led2   => open,
-            ext_keyb_led3   => open,
-            ext_keyb_1mhz   => open,
-            ext_keyb_en_n   => open,
-            ext_keyb_pa     => open,
-            ext_keyb_rst_n  => '1',
-            ext_keyb_ca2    => '0',
-            ext_keyb_pa7    => '0',
+            ext_nOE        => ext_nOE,
+            ext_nWE        => ext_nWE,
+            ext_nWE_long   => ext_nWE_long,
+            ext_nCS        => ext_nCS,
+            ext_A          => ext_A,
+            ext_A_stb      => ext_A_stb,
+            ext_Dout       => ext_Dout,
+            ext_Din        => ext_Din,
+            SDMISO         => tf_miso,
+            SDSS           => tf_cs,
+            SDCLK          => tf_sclk,
+            SDMOSI         => tf_mosi,
+            caps_led       => caps_led,
+            shift_led      => shift_led,
+            keyb_dip       => keyb_dip,
+            ext_keyb_led1  => open,
+            ext_keyb_led2  => open,
+            ext_keyb_led3  => open,
+            ext_keyb_1mhz  => open,
+            ext_keyb_en_n  => open,
+            ext_keyb_pa    => open,
+            ext_keyb_rst_n => '1',
+            ext_keyb_ca2   => '0',
+            ext_keyb_pa7   => '0',
             config          => config,
-            vid_mode        => vid_mode,
-            joystick1       => (others => '1'),
-            joystick2       => (others => '1'),
-            avr_reset       => not hard_reset_n,
-            avr_RxD         => uart_rx,
-            avr_TxD         => uart_tx,
-            cpu_addr        => open,
-            m128_mode       => m128_mode,
+            vid_mode       => vid_mode,
+            joystick1      => (others => '1'),
+            joystick2      => (others => '1'),
+            avr_reset      => not hard_reset_n,
+            avr_RxD        => uart_rx,
+            avr_TxD        => uart_tx,
+            cpu_addr       => open,
+            m128_mode      => m128_mode,
             copro_mode      => copro_mode,
-            p_spi_ssel      => '0',
-            p_spi_sck       => '0',
-            p_spi_mosi      => '0',
-            p_spi_miso      => open,
-            p_irq_b         => open,
-            p_nmi_b         => open,
-            p_rst_b         => open,
-            ext_tube_r_nw   => open,
-            ext_tube_nrst   => open,
-            ext_tube_ntube  => open,
-            ext_tube_phi2   => open,
-            ext_tube_a      => open,
-            ext_tube_di     => open,
-            ext_tube_do     => (others => '0'),
+            p_spi_ssel     => '0',
+            p_spi_sck      => '0',
+            p_spi_mosi     => '0',
+            p_spi_miso     => open,
+            p_irq_b        => open,
+            p_nmi_b        => open,
+            p_rst_b        => open,
+            ext_tube_r_nw  => open,
+            ext_tube_nrst  => open,
+            ext_tube_ntube => open,
+            ext_tube_phi2  => open,
+            ext_tube_a     => open,
+            ext_tube_di    => open,
+            ext_tube_do    => (others => '0'),
             ext_1mhz_clken  => ext_1mhz_clken, -- a 1MHz strobe, valid for one system clock cycle
             ext_1mhz_nrst   => ext_1mhz_nrst,
             ext_1mhz_pgfc_n => ext_1mhz_pgfc_n,
@@ -525,18 +488,18 @@ begin
             ext_1mhz_do     => ext_1mhz_do,
             ext_1mhz_irq_n  => open,
             ext_1mhz_nmi_n  => open,
-            hdmi_aspect     => hdmi_aspect,
-            hdmi_audio_en   => hdmi_audio_en,
-            vid_debug       => vid_debug,
-            tmds_r          => tmds_r,
-            tmds_g          => tmds_g,
-            tmds_b          => tmds_b,
+            hdmi_aspect    => hdmi_aspect,
+            hdmi_audio_en  => hdmi_audio_en,
+            vid_debug      => vid_debug,
+            tmds_r         => tmds_r,
+            tmds_g         => tmds_g,
+            tmds_b         => tmds_b,
             hsync_ref       => hsync_ref,
-            trace_data      => trace_data,
-            trace_r_nw      => trace_r_nw,
-            trace_sync      => trace_sync,
-            trace_rstn      => trace_rstn,
-            trace_phi2      => trace_phi2,
+            trace_data     => trace_data,
+            trace_r_nw     => trace_r_nw,
+            trace_sync     => trace_sync,
+            trace_rstn     => trace_rstn,
+            trace_phi2     => trace_phi2,
             test            => test
         );
 
@@ -555,7 +518,7 @@ begin
     pll1 : rPLL
         generic map (
             FCLKIN => "27",
-            DEVICE => "GW2AR-18C",
+            DEVICE => "GW2A-18C",
             IDIV_SEL => 8,
             FBDIV_SEL => 31,
             ODIV_SEL => 8,
@@ -583,7 +546,7 @@ begin
     pll2 : rPLL
         generic map (
             FCLKIN => "27",
-            DEVICE => "GW2AR-18C",
+            DEVICE => "GW2A-18C",
             IDIV_SEL => 0,
             FBDIV_SEL => 4,
             ODIV_SEL => 8
@@ -642,6 +605,7 @@ begin
         end if;
     end process;
 
+
     --------------------------------------------------------
     -- Button 1: Power Up Reset and Master/Beeb toggle
     --------------------------------------------------------
@@ -652,7 +616,7 @@ begin
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if (btn1 = '1') then
+            if (btn1_n = '0') then
                 reset_counter <= (others => '0');
             elsif (reset_counter(reset_counter'high) = '0') then
                 reset_counter <= reset_counter + 1;
@@ -703,8 +667,9 @@ begin
     begin
         if rising_edge(clock_48) then
             if powerup_reset_n = '0' then
+                hdmi_audio_en <= '1';
                 config_counter <= (others => '0');
-            elsif btn2 = '1' then
+            elsif btn2_n = '0' then
                 config_counter <= (others => '1');
             elsif config_counter(config_counter'high) = '1' then
                 config_counter <= config_counter - 1;
@@ -723,7 +688,7 @@ begin
                 end if;
             end if;
             if config(3) = '1' then
-                m5k_spdif_en <= not m5k_spdif_en;
+--                m5k_spdif_en <= not m5k_spdif_en;
             end if;
             if config(4) = '1' then
                 m5k_filter_en <= not m5k_filter_en;
@@ -787,51 +752,6 @@ begin
                 mixer_r           => mixer_r
                 );
 
-        -- process(clock_48)
-        -- begin
-        --     if rising_edge(clock_48) then
-        --         div8 <= div8 + 1;
-        --         if div8 = 0 then
-        --             mhz6_clken <= '1';
-        --         else
-        --             mhz6_clken <= '0';
-        --         end if;
-        --         -- Sync mixer strobe to local mhz6_clken
-        --         if mixer_strobe = '1' then
-        --             spdif_load <= '1';
-        --         elsif mhz6_clken = '1' then
-        --             spdif_load <= '0';
-        --         end if;
-        --     end if;
-        -- end process;
-
-        spdif_in <= std_logic_vector(mixer_l when channelA = '1' else mixer_r);
-
-        process(spdif_clk)
-        begin
-            if rising_edge(spdif_clk) then
-                div64 <= div64 + 1;
-                if div64 = 0 then
-                    spdif_load <= '1';
-                else
-                    spdif_load <= '0';
-                end if;
-            end if;
-        end process;
-
-        spdif_serialize: entity work.spdif_serializer
-            port map (
-                clk          => spdif_clk,
-                clken        => '1',
-                auxAudioBits => (others => '0'),
-                sample       => spdif_in,
-                load         => spdif_load,
-                channelA     => channelA,
-                spdifOut     => mixer_spdif
-                );
-
-
-        audio_spdif  <= m5k_spdif when m5k_spdif_en = '1' else mixer_spdif;
         audio_l      <= std_logic_vector(mixer_l(19 downto 4));
         audio_r      <= std_logic_vector(mixer_r(19 downto 4));
         hdmi_audio_l <= audio_l when hdmi_audio_src = '1' else audio_l_legacy;
@@ -841,7 +761,7 @@ begin
 
     gen_no_resampler: if not IncludeMixerResampler generate
 
-        audio_spdif  <= m5k_spdif;
+--        audio_spdif  <= m5k_spdif;
         audio_l      <= audio_l_legacy;
         audio_r      <= audio_r_legacy;
         hdmi_audio_l <= audio_r_legacy;
@@ -881,7 +801,7 @@ begin
             reset => '0',
             dac_i => dac_r_in,
             dac_o => audior
-        );
+            );
 
     --------------------------------------------------------
     -- HDMI Output
@@ -1017,11 +937,29 @@ begin
     end generate;
 
     --------------------------------------------------------
-    -- I2S Audio Usimg On-Board MAX98357A
+    -- I2S Audio Using On-Board PT8211 DAC
     --------------------------------------------------------
 
     gen_i2s : if IncludeI2SAudio generate
     begin
+	    --TODO: DB: make a cheap and jittery 6.144M clock
+	    --TODO: DB: this will have a lot of jitter on each bit but should be solid on each word - test THD at output
+	    p_i2s_clk_gen:process(clock_96)
+	    constant div : natural := 8;
+	    constant num : natural := 125;
+	    variable r_acc : unsigned(6 downto 0) := (others => '0');
+	    begin
+	        if rising_edge(clock_96) then
+	            r_acc := r_acc + div;
+	            if r_acc >= num then
+	                r_acc := r_acc - num;
+	                i2s_clk <= '1';
+	            else
+	                i2s_clk <= '0';
+	            end if;
+	        end if;
+	    end process;
+
         i2s : entity work.i2s_simple
             generic map (
                 ATTENUATE  => 2,         -- Attenuate by two bits, otherwise it's way too loud!
@@ -1029,7 +967,7 @@ begin
                 SAMPLERATE => 48000      -- Output sample rate of new audio resampler
                 )
             port map (
-                clock      => spdif_clk,
+                clock      => i2s_clk,
                 reset_n    => powerup_reset_n,
                 audio_l    => audio_l,
                 audio_r    => audio_r,
@@ -1048,7 +986,7 @@ begin
     end generate;
 
     --------------------------------------------------------
-    -- SDRAM Memory Controller
+    -- ??? Memory Controller
     --------------------------------------------------------
 
     e_mem: entity work.mem_tang_20k
@@ -1057,16 +995,16 @@ begin
             IncludeMonitor => IncludeMonitor,
             IncludeBootStrap => IncludeBootStrap,
             IncludeMinimalBeeb => true,
-            IncludeMinimalMaster => false,
+            IncludeMinimalMaster => true,
             PRJ_ROOT => PRJ_ROOT,
             MOS_NAME => MOS_NAME
         )
         port map (
             m128_mode      => m128_mode,
+            CLK_96         => clock_96,
+            CLK_96_P       => clock_96_p,
             RST_n          => powerup_reset_n,
             READY          => mem_ready,
-            CLK_96         => clock_96,
-            CLK_96_p       => clock_96_p,
             CLK_48         => clock_48,
             core_A_stb     => ext_A_stb,
             core_A         => ext_A,
@@ -1076,17 +1014,6 @@ begin
             core_nWE       => ext_nWE,
             core_nWE_long  => ext_nWE_long,
             core_nOE       => ext_nOE,
-
-            O_sdram_clk    => O_sdram_clk     ,
-            O_sdram_cke    => O_sdram_cke     ,
-            O_sdram_cs_n   => O_sdram_cs_n    ,
-            O_sdram_cas_n  => O_sdram_cas_n   ,
-            O_sdram_ras_n  => O_sdram_ras_n   ,
-            O_sdram_wen_n  => O_sdram_wen_n   ,
-            IO_sdram_dq    => IO_sdram_dq     ,
-            O_sdram_addr   => O_sdram_addr    ,
-            O_sdram_ba     => O_sdram_ba      ,
-            O_sdram_dqm    => O_sdram_dqm     ,
 
             led            => monitor_leds,
 
@@ -1100,59 +1027,59 @@ begin
     -- 1MHz Bus LEDs
     --------------------------------------------------------
 
-    normal_leds <= (caps_led & shift_led & m5k_spdif_en & m5k_filter_en & hdmi_audio_src & hdmi_audio_en) xor "111111";
+    normal_leds <= (caps_led & shift_led & m128_mode & m5k_filter_en & hdmi_audio_src & hdmi_audio_en) xor "111111";
 
-    GenLEDS: if IncludeSoftLEDs generate
-        signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
-        signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
-        signal ws2812_g        : std_logic_vector(7 downto 0) := (others => '0');
-        signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
+--    GenLEDS: if IncludeSoftLEDs generate
+--        signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
+--        signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
+--        signal ws2812_g        : std_logic_vector(7 downto 0) := (others => '0');
+--        signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
 
-        function bit_reverse (a: in std_logic_vector)
-            return std_logic_vector is
-            variable result: std_logic_vector(a'RANGE);
-            alias aa: std_logic_vector(a'REVERSE_RANGE) is a;
-        begin
-            for i in aa'RANGE loop
-                result(i) := aa(i);
-            end loop;
-            return result;
-        end;
+--        function bit_reverse (a: in std_logic_vector)
+--            return std_logic_vector is
+--            variable result: std_logic_vector(a'RANGE);
+--            alias aa: std_logic_vector(a'REVERSE_RANGE) is a;
+--        begin
+--            for i in aa'RANGE loop
+--                result(i) := aa(i);
+--            end loop;
+--            return result;
+--        end;
 
-    begin
+--    begin
 
-        -- This module is in Verilog and comes from MisteryNano
-        inst_ws2812 : entity work.ws2812
-            port map (
-                clk   => clock_48,
-                color => bit_reverse(ws2812_g & ws2812_r & ws2812_b),
-                data  => ws2812_din
-                );
-
-        led <= soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
-               test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
+--        -- This module is in Verilog and comes from MisteryNano
+--        inst_ws2812 : entity work.ws2812
+--            port map (
+--                clk   => clock_48,
+--                color => bit_reverse(ws2812_g & ws2812_r & ws2812_b),
+--                data  => ws2812_din
+--                );
+--
+        led <= --soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
+               --test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
                monitor_leds                       when IncludeMonitor               else
                normal_leds;
-
+--
         process(clock_48)
         begin
             if rising_edge(clock_48) then
                 if ext_1mhz_clken = '1' then
                     if ext_1mhz_nrst = '0' then
-                        soft_leds <= x"00";
-                        ws2812_r  <= x"00";
-                        ws2812_g  <= x"00";
-                        ws2812_b  <= x"00";
+--                        soft_leds <= x"00";
+--                        ws2812_r  <= x"00";
+--                        ws2812_g  <= x"00";
+--                        ws2812_b  <= x"00";
                     elsif ext_1mhz_pgfc_n = '0' and ext_1mhz_r_nw = '0' then
                         case ext_1mhz_addr is
-                            when x"50" =>
-                                soft_leds <= ext_1mhz_di;
-                            when x"51" =>
-                                ws2812_r  <= ext_1mhz_di;
-                            when x"52" =>
-                                ws2812_g  <= ext_1mhz_di;
-                            when x"53" =>
-                                ws2812_b  <= ext_1mhz_di;
+--                            when x"50" =>
+--                                soft_leds <= ext_1mhz_di;
+--                            when x"51" =>
+--                                ws2812_r  <= ext_1mhz_di;
+--                            when x"52" =>
+--                                ws2812_g  <= ext_1mhz_di;
+--                            when x"53" =>
+--                                ws2812_b  <= ext_1mhz_di;
                             when x"54" =>
                                 if ext_1mhz_di > MaxVolume then
                                     volume <= to_unsigned(MaxVolume, volume'length);
@@ -1177,44 +1104,30 @@ begin
             end if;
         end process;
 
-        ext_1mhz_do <=  soft_leds when ext_1mhz_addr = x"50" else
-                         ws2812_r when ext_1mhz_addr = x"51" else
-                         ws2812_g when ext_1mhz_addr = x"52" else
-                         ws2812_b when ext_1mhz_addr = x"53" else
+        ext_1mhz_do <=  
+--                         soft_leds when ext_1mhz_addr = x"50" else
+--                         ws2812_r when ext_1mhz_addr = x"51" else
+--                         ws2812_g when ext_1mhz_addr = x"52" else
+--                         ws2812_b when ext_1mhz_addr = x"53" else
  "000" & std_logic_vector(volume) when ext_1mhz_addr = x"54" else
                        x"FF";
 
-    end generate;
+--    end generate;
 
-    NotGenLEDS: if not IncludeSoftLEDs generate
-
-        led <= monitor_leds when IncludeMonitor else normal_leds;
-        ws2812_din <= '0';
-
-    end generate;
+--    NotGenLEDS: if not IncludeSoftLEDs generate
+--
+--        led <= monitor_leds when IncludeMonitor else normal_leds;
+--        ws2812_din <= '0';
+--
+--    end generate;
 
     --------------------------------------------------------
     -- Output Assignments
     --------------------------------------------------------
 
-    vga_r <= i_VGA_R(i_VGA_R'high);
-    vga_g <= i_VGA_G(i_VGA_G'high);
-    vga_b <= i_VGA_B(i_VGA_B'high);
+    vga_r <= not i_VGA_R(i_VGA_R'high);
+    vga_g <= not i_VGA_G(i_VGA_G'high);
+    vga_b <= not i_VGA_B(i_VGA_B'high);
 
-    -- gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & trace_data;
-
-    -- gpio <= audiol & audior & trace_rstn & trace_phi2 & trace_sync & trace_r_nw & not clock_48 & pll1_lock & not clock_27 & pll2_lock & hsync_ref & clkdiv_reset_n & "00";
-
-    -- Toggle is a test output, for comparison with spdif_load
-    process(clock_48)
-    begin
-        if rising_edge(clock_48) then
-            if mixer_strobe = '1' then
-                toggle <= not toggle;
-            end if;
-        end if;
-    end process;
-
-    gpio <= psg_strobe & mixer_strobe & spdif_load & toggle;
-
+   
 end architecture;

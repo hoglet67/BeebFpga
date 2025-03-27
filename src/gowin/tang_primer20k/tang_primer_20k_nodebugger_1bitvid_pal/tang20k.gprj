@@ -1,0 +1,75 @@
+<?xml version="1" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW2A-18C" pn="GW2A-LV18PG256C8/I7">gw2a18c-011</Device>
+    <FileList>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/hp_byte.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/hp_bytequad.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/hp_flag_m.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/hp_reg3.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/ph_byte.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/ph_bytequad.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/ph_flag_m.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/ph_reg3.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/tube.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/hdmi/hdmidataencoder.v" type="file.verilog" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/AtomBusMon/src/T6502/T65.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/AtomBusMon/src/T6502/T65_ALU.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/AtomBusMon/src/T6502/T65_MCode.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/AtomBusMon/src/T6502/T65_Pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/1bitvideo/dac_1bit.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/1bitvideo/dossy_chroma.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/CoPro6502.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/SID/sid_coeffs.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/SID/sid_components.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/SID/sid_filters.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/SID/sid_voice.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/tube_comp_pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/audioresampler/buffer_ram.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/audioresampler/coeff_rom.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/audioresampler/sample_rate_converter.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/audioresampler/sample_rate_converter_pkg.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/bbc_micro_core.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/hdmi/encoder.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/hdmi/hdmi.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/hdmi/hdmidelay.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/keyboard.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/m6522.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/mc6845.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/mouse/ps2interface.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/mouse/quadrature_controller.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/mouse/quadrature_fsm.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/music5000/LogLinRom.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/music5000/Music5000.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/music5000/iir_filter.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/music5000/spdif_serializer.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/rtc.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/saa5050.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/scandoubler/mist_scandoubler.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/scandoubler/retimer.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/scandoubler/rgb2vga_dpram.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/scandoubler/rgb2vga_scandoubler.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/sn76489.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/spi.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/tuberom_65c102.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/upd7002.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/vidproc.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/bbc_micro_tang20k_1bitvid_pal.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/bootstrap.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/gowin_rpll/pll2v.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/i2s_dom.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/mem_tang_20k.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/board_config_pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/library/common.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/bbc_micro_tang20k_1bitvid_pal.cst" type="file.cst" enable="1"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/tang_primer20k/src/bbc_micro_tang20k_1bitvid_pal.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>

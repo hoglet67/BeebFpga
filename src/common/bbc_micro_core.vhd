@@ -104,6 +104,8 @@ entity bbc_micro_core is
         -- Control input to exchange Keyboard and Mouse connections
         ps2_swap       : in    std_logic := '0';
 
+        dbg_keyboard_state   : out std_logic_vector(5 downto 0);
+
         -- Video
         video_red      : out   std_logic_vector (3 downto 0);
         video_green    : out   std_logic_vector (3 downto 0);
@@ -1229,7 +1231,8 @@ begin
             CONFIG     => config,
             LED_MOTOR => serula_casmo,
             LED_SHIFT => not ic32(7),
-            LED_CAPS  => not ic32(6)
+            LED_CAPS  => not ic32(6),
+            DBG_STATE => dbg_keyboard_state
             );
 
     -- Logic to swap the mouse and keyboard, and handle open collector driving

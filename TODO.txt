@@ -1,0 +1,30 @@
+? - not sure
+# - done
+B - bug fix required
+F - feature
+R - refactor
+
+
+All
+===
+
+B   SN76489 - Dave's boot up noise continues after Tricky test rom init - check why
+
+R   move library/1bitdac folder inside src/common
+R   common.vhd - move check all refs
+
+R   factorize 1bit video, PAL, VGA, mixed
+
+F   new CEA modes with repeating pixels, backport from Blitter
+F   mode 7 double pixel/interlacer - allow VGA modes and 15KHz modes to coexist?
+
+B   monitor, add in skip for non-bootstrap modes
+B   bootstrap, fold back improvements to primer/tang 20k to other builds for block-ram/minimal
+
+FR  merge/enhance i2s implementations
+
+Tang Primer 20K
+======================
+
+F	WS2812 - add in the WS2812 LED on the board
+B   harmonize and fix mem_tang20k, rename primer20k, better ROM/RAM decoding

@@ -64,8 +64,8 @@ entity bbc_micro_tang20k is
         IncludeVideoNuLA   : boolean := true;
         IncludeTrace       : boolean := false;
         IncludeHDMI        : boolean := true;
-        IncludeBootStrap   : boolean := true;
-        IncludeMonitor     : boolean := true;
+        IncludeBootStrap   : boolean := false;
+        IncludeMonitor     : boolean := false;
         IncludeCoPro6502       : boolean := false;
         IncludeSoftLEDs        : boolean := true;
         IncludeI2SAudio        : boolean := true;

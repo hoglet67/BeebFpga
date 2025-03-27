@@ -7,7 +7,7 @@ use std.textio.all;
 
 library work;
 
-entity mem_tang_20k is
+entity mem_tang_primer_20k is
     generic (
         PRJ_ROOT             : string;
         MOS_NAME             : string;
@@ -45,9 +45,9 @@ entity mem_tang_20k is
         FLASH_CK          : out   std_logic;                     -- FLASH clock
         FLASH_SO          : in    std_logic                      -- Serial input from FLASH chip SO pin
         );
-end mem_tang_20k;
+end mem_tang_primer_20k;
 
-architecture rtl of mem_tang_20k is
+architecture rtl of mem_tang_primer_20k is
 
     constant ROMSIZE : natural := 49152;
 

@@ -785,7 +785,7 @@ begin
     -- ??? Memory Controller
     --------------------------------------------------------
 
-    e_mem: entity work.mem_tang_20k
+    e_mem: entity work.mem_tang_primer_20k
         generic map (
             SIM => SIM,
             IncludeMonitor => IncludeMonitor,

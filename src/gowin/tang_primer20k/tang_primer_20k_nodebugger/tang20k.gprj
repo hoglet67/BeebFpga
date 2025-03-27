@@ -14,7 +14,6 @@
         <File path="../../../common/audioresampler/sample_rate_converter.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/audioresampler/sample_rate_converter_pkg.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/bbc_micro_core.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../common/CoPro6502.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/hdmi/encoder.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/hdmi/hdmidataencoder.v" type="file.verilog" enable="1"/>
         <File path="../../../common/hdmi/hdmidelay.vhd" type="file.vhdl" enable="1"/>
@@ -50,23 +49,24 @@
         <File path="../../../common/Tube/ph_byte.v" type="file.verilog" enable="1"/>
         <File path="../../../common/Tube/ph_flag_m.v" type="file.verilog" enable="1"/>
         <File path="../../../common/Tube/ph_reg3.v" type="file.verilog" enable="1"/>
+        <File path="../../../common/Tube/tube.v" type="file.verilog" enable="1"/>
         <File path="../../../common/tuberom_65c102.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/Tube/tube_comp_pack.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../common/Tube/tube.v" type="file.verilog" enable="1"/>
-        <File path="../../../common/upd7002.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../common/vidproc.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
-        <File path="../src/bbc_micro_tang20k.cst" type="file.cst" enable="1"/>
-        <File path="../src/bbc_micro_tang20k.vhd" type="file.vhdl" enable="1"/>
-        <File path="../src/bootstrap.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../library/common.vhd" type="file.vhdl" enable="1"/>
-        <File path="../src/mem_tang_20k.vhd" type="file.vhdl" enable="1"/>
-        <File path="../src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/CoPro6502.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
-        <File path="../src/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/upd7002.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/vidproc.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../library/common.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/i2s_dom.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/bootstrap.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/mem_tang_primer_20k.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="src/board_config_pack.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/bbc_micro_tang20k.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/bbc_micro_tang20k.cst" type="file.cst" enable="1"/>
         <File path="../src/bbc_micro_tang20k.sdc" type="file.sdc" enable="1"/>
     </FileList>
 </Project>

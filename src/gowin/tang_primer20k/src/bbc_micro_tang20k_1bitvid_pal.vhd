@@ -857,10 +857,14 @@ begin
 --               monitor_leds                       when IncludeMonitor               else
 --               normal_leds;
 --
-led <= (dbg_keyboard_state) xor "111111";
+
+        led <= --soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
+               --test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
+               monitor_leds                       when IncludeMonitor               else
+               (dbg_keyboard_state) xor "111111";
 
 
---
+
         process(clock_48)
         begin
             if rising_edge(clock_48) then

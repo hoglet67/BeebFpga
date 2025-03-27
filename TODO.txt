@@ -3,6 +3,7 @@
 B - bug fix required
 F - feature
 R - refactor
+D - debug features to be removed
 
 
 All
@@ -28,3 +29,6 @@ Tang Primer 20K
 
 F	WS2812 - add in the WS2812 LED on the board
 B   harmonize and fix mem_tang20k, rename primer20k, better ROM/RAM decoding
+
+D   keyboard debug stuff is still in there - keep for now?
+

@@ -298,7 +298,7 @@ function VOLUME_FN(log : in natural) return natural is
     signal m5k_audio_r     : signed(17 downto 0);
     signal m5k_strobe      : std_logic;
     signal mixer_strobe    : std_logic;
-    signal i2s_clk         : std_logic;
+    signal i2s_clk         : std_logic := '0';
 
     signal config_counter  : std_logic_vector(21 downto 0);
     signal config_last     : std_logic;
@@ -374,6 +374,10 @@ function VOLUME_FN(log : in natural) return natural is
     -- Test
     signal test            : std_logic_vector(7 downto 0);
 
+    -- debug keyboard
+
+    signal dbg_keyboard_state : std_logic_vector(5 downto 0);
+
 begin
 
     --------------------------------------------------------
@@ -411,6 +415,7 @@ begin
             ps2_kbd_data   => ps2_data,
             ps2_mse_clk    => ps2_mouse_clk,
             ps2_mse_data   => ps2_mouse_data,
+            dbg_keyboard_state => dbg_keyboard_state,
             video_red      => i_VGA_R,
             video_green    => i_VGA_G,
             video_blue     => i_VGA_B,
@@ -942,30 +947,25 @@ begin
 
     gen_i2s : if IncludeI2SAudio generate
     begin
-	    --TODO: DB: make a cheap and jittery 6.144M clock
+
+
+	    --TODO: DB: make a cheap and jittery 3.072M clock
 	    --TODO: DB: this will have a lot of jitter on each bit but should be solid on each word - test THD at output
 	    p_i2s_clk_gen:process(clock_96)
 	    constant div : natural := 8;
 	    constant num : natural := 125;
-	    variable r_acc : unsigned(6 downto 0) := (others => '0');
+	    variable r_acc : unsigned(7 downto 0) := (others => '0');
 	    begin
 	        if rising_edge(clock_96) then
 	            r_acc := r_acc + div;
 	            if r_acc >= num then
 	                r_acc := r_acc - num;
-	                i2s_clk <= '1';
-	            else
-	                i2s_clk <= '0';
+	                i2s_clk <= not i2s_clk;
 	            end if;
 	        end if;
 	    end process;
 
-        i2s : entity work.i2s_simple
-            generic map (
-                ATTENUATE  => 2,         -- Attenuate by two bits, otherwise it's way too loud!
-                CLOCKSPEED => 6144000,   -- SPDIF Clock
-                SAMPLERATE => 48000      -- Output sample rate of new audio resampler
-                )
+        i2s : entity work.i2s_dom
             port map (
                 clock      => i2s_clk,
                 reset_n    => powerup_reset_n,
@@ -1056,11 +1056,19 @@ begin
 --                data  => ws2812_din
 --                );
 --
+--        led <= --soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
+--               --test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
+--               monitor_leds                       when IncludeMonitor               else
+--               normal_leds;
+--
+
         led <= --soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
                --test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
                monitor_leds                       when IncludeMonitor               else
-               normal_leds;
---
+               (dbg_keyboard_state) xor "111111";
+
+
+
         process(clock_48)
         begin
             if rising_edge(clock_48) then

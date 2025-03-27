@@ -9,7 +9,7 @@ D - debug features to be removed
 All
 ===
 
-B   SN76489 - Dave's boot up noise continues after Tricky test rom init - check why
+B   SN76489 - Dave's boot up noise continues after Tricky test rom init - check why, suspect the register writes are all delayed by 1 cycle - second pass around test resets noise properly
 
 R   move library/1bitdac folder inside src/common
 R   common.vhd - move check all refs

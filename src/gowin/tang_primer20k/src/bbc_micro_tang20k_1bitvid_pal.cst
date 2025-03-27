@@ -49,6 +49,9 @@ IO_LOC  "pa_en" R16;
 IO_PORT "pa_en" IO_TYPE=LVCMOS33;
 
 
+// WS2812 LED
+IO_LOC  "ws2812_din" T9
+IO_PORT "ws2812_din" IO_TYPE=LVCMOS33;
 
 
 // SD Card

@@ -75,8 +75,7 @@ entity bbc_micro_tang20k is
         MaxVolume              : integer := 20; --   0dB
 
         PRJ_ROOT           : string  := "../../../..";
-        --MOS_NAME           : string  := "/roms/bbcb/os12x3.bit";
-        MOS_NAME           : string  := "/roms/bbcb/os_tester3x.bit";
+        MOS_NAME           : string  := "/roms/bbcb/os12_mmfs_basic.bit";
         SIM                : boolean := false
         );
     port (
@@ -85,6 +84,7 @@ entity bbc_micro_tang20k is
         btn2_n          : in    std_logic;     -- Toggle HDMI / DVI modes
         btn3_n          : in    std_logic;
         led             : out   std_logic_vector (5 downto 0);
+        ws2812_din      : out   std_logic;
 
         -- Keyboard / Mouse
         ps2_clk         : inout std_logic;
@@ -1029,40 +1029,34 @@ begin
 
     normal_leds <= (caps_led & shift_led & m128_mode & m5k_filter_en & hdmi_audio_src & hdmi_audio_en) xor "111111";
 
---    GenLEDS: if IncludeSoftLEDs generate
---        signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
---        signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
---        signal ws2812_g        : std_logic_vector(7 downto 0) := (others => '0');
---        signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
+    GenLEDS: if IncludeSoftLEDs generate
+        signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
+        signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
+        signal ws2812_g        : std_logic_vector(7 downto 0) := (others => '0');
+        signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
 
---        function bit_reverse (a: in std_logic_vector)
---            return std_logic_vector is
---            variable result: std_logic_vector(a'RANGE);
---            alias aa: std_logic_vector(a'REVERSE_RANGE) is a;
---        begin
---            for i in aa'RANGE loop
---                result(i) := aa(i);
---            end loop;
---            return result;
---        end;
+        function bit_reverse (a: in std_logic_vector)
+            return std_logic_vector is
+            variable result: std_logic_vector(a'RANGE);
+            alias aa: std_logic_vector(a'REVERSE_RANGE) is a;
+        begin
+            for i in aa'RANGE loop
+                result(i) := aa(i);
+            end loop;
+            return result;
+        end;
 
---    begin
+    begin
 
---        -- This module is in Verilog and comes from MisteryNano
---        inst_ws2812 : entity work.ws2812
---            port map (
---                clk   => clock_48,
---                color => bit_reverse(ws2812_g & ws2812_r & ws2812_b),
---                data  => ws2812_din
---                );
---
---        led <= --soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
---               --test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
---               monitor_leds                       when IncludeMonitor               else
---               normal_leds;
---
+        -- This module is in Verilog and comes from MisteryNano
+        inst_ws2812 : entity work.ws2812
+            port map (
+                clk   => clock_48,
+                color => bit_reverse(ws2812_g & ws2812_r & ws2812_b),
+                data  => ws2812_din
+                );
 
-        led <= --soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
+        led <= soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
                --test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
                monitor_leds                       when IncludeMonitor               else
                (dbg_keyboard_state) xor "111111";
@@ -1074,20 +1068,20 @@ begin
             if rising_edge(clock_48) then
                 if ext_1mhz_clken = '1' then
                     if ext_1mhz_nrst = '0' then
---                        soft_leds <= x"00";
---                        ws2812_r  <= x"00";
---                        ws2812_g  <= x"00";
---                        ws2812_b  <= x"00";
+                        soft_leds <= x"00";
+                        ws2812_r  <= x"00";
+                        ws2812_g  <= x"00";
+                        ws2812_b  <= x"00";
                     elsif ext_1mhz_pgfc_n = '0' and ext_1mhz_r_nw = '0' then
                         case ext_1mhz_addr is
---                            when x"50" =>
---                                soft_leds <= ext_1mhz_di;
---                            when x"51" =>
---                                ws2812_r  <= ext_1mhz_di;
---                            when x"52" =>
---                                ws2812_g  <= ext_1mhz_di;
---                            when x"53" =>
---                                ws2812_b  <= ext_1mhz_di;
+                            when x"50" =>
+                                soft_leds <= ext_1mhz_di;
+                            when x"51" =>
+                                ws2812_r  <= ext_1mhz_di;
+                            when x"52" =>
+                                ws2812_g  <= ext_1mhz_di;
+                            when x"53" =>
+                                ws2812_b  <= ext_1mhz_di;
                             when x"54" =>
                                 if ext_1mhz_di > MaxVolume then
                                     volume <= to_unsigned(MaxVolume, volume'length);
@@ -1112,22 +1106,21 @@ begin
             end if;
         end process;
 
-        ext_1mhz_do <=  
---                         soft_leds when ext_1mhz_addr = x"50" else
---                         ws2812_r when ext_1mhz_addr = x"51" else
---                         ws2812_g when ext_1mhz_addr = x"52" else
---                         ws2812_b when ext_1mhz_addr = x"53" else
+        ext_1mhz_do <=  soft_leds when ext_1mhz_addr = x"50" else
+                         ws2812_r when ext_1mhz_addr = x"51" else
+                         ws2812_g when ext_1mhz_addr = x"52" else
+                         ws2812_b when ext_1mhz_addr = x"53" else
  "000" & std_logic_vector(volume) when ext_1mhz_addr = x"54" else
                        x"FF";
 
---    end generate;
+    end generate;
 
---    NotGenLEDS: if not IncludeSoftLEDs generate
---
---        led <= monitor_leds when IncludeMonitor else normal_leds;
---        ws2812_din <= '0';
---
---    end generate;
+    NotGenLEDS: if not IncludeSoftLEDs generate
+
+        led <= monitor_leds when IncludeMonitor else normal_leds;
+        ws2812_din <= '0';
+
+    end generate;
 
     --------------------------------------------------------
     -- Output Assignments

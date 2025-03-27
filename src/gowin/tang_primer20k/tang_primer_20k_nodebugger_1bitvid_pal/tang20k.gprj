@@ -60,6 +60,7 @@
         <File path="../../../library/common.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/i2s_dom.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/ws2812.v" type="file.verilog" enable="1"/>
         <File path="../src/bootstrap.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../1bitvideo/dac_1bit.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../1bitvideo/dossy_chroma.vhd" type="file.vhdl" enable="1"/>

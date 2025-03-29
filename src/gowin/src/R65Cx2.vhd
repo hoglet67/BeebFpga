@@ -569,6 +569,7 @@ architecture Behavioral of R65C02 is
     signal theOpcode      : unsigned(7 downto 0);
     signal nextOpcode     : unsigned(7 downto 0);
 
+	-- bodge for Gowin parts, infer incorrect BSRAM
     attribute syn_romstyle : string;
     attribute syn_romstyle of opcInfo : signal is "logic";
 

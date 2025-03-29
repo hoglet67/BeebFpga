@@ -53,7 +53,7 @@
         <File path="../../../common/tuberom_65c102.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/Tube/tube_comp_pack.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/CoPro6502.vhd" type="file.vhdl" enable="1"/>
-        <File path="../src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/upd7002.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/vidproc.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/vidproc_orig.vhd" type="file.vhdl" enable="1"/>

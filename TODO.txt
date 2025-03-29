@@ -27,6 +27,10 @@ FR  merge/enhance i2s implementations
 
 #B   Keyboard watchdog - desperation measure - DISCUSS
 
+?   discuss with Hog why different saa5050/m5000 rom, maybe get rid and infer from a binary or hex file(s)?
+
+?   is copro boot rom loadable via bootstrap - make it so?
+
 
 Tang Primer 20K
 ======================
@@ -37,3 +41,9 @@ Tang Primer 20K
 D   keyboard debug stuff is still in there - keep for now?
 
 B   timing fails on i2s phase acc - not sure what is being inferred, or how to find out ask Hoglet
+
+
+Tang 9K
+=======
+
+- does this need a refresh / update to latest spec

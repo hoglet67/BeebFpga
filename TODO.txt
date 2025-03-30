@@ -18,7 +18,7 @@ R   factorize 1bit video, PAL, VGA, mixed
 
 F   new CEA modes with repeating pixels, backport from Blitter
 F   mode 7 double pixel/interlacer - allow VGA modes and 15KHz modes to coexist?
-F   mode 7 compact rom from Blitter as option either as BSRAM or registers
+F   mode 7 compact rom from Blitter as option - might save enough BSRAM to enable audio filters on bsram limited devices?
 
 B   monitor, add in skip for non-bootstrap modes
 B   bootstrap, fold back improvements to primer/tang 20k to other builds for block-ram/minimal

@@ -39,12 +39,12 @@
         <File path="../../../src/common/hdmi/encoder.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/hdmi/hdmidelay.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../src/common/hdmi/hdmi.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../src/xilinx/spi_flash.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/bootstrap/spi_flash.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../src/common/bootstrap/bootstrap.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang9k.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
         <File path="src/mem_tang_9k.vhd" type="file.vhdl" enable="1"/>
         <File path="src/psram_controller.cmp.vhd" type="file.vhdl" enable="1"/>
-        <File path="src/bootstrap.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="src/bbc_micro_tang9k.cst" type="file.cst" enable="1"/>

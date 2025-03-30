@@ -32,6 +32,8 @@ FR  merge/enhance i2s implementations
 ?   is copro boot rom loadable via bootstrap - make it so?
 
 
+R?  I combined bootstrap and moved bootstrap and spi_flash from xilinx folder into a bootstrap folder - the old xilinx version looked like it might not work anyway but I haven't a duo to test on
+
 Tang Primer 20K
 ======================
 

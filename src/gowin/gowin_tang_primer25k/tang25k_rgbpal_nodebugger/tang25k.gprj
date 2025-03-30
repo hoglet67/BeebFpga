@@ -60,7 +60,7 @@
         <File path="../../../common/bootstrap/bootstrap.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/bbc_micro_tang25k_rgbpal.cst" type="file.cst" enable="1"/>
         <File path="../src/bbc_micro_tang25k_rgbpal.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../library/common.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/library/common.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/mem_tang_25k.vhd" type="file.vhdl" enable="1"/>
         <File path="../../src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="../../src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
@@ -69,8 +69,8 @@
         <File path="../src/WatchEvents.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/fifo_sc_top/WatchEventsCore.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/g_lfsr.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../1bitvideo/dac_1bit.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../1bitvideo/dossy_chroma.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/1bitvideo/dac_1bit.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/1bitvideo/dossy_chroma.vhd" type="file.vhdl" enable="1"/>
         <File path="src/board_config_pack.vhd" type="file.vhdl" enable="1"/>
         <File path="src/board_timings.sdc" type="file.sdc" enable="1"/>
         <File path="../src/gowin_pll/pll_27_135.vhd" type="file.vhdl" enable="1"/>

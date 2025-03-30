@@ -58,7 +58,7 @@
         <File path="../../../common/vidproc.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/bootstrap/spi_flash.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/bootstrap/bootstrap.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../library/common.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/library/common.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/mem_tang_20k.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="../../src/R65Cx2.vhd" type="file.vhdl" enable="1"/>

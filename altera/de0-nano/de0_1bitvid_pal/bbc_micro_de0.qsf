@@ -1,0 +1,153 @@
+# -------------------------------------------------------------------------- #
+#
+# Copyright (C) 1991-2013 Altera Corporation
+# Your use of Altera Corporation's design tools, logic functions 
+# and other software and tools, and its AMPP partner logic 
+# functions, and any output files from any of the foregoing 
+# (including device programming or simulation files), and any 
+# associated documentation or information are expressly subject 
+# to the terms and conditions of the Altera Program License 
+# Subscription Agreement, Altera MegaCore Function License 
+# Agreement, or other applicable license agreement, including, 
+# without limitation, that your use is for the sole purpose of 
+# programming logic devices manufactured by Altera and sold by 
+# Altera or its authorized distributors.  Please refer to the 
+# applicable agreement for further details.
+#
+# -------------------------------------------------------------------------- #
+#
+# Quartus II 32-bit
+# Version 13.0.1 Build 232 06/12/2013 Service Pack 1 SJ Web Edition
+# Date created = 15:59:13  November 13, 2015
+#
+# -------------------------------------------------------------------------- #
+#
+# Notes:
+#
+# 1) The default values for assignments are stored in the file:
+#		bbc_micro_de1_assignment_defaults.qdf
+#    If this file doesn't exist, see file:
+#		assignment_defaults.qdf
+#
+# 2) Altera recommends that you do not modify this file. This
+#    file is updated automatically by the Quartus II software
+#    and any changes you make may be lost or overwritten.
+#
+# -------------------------------------------------------------------------- #
+
+# set_parameter -name CYCLONEII_SAFE_WRITE VERIFIED_SAFE
+
+set_global_assignment -name FAMILY "Cyclone IV E"
+set_global_assignment -name DEVICE EP4CE22F17C6
+set_global_assignment -name TOP_LEVEL_ENTITY bbc_micro_de0
+set_global_assignment -name ORIGINAL_QUARTUS_VERSION "22.1 SP1"
+set_global_assignment -name PROJECT_CREATION_TIME_DATE "11:52:30  MARCH 31, 2025"
+set_global_assignment -name LAST_QUARTUS_VERSION "20.1.1 Lite Edition"
+set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 1
+set_global_assignment -name NOMINAL_CORE_SUPPLY_VOLTAGE 1.2V
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name ENABLE_OCT_DONE OFF
+set_global_assignment -name USE_CONFIGURATION_DEVICE OFF
+set_global_assignment -name CRC_ERROR_OPEN_DRAIN OFF
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVTTL"
+set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -rise
+set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -fall
+set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -rise
+set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -fall
+
+
+set_global_assignment -name CYCLONEII_RESERVE_NCEO_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name EDA_SIMULATION_TOOL "ModelSim-Altera (Verilog)"
+set_global_assignment -name EDA_TIME_SCALE "1 ps" -section_id eda_simulation
+set_global_assignment -name EDA_OUTPUT_DATA_FORMAT "VERILOG HDL" -section_id eda_simulation
+set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
+
+
+
+
+set_global_assignment -name OPTIMIZATION_MODE BALANCED
+
+
+set_global_assignment -name VHDL_INPUT_VERSION VHDL_2008
+set_global_assignment -name VHDL_SHOW_LMF_MAPPING_MESSAGES OFF
+
+
+
+
+
+
+set_global_assignment -name VHDL_FILE ../../../AtomBusMon/src/T6502/T65_ALU.vhd
+set_global_assignment -name VHDL_FILE ../../../AtomBusMon/src/T6502/T65_MCode.vhd
+set_global_assignment -name VHDL_FILE ../../../AtomBusMon/src/T6502/T65_Pack.vhd
+set_global_assignment -name VHDL_FILE ../../../AtomBusMon/src/T6502/T65.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/audioresampler/buffer_ram.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/audioresampler/coeff_rom.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/audioresampler/sample_rate_converter.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/audioresampler/sample_rate_converter_pkg.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/bbc_micro_core.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/CoPro6502.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/hdmi/encoder.vhd
+set_global_assignment -name VERILOG_FILE ../../../src/common/hdmi/hdmidataencoder.v
+set_global_assignment -name VHDL_FILE ../../../src/common/hdmi/hdmidelay.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/hdmi/hdmi.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/keyboard.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/m6522.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/mc6845.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/mouse/ps2interface.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/mouse/quadrature_controller.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/mouse/quadrature_fsm.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/music5000/LogLinRom.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/music5000/Music5000.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/music5000/iir_filter.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/music5000/spdif_serializer.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/rtc.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/saa5050.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/scandoubler/mist_scandoubler.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/scandoubler/retimer.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/scandoubler/rgb2vga_dpram.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/scandoubler/rgb2vga_scandoubler.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/SID/sid_6581.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/SID/sid_coeffs.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/SID/sid_components.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/SID/sid_filters.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/SID/sid_voice.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/sn76489.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/spi.vhd
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/hp_bytequad.v
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/hp_byte.v
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/hp_flag_m.v
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/hp_reg3.v
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/ph_bytequad.v
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/ph_byte.v
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/ph_flag_m.v
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/ph_reg3.v
+set_global_assignment -name VHDL_FILE ../../../src/common/tuberom_65c102.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/Tube/tube_comp_pack.vhd
+set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/tube.v
+set_global_assignment -name VHDL_FILE ../../../src/common/upd7002.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/vidproc_orig.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/vidproc.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/bootstrap/spi_flash.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/bootstrap/bootstrap.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/library/common.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/music5000/Ram2K.vhd
+set_global_assignment -name VHDL_FILE ../../../AtomBusMon/src/AlanD/R65Cx2.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/saa5050_rom_dual_port.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/1bitvideo/dac_1bit.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/1bitvideo/dossy_chroma.vhd
+
+
+set_global_assignment -name SDC_FILE bbc_micro_de0.sdc
+set_global_assignment -name VHDL_FILE ../../../src/altera/de0-nano/bbc_micro_de0.vhd
+set_global_assignment -name VHDL_FILE pll_50_48_96.vhd
+set_global_assignment -name QIP_FILE pll_50_48_96.qip
+set_global_assignment -name VHDL_FILE mem_de0_nano.vhd
+set_global_assignment -name VHDL_FILE sdramctl.vhd
+set_global_assignment -name VHDL_FILE board_config_pack.vhd

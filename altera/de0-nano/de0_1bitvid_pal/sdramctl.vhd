@@ -58,8 +58,8 @@ entity sdramctl is
 
 		-- sdram interface
 		sdram_DQ_io			:	inout std_logic_vector((2**LANEBITS)*8-1 downto 0);
-		sdram_A_o			:	out	std_logic_vector(maximum(COLBITS, ROWBITS)-1 downto 0); 
-		sdram_BS_o			:  out 	std_logic_vector(maximum(BANKBITS-1, 0) downto 0); 
+		sdram_A_o			:	out	std_logic_vector(MAX(COLBITS, ROWBITS)-1 downto 0); 
+		sdram_BS_o			:  out 	std_logic_vector(MAX(BANKBITS-1, 0) downto 0); 
 		sdram_CKE_o			:	out	std_logic;
 		sdram_nCS_o			:	out	std_logic;
 		sdram_nRAS_o		:	out	std_logic;
@@ -119,9 +119,9 @@ architecture rtl of sdramctl is
 	-- data read on bus
 	constant TIX_RD_DAT	: natural := T_RCD + T_CAS + T_CAS_EXTRA - 1;
 	-- read finished go back to idle state with sufficient time for auto-precharge to finish
-	constant TIX_RD_FIN  : natural := maximum(TIX_RD_DAT, TIX_RD_DAT + T_RP - 2);
+	constant TIX_RD_FIN  : natural := max(TIX_RD_DAT, TIX_RD_DAT + T_RP - 2);
 	-- write finished go back to idle with sufficient time for auto-precharge to finish
-	constant TIX_WR_FIN	: natural := maximum(TIX_RW_CMD, T_RCD + T_WR + T_RP - 3);
+	constant TIX_WR_FIN	: natural := max(TIX_RW_CMD, T_RCD + T_WR + T_RP - 3);
 	-- refresh precharge start
 	constant TIX_REF_PRE : natural := T_RCD + T_CAS + 1 - 1;
 	-- refresh finishing go back to idle with sufficient time for precharge to finish

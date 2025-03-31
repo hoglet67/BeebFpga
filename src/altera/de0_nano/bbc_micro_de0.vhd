@@ -119,7 +119,7 @@ entity bbc_micro_de0 is
         sdram_DQ_io     :  inout std_logic_vector(15 downto 0);
         sdram_A_o       :  out   std_logic_vector(12 downto 0); 
         sdram_BS_o      :  out   std_logic_vector(1 downto 0); 
-        --sdram_CKE_o   :  out   std_logic;
+        sdram_CKE_o     :  out   std_logic;
         sdram_nCS_o     :  out   std_logic;
         sdram_nRAS_o    :  out   std_logic;
         sdram_nCAS_o    :  out   std_logic;
@@ -525,17 +525,18 @@ begin
         c2      => clock_96_p
     );
 
-    clkdiv4 : CLKDIV
-        generic map (
-            DIV_MODE => "4",            -- Divide by 4
-            GSREN => "false"
-        )
-        port map (
-            RESETN => powerup_reset_n,
-            HCLKIN => clock_96,
-            CLKOUT => clock_24,         -- 24MHz AVR Clock
-            CALIB  => '1'
-        );
+
+    p_div2:process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            if clock_24 = '0' then
+                clock_24 <= '1';
+            else
+                clock_24 <= '0';
+            end if;
+        end if;
+                
+    end process;
 
     --------------------------------------------------------
     -- Button 1: Power Up Reset and Master/Beeb toggle
@@ -767,7 +768,7 @@ begin
             sdram_DQ_io    => sdram_DQ_io,
             sdram_A_o      => sdram_A_o,
             sdram_BS_o     => sdram_BS_o,
-            sdram_CKE_o    => open,             -- TODO: check why I did this
+            sdram_CKE_o    => sdram_CKE_o,
             sdram_nCS_o    => sdram_nCS_o,
             sdram_nRAS_o   => sdram_nRAS_o,
             sdram_nCAS_o   => sdram_nCAS_o,

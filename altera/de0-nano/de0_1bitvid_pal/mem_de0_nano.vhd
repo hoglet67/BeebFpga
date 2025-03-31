@@ -63,25 +63,28 @@ architecture rtl of mem_de0_nano is
 
     type mem_mos_t is array(0 to ROMSIZE) of std_logic_vector(7 downto 0);
 
-    impure function MEM_INIT_FILE(file_name:STRING) return mem_mos_t is
-        FILE infile : text is in file_name;
-        variable arr : mem_mos_t := (others => (others => '0'));
-        variable inl : line;
-        variable count : integer;
-    begin
-        if not IncludeBootstrap then
-            count := 0;
-            while not(endfile(infile)) and count < ROMSIZE loop
-                readline(infile, inl);
-                read(inl, arr(count));
-                count := count + 1;
-            end loop;
-        end if;
+    -- TODO: DB: make this work in Altera, with binary files, share with other projects
+--    impure function MEM_INIT_FILE(file_name:STRING) return mem_mos_t is
+--        FILE infile : text is in file_name;
+--        variable arr : mem_mos_t := (others => (others => '0'));
+--        variable x   : std_logic_vector(7 downto 0);
+--        variable inl : line;
+--        variable count : integer;
+--    begin
+--        if not IncludeBootstrap then
+--            count := 0;
+--            while not(endfile(infile)) and count < ROMSIZE loop
+--                readline(infile, inl);
+--                read(inl, x);
+--                arr(count) := x;
+--                count := count + 1;
+--            end loop;
+--        end if;
+--
+--        return arr;
+--    end function;
 
-        return arr;
-    end function;
-
-    signal r_mem_rom : mem_mos_t := MEM_INIT_FILE(PRJ_ROOT & MOS_NAME);
+    signal r_mem_rom : mem_mos_t;-- := MEM_INIT_FILE(PRJ_ROOT & MOS_NAME);
 
     -- sdram controller
     signal i_sdram_cmd_read    : std_logic;

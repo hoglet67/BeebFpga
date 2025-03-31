@@ -77,3 +77,4 @@ firmware/version.asm
 *.sublime-project
 *.sublime-workspace
 *.gprj.user
+altera/de0-nano/de0_1bitvid_pal/fit.chg

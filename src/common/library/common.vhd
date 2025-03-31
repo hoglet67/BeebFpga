@@ -48,12 +48,23 @@ package common is
   -- numbits is the number of bits required to hold w as a *number of options*
   function numbits(w : natural) return natural;
   function b2s(b:boolean) return std_logic;
+  function max(a:integer; b:integer) return integer;
 end package;
 
 library ieee;
 use ieee.math_real.all;
 
 package body common is
+
+  function max(a:integer; b:integer) return integer is
+  begin
+		if a > b then
+			return a;
+		else
+			return b;
+		end if;
+  end function;
+
 	function ceil_log2(i : natural) return natural is
 	begin
    		return integer(ceil(log2(real(i))));  -- Example using real calculation

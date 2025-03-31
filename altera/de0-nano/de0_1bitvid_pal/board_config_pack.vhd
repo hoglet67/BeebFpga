@@ -1,7 +1,7 @@
 
 package board_config_pack is
 
-    constant G_CONFIG_DEBUGGER : boolean := true;
+    constant G_CONFIG_DEBUGGER : boolean := false;
 
 end board_config_pack;
 

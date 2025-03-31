@@ -51,6 +51,14 @@ altera/incremental_db/
 altera/output_files/
 altera/bbc_micro_de1.qws
 
+altera/**/db/
+altera/**/incremental_db/
+altera/**/output_files/
+altera/**/greybox_tmp/
+altera/**/*.qws
+altera/**/Makefile.deps
+
+
 releases/
 
 firmware/config.rom

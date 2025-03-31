@@ -1,3 +1,0 @@
-Warning (10268): Verilog HDL information at hdmidataencoder.v(253): always construct contains both blocking and non-blocking assignments File: C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/hdmi/hdmidataencoder.v Line: 253
-Warning (10273): Verilog HDL warning at hp_bytequad.v(65): extended using "x" or "z" File: C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/hp_bytequad.v Line: 65
-Warning (10273): Verilog HDL warning at ph_bytequad.v(64): extended using "x" or "z" File: C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/common/Tube/ph_bytequad.v Line: 64

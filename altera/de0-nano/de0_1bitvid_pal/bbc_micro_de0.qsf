@@ -145,9 +145,12 @@ set_global_assignment -name VHDL_FILE ../../../src/common/1bitvideo/dossy_chroma
 
 
 set_global_assignment -name SDC_FILE bbc_micro_de0.sdc
-set_global_assignment -name VHDL_FILE ../../../src/altera/de0-nano/bbc_micro_de0.vhd
+set_global_assignment -name VHDL_FILE "../../../src/altera/de0-nano/bbc_micro_de0.vhd"
 set_global_assignment -name VHDL_FILE pll_50_48_96.vhd
 set_global_assignment -name QIP_FILE pll_50_48_96.qip
 set_global_assignment -name VHDL_FILE mem_de0_nano.vhd
 set_global_assignment -name VHDL_FILE sdramctl.vhd
 set_global_assignment -name VHDL_FILE board_config_pack.vhd
+
+set_global_assignment -name QIP_FILE pll2v.qip
+set_global_assignment -name VHDL_FILE pll2v.vhd

@@ -886,8 +886,8 @@ begin
     
     e_pll2: entity work.pll2v
     port map (
-        clkout => i_clk_dac,
-        clkin => clock_48
+        inclk0 => clock_48,
+        c0 => i_clk_dac
     );
 
 

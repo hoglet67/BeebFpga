@@ -63,16 +63,16 @@ entity bbc_micro_de0 is
         IncludeAMXMouse    : boolean := false;
         IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := true;
-        IncludeMusic5000       : boolean := true;
-        IncludeMusic5000Filter : boolean := true; -- Music 5000 Low Pass IIR Filter
+        IncludeMusic5000       : boolean := false;
+        IncludeMusic5000Filter : boolean := false; -- Music 5000 Low Pass IIR Filter
         IncludeMusic5000SPDIF  : boolean := false; -- Music 5000 20-bit SPDIF Output
-        IncludeMixerResampler  : boolean := true;
+        IncludeMixerResampler  : boolean := false;
         IncludeICEDebugger     : boolean := G_CONFIG_DEBUGGER;
         IncludeVideoNuLA   : boolean := true;
         IncludeTrace       : boolean := true;
         IncludeHDMI        : boolean := false;
         IncludeBootStrap   : boolean := true;
-        IncludeMonitor         : boolean := false; -- So we see the normal status LEDs
+        IncludeMonitor         : boolean := true; -- So we see the normal status LEDs
         IncludeCoPro6502       : boolean := true;
         IncludeSoftLEDs        : boolean := true;
         IncludeI2SAudio        : boolean := false;
@@ -88,8 +88,10 @@ entity bbc_micro_de0 is
     port (
         brd_clk_50      : in    std_logic;     -- 50MHz clock from the oscillator (pin 4)
 
-        btn1            : in    std_logic;     -- Toggle Master / Beeb modes
-        btn2            : in    std_logic;     -- Toggle HDMI / DVI modes
+        btn1_n          : in    std_logic;     -- Toggle Master / Beeb modes
+        btn2_n          : in    std_logic;     -- Toggle HDMI / DVI modes
+
+        led             : out   std_logic_vector(7 downto 0);
 
         -- Keyboard / Mouse
         ps2_clk         : inout std_logic;
@@ -130,7 +132,13 @@ entity bbc_micro_de0 is
         flash_cs        : out   std_logic;     -- Active low FLASH chip select
         flash_si        : out   std_logic;     -- Serial output to FLASH chip SI pin
         flash_ck        : out   std_logic;     -- FLASH clock
-        flash_so        : in    std_logic      -- Serial input from FLASH chip SO pin
+        flash_so        : in    std_logic;     -- Serial input from FLASH chip SO pin
+
+        debug_flash_cs  : out   std_logic;     -- Active low FLASH chip select
+        debug_flash_si  : out   std_logic;     -- Serial output to FLASH chip SI pin
+        debug_flash_ck  : out   std_logic;     -- FLASH clock
+        debug_flash_so  : out   std_logic      -- Serial input from FLASH chip SO pin
+
         );
 end entity;
 
@@ -369,10 +377,23 @@ architecture rtl of bbc_micro_de0 is
     -- Test
     signal test            : std_logic_vector(7 downto 0);
 
-
+    -- debug flash extras
+    signal i_flash_cs : std_logic;
+    signal i_flash_ck : std_logic;
+    signal i_flash_si : std_logic;
 
 
 begin
+
+debug_flash_so <= flash_so;
+debug_flash_ck <= i_flash_ck;
+debug_flash_cs <= i_flash_cs;
+debug_flash_si <= i_flash_si;
+
+flash_ck <= i_flash_ck;
+flash_cs <= i_flash_cs;
+flash_si <= i_flash_si;
+
 
     --------------------------------------------------------
     -- BBC Micro Core
@@ -548,7 +569,7 @@ begin
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if (btn1 = '1') then
+            if (btn1_n = '0') then
                 reset_counter <= (others => '0');
             elsif (reset_counter(reset_counter'high) = '0') then
                 reset_counter <= reset_counter + 1;
@@ -600,7 +621,7 @@ begin
         if rising_edge(clock_48) then
             if powerup_reset_n = '0' then
                 config_counter <= (others => '0');
-            elsif btn2 = '1' then
+            elsif btn2_n = '0' then
                 config_counter <= (others => '1');
             elsif config_counter(config_counter'high) = '1' then
                 config_counter <= config_counter - 1;
@@ -777,9 +798,9 @@ begin
 
             led            => monitor_leds,
 
-            FLASH_CS       => flash_cs,
-            FLASH_SI       => flash_si,
-            FLASH_CK       => flash_ck,
+            FLASH_CS       => i_flash_cs,
+            FLASH_SI       => i_flash_si,
+            FLASH_CK       => i_flash_ck,
             FLASH_SO       => flash_so
         );
 
@@ -787,7 +808,7 @@ begin
     -- 1MHz Bus LEDs
     --------------------------------------------------------
 
---    normal_leds <= (caps_led & shift_led & m5k_spdif_en & m5k_filter_en & hdmi_audio_src & hdmi_audio_en) xor "111111";
+    normal_leds <= (caps_led & shift_led & "0000");
 
 --    GenLEDS: if IncludeSoftLEDs generate
 --        signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
@@ -876,7 +897,11 @@ begin
 
 --    NotGenLEDS: if not IncludeSoftLEDs generate
 --
---        led <= monitor_leds when IncludeMonitor else normal_leds;
+    led(5 downto 0) <= monitor_leds xor "111111" when IncludeMonitor else normal_leds;
+    led(6) <= btn1_n;
+    led(7) <= btn2_n;
+
+
 --        ws2812_din <= '0';
 --
 --    end generate;

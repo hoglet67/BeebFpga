@@ -134,7 +134,7 @@ set_global_assignment -name VERILOG_FILE ../../../src/common/Tube/tube.v
 set_global_assignment -name VHDL_FILE ../../../src/common/upd7002.vhd
 set_global_assignment -name VHDL_FILE ../../../src/common/vidproc_orig.vhd
 set_global_assignment -name VHDL_FILE ../../../src/common/vidproc.vhd
-set_global_assignment -name VHDL_FILE ../../../src/common/bootstrap/spi_flash.vhd
+set_global_assignment -name VHDL_FILE ../../../src/common/bootstrap/spi_flash_epcs.vhd
 set_global_assignment -name VHDL_FILE ../../../src/common/bootstrap/bootstrap.vhd
 set_global_assignment -name VHDL_FILE ../../../src/common/library/common.vhd
 set_global_assignment -name VHDL_FILE ../../../src/common/music5000/Ram2K.vhd
@@ -299,13 +299,71 @@ set_instance_assignment -name CURRENT_STRENGTH_NEW 8MA -to sdram_nWE_o
 
 
 
-set_location_assignment PIN_D2  -to flash_cs
-set_location_assignment PIN_H2  -to flash_si
-set_location_assignment PIN_H1  -to flash_ck
-set_location_assignment PIN_C1  -to flash_so
+set_location_assignment PIN_D2 -to flash_cs
+set_location_assignment PIN_C1 -to flash_si
+set_location_assignment PIN_H1 -to flash_ck
+set_location_assignment PIN_H2 -to flash_so
 
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL"  -to flash_cs
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL"  -to flash_si
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL"  -to flash_ck
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL"  -to flash_so
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to flash_cs
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to flash_si
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to flash_ck
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to flash_so
 
+
+set_global_assignment -name ENABLE_CONFIGURATION_PINS OFF
+set_global_assignment -name ENABLE_BOOT_SEL_PIN OFF
+set_global_assignment -name RESERVE_DATA0_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name RESERVE_DATA1_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name RESERVE_FLASH_NCE_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name RESERVE_DCLK_AFTER_CONFIGURATION "USE AS REGULAR IO"
+
+
+set_location_assignment PIN_J15 -to btn1_n
+set_location_assignment PIN_E1 -to btn2_n
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to btn1_n
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to btn2_n
+
+set_location_assignment PIN_D3 -to vid_r_o
+set_location_assignment PIN_C3 -to vid_g_o
+set_location_assignment PIN_A3 -to vid_b_o
+set_location_assignment PIN_B4 -to vid_cs_o
+set_location_assignment PIN_B5 -to vid_chr_o
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to vid_r_o
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to vid_g_o
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to vid_b_o
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to vid_cs_o
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to vid_chr_o
+
+set_location_assignment PIN_D5 -to ps2_clk
+set_location_assignment PIN_A6 -to ps2_data
+set_location_assignment PIN_D6 -to ps2_mouse_clk
+set_location_assignment PIN_C6 -to ps2_mouse_data
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to ps2_clk
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to ps2_data
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to ps2_mouse_clk
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to ps2_mouse_data
+
+set_location_assignment PIN_E10 -to tf_miso
+set_location_assignment PIN_B11 -to tf_cs
+set_location_assignment PIN_D11 -to tf_sclk
+set_location_assignment PIN_B12 -to tf_mosi
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to tf_miso
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to tf_cs
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to tf_sclk
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to tf_mosi
+
+
+
+set_location_assignment PIN_J14 -to DEBUG_FLASH_CS
+set_location_assignment PIN_K15 -to DEBUG_FLASH_SI
+set_location_assignment PIN_L13 -to DEBUG_FLASH_CK
+set_location_assignment PIN_N14 -to DEBUG_FLASH_SO
+
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DEBUG_FLASH_CS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DEBUG_FLASH_SI
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DEBUG_FLASH_CK
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DEBUG_FLASH_SO

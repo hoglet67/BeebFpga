@@ -116,7 +116,7 @@ architecture rtl of mem_de0_nano is
     -- 1 -> 8 MMFS          9 MMFS
     -- 2 -> E Ram Master    C Basic II
     -- 3 -> F Basic II      F Terminal
-    constant user_rom_map_beeb_minimal    : std_logic_vector(63 downto 0) := x"000000000000FED4";
+    constant user_rom_map_beeb_minimal    : std_logic_vector(63 downto 0) := x"000000000000FE84";
     constant user_rom_map_master_minimal  : std_logic_vector(63 downto 0) := x"000000000000FC94";
     constant user_rom_map_full            : std_logic_vector(63 downto 0) := x"FEDCBA9876543210";
     signal   user_rom_map                 : std_logic_vector(63 downto 0);
@@ -124,9 +124,9 @@ architecture rtl of mem_de0_nano is
     -- start address of user data in FLASH as obtained from bitmerge.py
     -- this mus be beyond the end of the bitstream
 
-    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"1F0000";
-    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"1F0000";
-    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"1F0000";
+    constant user_address_beeb            : std_logic_vector(23 downto 0) := x"100000";
+    constant user_address_master_minimal  : std_logic_vector(23 downto 0) := x"140000";
+    constant user_address_master_full     : std_logic_vector(23 downto 0) := x"140000";
     signal   user_address                 : std_logic_vector(23 downto 0);
     signal   user_length                  : std_logic_vector(23 downto 0);
 

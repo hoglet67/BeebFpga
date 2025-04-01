@@ -153,7 +153,6 @@ set_global_assignment -name VHDL_FILE sdramctl.vhd
 set_global_assignment -name VHDL_FILE board_config_pack.vhd
 
 set_global_assignment -name QIP_FILE pll2v.qip
-set_global_assignment -name VHDL_FILE pll2v.vhd
 
 
 set_location_assignment PIN_R8 -to brd_clk_50

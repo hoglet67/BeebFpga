@@ -63,10 +63,10 @@ entity bbc_micro_de0 is
         IncludeAMXMouse    : boolean := false;
         IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := true;
-        IncludeMusic5000       : boolean := false;
-        IncludeMusic5000Filter : boolean := false; -- Music 5000 Low Pass IIR Filter
+        IncludeMusic5000       : boolean := true;
+        IncludeMusic5000Filter : boolean := true; -- Music 5000 Low Pass IIR Filter
         IncludeMusic5000SPDIF  : boolean := false; -- Music 5000 20-bit SPDIF Output
-        IncludeMixerResampler  : boolean := false;
+        IncludeMixerResampler  : boolean := true;
         IncludeICEDebugger     : boolean := G_CONFIG_DEBUGGER;
         IncludeVideoNuLA   : boolean := true;
         IncludeTrace       : boolean := true;
@@ -127,6 +127,10 @@ entity bbc_micro_de0 is
         sdram_nCAS_o    :  out   std_logic;
         sdram_nWE_o     :  out   std_logic;
         sdram_DQM_o     :  out   std_logic_vector(1 downto 0);
+
+        -- 1 bit dac audio
+        audiol_o        :  out   std_logic;
+        audior_o        :  out   std_logic;
 
         -- SPI Flash (for ROM data)
         flash_cs        : out   std_logic;     -- Active low FLASH chip select
@@ -384,6 +388,9 @@ architecture rtl of bbc_micro_de0 is
 
 
 begin
+
+audiol_o <= audiol;
+audior_o <= audior;
 
 debug_flash_so <= flash_so;
 debug_flash_ck <= i_flash_ck;

@@ -4,7 +4,7 @@ B - bug fix required
 F - feature
 R - refactor
 D - debug features to be removed
-
+W - wiki
 
 All
 ===
@@ -30,6 +30,13 @@ FR  merge/enhance i2s implementations
 ?   discuss with Hog why different saa5050/m5000 rom, maybe get rid and infer from a binary or hex file(s)?
 
 ?   is copro boot rom loadable via bootstrap - make it so?
+
+W   document pinouts in wiki
+W   document rom build scripts in wiki
+W   document altera and gowin load process in wiki
+W   openpfgaloader
+
+R   combine spi_flash and spi_flash_altera with a generic switch
 
 
 R?  I combined bootstrap and moved bootstrap and spi_flash from xilinx folder into a bootstrap folder - the old xilinx version looked like it might not work anyway but I haven't a duo to test on

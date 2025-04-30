@@ -67,7 +67,7 @@ entity bbc_micro_tang20k is
         IncludeMonitor         : boolean := false; -- So we see the normal status LEDs
         IncludeCoPro6502       : boolean := true;
         IncludeCoProExt        : boolean := true;
-        IncludeSoftLEDs        : boolean := not IncludeCoProExt;
+        IncludeSoftLEDs        : boolean := true;
         IncludeI2SAudio        : boolean := true;
         IncludeVGADAC          : boolean := not IncludeCoProExt;
 
@@ -98,7 +98,7 @@ entity bbc_micro_tang20k is
         ps2_mouse_data  : inout std_logic;
 
         -- Joystick
-        js_clk          : out   std_logic;
+        js_clk          : out   std_logic;     -- this is actually just phi2 to save a pin
         js_load_n       : out   std_logic;
         js_data         : in    std_logic;
 
@@ -432,6 +432,7 @@ architecture rtl of bbc_micro_tang20k is
 
     -- LEDs
     signal normal_leds     : std_logic_vector(5 downto 0);
+    signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
 
     -- Test
     signal test            : std_logic_vector(7 downto 0);
@@ -453,7 +454,7 @@ begin
             IncludeICEDebugger     => IncludeICEDebugger,
             IncludeCoPro6502       => IncludeCoPro6502,
             IncludeCoProSPI        => false,
-            IncludeCoProExt        => IncludeCoProExt,
+            IncludeCoProExt        => true, -- we need phi2 all the time
             IncludeVideoNuLA       => IncludeVideoNuLA,
             IncludeTrace           => IncludeTrace,
             IncludeHDMI            => IncludeHDMI,
@@ -1159,10 +1160,12 @@ begin
     -- 1MHz Bus LEDs
     --------------------------------------------------------
 
+    -- TODO: this needs a big refactor as it's all got a bit messy!
+
     normal_leds <= (caps_led & shift_led & m5k_spdif_en & m5k_filter_en & hdmi_audio_src & clip_led) xor "111111";
 
-    GenLEDS: if IncludeSoftLEDs generate
-        signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
+    GenSoftLEDS: if IncludeSoftLEDs generate
+
         signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
         signal ws2812_g        : std_logic_vector(7 downto 0) := (others => '0');
         signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
@@ -1187,11 +1190,6 @@ begin
                 color => bit_reverse(ws2812_g & ws2812_r & ws2812_b),
                 data  => ws2812_din
                 );
-
-        led <= soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
-               test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
-               monitor_leds                       when IncludeMonitor               else
-               normal_leds;
 
         process(clock_48)
         begin
@@ -1244,6 +1242,16 @@ begin
                        x"FF";
 
     end generate;
+
+    GenLEDs: if IncludeSoftLEDs and not IncludeCoProExt generate
+
+        led <= soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
+               test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
+               monitor_leds                       when IncludeMonitor               else
+               normal_leds;
+
+    end generate;
+
 
     NotGenLEDS: if not IncludeSoftLEDs and not IncludeCoProExt generate
 
@@ -1336,9 +1344,7 @@ begin
         led(1)     <= ext_tube_r_nw;
         led(0)     <= ext_tube_a(0);
 
-        ws2812_din <= ext_tube_phi2;
-
-        ext_1mhz_do <= x"FF";
+        js_clk     <= ext_tube_phi2;
 
     end generate;
 

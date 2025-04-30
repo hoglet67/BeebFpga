@@ -88,16 +88,18 @@ entity bbc_micro_tang20k is
         btn2            : in    std_logic;     -- Toggle HDMI / DVI modes
         led             : out   std_logic_vector (5 downto 0);
         ws2812_din      : out   std_logic;
-
-
-        -- Test/GPIO
-        --gpio            : out   std_logic_vector(3 downto 0);
+        key_conf        : in    std_logic;
 
         -- Keyboard / Mouse
         ps2_clk         : inout std_logic;
         ps2_data        : inout std_logic;
         ps2_mouse_clk   : inout std_logic;
         ps2_mouse_data  : inout std_logic;
+
+        -- Joystick
+        js_clk          : out   std_logic;
+        js_load_n       : out   std_logic;
+        js_data         : in    std_logic;
 
         -- SD Card
         tf_miso         : in    std_logic;
@@ -123,10 +125,15 @@ entity bbc_micro_tang20k is
         vga_vs          : out   std_logic;
 
         -- I2S Audio
+        i2s_mclk        : out   std_logic;
         i2s_bclk        : out   std_logic;
         i2s_lrclk       : out   std_logic;
         i2s_din         : out   std_logic;
         pa_en           : out   std_logic;
+
+        -- 1-bit DAC Audio
+        audiol          : out   std_logic;
+        audior          : out   std_logic;
 
         -- SPDIF Audio
         audio_spdif     : out   std_logic;
@@ -142,10 +149,6 @@ entity bbc_micro_tang20k is
         O_sdram_addr    : out   std_logic_vector(10 downto 0);
         O_sdram_ba      : out   std_logic_vector(1 downto 0);
         O_sdram_dqm     : out   std_logic_vector(3 downto 0);
-
-        -- A general purpose 14-bit bus, that we can use for several functions such as 6502 tracing
-        -- Bits 12/13 double as audio
-        -- gpio            : out   std_logic_vector(13 downto 0);
 
         -- SPI Flash (for ROM data)
         flash_cs        : out   std_logic;     -- Active low FLASH chip select
@@ -316,8 +319,6 @@ architecture rtl of bbc_micro_tang20k is
     signal dac_r_in        : std_logic_vector(9 downto 0);
     signal audio_l         : std_logic_vector(15 downto 0);
     signal audio_r         : std_logic_vector(15 downto 0);
-    signal audiol          : std_logic;
-    signal audior          : std_logic;
     signal volume          : unsigned(4 downto 0) := to_unsigned(DefaultVolume, 5);
     signal audio_l_legacy  : std_logic_vector(15 downto 0);
     signal audio_r_legacy  : std_logic_vector(15 downto 0);
@@ -326,6 +327,7 @@ architecture rtl of bbc_micro_tang20k is
     signal psg_audio       : signed(17 downto 0);
     signal psg_strobe      : std_logic;
     signal m5k_filter_en   : std_logic := '1';
+    signal m5k_spdif_en    : std_logic;
     signal m5k_spdif       : std_logic;
     signal m5k_audio_l     : signed(17 downto 0);
     signal m5k_audio_r     : signed(17 downto 0);
@@ -335,7 +337,7 @@ architecture rtl of bbc_micro_tang20k is
 
     ---test output toggled by the mixer_strobe (system clock domain)
     -- for comparison with spdif_load
-    signal toggle          : std_logic := '0';
+    -- signal toggle          : std_logic := '0';
 
     -- output used to load sample into SPDIF (spdif clock domain)
     signal spdif_load      : std_logic;
@@ -369,7 +371,6 @@ architecture rtl of bbc_micro_tang20k is
     signal i_VGA_R         : std_logic_vector(3 downto 0);
     signal i_VGA_G         : std_logic_vector(3 downto 0);
     signal i_VGA_B         : std_logic_vector(3 downto 0);
-
 
     -- HDMI
     signal hdmi_aspect     : std_logic_vector(1 downto 0);
@@ -1265,20 +1266,14 @@ begin
 
    end generate;
 
-    --------------------------------------------------------
-    -- Output Assignments
-    --------------------------------------------------------
-
-    -- Toggle is a test output, for comparison with spdif_load
-    process(clock_48)
-    begin
-        if rising_edge(clock_48) then
-            if mixer_strobe = '1' then
-                toggle <= not toggle;
-            end if;
-        end if;
-    end process;
-
-    --gpio <= psg_strobe & mixer_strobe & spdif_load & toggle;
+--    -- Toggle is a test output, for comparison with spdif_load
+--    process(clock_48)
+--    begin
+--        if rising_edge(clock_48) then
+--            if mixer_strobe = '1' then
+--                toggle <= not toggle;
+--            end if;
+--        end if;
+--    end process;
 
 end architecture;

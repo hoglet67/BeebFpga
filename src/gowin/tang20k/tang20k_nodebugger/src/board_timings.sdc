@@ -5,12 +5,12 @@ create_clock -name spdif_clk -period 162.76 -waveform {0 81.38} [get_ports {spdi
 create_generated_clock -name clock_27 -source [get_ports {sys_clk}] -master_clock sys_clk -divide_by 27 -multiply_by 27 [get_nets {clock_27}]
 create_generated_clock -name clock_48 -source [get_ports {sys_clk}] -master_clock sys_clk -divide_by 27 -multiply_by 48 [get_nets {clock_48}]
 create_generated_clock -name clock_96 -source [get_ports {sys_clk}] -master_clock sys_clk -divide_by 27 -multiply_by 96 [get_nets {clock_96}]
-create_generated_clock -name clock_81 -source [get_ports {sys_clk}] -master_clock sys_clk -divide_by 27 -multiply_by 81 [get_nets {clock_81}]
+//create_generated_clock -name clock_81 -source [get_ports {sys_clk}] -master_clock sys_clk -divide_by 27 -multiply_by 81 [get_nets {clock_81}]
 
 // Ignore any timing paths between the main and video clocks
 set_clock_groups -asynchronous -group [get_clocks {clock_48}] -group [get_clocks {clock_27}]
 set_clock_groups -asynchronous -group [get_clocks {clock_27}] -group [get_clocks {clock_48}]
-set_clock_groups -asynchronous -group [get_clocks {clock_27}] -group [get_clocks {clock_81}]
+//set_clock_groups -asynchronous -group [get_clocks {clock_27}] -group [get_clocks {clock_81}]
 
 // Ignore any timing paths from main to spdif clocks
 set_clock_groups -asynchronous -group [get_clocks {clock_48}] -group [get_clocks {spdif_clk}]

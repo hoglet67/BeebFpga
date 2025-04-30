@@ -66,9 +66,10 @@ entity bbc_micro_tang20k is
         IncludeBootStrap       : boolean := true;
         IncludeMonitor         : boolean := false; -- So we see the normal status LEDs
         IncludeCoPro6502       : boolean := true;
-        IncludeSoftLEDs        : boolean := true;
+        IncludeCoProExt        : boolean := true;
+        IncludeSoftLEDs        : boolean := not IncludeCoProExt;
         IncludeI2SAudio        : boolean := true;
-        IncludeVGADAC          : boolean := true;
+        IncludeVGADAC          : boolean := not IncludeCoProExt;
 
         MinVolume              : integer := 0;  -- -60dB
         DefaultVolume          : integer := 10; -- -30dB
@@ -118,11 +119,14 @@ entity bbc_micro_tang20k is
         tmds_d_n        : out   std_logic_vector(2 downto 0);
 
         -- VGA
-        vga_r           : out   std_logic;
-        vga_b           : out   std_logic;
-        vga_g           : out   std_logic;
-        vga_hs          : out   std_logic;
-        vga_vs          : out   std_logic;
+        vga_r           : inout std_logic;
+        vga_r_n         : inout std_logic;
+        vga_g           : inout std_logic;
+        vga_g_n         : inout std_logic;
+        vga_b           : inout std_logic;
+        vga_b_n         : inout std_logic;
+        vga_hs          : inout std_logic;
+        vga_vs          : inout std_logic;
 
         -- I2S Audio
         i2s_mclk        : out   std_logic;
@@ -362,7 +366,9 @@ architecture rtl of bbc_micro_tang20k is
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_mode       : std_logic := '1';
-    signal copro_mode      : std_logic := '1';
+    signal copro           : std_logic_vector(1 downto 0) := "00";
+    signal copro_mode      : std_logic;
+    signal copro_ext       : std_logic;
 
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
@@ -371,6 +377,11 @@ architecture rtl of bbc_micro_tang20k is
     signal i_VGA_R         : std_logic_vector(3 downto 0);
     signal i_VGA_G         : std_logic_vector(3 downto 0);
     signal i_VGA_B         : std_logic_vector(3 downto 0);
+    signal vga_r_int       : std_logic;
+    signal vga_g_int       : std_logic;
+    signal vga_b_int       : std_logic;
+    signal vga_hs_int      : std_logic;
+    signal vga_vs_int      : std_logic;
 
     -- HDMI
     signal hdmi_aspect     : std_logic_vector(1 downto 0);
@@ -382,6 +393,15 @@ architecture rtl of bbc_micro_tang20k is
     signal tmds_r          : std_logic_vector(9 downto 0);
     signal tmds_g          : std_logic_vector(9 downto 0);
     signal tmds_b          : std_logic_vector(9 downto 0);
+
+    -- External tube
+    signal ext_tube_r_nw   : std_logic;
+    signal ext_tube_nrst   : std_logic;
+    signal ext_tube_ntube  : std_logic;
+    signal ext_tube_phi2   : std_logic;
+    signal ext_tube_a      : std_logic_vector(6 downto 0);
+    signal ext_tube_di     : std_logic_vector(7 downto 0);
+    signal ext_tube_do     : std_logic_vector(7 downto 0);
 
     -- CPU tracing
     signal trace_data      :   std_logic_vector(7 downto 0);
@@ -433,7 +453,7 @@ begin
             IncludeICEDebugger     => IncludeICEDebugger,
             IncludeCoPro6502       => IncludeCoPro6502,
             IncludeCoProSPI        => false,
-            IncludeCoProExt        => false,
+            IncludeCoProExt        => IncludeCoProExt,
             IncludeVideoNuLA       => IncludeVideoNuLA,
             IncludeTrace           => IncludeTrace,
             IncludeHDMI            => IncludeHDMI,
@@ -456,8 +476,8 @@ begin
             video_red       => i_VGA_R,
             video_green     => i_VGA_G,
             video_blue      => i_VGA_B,
-            video_hsync     => vga_hs,
-            video_vsync     => vga_vs,
+            video_hsync     => vga_hs_int,
+            video_vsync     => vga_vs_int,
             audio_l         => audio_l_legacy,
             audio_r         => audio_r_legacy,
             hdmi_audio_ext  => '1',
@@ -506,6 +526,7 @@ begin
             cpu_addr        => open,
             m128_mode       => m128_mode,
             copro_mode      => copro_mode,
+            copro_ext       => copro_ext,
             p_spi_ssel      => '0',
             p_spi_sck       => '0',
             p_spi_mosi      => '0',
@@ -513,13 +534,13 @@ begin
             p_irq_b         => open,
             p_nmi_b         => open,
             p_rst_b         => open,
-            ext_tube_r_nw   => open,
-            ext_tube_nrst   => open,
-            ext_tube_ntube  => open,
-            ext_tube_phi2   => open,
-            ext_tube_a      => open,
-            ext_tube_di     => open,
-            ext_tube_do     => (others => '0'),
+            ext_tube_r_nw   => ext_tube_r_nw,
+            ext_tube_nrst   => ext_tube_nrst,
+            ext_tube_ntube  => ext_tube_ntube,
+            ext_tube_phi2   => ext_tube_phi2,
+            ext_tube_a      => ext_tube_a,
+            ext_tube_di     => ext_tube_di,
+            ext_tube_do     => ext_tube_do,
             ext_1mhz_clken  => ext_1mhz_clken, -- a 1MHz strobe, valid for one system clock cycle
             ext_1mhz_nrst   => ext_1mhz_nrst,
             ext_1mhz_pgfc_n => ext_1mhz_pgfc_n,
@@ -544,6 +565,10 @@ begin
             trace_phi2      => trace_phi2,
             test            => test
         );
+
+    -- The copro_ext setting is only relevant to the model b
+    copro_mode <= '1' when IncludeMaster else (copro(0) or copro(1));
+    copro_ext  <= '1' when IncludeMaster else (copro(1)            );
 
     vid_mode       <= "0001" when IncludeHDMI else "0000";
     keyb_dip       <= "00000000";
@@ -677,15 +702,10 @@ begin
             elsif powerup_reset_n = '0' then
                 if IncludeBeeb and IncludeMaster then
                     m128_mode <= not m128_mode;
-                    if m128_mode = '1' then
-                        copro_mode <= not copro_mode;
-                    end if;
                 elsif IncludeMaster then
                     m128_mode <= '1';
-                    copro_mode <= not copro_mode;
                 else
                     m128_mode <= '0';
-                    copro_mode <= not copro_mode;
                 end if;
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
@@ -748,6 +768,15 @@ begin
             end if;
             if config(5) = '1' then
                 hdmi_audio_src <= not hdmi_audio_src;
+            end if;
+            if config(6) = '1' then
+                if copro = "00" then
+                    copro <= "01";
+                elsif copro = "01" and not IncludeMaster then
+                    copro <= "10";
+                else
+                    copro <= "00";
+                end if;
             end if;
         end if;
     end process;
@@ -1216,12 +1245,20 @@ begin
 
     end generate;
 
-    NotGenLEDS: if not IncludeSoftLEDs generate
+    NotGenLEDS: if not IncludeSoftLEDs and not IncludeCoProExt generate
 
         led <= monitor_leds when IncludeMonitor else normal_leds;
         ws2812_din <= '0';
+        ext_1mhz_do <= x"FF";
 
     end generate;
+
+
+--------------------------------------------------------
+-- VGA outputs
+--------------------------------------------------------
+
+    -- Note: It's a build error if both IncludeVGADAC and IncludeCoProExt are both set
 
     vga_1bit_dac : if IncludeVGADAC generate
     begin
@@ -1233,7 +1270,7 @@ begin
                 clk_dac_px_i        => clock_81,
                 clk_dac_i           => clock_405,
                 sample_i            => unsigned(i_VGA_r),
-                bitstream_o         => vga_r
+                bitstream_o         => vga_r_int
                 );
         e_vidg:entity work.dac1_oser
             port map (
@@ -1242,7 +1279,7 @@ begin
                 clk_dac_px_i        => clock_81,
                 clk_dac_i           => clock_405,
                 sample_i            => unsigned(i_VGA_g),
-                bitstream_o         => vga_g
+                bitstream_o         => vga_g_int
                 );
         e_vidb:entity work.dac1_oser
             port map (
@@ -1251,20 +1288,67 @@ begin
                 clk_dac_px_i        => clock_81,
                 clk_dac_i           => clock_405,
                 sample_i            => unsigned(i_VGA_b),
-                bitstream_o         => vga_b
+                bitstream_o         => vga_b_int
                 );
+
+        vga_r  <= vga_r_int;
+        vga_g  <= vga_g_int;
+        vga_b  <= vga_b_int;
+        vga_hs <= vga_hs_int;
+        vga_vs <= vga_vs_int;
+
+    end generate;
+
+    not_vga_1bit_dac : if not IncludeVGADAC and not includeCoProExt generate
+
+        vga_r <= i_VGA_R(i_VGA_R'high);
+        vga_g <= i_VGA_G(i_VGA_G'high);
+        vga_b <= i_VGA_B(i_VGA_B'high);
+        vga_hs <= vga_hs;
+        vga_vs <= vga_vs;
 
     end generate;
 
 
+--------------------------------------------------------
+-- External tube connections
+--------------------------------------------------------
 
-   not_vga_1bit_dac : if not IncludeVGADAC generate
+    -- Note: It's a build error if both IncludeVGADAC and IncludeCoProExt are both set
 
-       vga_r <= i_VGA_R(i_VGA_R'high);
-       vga_g <= i_VGA_G(i_VGA_G'high);
-       vga_b <= i_VGA_B(i_VGA_B'high);
+    GenCoProExt: if IncludeCoProExt generate
+    begin
+        ext_tube_do  <= vga_g & vga_b_n & vga_vs & vga_hs & vga_r_n & vga_b & vga_g_n & vga_r;
 
-   end generate;
+        vga_g   <= ext_tube_di(7) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
+        vga_b_n <= ext_tube_di(6) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
+        vga_vs  <= ext_tube_di(5) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
+        vga_hs  <= ext_tube_di(4) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
+        vga_r_n <= ext_tube_di(3) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
+        vga_b   <= ext_tube_di(2) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
+        vga_g_n <= ext_tube_di(1) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
+        vga_r   <= ext_tube_di(0) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
+
+        led(5)     <= ext_tube_nrst;
+        led(4)     <= ext_tube_a(2);
+        led(3)     <= ext_tube_a(1);
+        led(2)     <= ext_tube_ntube;
+        led(1)     <= ext_tube_r_nw;
+        led(0)     <= ext_tube_a(0);
+
+        ws2812_din <= ext_tube_phi2;
+
+        ext_1mhz_do <= x"FF";
+
+    end generate;
+
+    GenCoProNotExt: if not IncludeCoProExt generate
+    begin
+        ext_tube_do  <= x"FE";
+    end generate;
+
+
+
 
 --    -- Toggle is a test output, for comparison with spdif_load
 --    process(clock_48)

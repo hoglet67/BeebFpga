@@ -1,0 +1,51 @@
+? - not sure
+# - done
+B - bug fix required
+F - feature
+R - refactor
+D - debug features to be removed
+
+
+All
+===
+
+B   SN76489 - Dave's boot up noise continues after Tricky test rom init - check why, suspect the register writes are all delayed by 1 cycle - second pass around test resets noise properly, also get a rogue bip (short beep) on first break after a ctrl break if no other sound.
+
+R   move library/1bitdac folder inside src/common
+R   common.vhd - move check all refs
+
+R   factorize 1bit video, PAL, VGA, mixed
+
+F   new CEA modes with repeating pixels, backport from Blitter
+F   mode 7 double pixel/interlacer - allow VGA modes and 15KHz modes to coexist?
+F   mode 7 compact rom from Blitter as option - might save enough BSRAM to enable audio filters on bsram limited devices?
+
+B   monitor, add in skip for non-bootstrap modes
+B   bootstrap, fold back improvements to primer/tang 20k to other builds for block-ram/minimal
+
+FR  merge/enhance i2s implementations
+
+#B   Keyboard watchdog - desperation measure - DISCUSS
+
+?   discuss with Hog why different saa5050/m5000 rom, maybe get rid and infer from a binary or hex file(s)?
+
+?   is copro boot rom loadable via bootstrap - make it so?
+
+
+R?  I combined bootstrap and moved bootstrap and spi_flash from xilinx folder into a bootstrap folder - the old xilinx version looked like it might not work anyway but I haven't a duo to test on
+
+Tang Primer 20K
+======================
+
+#F	WS2812 - add in the WS2812 LED on the board
+#B   harmonize and fix mem_tang20k, rename primer20k, better ROM/RAM decoding
+
+D   keyboard debug stuff is still in there - keep for now?
+
+B   timing fails on i2s phase acc - not sure what is being inferred, or how to find out ask Hoglet
+
+
+Tang 9K
+=======
+
+- does this need a refresh / update to latest spec

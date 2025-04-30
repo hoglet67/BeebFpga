@@ -1,0 +1,174 @@
+IO_LOC "brd_clk_50" E2;        // 50Mhz
+IO_PORT "brd_clk_50" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+
+IO_LOC "btn1" H11;
+IO_PORT "btn1" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=OFF BANK_VCCIO=3.3;
+
+IO_LOC "btn2" H10;        // S2
+IO_PORT "btn2" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=OFF BANK_VCCIO=3.3;
+
+// HDMI (USB-A side PMOD)
+//IO_LOC "tmds_clk_p" H5,J5;
+//IO_PORT "tmds_clk_p" IO_TYPE=LVCMOS33D PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+//IO_LOC "tmds_d_p[0]" H8,H7;
+//IO_PORT "tmds_d_p[0]" IO_TYPE=LVCMOS33D PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+//IO_LOC "tmds_d_p[1]" G7,G8;
+//IO_PORT "tmds_d_p[1]" IO_TYPE=LVCMOS33D PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+//IO_LOC "tmds_d_p[2]" F5,G5;
+//IO_PORT "tmds_d_p[2]" IO_TYPE=LVCMOS33D PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "tmds_clk_p" H5;
+IO_PORT "tmds_clk_p" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_clk_n" J5;
+IO_PORT "tmds_clk_n" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[0]" H8;
+IO_PORT "tmds_d_p[0]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[0]" H7;
+IO_PORT "tmds_d_n[0]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[1]" G7;
+IO_PORT "tmds_d_p[1]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[1]" G8;
+IO_PORT "tmds_d_n[1]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[2]" F5;
+IO_PORT "tmds_d_p[2]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_n[2]" G5;
+IO_PORT "tmds_d_n[2]" PULL_MODE=NONE IO_TYPE=LVCMOS33D;
+
+// SDCard
+IO_LOC "tf_sclk" C11;
+IO_PORT "tf_sclk" PULL_MODE=NONE IO_TYPE=LVCMOS33; 
+IO_LOC "tf_mosi" D11;        // MOSI
+IO_PORT "tf_mosi" PULL_MODE=NONE IO_TYPE=LVCMOS33;
+IO_LOC "tf_miso" B11;       // MISO or SD card DO, needs pull-up
+IO_PORT "tf_miso" PULL_MODE=UP IO_TYPE=LVCMOS33;
+IO_LOC "tf_uk_dat1" G10;       // 1
+IO_PORT "tf_uk_dat1" PULL_MODE=UP IO_TYPE=LVCMOS33;
+IO_LOC "tf_uk_dat2" D10;       // 1
+IO_PORT "tf_uk_dat2" PULL_MODE=UP IO_TYPE=LVCMOS33;
+IO_LOC "tf_cs" G11;       // 1
+IO_PORT "tf_cs" PULL_MODE=NONE IO_TYPE=LVCMOS33;
+// TODO pullups on unused?
+
+
+// UART through USB-C port
+IO_LOC "uart_rx" B3;       // the primer25k example is reversed
+IO_LOC "uart_tx" C3;
+IO_PORT "uart_rx" IO_TYPE=LVCMOS33;
+IO_PORT "uart_tx" IO_TYPE=LVCMOS33;
+
+// NOR Flash W25Q64 (MSPI pins)
+IO_LOC "flash_cs" E6;
+IO_PORT "flash_cs" PULL_MODE=NONE IO_TYPE=LVCMOS33;
+IO_LOC "flash_uk_wp" D5;
+IO_PORT "flash_uk_wp" PULL_MODE=UP IO_TYPE=LVCMOS33;
+IO_LOC "flash_uk_hold" E4;
+IO_PORT "flash_uk_hold" PULL_MODE=UP IO_TYPE=LVCMOS33;
+IO_LOC "flash_so" E5;
+IO_PORT "flash_so" PULL_MODE=NONE IO_TYPE=LVCMOS33;
+IO_LOC "flash_si" D6;
+IO_PORT "flash_si" PULL_MODE=NONE IO_TYPE=LVCMOS33;
+IO_LOC "flash_ck" E7;
+IO_PORT "flash_ck" PULL_MODE=NONE IO_TYPE=LVCMOS33;
+
+
+// Tang SDRAM v1.2 connected through 40-pin port
+IO_LOC "sdram_DQ_io[0]" K2;
+IO_PORT "sdram_DQ_io[0]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[1]" K1;
+IO_PORT "sdram_DQ_io[1]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[2]" L1;
+IO_PORT "sdram_DQ_io[2]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[3]" L2;
+IO_PORT "sdram_DQ_io[3]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[4]" K4;
+IO_PORT "sdram_DQ_io[4]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[5]" J4;
+IO_PORT "sdram_DQ_io[5]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[6]" G1;
+IO_PORT "sdram_DQ_io[6]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[7]" G2;
+IO_PORT "sdram_DQ_io[7]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[8]" E1;
+IO_PORT "sdram_DQ_io[8]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[9]" A1;
+IO_PORT "sdram_DQ_io[9]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[10]" F2;
+IO_PORT "sdram_DQ_io[10]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[11]" F1;
+IO_PORT "sdram_DQ_io[11]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[12]" B2;
+IO_PORT "sdram_DQ_io[12]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[13]" C2;
+IO_PORT "sdram_DQ_io[13]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[14]" L4;
+IO_PORT "sdram_DQ_io[14]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQ_io[15]" L3;
+IO_PORT "sdram_DQ_io[15]" IO_TYPE=LVCMOS33;
+
+IO_LOC "sdram_A_o[0]" F6;
+IO_PORT "sdram_A_o[0]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[1]" F7;
+IO_PORT "sdram_A_o[1]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[2]" J10;
+IO_PORT "sdram_A_o[2]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[3]" J11;
+IO_PORT "sdram_A_o[3]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[4]" K7;
+IO_PORT "sdram_A_o[4]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[5]" H2;
+IO_PORT "sdram_A_o[5]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[6]" H1;
+IO_PORT "sdram_A_o[6]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[7]" H4;
+IO_PORT "sdram_A_o[7]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[8]" G4;
+IO_PORT "sdram_A_o[8]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[9]" J2;
+IO_PORT "sdram_A_o[9]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[10]" J8;
+IO_PORT "sdram_A_o[10]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[11]" J1;
+IO_PORT "sdram_A_o[11]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_A_o[12]" D1;
+IO_PORT "sdram_A_o[12]" IO_TYPE=LVCMOS33;
+
+IO_LOC "sdram_BS_o[0]" L9;
+IO_PORT "sdram_BS_o[0]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_BS_o[1]" K8;
+IO_PORT "sdram_BS_o[1]" IO_TYPE=LVCMOS33;
+
+IO_LOC "sdram_DQM_o[0]" L8;
+IO_PORT "sdram_DQM_o[0]" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_DQM_o[1]" L7;
+IO_PORT "sdram_DQM_o[1]" IO_TYPE=LVCMOS33;
+
+IO_LOC "sdram_clk_o" E3;
+IO_PORT "sdram_clk_o" IO_TYPE=LVCMOS33;
+
+IO_LOC "sdram_nWE_o" J7;
+IO_PORT "sdram_nWE_o" IO_TYPE=LVCMOS33;
+
+IO_LOC "sdram_nRAS_o" L10;
+IO_PORT "sdram_nRAS_o" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_nCAS_o" K10;
+IO_PORT "sdram_nCAS_o" IO_TYPE=LVCMOS33;
+IO_LOC "sdram_nCS_o" K9;
+IO_PORT "sdram_nCS_o" IO_TYPE=LVCMOS33;
+
+
+// 2 LEDs for debug
+IO_LOC "brd_led_o[1]" E8;    // Ready
+IO_PORT "brd_led_o[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "brd_led_o[0]" D7;    // Done
+IO_PORT "brd_led_o[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+IO_LOC "ps2_clk" K5;
+IO_PORT "ps2_clk" PULL_MODE=UP IO_TYPE=LVCMOS33;
+IO_LOC "ps2_data" L5;
+IO_PORT "ps2_data" PULL_MODE=UP IO_TYPE=LVCMOS33;
+
+IO_LOC "ps2_mouse_clk" L11;
+IO_PORT "ps2_mouse_clk" PULL_MODE=UP IO_TYPE=LVCMOS33;
+IO_LOC "ps2_mouse_data" K11;
+IO_PORT "ps2_mouse_data" PULL_MODE=UP IO_TYPE=LVCMOS33;
+
+

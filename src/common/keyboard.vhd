@@ -87,7 +87,9 @@ port (
     DIP_SWITCH  :   in  std_logic_vector(7 downto 0);
 
     -- Config button outputs
-    CONFIG      :   out std_logic_vector(9 downto 0)
+    CONFIG      :   out std_logic_vector(9 downto 0);
+
+    DBG_STATE   :   out std_logic_vector(5 downto 0)
     );
 end entity;
 
@@ -118,6 +120,8 @@ signal   r_cur_leds  : std_logic_vector(2 downto 0);
 signal   i_keyb_write_ack : std_logic; -- '1' when our write has been ack'd (write asserted and busy deasserted)
 signal   i_keyb_write     : std_logic;
 
+signal   dbg_valid_tgl      : std_logic := '0';
+
 -- Initialization state machine
 type init_state is (
     reset,
@@ -140,6 +144,11 @@ type init_state is (
 
 signal state: init_state;
 begin
+    
+    DBG_STATE <= 
+        dbg_valid_tgl &
+        "0" &
+        std_logic_vector(to_unsigned(init_state'pos(state), 4));
 
     i_keyb_write_ack <= i_keyb_write and not KEYB_BUSY;
     KEYB_WRITE <= i_keyb_write;
@@ -392,6 +401,9 @@ begin
             keys(9)(0) <= DIP_SWITCH(0);
 
             if keyb_valid = '1' and state = enabled then
+            
+                dbg_valid_tgl <= not dbg_valid_tgl;
+
                 -- Decode keyboard input
                 if keyb_data = X"e0" then
                     -- Extended key code follows

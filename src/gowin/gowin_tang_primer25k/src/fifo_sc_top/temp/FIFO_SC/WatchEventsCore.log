@@ -1,0 +1,46 @@
+GowinSynthesis start
+Running parser ...
+Analyzing Verilog file 'C:\Users\Dominic\Documents\GitHub\BeebFpga_Dom\src\gowin\gowin_tang_primer25k\src\fifo_sc_top\temp\FIFO_SC\fifo_sc_define.v'
+Analyzing Verilog file 'C:\Users\Dominic\Documents\GitHub\BeebFpga_Dom\src\gowin\gowin_tang_primer25k\src\fifo_sc_top\temp\FIFO_SC\fifo_sc_parameter.v'
+Analyzing Verilog file 'C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\edc_sc.v'
+Analyzing included file 'fifo_sc_define.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\edc_sc.v":14341)
+Back to file 'C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\edc_sc.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\edc_sc.v":14341)
+Analyzing Verilog file 'C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v'
+Analyzing included file 'fifo_sc_define.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v":236)
+Back to file 'C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v":236)
+Analyzing included file 'fifo_sc_parameter.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v":236)
+Back to file 'C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v":236)
+Analyzing Verilog file 'C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc_top.v'
+Analyzing included file 'fifo_sc_define.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc_top.v":1)
+Back to file 'C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc_top.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc_top.v":1)
+Analyzing included file 'fifo_sc_parameter.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc_top.v":46)
+Back to file 'C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc_top.v'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc_top.v":46)
+WARN  (EX2582) : Parameter 'DEPTH' declared inside compilation unit '$unit_fifo_sc_define_v' shall be treated as localparam("fifo_sc_parameter.v":1)
+WARN  (EX2582) : Parameter 'DSIZE' declared inside compilation unit '$unit_fifo_sc_define_v' shall be treated as localparam("fifo_sc_parameter.v":2)
+WARN  (EX2582) : Parameter 'ASIZE' declared inside compilation unit '$unit_fifo_sc_define_v' shall be treated as localparam("fifo_sc_parameter.v":3)
+Compiling module 'WatchEventsCore'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc_top.v":3)
+Compiling module '**'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v":236)
+Extracting RAM for identifier '**'("C:\Gowin\Gowin_V1.9.11_x64\IDE\ipcore\FIFO_SC\data\fifo_sc.v":236)
+NOTE  (EX0101) : Current top module is "WatchEventsCore"
+[5%] Running netlist conversion ...
+Running device independent optimization ...
+[10%] Optimizing Phase 0 completed
+[15%] Optimizing Phase 1 completed
+[25%] Optimizing Phase 2 completed
+Running inference ...
+[30%] Inferring Phase 0 completed
+[40%] Inferring Phase 1 completed
+[50%] Inferring Phase 2 completed
+[55%] Inferring Phase 3 completed
+Running technical mapping ...
+[60%] Tech-Mapping Phase 0 completed
+[65%] Tech-Mapping Phase 1 completed
+[75%] Tech-Mapping Phase 2 completed
+[80%] Tech-Mapping Phase 3 completed
+[90%] Tech-Mapping Phase 4 completed
+[95%] Generate netlist file "C:\Users\Dominic\Documents\GitHub\BeebFpga_Dom\src\gowin\gowin_tang_primer25k\src\fifo_sc_top\temp\FIFO_SC\WatchEventsCore.vg" completed
+[98%] Generate netlist file "C:\Users\Dominic\Documents\GitHub\BeebFpga_Dom\src\gowin\gowin_tang_primer25k\src\fifo_sc_top\temp\FIFO_SC\WatchEventsCore.vhg" completed
+Generate netlist file "C:\Users\Dominic\Documents\GitHub\BeebFpga_Dom\src\gowin\gowin_tang_primer25k\src\fifo_sc_top\temp\FIFO_SC\WatchEventsCore.vho" completed
+Generate template file "C:\Users\Dominic\Documents\GitHub\BeebFpga_Dom\src\gowin\gowin_tang_primer25k\src\fifo_sc_top\temp\FIFO_SC\WatchEventsCore_tmp.vhd" completed
+[100%] Generate report file "C:\Users\Dominic\Documents\GitHub\BeebFpga_Dom\src\gowin\gowin_tang_primer25k\src\fifo_sc_top\temp\FIFO_SC\WatchEventsCore_syn.rpt.html" completed
+GowinSynthesis finish

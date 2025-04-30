@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-synthesis-project>
+<Project>
+    <Version>beta</Version>
+    <Device id="GW5A-25A" package="MBGA121N" speed="1" partNumber="GW5A-LV25MG121NC1/I0"/>
+    <FileList>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/gowin_tang_primer25k/src/fifo_sc_top/temp/FIFO_SC/fifo_sc_define.v" type="verilog"/>
+        <File path="C:/Users/Dominic/Documents/GitHub/BeebFpga_Dom/src/gowin/gowin_tang_primer25k/src/fifo_sc_top/temp/FIFO_SC/fifo_sc_parameter.v" type="verilog"/>
+        <File path="C:/Gowin/Gowin_V1.9.11_x64/IDE/ipcore/FIFO_SC/data/edc_sc.v" type="verilog"/>
+        <File path="C:/Gowin/Gowin_V1.9.11_x64/IDE/ipcore/FIFO_SC/data/fifo_sc.v" type="verilog"/>
+        <File path="C:/Gowin/Gowin_V1.9.11_x64/IDE/ipcore/FIFO_SC/data/fifo_sc_top.v" type="verilog"/>
+    </FileList>
+    <OptionList>
+        <Option type="disable_insert_pad" value="1"/>
+        <Option type="enable_dsrm" value="0"/>
+        <Option type="output_file" value="WatchEventsCore.vg"/>
+        <Option type="output_template" value="WatchEventsCore_tmp.vhd"/>
+        <Option type="output_vhdl_file" value="WatchEventsCore.vhg"/>
+        <Option type="ram_balance" value="1"/>
+        <Option type="ram_rw_check" value="1"/>
+        <Option type="vcc" value="0.9"/>
+        <Option type="vccx" value="3.3"/>
+        <Option type="verilog_language" value="sysv-2017"/>
+    </OptionList>
+</Project>

@@ -52,9 +52,6 @@ entity bbc_micro_tang20k is
     generic (
         IncludeMaster          : boolean := true; -- if both included, the CPU is the AlanD 65C02
         IncludeBeeb            : boolean := true; -- and btn1 can toggle between the ROM images
-
-        UseDBSDRAMCtrl         : boolean := true; -- if true, use Dominic's SDRAM Controller rather than the NESTang one
-
         IncludeAMXMouse        : boolean := false;
         IncludeSPISD           : boolean := true;
         IncludeSID             : boolean := true;
@@ -342,9 +339,6 @@ architecture rtl of bbc_micro_tang20k is
 
     -- output used to load sample into SPDIF (spdif clock domain)
     signal spdif_load      : std_logic;
-
-    -- config signal to select SPDIF from mixer (0) or music 5000 (1)
-    signal m5k_spdif_en    : std_logic := '0';
 
     signal config_counter  : std_logic_vector(21 downto 0);
     signal config_last     : std_logic;
@@ -1093,7 +1087,6 @@ begin
             IncludeBootStrap => IncludeBootStrap,
             IncludeMinimalBeeb => true,
             IncludeMinimalMaster => false,
-            UseDBSDRAMCtrl => UseDBSDRAMCtrl,
             PRJ_ROOT => PRJ_ROOT,
             MOS_NAME => MOS_NAME
         )

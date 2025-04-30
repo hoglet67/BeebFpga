@@ -91,7 +91,9 @@ port (
     R           :   out std_logic;
     G           :   out std_logic;
     B           :   out std_logic;
-    Y           :   out std_logic
+    Y           :   out std_logic;
+    PIXDE       :   out std_logic
+
     );
 end entity;
 
@@ -128,6 +130,7 @@ signal pixel_counter :  unsigned(3 downto 0);
 signal flash_counter :  unsigned(5 downto 0);
 -- Output shift register
 signal shift_reg    :   std_logic_vector(11 downto 0);
+signal shift_reg_de :   std_logic_vector(11 downto 0);
 
 -- Flash mask
 signal flash        :   std_logic;
@@ -505,6 +508,7 @@ begin
     begin
         if nRESET = '0' then
             shift_reg <= (others => '0');
+            shift_reg_de <= (others => '0');
         elsif rising_edge(CLOCK) then
             if CLKEN = '1' then
                 if disp_enable_r = '1' and pixel_counter = 0 then
@@ -551,10 +555,12 @@ begin
                     -- Load the shift register with the ROM bit pattern
                     -- at the start of each character while disp_enable is asserted.
                     shift_reg <= a;
+                    shift_reg_de <= (others => '1');
 
                 else
                     -- Pump the shift register
                     shift_reg <= shift_reg(10 downto 0) & "0";
+                    shift_reg_de <= shift_reg_de(10 downto 0) & "0";
                 end if;
             end if;
         end if;
@@ -583,8 +589,11 @@ begin
                     G <= bg_r(1);
                     B <= bg_r(2);
                 end if;
+
+                PIXDE <= shift_reg_de(11);
             end if;
         end if;
     end process;
+
 
 end architecture;

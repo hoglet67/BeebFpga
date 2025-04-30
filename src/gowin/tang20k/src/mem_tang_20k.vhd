@@ -11,7 +11,6 @@ entity mem_tang_20k is
         PRJ_ROOT             : string;
         MOS_NAME             : string;
         SIM                  : boolean;
-        UseDBSDRAMCtrl       : boolean;
         IncludeMonitor       : boolean := false;
         IncludeBootstrap     : boolean;
         IncludeMinimalMaster : boolean := false;  -- Creates a build to test 4x16K ROM Images
@@ -59,42 +58,6 @@ entity mem_tang_20k is
 end mem_tang_20k;
 
 architecture rtl of mem_tang_20k is
-
-    --------------------------------------------------------
-    -- NESTang SDRAM Controller Component (Verilog)
-    --------------------------------------------------------
-    component sdramctl_nestang
-        port (
-            -- SDRAM side interface
-
-            SDRAM_DQ   : inout std_logic_vector(31 downto 0);
-            SDRAM_A    : out   std_logic_vector(10 downto 0);
-            SDRAM_BA   : out   std_logic_vector(1 downto 0);
-            SDRAM_nCS  : out   std_logic;
-            SDRAM_nWE  : out   std_logic;
-            SDRAM_nRAS : out   std_logic;
-            SDRAM_nCAS : out   std_logic;
-            SDRAM_CLK  : out   std_logic;
-            SDRAM_CKE  : out   std_logic;
-            SDRAM_DQM  : out   std_logic_vector(3 downto 0);
-
-            -- Logic side interface
-            clk        : in    std_logic;
-            clk_sdram  : in    std_logic;                     -- phase shifted from clk (normally 180-degrees)
-            resetn     : in    std_logic;
-            rd         : in    std_logic;                     -- command: read
-            wr         : in    std_logic;                     -- command: write
-            refresh    : in    std_logic;                     -- command: auto refresh. 4096 refresh cycles in 64ms. Once per 15us.
-            addr       : in    std_logic_vector(22 downto 0); -- byte address, buffered at rd/wr pulse time
-            din        : in    std_logic_vector(7 downto 0);  -- data input, buffered at wr pulse time
-            dout       : out   std_logic_vector(7 downto 0);  -- data output, available 4 cycles after rd becomes 1
-                                                              -- output is buffered until next read request
-            dout32     : out   std_logic_vector(31 downto 0); -- 32-bit data output
-            data_ready : out   std_logic;                     -- available 6 cycles after wr is set
-            busy       : out   std_logic                      -- 0: ready for next command
-            );
-    end component;
-
 
     constant ROMSIZE : natural := 32768;
 
@@ -212,69 +175,51 @@ architecture rtl of mem_tang_20k is
 
 begin
 
-    -- Dominic's SDRAM Controller
-    gen_sdramctl_dominic : if UseDBSDRAMCtrl generate
-        inst_sdramclt_dominic : entity work.sdramctl_dominic
-            generic map (
-                CLOCKSPEED  => 96000000,
-                T_CAS_EXTRA => 1
-                )
-            port map (
-                Clk          => CLK_96,
+    sdram_ctl : entity work.sdramctl
+    generic map (
+        CLOCKSPEED  => 96000000,
+        T_CAS_EXTRA => 1,
 
-                sdram_DQ_io  => IO_sdram_dq,
-                sdram_A_o    => O_sdram_addr,
-                sdram_BS_o   => O_sdram_ba,
-                sdram_CKE_o  => O_sdram_cke,
-                sdram_nCS_o  => O_sdram_cs_n,
-                sdram_nRAS_o => O_sdram_ras_n,
-                sdram_nCAS_o => O_sdram_cas_n,
-                sdram_nWE_o  => O_sdram_wen_n,
-                sdram_DQM_o  => O_sdram_dqm,
+        -- SDRAM geometry
+        LANEBITS    => 2,   -- number of byte lanes bits, if 0 don't connect sdram_DQM_o
+        BANKBITS    => 2,   -- number of bits, if none set to 0 and don't connect sdram_BS_o
+        ROWBITS     => 11,
+        COLBITS     => 8,
 
-                ctl_rfsh_i   => '0',
-                ctl_reset_i  => not rst_n,
-                ctl_stall_o  => i_sdram_busy,
-                ctl_cyc_i    => i_sdram_cyc,
-                ctl_we_i     => i_sdram_we,
-                ctl_A_i      => i_sdram_addr,
-                ctl_D_wr_i   => i_sdram_din,
-                ctl_D_rd_o   => i_sdram_dout,
-                ctl_ack_o    => open
-                );
+        -- SDRAM speed
+        trp             => 15 ns,    -- precharge
+        trcd            => 15 ns,    -- active to read/write
+        trc             => 60 ns,    -- active to active time
+        trfsh           => 1.8 us,   -- the refresh control signal will be blocked if it occurs more frequently than this
+        trfc            => 63 ns     -- refresh cycle time
 
-        O_sdram_clk <= CLK_96_P;
-    end generate;
 
-    -- NESTang SDRAM Controller
-    gen_sdramclt_nestang : if not UseDBSDRAMCtrl generate
-        inst_sdramctl_nestang : sdramctl_nestang
-            port map (
-                clk        => CLK_96,
-                clk_sdram  => CLK_96_p,
+        )
+    port map (
+        Clk          => CLK_96,
 
-                resetn     => rst_n,
-                addr       => i_sdram_addr,
-                rd         => i_sdram_cmd_read,
-                wr         => i_sdram_cmd_write,
-                refresh    => '0',
-                din        => i_sdram_din,
-                dout       => i_sdram_dout,
-                data_ready => open,
-                busy       => i_sdram_busy,
+        sdram_DQ_io  => IO_sdram_dq,
+        sdram_A_o    => O_sdram_addr,
+        sdram_BS_o   => O_sdram_ba,
+        sdram_CKE_o  => O_sdram_cke,
+        sdram_nCS_o  => O_sdram_cs_n,
+        sdram_nRAS_o => O_sdram_ras_n,
+        sdram_nCAS_o => O_sdram_cas_n,
+        sdram_nWE_o  => O_sdram_wen_n,
+        sdram_DQM_o  => O_sdram_dqm,
 
-                SDRAM_DQ   => IO_sdram_dq,
-                SDRAM_A    => O_sdram_addr,
-                SDRAM_BA   => O_sdram_ba,
-                SDRAM_nCS  => O_sdram_cs_n,
-                SDRAM_nWE  => O_sdram_wen_n,
-                SDRAM_nRAS => O_sdram_ras_n,
-                SDRAM_nCAS => O_sdram_cas_n,
-                SDRAM_CLK  => O_sdram_clk,
-                SDRAM_CKE  => O_sdram_cke,
-                SDRAM_DQM  => O_sdram_dqm
-                );
-    end generate;
+        ctl_rfsh_i   => '0',
+        ctl_reset_i  => not rst_n,
+        ctl_stall_o  => i_sdram_busy,
+        ctl_cyc_i    => i_sdram_cyc,
+        ctl_we_i     => i_sdram_we,
+        ctl_A_i      => i_sdram_addr,
+        ctl_D_wr_i   => i_sdram_din,
+        ctl_D_rd_o   => i_sdram_dout,
+        ctl_ack_o    => open
+        );
+
+    O_sdram_clk <= CLK_96_P;
 
     -- Controls for NESTang Controller
     i_sdram_cmd_read  <= not(i_X_nCS) and i_X_A_stb and not i_X_nOE;

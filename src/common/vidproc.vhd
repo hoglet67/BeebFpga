@@ -123,18 +123,24 @@ entity vidproc is
 
         -- Control interface
         nINVERT     :   in  std_logic;
-        DISEN       :   in  std_logic;
+        DISEN       :   in  std_logic;                      -- masked by RA(3) for pixel blanking
+        DISEN_U     :   in  std_logic;                      -- unmasked
         CURSOR      :   in  std_logic;
 
         -- Video in (teletext mode)
         R_IN        :   in  std_logic;
         G_IN        :   in  std_logic;
         B_IN        :   in  std_logic;
+        PIXDE_IN    :   in  std_logic;
+        PIXCLKEN_IN :   in  std_logic;
 
         -- Video out
         R           :   out std_logic_vector(3 downto 0);
         G           :   out std_logic_vector(3 downto 0);
-        B           :   out std_logic_vector(3 downto 0)
+        B           :   out std_logic_vector(3 downto 0);
+
+        PIXCLKEN    :   out std_logic;
+        PIXDE       :   out std_logic                       -- a per-pixel display enable not masked by nula scroll offsets, same delays as pixel data
         );
 end entity;
 
@@ -161,6 +167,12 @@ architecture rtl of vidproc is
     signal disen2           :   std_logic; -- needed to pipeline in speccy mode
     signal disenout         :   std_logic;
 
+    signal disen0_u         :   std_logic;
+    signal disen1_u         :   std_logic;
+    signal disen2_u         :   std_logic; -- needed to pipeline in speccy mode
+    signal disenout_u       :   std_logic;
+
+
 -- Internal clock enable generation
     signal modeIs12MHz      :   std_logic;
     signal clken_pixel      :   std_logic;
@@ -183,6 +195,7 @@ architecture rtl of vidproc is
     signal ttxt_R           :   std_logic;
     signal ttxt_G           :   std_logic;
     signal ttxt_B           :   std_logic;
+    signal ttxt_PIXDE       :   std_logic;
 
 -- Pass physical colour to VideoNuLA
     signal phys_col                   : std_logic_vector(3 downto 0);
@@ -229,6 +242,8 @@ architecture rtl of vidproc is
     signal nula_nreset                 : std_logic := '0';
 
 begin
+
+    PIXCLKEN <= clken_pixel;
 
     -- Original VideoULA Registers
     -- Synchronous register access, enabled on every clock
@@ -382,6 +397,7 @@ begin
                     -- Sample all inputs, so there are stable for a whole character
                     di <= DI_RAM;
                     disen0 <= DISEN;
+                    disen0_u <= DISEN_U;
                     cursor0 <= CURSOR;
                 end if;
             end if;
@@ -572,6 +588,7 @@ begin
                     -- add left hand blanking
                     disen1 <= disen0 and disen_delay_reg(to_integer(unsigned(nula_left_blanking_size)) - 1);
                 end if;
+                disen1_u <= disen0_u;
 
                 disen_delay_reg <= disen_delay_reg(disen_delay_reg'high - 1 downto 0) & disen0;
 
@@ -695,6 +712,7 @@ begin
                 ttxt_R <= R_IN;
                 ttxt_G <= G_IN;
                 ttxt_B <= B_IN;
+                ttxt_PIXDE <= PIXDE_IN;
 
                 -- Shift pixels in from right (so bits 3..0 are the most recent)
                 if r0_crtc_2mhz = '1' or clken_counter(0) = '1' then
@@ -715,6 +733,14 @@ begin
                 else
                     nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor (invert_final & invert_final & invert_final & invert_final))));
                 end if;
+
+                if r0_teletext = '0' then
+                    PIXDE <= disen1_u;
+                else
+                    PIXDE <= ttxt_PIXDE;
+                end if;
+
+
             end if;
         end if;
     end process;

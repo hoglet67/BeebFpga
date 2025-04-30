@@ -83,18 +83,25 @@ entity vidproc_orig is
 
         -- Control interface
         nINVERT     :   in  std_logic;
-        DISEN       :   in  std_logic;
+        DISEN       :   in  std_logic;                      -- masked by RA(3) for pixel blanking
+        DISEN_U     :   in  std_logic;                      -- unmasked
         CURSOR      :   in  std_logic;
 
         -- Video in (teletext mode)
         R_IN        :   in  std_logic;
         G_IN        :   in  std_logic;
         B_IN        :   in  std_logic;
+        PIXDE_IN    :   in  std_logic;
+        PIXCLKEN_IN :   in  std_logic;
 
         -- Video out
         R           :   out std_logic_vector(0 downto 0);
         G           :   out std_logic_vector(0 downto 0);
-        B           :   out std_logic_vector(0 downto 0)
+        B           :   out std_logic_vector(0 downto 0);
+
+        PIXCLKEN    :   out std_logic;
+        PIXDE       :   out std_logic
+
         );
 end entity;
 
@@ -115,6 +122,10 @@ architecture rtl of vidproc_orig is
     signal shiftreg         :   std_logic_vector(7 downto 0);
 -- Delayed display enable
     signal delayed_disen    :   std_logic;
+    signal delayed_disen_u  :   std_logic;   
+    signal delayed_disen_u2 :   std_logic;   -- extra pixel for shift register
+    signal delayed_disen_u3 :   std_logic;   -- extra char cell for teletext
+    signal delayed_disen_u4 :   std_logic;   -- another extra char cell for teletext
 
 -- Internal clock enable generation
     signal clken_pixel      :   std_logic;
@@ -135,6 +146,8 @@ architecture rtl of vidproc_orig is
     signal BB               :   std_logic;
 
 begin
+
+
     -- Synchronous register access, enabled on every clock
     process(CLOCK,nRESET)
     begin
@@ -211,6 +224,7 @@ begin
         if nRESET = '0' then
             shiftreg <= (others => '0');
             delayed_disen <= '0';
+            delayed_disen_u <= '0';
         elsif rising_edge(CLOCK) then
             if clken_pixel = '1' then
                 if clken_fetch = '1' then
@@ -219,13 +233,18 @@ begin
                     shiftreg <= DI_RAM;
                     -- Ensure the disen signal is valid for a whole character
                     delayed_disen <= DISEN;
+                    delayed_disen_u <= DISEN_U;
+                    delayed_disen_u3 <= delayed_disen_u;
+                    delayed_disen_u4 <= delayed_disen_u3;
                 else
                     -- Clock shift register and input '1' at LSB
                     shiftreg <= shiftreg(6 downto 0) & "1";
                 end if;
+                delayed_disen_u2 <= delayed_disen_u;
             end if;
         end if;
     end process;
+
 
     -- Cursor generation
     cursor_invert <= cursor_active and
@@ -317,6 +336,8 @@ begin
     R(0) <= RR when r0_teletext = '0' else R_IN xor cursor_invert2;
     G(0) <= GG when r0_teletext = '0' else G_IN xor cursor_invert2;
     B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert2;
+    PIXDE <= delayed_disen_u2 when r0_teletext = '0' else PIXDE_IN;
+    PIXCLKEN <= clken_pixel when r0_teletext = '0' else PIXCLKEN_IN;
 
     -- Indicate mode 7 teletext is selected
     TTXT <= r0_teletext;

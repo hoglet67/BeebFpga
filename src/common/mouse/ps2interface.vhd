@@ -444,6 +444,7 @@ begin
     -- For the current state establish next state
     -- and give necessary commands
     manage_fsm: process(clk)
+    variable watchdog : std_logic_vector(17 downto 0);
     begin
         if(rising_edge(clk)) then
 
@@ -683,6 +684,19 @@ begin
                     state    <= idle;
 
                 end case;
+
+
+                -- DB: watchdog - reset state machine if it doesn't return to idle for a while
+                if state = idle then
+                    watchdog := (others => '0');
+                else
+                    if watchdog(watchdog'high) = '1' then
+                        state <= idle;
+                    else
+                        watchdog := watchdog + 1;
+                    end if;
+                end if;
+
             end if;
         end if;
     end process manage_fsm;

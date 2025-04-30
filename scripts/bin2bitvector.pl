@@ -56,9 +56,15 @@ while (scalar @ARGV && $ARGV[0] =~ /^-/) {
 
 		$fill =~ /$fillre/i or Usage "Bad fill character '$fill' should be one of '" . join("', '", @fillchars) . "'", 1;
 	}
+	elsif ($sw eq "--size") 
+	{
+		$size = numify(shift);
+
+		$size > 0 && $size < 0x10000 or Usage "Bad size parameter '$size' should be >0 and <65536\n", 1;
+	}
 	elsif ($sw eq "--b4") 
 	{
-		$b4 = shift;
+		$b4 = numify(shift);
 
 		$b4 > 0 && $b4 < 0x10000 or Usage "Bad b4 parameter '$b4' should be >0 and <65536\n", 1;
 	}
@@ -99,3 +105,13 @@ if ($size > 0 && $l + $b4 < $size) {
 }
 
 close $fn_in;
+
+sub numify($) {
+	my ($s) = @_;
+
+	if ($s =~ /\s*0[xb]/) {
+		return oct($s);
+	} else {
+		return 0 + $s;
+	}
+}

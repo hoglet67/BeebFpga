@@ -3,6 +3,8 @@ package board_config_pack is
 
     constant G_CONFIG_DEBUGGER : boolean := true;
 
+    constant G_CONFIG_VGA      : boolean := true;
+
 end board_config_pack;
 
 

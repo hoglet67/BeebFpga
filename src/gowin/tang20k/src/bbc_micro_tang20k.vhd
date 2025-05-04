@@ -66,11 +66,11 @@ entity bbc_micro_tang20k is
         IncludeBootStrap       : boolean := true;
         IncludeMonitor         : boolean := false; -- So we see the normal status LEDs
         IncludeCoPro6502       : boolean := true;
-        IncludeCoProExt        : boolean := true;
+        IncludeCoProExt        : boolean := not G_CONFIG_VGA;
         IncludeSoftLEDs        : boolean := true;  -- Add 1 MHz bus registers for the 6 on-board LEDs and the WS2812
         IncludeSoftVolume      : boolean := true;  -- Add 1MHz register for the volume
         IncludeI2SAudio        : boolean := true;
-        IncludeVGADAC          : boolean := not IncludeCoProExt;
+        IncludeVGADAC          : boolean := G_CONFIG_VGA;
 
         MinVolume              : integer := 0;  -- -60dB
         DefaultVolume          : integer := 10; -- -30dB
@@ -1251,9 +1251,30 @@ begin
                 bitstream_o         => vga_b_int
                 );
 
-        vga_r  <= vga_r_int;
-        vga_g  <= vga_g_int;
-        vga_b  <= vga_b_int;
+        -- Manually instantiate differential output buffers to avoid
+        -- warning about vga_x_n being unused.
+
+        OBUFDS_r : ELVDS_OBUF
+            port map (
+                I  => vga_r_int,
+                O  => vga_r,
+                OB => vga_r_n
+             );
+
+        OBUFDS_g : ELVDS_OBUF
+            port map (
+                I  => vga_g_int,
+                O  => vga_g,
+                OB => vga_g_n
+             );
+
+        OBUFDS_b : ELVDS_OBUF
+            port map (
+                I  => vga_b_int,
+                O  => vga_b,
+                OB => vga_b_n
+             );
+
         vga_hs <= vga_hs_int;
         vga_vs <= vga_vs_int;
 
@@ -1261,10 +1282,32 @@ begin
 
     not_vga_1bit_dac : if not IncludeVGADAC and not includeCoProExt generate
 
-        vga_r <= i_VGA_R(i_VGA_R'high);
-        vga_g <= i_VGA_G(i_VGA_G'high);
-        vga_b <= i_VGA_B(i_VGA_B'high);
+        -- Manually instantiate differential output buffers to avoid
+        -- warning about vga_x_n being unused.
+
+        OBUFDS_r : ELVDS_OBUF
+            port map (
+                I  => i_VGA_R(i_VGA_R'high),
+                O  => vga_r,
+                OB => vga_r_n
+             );
+
+        OBUFDS_g : ELVDS_OBUF
+            port map (
+                I  => i_VGA_G(i_VGA_G'high),
+                O  => vga_g,
+                OB => vga_g_n
+             );
+
+        OBUFDS_b : ELVDS_OBUF
+            port map (
+                I  => i_VGA_B(i_VGA_B'high),
+                O  => vga_b,
+                OB => vga_b_n
+                );
+
         vga_hs <= vga_hs;
+
         vga_vs <= vga_vs;
 
     end generate;

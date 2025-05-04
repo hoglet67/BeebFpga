@@ -67,7 +67,8 @@ entity bbc_micro_tang20k is
         IncludeMonitor         : boolean := false; -- So we see the normal status LEDs
         IncludeCoPro6502       : boolean := true;
         IncludeCoProExt        : boolean := true;
-        IncludeSoftLEDs        : boolean := true;
+        IncludeSoftLEDs        : boolean := true;  -- Add 1 MHz bus registers for the 6 on-board LEDs and the WS2812
+        IncludeSoftVolume      : boolean := true;  -- Add 1MHz register for the volume
         IncludeI2SAudio        : boolean := true;
         IncludeVGADAC          : boolean := not IncludeCoProExt;
 
@@ -339,10 +340,6 @@ architecture rtl of bbc_micro_tang20k is
     signal mixer_strobe    : std_logic;
     signal mixer_spdif     : std_logic;
 
-    ---test output toggled by the mixer_strobe (system clock domain)
-    -- for comparison with spdif_load
-    -- signal toggle          : std_logic := '0';
-
     -- output used to load sample into SPDIF (spdif clock domain)
     signal spdif_load      : std_logic;
 
@@ -402,6 +399,7 @@ architecture rtl of bbc_micro_tang20k is
     signal ext_tube_a      : std_logic_vector(6 downto 0);
     signal ext_tube_di     : std_logic_vector(7 downto 0);
     signal ext_tube_do     : std_logic_vector(7 downto 0);
+    signal ext_tube_ctrl   : std_logic_vector(5 downto 0); -- signals that use the LED output
 
     -- CPU tracing
     signal trace_data      :   std_logic_vector(7 downto 0);
@@ -433,6 +431,10 @@ architecture rtl of bbc_micro_tang20k is
     -- LEDs
     signal normal_leds     : std_logic_vector(5 downto 0);
     signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
+    signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
+    signal ws2812_g        : std_logic_vector(7 downto 0) := (others => '0');
+    signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
+    signal ws2812_data     : std_logic;
 
     -- Test
     signal test            : std_logic_vector(7 downto 0);
@@ -752,13 +754,19 @@ begin
                 hdmi_audio_en <= not hdmi_audio_en;
             end if;
             config_last <= config_counter(config_counter'high);
-            -- If SoftLEDs are included, these move to the 1MHz bus section
-            if not IncludeSoftLEDs then
-                if config(1) = '1' and volume > MinVolume then
-                    volume <= volume - 1;
-                end if;
-                if config(2) = '1' and volume < MaxVolume then
-                    volume <= volume + 1;
+            if config(1) = '1' and volume > MinVolume then
+                volume <= volume - 1;
+            end if;
+            if config(2) = '1' and volume < MaxVolume then
+                volume <= volume + 1;
+            end if;
+            if IncludeSoftVolume and ext_1mhz_pgfc_n = '0' and ext_1mhz_r_nw = '0' and ext_1mhz_addr = x"54" then
+                if ext_1mhz_di > MaxVolume then
+                    volume <= to_unsigned(MaxVolume, volume'length);
+                elsif ext_1mhz_di < MinVolume then
+                    volume <= to_unsigned(MinVolume, volume'length);
+                else
+                    volume <= unsigned(ext_1mhz_di(volume'length - 1 downto 0));
                 end if;
             end if;
             if config(3) = '1' then
@@ -908,10 +916,6 @@ begin
         hdmi_audio_r <= audio_r_legacy;
 
     end generate;
-
-    --------------------------------------------------------
-    -- SPDIF
-    --------------------------------------------------------
 
     --------------------------------------------------------
     -- Audio DACs
@@ -1160,15 +1164,7 @@ begin
     -- 1MHz Bus LEDs
     --------------------------------------------------------
 
-    -- TODO: this needs a big refactor as it's all got a bit messy!
-
-    normal_leds <= (caps_led & shift_led & m5k_spdif_en & m5k_filter_en & hdmi_audio_src & clip_led) xor "111111";
-
-    GenSoftLEDS: if IncludeSoftLEDs generate
-
-        signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
-        signal ws2812_g        : std_logic_vector(7 downto 0) := (others => '0');
-        signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
+    GenSoftLEDs: if IncludeSoftLEDs generate
 
         function bit_reverse (a: in std_logic_vector)
             return std_logic_vector is
@@ -1188,7 +1184,7 @@ begin
             port map (
                 clk   => clock_48,
                 color => bit_reverse(ws2812_g & ws2812_r & ws2812_b),
-                data  => ws2812_din
+                data  => ws2812_data
                 );
 
         process(clock_48)
@@ -1210,58 +1206,14 @@ begin
                                 ws2812_g  <= ext_1mhz_di;
                             when x"53" =>
                                 ws2812_b  <= ext_1mhz_di;
-                            when x"54" =>
-                                if ext_1mhz_di > MaxVolume then
-                                    volume <= to_unsigned(MaxVolume, volume'length);
-                                elsif ext_1mhz_di < MinVolume then
-                                    volume <= to_unsigned(MinVolume, volume'length);
-                                else
-                                    volume <= unsigned(ext_1mhz_di(volume'length - 1 downto 0));
-                                end if;
                             when others =>
                                 null;
                         end case;
                     end if;
                 end if;
-                -- Although not related to the 1MHz bus, it's necessary
-                -- to implement this here.
-                if config(1) = '1' and volume > MinVolume then
-                    volume <= volume - 1;
-                end if;
-                if config(2) = '1' and volume < MaxVolume then
-                    volume <= volume + 1;
-                end if;
             end if;
         end process;
-
-        ext_1mhz_do <=  soft_leds when ext_1mhz_addr = x"50" else
-                         ws2812_r when ext_1mhz_addr = x"51" else
-                         ws2812_g when ext_1mhz_addr = x"52" else
-                         ws2812_b when ext_1mhz_addr = x"53" else
- "000" & std_logic_vector(volume) when ext_1mhz_addr = x"54" else
-                       x"FF";
-
     end generate;
-
-    GenLEDs: if IncludeSoftLEDs and not IncludeCoProExt generate
-
-        led <= soft_leds(5 downto 0) xor "111111" when soft_leds(7 downto 6) = "10" else
-               test(5 downto 0)      xor "111111" when soft_leds(7 downto 6) = "11" else
-               monitor_leds                       when IncludeMonitor               else
-               normal_leds;
-
-    end generate;
-
-
-    NotGenLEDS: if not IncludeSoftLEDs and not IncludeCoProExt generate
-
-        led <= monitor_leds when IncludeMonitor else normal_leds;
-        ws2812_din <= '0';
-        ext_1mhz_do <= x"FF";
-
-    end generate;
-
-
 --------------------------------------------------------
 -- VGA outputs
 --------------------------------------------------------
@@ -1337,33 +1289,42 @@ begin
         vga_g_n <= ext_tube_di(1) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
         vga_r   <= ext_tube_di(0) when ext_tube_r_nw = '0' and ext_tube_phi2 = '1' else 'Z';
 
-        led(5)     <= ext_tube_nrst;
-        led(4)     <= ext_tube_a(2);
-        led(3)     <= ext_tube_a(1);
-        led(2)     <= ext_tube_ntube;
-        led(1)     <= ext_tube_r_nw;
-        led(0)     <= ext_tube_a(0);
-
-        js_clk     <= ext_tube_phi2;
+        ext_tube_ctrl(5) <= ext_tube_nrst;
+        ext_tube_ctrl(4) <= ext_tube_a(2);
+        ext_tube_ctrl(3) <= ext_tube_a(1);
+        ext_tube_ctrl(2) <= ext_tube_ntube;
+        ext_tube_ctrl(1) <= ext_tube_r_nw;
+        ext_tube_ctrl(0) <= ext_tube_a(0);
 
     end generate;
 
     GenCoProNotExt: if not IncludeCoProExt generate
     begin
         ext_tube_do  <= x"FE";
+        ext_tube_ctrl <= (others => '1');
     end generate;
 
+--------------------------------------------------------
+-- Outputs/signals whose function depends on the Includes
+--------------------------------------------------------
 
+    js_clk <= ext_tube_phi2;
 
+    normal_leds <= (caps_led & shift_led & m5k_spdif_en & m5k_filter_en & hdmi_audio_src & clip_led) xor "111111";
 
---    -- Toggle is a test output, for comparison with spdif_load
---    process(clock_48)
---    begin
---        if rising_edge(clock_48) then
---            if mixer_strobe = '1' then
---                toggle <= not toggle;
---            end if;
---        end if;
---    end process;
+    led <= ext_tube_ctrl                      when IncludeCoProExt                                  else
+           soft_leds(5 downto 0) xor "111111" when IncludeSoftLEDs and soft_leds(7 downto 6) = "10" else
+           test(5 downto 0)      xor "111111" when IncludeSoftLEDs and soft_leds(7 downto 6) = "11" else
+           monitor_leds                       when IncludeMonitor                                   else
+           normal_leds;
+
+    ext_1mhz_do <= soft_leds                  when IncludeSoftLEDs   and ext_1mhz_addr = x"50" else
+                   ws2812_r                   when IncludeSoftLEDs   and ext_1mhz_addr = x"51" else
+                   ws2812_g                   when IncludeSoftLEDs   and ext_1mhz_addr = x"52" else
+                   ws2812_b                   when IncludeSoftLEDs   and ext_1mhz_addr = x"53" else
+             "000" & std_logic_vector(volume) when IncludeSoftVolume and ext_1mhz_addr = x"54" else
+                   x"FF";
+
+    ws2812_din <= ws2812_data when IncludeSoftLEDs else '0';
 
 end architecture;

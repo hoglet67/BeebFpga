@@ -51,7 +51,7 @@ use work.sample_rate_converter_pkg.all;
 entity bbc_micro_tang20k is
     generic (
         IncludeMaster          : boolean := true; -- if both included, the CPU is the AlanD 65C02
-        IncludeBeeb            : boolean := true; -- and btn1 can toggle between the ROM images
+        IncludeBeeb            : boolean := true; -- and Config(7) can toggle between the ROM images
         IncludeAMXMouse        : boolean := false;
         IncludeSPISD           : boolean := true;
         IncludeSID             : boolean := true;
@@ -86,7 +86,7 @@ entity bbc_micro_tang20k is
 
         spdif_clk       : in    std_logic;     -- 6.144MHz clock from the SI5351 CLK1 (pin 11)
 
-        btn1            : in    std_logic;     -- Toggle Master / Beeb modes
+        btn1            : in    std_logic;     -- Powerup reset
         btn2            : in    std_logic;     -- Toggle HDMI / DVI modes
         led             : out   std_logic_vector (5 downto 0);
         ws2812_din      : out   std_logic;
@@ -350,6 +350,7 @@ architecture rtl of bbc_micro_tang20k is
     signal powerup_reset_n : std_logic := '0';
     signal hard_reset_n    : std_logic;
     signal reset_counter   : std_logic_vector(RESETBITS downto 0);
+    signal trigger_reset   : std_logic := '0';
 
     signal ext_A_stb       : std_logic;
     signal ext_A           : std_logic_vector (18 downto 0);
@@ -362,10 +363,9 @@ architecture rtl of bbc_micro_tang20k is
 
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
-    signal m128_mode       : std_logic := '1';
-    signal copro           : std_logic_vector(1 downto 0) := "00";
-    signal copro_mode      : std_logic;
-    signal copro_ext       : std_logic;
+    signal m128_mode       : std_logic := '0';
+    signal copro_mode      : std_logic := '0';
+    signal copro_ext       : std_logic := '0';
 
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
@@ -569,10 +569,6 @@ begin
             test            => test
         );
 
-    -- The copro_ext setting is only relevant to the model b
-    copro_mode <= '1' when IncludeMaster else (copro(0) or copro(1));
-    copro_ext  <= '1' when IncludeMaster else (copro(1)            );
-
     vid_mode       <= "0001" when IncludeHDMI else "0000";
     keyb_dip       <= "00000000";
     hdmi_aspect    <= "00";
@@ -698,18 +694,10 @@ begin
     reset_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if (btn1 = '1') then
+            if btn1 = '1' or trigger_reset = '1' then
                 reset_counter <= (others => '0');
             elsif (reset_counter(reset_counter'high) = '0') then
                 reset_counter <= reset_counter + 1;
-            elsif powerup_reset_n = '0' then
-                if IncludeBeeb and IncludeMaster then
-                    m128_mode <= not m128_mode;
-                elsif IncludeMaster then
-                    m128_mode <= '1';
-                else
-                    m128_mode <= '0';
-                end if;
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
             hard_reset_n <= not (not powerup_reset_n or not mem_ready);
@@ -778,15 +766,47 @@ begin
             if config(5) = '1' then
                 hdmi_audio_src <= not hdmi_audio_src;
             end if;
-            if config(6) = '1' then
-                if copro = "00" then
-                    copro <= "01";
-                elsif copro = "01" and not IncludeMaster then
-                    copro <= "10";
+
+            trigger_reset <= '0';
+
+            -- Config(6) is the Co Pro setting
+            if m128_mode = '1' then
+                -- Master: defer to the *CONFIG settings
+                copro_mode <= '1';
+                copro_ext <= '1';
+            elsif config(6) then
+                -- Beeb: Cycle Off/Interal/External (if included)
+                if copro_mode = '0' then
+                    -- Internal
+                    copro_mode <= '1';
+                    copro_ext <= '0';
+                elsif copro_ext = '0' and IncludeCoProExt then
+                    -- External
+                    copro_mode <= '1';
+                    copro_ext <= '1';
                 else
-                    copro <= "00";
+                    -- Off
+                    copro_mode <= '0';
+                    copro_ext <= '0';
                 end if;
+                -- Trigger a power up reset
+                trigger_reset <= '1';
             end if;
+
+            -- Config(7) cycles between Beeb and Master mode if both are included
+            if IncludeMaster and IncludeBeeb then
+                if Config(7) = '1' then
+                    m128_mode     <= not m128_mode;
+                    copro_mode    <= not m128_mode;
+                    copro_ext     <= not m128_mode;
+                    trigger_reset <= '1';
+                end if;
+            elsif IncludeMaster then
+                m128_mode <= '1';
+            elsif IncludeBeeb then
+                m128_mode <= '0';
+            end if;
+
         end if;
     end process;
 

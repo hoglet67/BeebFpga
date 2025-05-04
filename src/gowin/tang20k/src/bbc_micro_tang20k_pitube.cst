@@ -1,0 +1,133 @@
+// System Clock (27MHz)
+// IO_LOC  "sys_clk" 4;  // 27MHZ Crystal Oscillator
+IO_LOC  "sys_clk" 10; // MS5351 CLK 0 whuch must be set to 27MHz
+IO_PORT "sys_clk" IO_TYPE=LVCMOS33;
+
+IO_LOC  "spdif_clk" 11; // MS5351 CLK 1 whuch must be set to 6.144MHz
+IO_PORT "spdif_clk" IO_TYPE=LVCMOS33;
+
+// Button 1
+IO_LOC  "btn1" 88;
+IO_PORT "btn1" PULL_MODE=DOWN;
+
+// Button 2
+IO_LOC  "btn2" 87;
+IO_PORT "btn2" PULL_MODE=DOWN;
+
+// Keyboard
+IO_LOC  "ps2_clk" 73;
+IO_PORT "ps2_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC  "ps2_data" 74;
+IO_PORT "ps2_data" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// Keyboard config modifier (connects to the BOOT button)
+IO_LOC  "key_conf" 75;
+IO_PORT "key_conf" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+
+// Mouse
+IO_LOC  "ps2_mouse_clk" 85;
+IO_PORT "ps2_mouse_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC  "ps2_mouse_data" 80;
+IO_PORT "ps2_mouse_data" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// VGA
+IO_LOC "vga_r" 27;
+IO_PORT "vga_r" IO_TYPE=LVCMOS33 DRIVE=12;
+IO_LOC "vga_r_n" 28;
+IO_PORT "vga_r_n" IO_TYPE=LVCMOS33 DRIVE=12;
+IO_LOC "vga_g" 25;
+IO_PORT "vga_g" IO_TYPE=LVCMOS33 DRIVE=12;
+IO_LOC "vga_g_n" 26;
+IO_PORT "vga_g_n" IO_TYPE=LVCMOS33 DRIVE=12;
+IO_LOC "vga_b" 29;
+IO_PORT "vga_b" IO_TYPE=LVCMOS33 DRIVE=12;
+IO_LOC "vga_b_n" 30;
+IO_PORT "vga_b_n" IO_TYPE=LVCMOS33 DRIVE=12;
+IO_LOC "vga_vs" 31;
+IO_PORT "vga_vs" IO_TYPE=LVCMOS33 DRIVE=12;
+IO_LOC "vga_hs" 77;
+IO_PORT "vga_hs" IO_TYPE=LVCMOS33 DRIVE=12;
+
+// HDMI
+IO_LOC "tmds_d_p[0]" 35;
+IO_PORT "tmds_d_p[0]" PULL_MODE=NONE;
+IO_LOC "tmds_d_p[1]" 37;
+IO_PORT "tmds_d_p[1]" PULL_MODE=NONE;
+IO_LOC "tmds_d_p[2]" 39;
+IO_PORT "tmds_d_p[2]" PULL_MODE=NONE;
+IO_LOC "tmds_clk_p" 33;
+IO_PORT "tmds_clk_p" PULL_MODE=NONE;
+
+// 1-bit PWM Audio
+IO_LOC "audiol" 42;
+IO_PORT "audiol" IO_TYPE=LVCMOS33;
+IO_LOC "audior" 41;
+IO_PORT "audior" IO_TYPE=LVCMOS33;
+
+// I2S Audio
+IO_LOC "i2s_mclk" 48;
+IO_PORT "i2s_mclk" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "i2s_bclk" 56;
+IO_PORT "i2s_bclk" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "i2s_lrclk" 55;
+IO_PORT "i2s_lrclk" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "i2s_din" 54;
+IO_PORT "i2s_din" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_LOC "pa_en" 51;
+IO_PORT "pa_en" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+
+// Audio SPDIF Output
+IO_LOC "audio_spdif" 86;
+IO_PORT "audio_spdif" IO_TYPE=LVCMOS33;
+
+// Joystick
+IO_LOC "js_clk" 71;
+IO_PORT "js_clk" IO_TYPE=LVCMOS33;
+IO_LOC "js_load_n" 72;
+IO_PORT "js_load_n" IO_TYPE=LVCMOS33;
+IO_LOC "js_data" 76;
+IO_PORT "js_data" IO_TYPE=LVCMOS33;
+
+// SD Card
+IO_LOC  "tf_cs" 81;
+IO_PORT "tf_cs" IO_TYPE=LVCMOS33;
+IO_LOC  "tf_mosi" 82;
+IO_PORT "tf_mosi" IO_TYPE=LVCMOS33;
+IO_LOC  "tf_sclk" 83;
+IO_PORT "tf_sclk" IO_TYPE=LVCMOS33;
+IO_LOC  "tf_miso" 84;
+IO_PORT "tf_miso" IO_TYPE=LVCMOS33;
+
+// UART
+IO_LOC  "uart_tx" 69;
+IO_PORT "uart_tx" IO_TYPE=LVCMOS33;
+IO_LOC  "uart_rx" 70;
+IO_PORT "uart_rx" IO_TYPE=LVCMOS33;
+
+// LEDs
+IO_LOC  "led[5]" 20;
+IO_PORT "led[5]" IO_TYPE=LVCMOS33;
+IO_LOC  "led[4]" 19;
+IO_PORT "led[4]" IO_TYPE=LVCMOS33;
+IO_LOC  "led[3]" 18;
+IO_PORT "led[3]" IO_TYPE=LVCMOS33;
+IO_LOC  "led[2]" 17;
+IO_PORT "led[2]" IO_TYPE=LVCMOS33;
+IO_LOC  "led[1]" 16;
+IO_PORT "led[1]" IO_TYPE=LVCMOS33;
+IO_LOC  "led[0]" 15;
+IO_PORT "led[0]" IO_TYPE=LVCMOS33;
+
+// WS2812 LED
+IO_LOC  "ws2812_din" 79
+IO_PORT "ws2812_din" IO_TYPE=LVCMOS33;
+
+// SPI Flash
+IO_LOC  "flash_cs" 60;
+IO_PORT "flash_cs" IO_TYPE=LVCMOS33;
+IO_LOC  "flash_ck" 59;
+IO_PORT "flash_ck" IO_TYPE=LVCMOS33;
+IO_LOC  "flash_si" 61;
+IO_PORT "flash_si" IO_TYPE=LVCMOS33;
+IO_LOC  "flash_so" 62;
+IO_PORT "flash_so" IO_TYPE=LVCMOS33 PULL_MODE=UP;

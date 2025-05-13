@@ -82,9 +82,9 @@ entity bbc_micro_tang20k is
         );
     port (
         sys_clk         : in    std_logic;     -- 27MHz clock from the oscillator (pin 4)
-                                               -- or from the SI5351 CLK1 (pin 10)
+                                               -- or from the SI5351 CLK0 (pin 10)
 
-        spdif_clk       : in    std_logic;     -- 6.144MHz clock from the SI5351 CLK1 (pin 11)
+        audio_clk       : in    std_logic;     -- 24.576MHz audio clock from the SI5351 CLK1 (pin 11)
 
         btn1            : in    std_logic;     -- Powerup reset
         btn2            : in    std_logic;     -- Toggle HDMI / DVI modes
@@ -317,6 +317,7 @@ architecture rtl of bbc_micro_tang20k is
     signal clock_135       : std_logic;
     signal clock_81        : std_logic;
     signal clock_405       : std_logic;
+    signal spdif_clk       : std_logic; -- 6.144MHz SPDIF clock
     signal mem_ready       : std_logic;
 
     -- Audio
@@ -676,6 +677,18 @@ begin
             RESETN => powerup_reset_n,
             HCLKIN => clock_96,
             CLKOUT => clock_24,         -- 24MHz AVR Clock
+            CALIB  => '1'
+        );
+
+    clkdiv_spdif : CLKDIV
+        generic map (
+            DIV_MODE => "4",            -- Divide by 4
+            GSREN => "false"
+        )
+        port map (
+            RESETN => clkdiv_reset_n,
+            HCLKIN => audio_clk,        -- 24.576MHz audio clock
+            CLKOUT => spdif_clk,        --  6.144MHz spdif clock
             CALIB  => '1'
         );
 
@@ -1129,9 +1142,11 @@ begin
                 i2s_din    => i2s_din,
                 pa_en      => pa_en
                 );
+        i2s_mclk <= audio_clk;
     end generate;
 
     not_gen_i2s : if not IncludeI2SAudio generate
+        i2s_mclk   <= 'Z';
         i2s_lrclk  <= 'Z';
         i2s_bclk   <= 'Z';
         i2s_din    <= 'Z';

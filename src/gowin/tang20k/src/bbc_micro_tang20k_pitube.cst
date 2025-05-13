@@ -22,7 +22,7 @@ IO_PORT "ps2_data" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
 // Keyboard config modifier (connects to the BOOT button)
 IO_LOC  "key_conf" 75;
-IO_PORT "key_conf" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
+IO_PORT "key_conf" IO_TYPE=LVCMOS33;
 
 // Mouse
 IO_LOC  "ps2_mouse_clk" 85;

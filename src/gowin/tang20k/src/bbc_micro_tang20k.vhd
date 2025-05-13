@@ -527,6 +527,7 @@ begin
             ext_keyb_rst_n  => '1',
             ext_keyb_ca2    => '0',
             ext_keyb_pa7    => '0',
+            config_key      => key_conf,
             config          => config,
             vid_mode        => vid_mode,
             joystick1       => joystick1,

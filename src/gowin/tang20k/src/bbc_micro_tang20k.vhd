@@ -347,6 +347,13 @@ architecture rtl of bbc_micro_tang20k is
     signal config_last     : std_logic;
     signal config          : std_logic_vector(9 downto 0);
 
+    signal joystick1       : std_logic_vector(4 downto 0) := (others => '1');
+    signal joystick2       : std_logic_vector(4 downto 0) := (others => '1');
+    signal jumper          : std_logic_vector(5 downto 0) := (others => '0');
+    signal last_phi2       : std_logic := '0';
+    signal sr_counter      : unsigned(3 downto 0) := (others => '0');
+    signal sr_mirror       : std_logic_vector(15 downto 0) := (others => '0');
+
     signal powerup_reset_n : std_logic := '0';
     signal hard_reset_n    : std_logic;
     signal reset_counter   : std_logic_vector(RESETBITS downto 0);
@@ -521,8 +528,8 @@ begin
             ext_keyb_pa7    => '0',
             config          => config,
             vid_mode        => vid_mode,
-            joystick1       => (others => '1'),
-            joystick2       => (others => '1'),
+            joystick1       => joystick1,
+            joystick2       => joystick2,
             avr_reset       => not hard_reset_n,
             avr_RxD         => uart_rx,
             avr_TxD         => uart_tx,
@@ -1366,6 +1373,32 @@ begin
         ext_tube_do  <= x"FE";
         ext_tube_ctrl <= (others => '1');
     end generate;
+
+--------------------------------------------------------
+-- External shift register for joysticks / config links
+--------------------------------------------------------
+
+    process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            -- external 74LV165A clocked on rising edge, so work here on falling edge
+            if ext_tube_phi2 = '0' and last_phi2 = '1' then
+                if sr_counter = "1111" then
+                    js_load_n <= '0';
+                else
+                    js_load_n <= '1';
+                end if;
+                if sr_counter = "0000" then
+                    joystick1 <= sr_mirror(12 downto 8);
+                    joystick2 <= sr_mirror(4 downto 0);
+                    jumper    <= sr_mirror(7 downto 5) & sr_mirror(15 downto 13);
+                end if;
+                sr_mirror  <= sr_mirror(14 downto 0) & js_data;
+                sr_counter <= sr_counter + 1;
+            end if;
+            last_phi2 <= ext_tube_phi2;
+        end if;
+    end process;
 
 --------------------------------------------------------
 -- Outputs/signals whose function depends on the Includes

@@ -80,7 +80,7 @@ IO_PORT "js_clk" IO_TYPE=LVCMOS33;
 IO_LOC "js_load_n" 72;
 IO_PORT "js_load_n" IO_TYPE=LVCMOS33;
 IO_LOC "js_data" 76;
-IO_PORT "js_data" IO_TYPE=LVCMOS33;
+IO_PORT "js_data" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
 // SD Card
 IO_LOC  "tf_cs" 81;

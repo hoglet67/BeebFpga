@@ -47,7 +47,7 @@ use IEEE.MATH_REAL.ALL;
 entity keyboard is
 generic (
         MainClockSpeed : natural := 48000000;
-        LEDUpdateSpeed : natural := 20    
+        LEDUpdateSpeed : natural := 20
     );
 port (
     CLOCK       :   in  std_logic;
@@ -87,6 +87,7 @@ port (
     DIP_SWITCH  :   in  std_logic_vector(7 downto 0);
 
     -- Config button outputs
+    CONFIG_KEY  :   in  std_logic;
     CONFIG      :   out std_logic_vector(9 downto 0);
 
     DBG_STATE   :   out std_logic_vector(5 downto 0)
@@ -97,7 +98,7 @@ architecture rtl of keyboard is
 
     function ceil_log2(i : natural) return natural is
     begin
-        return integer(ceil(log2(real(i)))); 
+        return integer(ceil(log2(real(i))));
     end function;
 
 
@@ -108,9 +109,11 @@ signal rst          :   std_logic;
 type key_matrix is array(0 to 15) of std_logic_vector(7 downto 0);
 signal keys         :   key_matrix;
 signal col          :   unsigned(3 downto 0);
+signal extended     :   std_logic;
 signal releasex     :   std_logic;
 signal fn_keys      :   std_logic_vector(9 downto 0);
 signal fn_keys_last :   std_logic_vector(9 downto 0);
+signal right_alt    :   std_logic;
 
 constant LED_CTR_MAX : natural := integer(MainClockSpeed / LEDUpdateSpeed) - 1;
 signal   r_led_ctr   : unsigned(ceil_log2(LED_CTR_MAX) downto 0);
@@ -144,8 +147,8 @@ type init_state is (
 
 signal state: init_state;
 begin
-    
-    DBG_STATE <= 
+
+    DBG_STATE <=
         dbg_valid_tgl &
         "0" &
         std_logic_vector(to_unsigned(init_state'pos(state), 4));
@@ -255,7 +258,7 @@ begin
 --                        end if;
 
                     when update_leds =>
-                        
+
                         WR(x"ED", update_led_ack);
 
                     when update_led_ack =>
@@ -343,7 +346,7 @@ begin
     begin
         if nRESET = '0' then
             releasex <= '0';
-            --extended <= '0';
+            extended <= '0';
 
             BREAK_OUT <= '0';
 
@@ -365,6 +368,8 @@ begin
             keys(14) <= (others => '0');
             keys(15) <= (others => '0');
 
+            right_alt <= '0';
+
             CONFIG <= (others => '0');
 
         elsif rising_edge(CLOCK) then
@@ -372,8 +377,11 @@ begin
             -- Detect Ctrl-Alt F1..F10
             if clken_1MHz = '1' then
                 fn_keys_last <= fn_keys;
-                -- If ctrl-alt held down
-                if keys(0)(5) = '1' and keys(1)(0) = '1' then
+                -- There are now three possible config modifiers:
+                -- 1. An external config key (e.g. a physical button on the FPGA board)
+                -- 2. The right alt key
+                -- 3. The left alt key AND control (kept for legacy reasons)
+                if CONFIG_KEY = '1' or right_alt = '1' or (keys(0)(5) = '1' and keys(1)(0) = '1') then
                     -- then detect F1..F10 being pressed, assert corresponding
                     -- config bit for once cycle
                     CONFIG <= fn_keys and not(fn_keys_last);
@@ -401,20 +409,20 @@ begin
             keys(9)(0) <= DIP_SWITCH(0);
 
             if keyb_valid = '1' and state = enabled then
-            
+
                 dbg_valid_tgl <= not dbg_valid_tgl;
 
                 -- Decode keyboard input
                 if keyb_data = X"e0" then
                     -- Extended key code follows
-                    --extended <= '1';
+                    extended <= '1';
                 elsif keyb_data = X"f0" then
                     -- Releasex code follows
                     releasex <= '1';
                 else
                     -- Cancel extended/releasex flags for next time
                     releasex <= '0';
-                    --extended <= '0';
+                    extended <= '0';
 
                     -- Decode scan codes
                     case keyb_data is
@@ -424,7 +432,7 @@ begin
                     when X"09" => keys(0)(2) <= not releasex; -- F10 (F0)
                     when X"16" => keys(0)(3) <= not releasex; -- 1
                     when X"58" => keys(0)(4) <= not releasex; -- CAPS LOCK
-                    when X"11" => keys(0)(5) <= not releasex; -- LEFT ALT (SHIFT LOCK)
+                    when X"11" => if extended = '1' then right_alt <= not releasex; else keys(0)(5) <= not releasex; end if; -- LEFT ALT (SHIFT LOCK)
                     when X"0D" => keys(0)(6) <= not releasex; -- TAB
                     when X"76" => keys(0)(7) <= not releasex; -- ESCAPE
                     when X"14" => keys(1)(0) <= not releasex; -- LEFT/RIGHT CTRL (CTRL)

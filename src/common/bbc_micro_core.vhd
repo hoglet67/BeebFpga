@@ -174,6 +174,7 @@ entity bbc_micro_core is
 
 
         -- Config outputs (from PS/2 keyboard)
+        config_key     : in    std_logic := '0';
         config         : out   std_logic_vector(9 downto 0);
 
         -- Format of Video
@@ -1228,6 +1229,7 @@ begin
             INT        => ps2_keyb_int,
             BREAK_OUT  => ps2_keyb_break,
             DIP_SWITCH => keyb_dip,
+            CONFIG_KEY => config_key,
             CONFIG     => config,
             LED_MOTOR => serula_casmo,
             LED_SHIFT => not ic32(7),

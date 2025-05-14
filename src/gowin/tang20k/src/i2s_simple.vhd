@@ -91,7 +91,7 @@ architecture rtl of i2s_simple is
 
 begin
 
-    pa_en <= reset_n; -- enable amplifier
+    pa_en <= 'Z' when reset_n = '1' else '0'; -- enable amplifier
 
     -- mix both stereo channels into one mono channel
     -- audio-1 and audio-r are 16-bit signed; result is a 17-bit signed so overflow is impossible

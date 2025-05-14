@@ -118,10 +118,13 @@ begin
                         -- audio_mixed:    SBBBBBBBBBBBBBBB
                         -- audio:       SSSSBBBBBBBBBBBBBBB0000000000000 (example ATTENUATE=3)
                         --                 ^^^^^^^^^^^^^^^^ (audio_mixed)
+                        --
+                        -- Note: In I2S the MSB is the second bit after
+                        -- LRCLK changes, hence the leading zero here
                         if (ATTENUATE = 0) then
-                            audio <= audio_mixed & (15 downto 0 => '0');
+                            audio <= '0' & audio_mixed & (14 downto 0 => '0');
                         else
-                            audio <= (31 downto 32-ATTENUATE => audio_mixed(15)) & audio_mixed & (15-ATTENUATE downto 0 => '0');
+                            audio <= '0' & (ATTENUATE-1 downto 0 => audio_mixed(15)) & audio_mixed & (14-ATTENUATE downto 0 => '0');
                         end if;
                     end if;
                 end if;

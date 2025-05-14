@@ -1141,7 +1141,7 @@ begin
     begin
         i2s : entity work.i2s_simple
             generic map (
-                ATTENUATE  => 2,         -- Attenuate by two bits, otherwise it's way too loud!
+                ATTENUATE  => 0,         -- No attenuation, allows use of full dynamic range
                 CLOCKSPEED => 6144000,   -- SPDIF Clock
                 SAMPLERATE => 48000      -- Output sample rate of new audio resampler
                 )

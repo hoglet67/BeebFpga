@@ -953,7 +953,7 @@ begin
         audio_spdif  <= m5k_spdif;
         audio_l      <= audio_l_legacy;
         audio_r      <= audio_r_legacy;
-        hdmi_audio_l <= audio_r_legacy;
+        hdmi_audio_l <= audio_l_legacy;
         hdmi_audio_r <= audio_r_legacy;
 
     end generate;

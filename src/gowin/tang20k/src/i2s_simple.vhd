@@ -85,7 +85,7 @@ architecture rtl of i2s_simple is
 
     signal clk_audio     : std_logic := '0';
     signal aclk_cnt      : std_logic_vector(f_log2(MAXCOUNT) downto 0);
-    signal audio_mixed   : std_logic_vector(16 downto 0);
+    signal audio_mixed   : std_logic_vector(15 downto 0);
     signal audio         : std_logic_vector(31 downto 0);
     signal audio_bit_cnt : std_logic_vector(5 downto 0);
 
@@ -93,9 +93,9 @@ begin
 
     pa_en <= 'Z' when reset_n = '1' else '0'; -- enable amplifier
 
-    -- mix both stereo channels into one mono channel
-    -- audio-1 and audio-r are 16-bit signed; result is a 17-bit signed so overflow is impossible
-    audio_mixed <= (audio_l(15) & audio_l) + (audio_r(15) & audio_r);
+    -- LRCLK polarity of CS4354 and MAX98357A is:
+    -- 0 = Left channel, 1 = Right Channel
+    audio_mixed <= audio_l when audio_bit_cnt(5) = '0' else audio_r;
 
     process(clock)
     begin
@@ -113,15 +113,15 @@ begin
                         audio_bit_cnt <= audio_bit_cnt + '1';
                     end if;
                     -- latch data so it's stable during transmission
-                    if audio_bit_cnt = "111111" then
-                        -- convert to 17-bit to 32-bit, attenuated by shift of ATTENUATE of bits
-                        -- audio_mixed:    SBBBBBBBBBBBBBBBB
-                        -- audio:       SSSSBBBBBBBBBBBBBBBB000000000000
-                        --                 ^^^^^^^^^^^^^^^^^ (audio_mixed)
+                    if audio_bit_cnt(4 downto 0) = "11111" then
+                        -- convert to 16-bit to 32-bit, attenuated by shift of ATTENUATE of bits
+                        -- audio_mixed:    SBBBBBBBBBBBBBBB
+                        -- audio:       SSSSBBBBBBBBBBBBBBB0000000000000 (example ATTENUATE=3)
+                        --                 ^^^^^^^^^^^^^^^^ (audio_mixed)
                         if (ATTENUATE = 0) then
-                            audio <= audio_mixed & (14 downto 0 => '0');
+                            audio <= audio_mixed & (15 downto 0 => '0');
                         else
-                            audio <= (31 downto 32-ATTENUATE => audio_mixed(16)) & audio_mixed & (14-ATTENUATE downto 0 => '0');
+                            audio <= (31 downto 32-ATTENUATE => audio_mixed(15)) & audio_mixed & (15-ATTENUATE downto 0 => '0');
                         end if;
                     end if;
                 end if;

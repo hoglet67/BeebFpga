@@ -1122,8 +1122,20 @@ begin
     end generate;
 
     --------------------------------------------------------
-    -- I2S Audio Usimg On-Board MAX98357A
+    -- I2S Audio
     --------------------------------------------------------
+
+    -- For the MAX98357A (on the Tang Nano 20K)
+    -- and the CS4354 (on the Dock board)
+
+    -- The CS4354 has LRCLK polarity Left=0 Right=1 but the datasheet
+    -- is ambiguous as to which of AOUTA/B is Left/Right. On the Tang
+    -- Nano 20K PCB I guessed that AOUTA was Left, but this appear to
+    -- be wrong. So we swap then here.
+
+    -- This also swaps the polarity for the MAX98357A, but as we'd
+    -- like to use this in mono mode (output = L/2 + R/2) then that
+    -- shouldn't matter.
 
     gen_i2s : if IncludeI2SAudio generate
     begin
@@ -1136,8 +1148,8 @@ begin
             port map (
                 clock      => spdif_clk,
                 reset_n    => powerup_reset_n,
-                audio_l    => audio_l,
-                audio_r    => audio_r,
+                audio_l    => audio_r,   -- Swapped, see comment above
+                audio_r    => audio_l,   -- Swapped, see comment above
                 i2s_lrclk  => i2s_lrclk,
                 i2s_bclk   => i2s_bclk,
                 i2s_din    => i2s_din,

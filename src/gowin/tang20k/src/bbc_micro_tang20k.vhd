@@ -344,8 +344,6 @@ architecture rtl of bbc_micro_tang20k is
     -- output used to load sample into SPDIF (spdif clock domain)
     signal spdif_load      : std_logic;
 
-    signal config_counter  : std_logic_vector(21 downto 0);
-    signal config_last     : std_logic;
     signal config          : std_logic_vector(9 downto 0);
 
     signal joystick1       : std_logic_vector(4 downto 0) := (others => '1');
@@ -390,7 +388,7 @@ architecture rtl of bbc_micro_tang20k is
     signal vga_vs_int      : std_logic;
 
     -- HDMI
-    signal hdmi_aspect     : std_logic_vector(1 downto 0);
+    signal hdmi_aspect     : std_logic_vector(1 downto 0) := "11";
     signal hdmi_audio_en   : std_logic := '1';
     signal hdmi_audio_src  : std_logic := '1'; -- Sample Rate Convert HDMI Audio
     signal hdmi_audio_l    : std_logic_vector(15 downto 0);
@@ -581,7 +579,6 @@ begin
 
     vid_mode       <= "0001" when IncludeHDMI else "0000";
     keyb_dip       <= "00000000";
-    hdmi_aspect    <= "00";
     vid_debug      <= '0';
 
     --------------------------------------------------------
@@ -761,23 +758,24 @@ begin
     config_gen : process(clock_48)
     begin
         if rising_edge(clock_48) then
-            if powerup_reset_n = '0' then
-                config_counter <= (others => '0');
-            elsif btn2 = '1' then
-                config_counter <= (others => '1');
-            elsif config_counter(config_counter'high) = '1' then
-                config_counter <= config_counter - 1;
-            elsif config_last = '1' then
-                -- For now, keep HDMI/DVI mode on BTN2
-                hdmi_audio_en <= not hdmi_audio_en;
-            end if;
-            config_last <= config_counter(config_counter'high);
+            -- The default is for a config key to not trigger a power up reset
+            trigger_reset <= '0';
+
+            -- Config(1) is volume down
             if config(1) = '1' and volume > MinVolume then
                 volume <= volume - 1;
             end if;
+
+            -- Config (2) is volume up
             if config(2) = '1' and volume < MaxVolume then
                 volume <= volume + 1;
             end if;
+
+            -- Config (3) is volume default
+            if config(3) = '1' then
+                volume <= to_unsigned(DefaultVolume, 5);
+            end if;
+
             if IncludeSoftVolume and ext_1mhz_pgfc_n = '0' and ext_1mhz_r_nw = '0' and ext_1mhz_addr = x"54" then
                 if ext_1mhz_di > MaxVolume then
                     volume <= to_unsigned(MaxVolume, volume'length);
@@ -787,20 +785,29 @@ begin
                     volume <= unsigned(ext_1mhz_di(volume'length - 1 downto 0));
                 end if;
             end if;
-            if config(3) = '1' then
-                m5k_spdif_en <= not m5k_spdif_en;
-            end if;
+
+            -- Config(4) is M5K Filter on/pff
             if config(4) = '1' then
                 m5k_filter_en <= not m5k_filter_en;
             end if;
+
+            -- Config(5) is Audio Source (Mixer/Legacy)
             if config(5) = '1' then
                 hdmi_audio_src <= not hdmi_audio_src;
             end if;
 
-            trigger_reset <= '0';
-
-            -- Config(6) is the Co Pro setting
+            -- Config(6) is the HDMI aspect ratio
             if config(6) then
+                case hdmi_aspect is
+                    when "00" => hdmi_aspect <="01";
+                    when "01" => hdmi_aspect <="10";
+                    when "10" => hdmi_aspect <="11";
+                    when "11" => hdmi_aspect <="01";
+                end case;
+            end if;
+
+            -- Config(7) is the Co Pro setting
+            if config(7) then
                 -- Beeb: Cycle Off/Interal/External (if included)
                 if copro_mode = '0' then
                     -- Internal
@@ -819,9 +826,9 @@ begin
                 trigger_reset <= '1';
             end if;
 
-            -- Config(7) cycles between Beeb and Master mode if both are included
+            -- Config(8) cycles between Beeb and Master mode if both are included
             if IncludeMaster and IncludeBeeb then
-                if Config(7) = '1' then
+                if Config(8) = '1' then
                     m128_mode     <= not m128_mode;
                     trigger_reset <= '1';
                 end if;
@@ -831,12 +838,15 @@ begin
                 m128_mode <= '0';
             end if;
 
+            -- Config(9) will control the serial port when this is implemented
+
             -- Config reset happens just once when the core is first configured
             if config_reset_n = '0' then
                 m128_mode     <= not jumper(0); -- 0 (on) = Master;          1 (off) = Beeb;
                 copro_mode    <= not jumper(1); -- 0 (on) = Co Pro Enabled;  1 (off) = Co Pro disabled
                 copro_ext     <= not jumper(2); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
-                hdmi_audio_en <= not jumper(3); -- 0 (on) = DVI mode;        1 (off) = HDMI mode
+                hdmi_aspect   <= jumper(4 downto 3);
+                hdmi_audio_en <= jumper(4) or jumper(3); -- both jumpers fitted (00) triggers DVI mode
             end if;
 
         end if;

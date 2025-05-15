@@ -1440,6 +1440,11 @@ begin
                     spdifOut     => m5k_spdif
                     );
         end generate;
+
+        inst_no_spdif: if not IncludeMusic5000SPDIF generate
+            m5k_spdif <= '0';
+        end generate;
+
     end generate;
 
     GenNotMusic5000: if not IncludeMusic5000 generate

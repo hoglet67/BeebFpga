@@ -52,7 +52,7 @@ entity bbc_micro_tang20k is
     generic (
         IncludeMaster          : boolean := true; -- if both included, the CPU is the AlanD 65C02
         IncludeBeeb            : boolean := true; -- and Config(7) can toggle between the ROM images
-        IncludeAMXMouse        : boolean := false;
+        IncludeAMXMouse        : boolean := true;
         IncludeSPISD           : boolean := true;
         IncludeSID             : boolean := true;
         IncludeMusic5000       : boolean := true;

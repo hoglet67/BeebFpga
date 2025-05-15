@@ -355,6 +355,7 @@ architecture rtl of bbc_micro_tang20k is
     signal sr_counter      : unsigned(3 downto 0) := (others => '0');
     signal sr_mirror       : std_logic_vector(15 downto 0) := (others => '0');
 
+    signal config_reset_n  : std_logic := '0';
     signal powerup_reset_n : std_logic := '0';
     signal hard_reset_n    : std_logic;
     signal reset_counter   : std_logic_vector(RESETBITS downto 0);
@@ -722,6 +723,14 @@ begin
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
             hard_reset_n <= not (not powerup_reset_n or not mem_ready);
+            -- Config reset forces a read of the config jumpers
+            -- Note, don't do this on trigger reset, as this comes
+            -- from a config key press, which you would then loose!
+            if btn1 = '1' then
+                config_reset_n <= '0';
+            elsif reset_counter(reset_counter'high) = '1' then
+                config_reset_n <= '1';
+            end if;
         end if;
     end process;
 
@@ -791,11 +800,7 @@ begin
             trigger_reset <= '0';
 
             -- Config(6) is the Co Pro setting
-            if m128_mode = '1' then
-                -- Master: defer to the *CONFIG settings
-                copro_mode <= '1';
-                copro_ext <= '1';
-            elsif config(6) then
+            if config(6) then
                 -- Beeb: Cycle Off/Interal/External (if included)
                 if copro_mode = '0' then
                     -- Internal
@@ -818,14 +823,20 @@ begin
             if IncludeMaster and IncludeBeeb then
                 if Config(7) = '1' then
                     m128_mode     <= not m128_mode;
-                    copro_mode    <= not m128_mode;
-                    copro_ext     <= not m128_mode;
                     trigger_reset <= '1';
                 end if;
             elsif IncludeMaster then
                 m128_mode <= '1';
             elsif IncludeBeeb then
                 m128_mode <= '0';
+            end if;
+
+            -- Config reset happens just once when the core is first configured
+            if config_reset_n = '0' then
+                m128_mode     <= not jumper(0); -- 0 (on) = Master;          1 (off) = Beeb;
+                copro_mode    <= not jumper(1); -- 0 (on) = Co Pro Enabled;  1 (off) = Co Pro disabled
+                copro_ext     <= not jumper(2); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
+                hdmi_audio_en <= not jumper(3); -- 0 (on) = DVI mode;        1 (off) = HDMI mode
             end if;
 
         end if;

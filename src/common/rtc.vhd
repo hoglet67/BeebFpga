@@ -18,6 +18,9 @@ entity rtc is
         r_nw         : in  std_logic;
         adi          : in  std_logic_vector(7 downto 0); -- address/data in
         do           : out std_logic_vector(7 downto 0); -- data out
+        -- copro settings
+        copro_mode   : in  std_logic;
+        copro_ext    : in  std_logic;
         -- bits 0..3 set mode; bit 4 sets autoboot
         keyb_dip     : in  std_logic_vector(7 downto 0)  -- keyboard DIP
     );
@@ -96,10 +99,13 @@ architecture rtl of rtc is
 --
 --   255       EEPROM size
 
-    -- bits 2..0 (mode) overlaid by DIP switches
+    -- bits 2..0 (mode) overlaid by DIP switches/config
     constant ini10 : std_logic_vector(7 downto 0) := x"F7";
 
-    -- bit 4 (noboot/boot) overlaid by DIP switches
+    -- bit 0 (tube) overlaid by DIP switches/config
+    constant ini15 : std_logic_vector(7 downto 0) := x"2C";
+
+    -- bit 2 (intube/extube) and 4 (noboot/boot) overlaid by DIP switches/config
     constant ini16 : std_logic_vector(7 downto 0) := x"80";
 
     signal rtc_ram : rtc_ram_type := (
@@ -132,7 +138,7 @@ architecture rtl of rtc is
         x"20", -- CMOS 12 - Keyboard auto-repeat delay
         x"08", -- CMOS 13 - Keyboard auto-repeat rate
         x"0A", -- CMOS 14 - Printer ignore character
-        x"2D", -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
+        ini15, -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
         ini16, -- CMOS 16 - Default serial data format, auto boot option, int/ext TUBE, bell amplitude
         x"00", -- CMOS 17 - reserved for ANFS
         x"00", -- CMOS 18 - reserved for ANFS
@@ -171,7 +177,7 @@ architecture rtl of rtc is
 
 
     type RTC_STATE_TYPE is (
-        INIT, WRITE_10, WRITE_16, RUNNING
+        INIT, WRITE_10, WRITE_15, WRITE_16, RUNNING
     );
 
     signal rtc_state : RTC_STATE_TYPE := INIT;
@@ -202,11 +208,16 @@ begin
                     -- Copy the screen mode from the DIP switches into CMOS on power up
                     when WRITE_10 =>
                         rtc_ram(24) <= ini10 xor ("00000" & keyb_dip(2 downto 0));
+                        rtc_state <= WRITE_15;
+
+                    -- Copy the Co Pro mode from the into CMOS on power up
+                    when WRITE_15 =>
+                        rtc_ram(29) <= ini15 xor ("0000000" & copro_mode);
                         rtc_state <= WRITE_16;
 
                     -- Copy the noboot/boot mode from the DIP switches into CMOS on power up
                     when WRITE_16 =>
-                        rtc_ram(30) <= ini16 xor ("000" & keyb_dip(3) & "0000");
+                        rtc_ram(30) <= ini16 xor ("000" & keyb_dip(3) & "0" & copro_ext & "00");
                         rtc_state <= RUNNING;
 
                     when RUNNING =>

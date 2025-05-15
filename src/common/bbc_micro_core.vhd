@@ -209,8 +209,10 @@ entity bbc_micro_core is
         m128_mode      : in    std_logic;
 
         -- Copro
-        copro_mode     : in    std_logic;        -- Runtime enable for both internal/external Co Processors
-        copro_ext      : in    std_logic := '0'; -- Model B, indicates external Co Pro has priority if both enabled
+        --    On the Model B these are used directly to control the tube register visibility
+        --    On the Master these are used to set the initial value of the CMOS RAM
+        copro_mode     : in    std_logic := '0'; -- Indicated tube is enable (*CONFIG TUBE)
+        copro_ext      : in    std_logic := '0'; -- Indicates external Co Pro has priority if both enabled (*CONFIG EXTUBE)
 
         -- Co Pro SPI - slave interface
         p_spi_ssel     : in    std_logic;
@@ -2079,30 +2081,28 @@ begin
                         adc_enable <= '1';
                     end if;
                 when "111" =>                           -- 0xFEE0
-                    if copro_mode = '1' then
-                        if m128_mode = '1' then
-                            -- On the Master the ITU bit in ACCCON selects
-                            -- between internal and external tube
-                            if acc_itu = '0' then
-                                if IncludeCoProExt then
-                                    ext_tube_enable <= '1';
-                                end if;
-                            else
-                                if IncludeCoPro6502 or IncludeCoProSPI  then
-                                    int_tube_enable <= '1';
-                                end if;
+                    if m128_mode = '1' then
+                        -- On the Master the ITU bit in ACCCON selects
+                        -- between internal and external tube
+                        if acc_itu = '0' then
+                            if IncludeCoProExt then
+                                ext_tube_enable <= '1';
                             end if;
                         else
-                            -- On the Model B, the copro_ext input selects
-                            -- between internal and external tube
-                            if copro_ext = '1' then
-                                if IncludeCoProExt then
-                                    ext_tube_enable <= '1';
-                                end if;
-                            else
-                                if IncludeCoPro6502 or IncludeCoProSPI then
-                                    int_tube_enable <= '1';
-                                end if;
+                            if IncludeCoPro6502 or IncludeCoProSPI  then
+                                int_tube_enable <= '1';
+                            end if;
+                        end if;
+                    elsif copro_mode = '1' then
+                        -- On the Model B, the copro_ext input selects
+                        -- between internal and external tube
+                        if copro_ext = '1' then
+                            if IncludeCoProExt then
+                                ext_tube_enable <= '1';
+                            end if;
+                        else
+                            if IncludeCoPro6502 or IncludeCoProSPI then
+                                int_tube_enable <= '1';
                             end if;
                         end if;
                     end if;
@@ -2785,6 +2785,8 @@ begin
             r_nw         => rtc_r_nw,
             adi          => rtc_adi,
             do           => rtc_do,
+            copro_mode   => copro_mode,
+            copro_ext    => copro_ext,
             keyb_dip     => keyb_dip
         );
 

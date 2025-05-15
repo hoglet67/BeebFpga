@@ -55,8 +55,8 @@ entity i2s_simple is
         reset_n    : in  std_logic;
 
         -- Parallel Audio In (signed)
-        audio_l    : in  std_logic_vector(15 downto 0);
-        audio_r    : in  std_logic_vector(15 downto 0);
+        audio_l    : in  std_logic_vector(19 downto 0);
+        audio_r    : in  std_logic_vector(19 downto 0);
 
         -- I2S Audio Out
         i2s_bclk   : out std_logic;
@@ -85,7 +85,7 @@ architecture rtl of i2s_simple is
 
     signal clk_audio     : std_logic := '0';
     signal aclk_cnt      : std_logic_vector(f_log2(MAXCOUNT) downto 0);
-    signal audio_mixed   : std_logic_vector(15 downto 0);
+    signal audio_mixed   : std_logic_vector(19 downto 0);
     signal audio         : std_logic_vector(31 downto 0);
     signal audio_bit_cnt : std_logic_vector(5 downto 0);
 
@@ -114,17 +114,17 @@ begin
                     end if;
                     -- latch data so it's stable during transmission
                     if audio_bit_cnt(4 downto 0) = "11111" then
-                        -- convert to 16-bit to 32-bit, attenuated by shift of ATTENUATE of bits
-                        -- audio_mixed:    SBBBBBBBBBBBBBBB
-                        -- audio:       SSSSBBBBBBBBBBBBBBB0000000000000 (example ATTENUATE=3)
+                        -- convert to 20-bit to 32-bit, attenuated by shift of ATTENUATE of bits
+                        -- audio_mixed:    SBBBBBBBBBBBBBBBBBBB
+                        -- audio:       SSSSBBBBBBBBBBBBBBBBBBB000000000 (example ATTENUATE=3)
                         --                 ^^^^^^^^^^^^^^^^ (audio_mixed)
                         --
                         -- Note: In I2S the MSB is the second bit after
                         -- LRCLK changes, hence the leading zero here
                         if (ATTENUATE = 0) then
-                            audio <= '0' & audio_mixed & (14 downto 0 => '0');
+                            audio <= '0' & audio_mixed & (10 downto 0 => '0');
                         else
-                            audio <= '0' & (ATTENUATE-1 downto 0 => audio_mixed(15)) & audio_mixed & (14-ATTENUATE downto 0 => '0');
+                            audio <= '0' & (ATTENUATE-1 downto 0 => audio_mixed(19)) & audio_mixed & (10-ATTENUATE downto 0 => '0');
                         end if;
                     end if;
                 end if;

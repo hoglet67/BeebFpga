@@ -436,6 +436,7 @@ begin
                         if extended = '1' then
                             case keyb_data is
                                 when X"11" => right_alt    <= not releasex; -- RIGHT ALT (Config)
+                                when others => null;
                             end case;
                         else
                             case keyb_data is
@@ -451,6 +452,7 @@ begin
                                 when X"83" => config_fn(7) <= not releasex; -- F7
                                 when X"0A" => config_fn(8) <= not releasex; -- F8
                                 when X"01" => config_fn(9) <= not releasex; -- F9
+                                when others => null;
                             end case;
                         end if;
 
@@ -471,6 +473,7 @@ begin
                                 when x"5A" => keys(12)(3) <= not releasex; -- Keypad Return
                                 when x"70" => keys(12)(5) <= not releasex; -- INSERT Keypad ,
                                 when x"71" => keys(11)(4) <= not releasex; -- DELETE Keypad Delete
+                                when others => null;
                             end case;
 
                         else

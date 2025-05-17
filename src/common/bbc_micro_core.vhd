@@ -668,18 +668,18 @@ signal user_via_pb_oe_n :   std_logic_vector(7 downto 0);
 signal user_via_do_r    :   std_logic_vector (7 downto 0);
 
 -- Mouse signals
-signal mouse_read        :   std_logic;
-signal mouse_err         :   std_logic;
-signal mouse_rx_data     :   std_logic_vector(7 downto 0);
-signal mouse_write       :   std_logic;
-signal mouse_tx_data     :   std_logic_vector(7 downto 0);
+signal mouse_read       :   std_logic;
+signal mouse_err        :   std_logic;
+signal mouse_rx_data    :   std_logic_vector(7 downto 0);
+signal mouse_write      :   std_logic;
+signal mouse_tx_data    :   std_logic_vector(7 downto 0);
 
 -- SPI SD Card
 signal spisd_do         :   std_logic_vector(7 downto 0);
 
 -- IC32 latch on System VIA
 signal ic32             :   std_logic_vector(7 downto 0);
-signal sound_enable_n   :   std_logic;
+signal psg_enable_n     :   std_logic;
 --signal speech_read_n    :   std_logic;
 --signal speech_write_n   :   std_logic;
 signal keyb_enable_n    :   std_logic;
@@ -713,21 +713,23 @@ signal ps2_mse_clk_out  :   std_logic;
 signal ps2_mse_data_in  :   std_logic;
 signal ps2_mse_data_out :   std_logic;
 
--- Sound generator
-signal sound_di         :   std_logic_vector(7 downto 0);
-signal sound_ao         :   unsigned(13 downto 0); -- 14 bit unsigned
-signal sound_ao_pcm     :   unsigned(13 downto 0); -- 14 bit signed
-signal sound_strobe     :   std_logic;
+-- Programmable Sound generator
+signal psg_di           :   std_logic_vector(7 downto 0);
+signal psg_ao_pcm       :   unsigned(13 downto 0); -- 14 bit signed
+signal psg_strobe_int   :   std_logic;
+signal psg_audio_int    :   signed(17 downto 0);
 
 -- Optional SID
-signal sid_ao           :   std_logic_vector(17 downto 0);
 signal sid_do           :   std_logic_vector(7 downto 0);
 signal sid_enable       :   std_logic;
+signal sid_audio_int    :   signed(17 downto 0);
+signal sid_strobe_int   :   std_logic;
 
 -- Optional Music5000
-signal music5000_ao_l   :   std_logic_vector(15 downto 0);
-signal music5000_ao_r   :   std_logic_vector(15 downto 0);
-signal music5000_do     :   std_logic_vector(7 downto 0);
+signal m5k_audio_l_int  :   signed(17 downto 0);
+signal m5k_audio_r_int  :   signed(17 downto 0);
+signal m5k_strobe_int   :   std_logic;
+signal m5k_do           :   std_logic_vector(7 downto 0);
 
 -- Optional Tube
 signal tube_do          :   std_logic_vector(7 downto 0);
@@ -1308,6 +1310,9 @@ begin
 --------------------------------------------------------
 
     GenSID: if IncludeSID generate
+        signal sid_ao : std_logic_vector(17 downto 0);
+    begin
+
         Inst_sid6581: entity work.sid6581
             port map (
                 clk_1MHz   => clock_48,
@@ -1323,19 +1328,21 @@ begin
                 pot_x      => '0',
                 pot_y      => '0',
                 audio_out  => open,
-                audio_data => sid_ao
-            );
-        -- External ports
-        sid_audio  <= signed(sid_ao xor ("10" & x"0000"));
-        sid_strobe <= mhz1_clken;
+                audio_data => sid_ao -- 18-bit unsigned
+                );
+        -- Standard 18-bit signed audio
+        sid_audio_int  <= signed(sid_ao xor ("10" & x"0000"));
+        sid_strobe_int <= mhz1_clken;
     end generate;
 
     GenNotSID: if not IncludeSID generate
-        -- External ports
-        sid_audio  <= to_signed(0, sid_audio'length);
-        sid_strobe <= '0';
+        sid_audio_int  <= to_signed(0, sid_audio_int'length);
+        sid_strobe_int <= '0';
     end generate;
 
+    -- External ports
+    sid_audio <= sid_audio_int;
+    sid_strobe <= sid_strobe_int;
 
 --------------------------------------------------------
 -- Optional Music 5000
@@ -1375,7 +1382,7 @@ begin
                 pgfd_n   => io_jim_n,
                 a        => cpu_a(7 downto 0),
                 din      => cpu_do,
-                dout     => music5000_do,
+                dout     => m5k_do,
                 audio_l  => audio_l_fin,
                 audio_r  => audio_r_fin,
                 cycle    => cycle
@@ -1409,13 +1416,9 @@ begin
         end generate;
 
         -- External ports
-        m5k_audio_l <= signed(audio_l_tmp);
-        m5k_audio_r <= signed(audio_r_tmp);
+        m5k_audio_l_int <= signed(audio_l_tmp);
+        m5k_audio_r_int <= signed(audio_r_tmp);
         m5k_strobe  <= mhz6_clken when unsigned(cycle(6 downto 0)) = 1 else '0';
-
-        -- Convert from 18-bit back to 16-bit when is what the Beeb Core expects
-        music5000_ao_l <= audio_l_tmp(dacwidth - 1 downto dacwidth - 16);
-        music5000_ao_r <= audio_r_tmp(dacwidth - 1 downto dacwidth - 16);
 
         ------------------------------------------------
         -- Music5000 SPDIF Output
@@ -1448,11 +1451,14 @@ begin
     end generate;
 
     GenNotMusic5000: if not IncludeMusic5000 generate
-        m5k_spdif   <= '0';
-        m5k_audio_l <= to_signed(0, m5k_audio_l'length);
-        m5k_audio_r <= to_signed(0, m5k_audio_r'length);
+        m5k_audio_l_int <= to_signed(0, m5k_audio_l_int'length);
+        m5k_audio_r_int <= to_signed(0, m5k_audio_r_int'length);
         m5k_strobe  <= '0';
+        m5k_spdif   <= '0';
     end generate;
+
+    m5k_audio_l <= m5k_audio_l_int;
+    m5k_audio_r <= m5k_audio_r_int;
 
 --------------------------------------------------------
 -- Optional 6502 Co Processor
@@ -1566,17 +1572,20 @@ begin
             clk_i => clock_48,
             en_clk_psg_i => mhz4_clken,
             reset_n_i => powerup_reset_n,
-            data_i => sound_di,
-            wr_n_i => sound_enable_n,
+            data_i => psg_di,
+            wr_n_i => psg_enable_n,
             ce_n_i => '0',
-            mix_audio_o => sound_ao,
-            pcm14s_o => sound_ao_pcm,
-            strobe_o => sound_strobe
+            mix_audio_o => open,
+            pcm14s_o => psg_ao_pcm, -- 14 bit signed
+            strobe_o => psg_strobe_int
             );
 
+    -- Standard 18-bit signed audio
+    psg_audio_int <= signed(psg_ao_pcm & "0000");
+
     -- External ports
-    psg_audio  <= signed(sound_ao_pcm & "0000");
-    psg_strobe <= sound_strobe and mhz4_clken;
+    psg_audio <= psg_audio_int;
+    psg_strobe <= psg_strobe_int and mhz4_clken;
 
 --------------------------------------------------------
 -- Optional PSG SPDIF
@@ -1598,7 +1607,7 @@ begin
                     if divider = 0 then
                         load <= '1';
                         if channelA = '1' then -- TODO: check this gives the correct channel phasing
-                            sample <= std_logic_vector(sound_ao_pcm(13) & sound_ao_pcm) & "00000";
+                            sample <= std_logic_vector(psg_audio_int) & "00";
                         end if;
                     else
                         load <= '0';
@@ -1627,29 +1636,35 @@ begin
 -- Sound Mixer
 --------------------------------------------------------
 
-    process(sound_ao_pcm, sid_ao, music5000_ao_l, music5000_ao_r)
-        variable l : std_logic_vector(15 downto 0);
-        variable r : std_logic_vector(15 downto 0);
+    -- All inputs to the legacy mixer are now 18-bit signed
+
+    process(psg_audio_int, sid_audio_int, m5k_audio_l_int, m5k_audio_r_int)
+        variable m : signed(17 downto 0);
+        variable l : signed(17 downto 0);
+        variable r : signed(17 downto 0);
     begin
-        -- SN76489 PCM output is 14-bit signed and is 0x00 when no sound is playing
-        l := std_logic_vector(sound_ao_pcm) & "00";
-        r := std_logic_vector(sound_ao_pcm) & "00";
+        -- SN76489 PSG (mono)
+        m := psg_audio_int;
+        -- optional SID (mono)
         if IncludeSID then
-            -- SID output is 16-bit unsigned
-            l := l + (sid_ao(17 downto 2) - x"8000");
-            r := r + (sid_ao(17 downto 2) - x"8000");
+            m := m + sid_audio_int;
         end if;
+        -- optional Music 5000 (stereo)
         if IncludeMusic5000 then
-            -- Music 5000 output is 16-bit signed
-            l := l + music5000_ao_l;
-            r := r + music5000_ao_r;
+            l := m + m5k_audio_l_int;
+            r := m + m5k_audio_r_int;
+        else
+            l := m;
+            r := m;
         end if;
-        audio_l_int <= l;
-        audio_r_int <= r;
+        -- Truncate to 16 bits (still signed)
+        audio_l_int <= std_logic_vector(l(17 downto 2));
+        audio_r_int <= std_logic_vector(r(17 downto 2));
     end process;
+
+    -- External ports
     audio_l <= audio_l_int;
     audio_r <= audio_r_int;
-
 
 --------------------------------------------------------
 -- Reset generation
@@ -2143,7 +2158,7 @@ begin
         split_rom_page when split_rom_page_enable = '1' else
         -- Optional peripherals
         sid_do         when sid_enable = '1' and IncludeSid else
-        music5000_do   when io_jim = '1' and IncludeMusic5000 else
+        m5k_do         when io_jim = '1' and IncludeMusic5000 else
         tube_do        when int_tube_enable = '1' and (IncludeCoPro6502 or IncludeCoProSPI) else
         ext_tube_do    when ext_tube_enable = '1' and IncludeCoProExt else
         -- Master 128 additions
@@ -2404,7 +2419,7 @@ begin
     keyb_column <= sys_via_pa_out(3 downto 0);
     keyb_row <= sys_via_pa_out(6 downto 4);
     -- Sound
-    sound_di <= sys_via_pa_out;
+    psg_di <= sys_via_pa_out;
     -- Others (idle until missing bits implemented)
     sys_via_pb_in(7 downto 6) <= (others => '1');
     sys_via_pb_in(3 downto 0) <= sys_via_pb_out(3 downto 0);
@@ -2446,7 +2461,7 @@ begin
     end process;
 
     -- IC32 latch
-    sound_enable_n <= ic32(0);
+    psg_enable_n <= ic32(0);
  -- speech_write_n <= ic32(1);
  -- speech_read_n <= ic32(2);
     keyb_enable_n <= ic32(3);

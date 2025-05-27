@@ -746,9 +746,9 @@ begin
     --     Config F3 = Volume default
     --     Config F4 = M5K Filter (On/Off)
     --     Config F5 = Audio Source (Mixer/Legacy)
-    --     Config F6 = HDMI Aspect Ratio (4:3/16:9/Audio) [**]
-    --     Config F7 = Co Pro (Off/Int/Ext)               [**]
-    --     Config F8 = Machine (Beeb/Master)              [**]
+    --     Config F6 = HDMI Aspect Ratio (Auto/DVI/4:3/16:9) [**]
+    --     Config F7 = Co Pro (Off/Int/Ext)                  [**]
+    --     Config F8 = Machine (Beeb/Master)                 [**]
     --     Config F9 = Reserved for serial
     --     Config F10 = Spare
     --
@@ -803,7 +803,7 @@ begin
                     when "00" => hdmi_aspect <="01";
                     when "01" => hdmi_aspect <="10";
                     when "10" => hdmi_aspect <="11";
-                    when "11" => hdmi_aspect <="01";
+                    when "11" => hdmi_aspect <="00";
                 end case;
             end if;
 

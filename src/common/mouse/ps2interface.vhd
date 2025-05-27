@@ -291,6 +291,10 @@ signal delay_63clk_counter_enable: std_logic := '0';
 -- synchronzed input for ps2_clk and ps2_data
 signal ps2_clk_s,ps2_data_s: std_logic := '1';
 
+-- extra synchronization for for ps2_clk and ps2_data before debouncer
+signal ps2_clk_s1,ps2_data_s1: std_logic := '1';
+signal ps2_clk_s2,ps2_data_s2: std_logic := '1';
+
 -- control the output of ps2_clk and ps2_data
 -- if 1 then corresponding signal (ps2_clk or ps2_data) is
 -- put in high impedance ('Z').
@@ -365,11 +369,14 @@ begin
     process(clk)
     begin
         if(rising_edge(clk)) then
+            -- Syncronize external input prior to deglitcher
+            ps2_clk_s1 <= ps2_clk;
+            ps2_clk_s2 <= ps2_clk_s1;
             -- if the current bit on ps2_clk is different
             -- from the last value, then reset counter
             -- and retain value
-            if(ps2_clk /= clk_inter) then
-                clk_inter <= ps2_clk;
+            if(ps2_clk_s2 /= clk_inter) then
+                clk_inter <= ps2_clk_s2;
                 clk_count <= (others => '0');
             -- if counter reached upper limit, then
             -- the signal is clean
@@ -389,11 +396,14 @@ begin
     process(clk)
     begin
         if(rising_edge(clk)) then
+            -- Syncronize external input prior to deglitcher
+            ps2_data_s1 <= ps2_data;
+            ps2_data_s2 <= ps2_data_s1;
             -- if the current bit on ps2_data is different
             -- from the last value, then reset counter
             -- and retain value
-            if(ps2_data /= data_inter) then
-                data_inter <= ps2_data;
+            if(ps2_data_s2 /= data_inter) then
+                data_inter <= ps2_data_s2;
                 data_count <= (others => '0');
             -- if counter reached upper limit, then
             -- the signal is clean

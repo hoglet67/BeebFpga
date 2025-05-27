@@ -444,7 +444,7 @@ begin
     -- For the current state establish next state
     -- and give necessary commands
     manage_fsm: process(clk)
-    variable watchdog : std_logic_vector(17 downto 0);
+    variable watchdog : std_logic_vector(18 downto 0);
     begin
         if(rising_edge(clk)) then
 

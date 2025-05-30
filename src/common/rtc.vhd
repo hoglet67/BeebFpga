@@ -72,7 +72,7 @@ architecture rtl of rtc is
 --      b2-b4  Default serial speed 0-7     (*fx7/*fx8) *Config. Baud n
 --      b5-b7  Default printer device, 0-7     (*fx245) *Config. Print n
 --   16 b0     Default to shadow screen on start (MER)  *Config. Shadow
---      b1     Default BEEP quite/loud                  *Config. Quiet/Loud
+--      b1     Default BEEP quiet/loud                  *Config. Quiet/Loud
 --      b2     Internal/External Tube                   *Config. InTube/ExTube
 --      b3     Scrolling enabled/protected              *Config. Scroll/NoScroll
 --      b4     Noboot/boot on reset                     *Config. NoBoot/Boot
@@ -106,7 +106,7 @@ architecture rtl of rtc is
     constant ini15 : std_logic_vector(7 downto 0) := x"2C";
 
     -- bit 2 (intube/extube) and 4 (noboot/boot) overlaid by DIP switches/config
-    constant ini16 : std_logic_vector(7 downto 0) := x"80";
+    constant ini16 : std_logic_vector(7 downto 0) := x"82";
 
     signal rtc_ram : rtc_ram_type := (
         x"30", -- RTC Seconds

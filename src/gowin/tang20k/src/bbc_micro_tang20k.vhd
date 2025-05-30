@@ -1472,7 +1472,7 @@ begin
 
     js_clk <= ext_tube_phi2;
 
-    normal_leds <= (caps_led & shift_led & m5k_filter_en & hdmi_audio_en & audio_src & clip_led) xor "111111";
+    normal_leds <= (caps_led & shift_led & m5k_filter_en & clip_led & audio_src & hdmi_audio_en) xor "111111";
 
     led <= ext_tube_ctrl                      when IncludeCoProExt                                  else
            soft_leds(5 downto 0) xor "111111" when IncludeSoftLEDs and soft_leds(7 downto 6) = "10" else

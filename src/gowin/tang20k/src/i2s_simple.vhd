@@ -61,8 +61,7 @@ entity i2s_simple is
         -- I2S Audio Out
         i2s_bclk   : out std_logic;
         i2s_lrclk  : out std_logic;
-        i2s_din    : out std_logic;
-        pa_en      : out std_logic
+        i2s_din    : out std_logic
     );
 end entity;
 
@@ -90,8 +89,6 @@ architecture rtl of i2s_simple is
     signal audio_bit_cnt : std_logic_vector(5 downto 0);
 
 begin
-
-    pa_en <= 'Z' when reset_n = '1' else '0'; -- enable amplifier
 
     -- LRCLK polarity of CS4354 and MAX98357A is:
     -- 0 = Left channel, 1 = Right Channel

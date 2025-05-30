@@ -73,7 +73,8 @@ entity bbc_micro_tang20k is
         IncludeVGADAC          : boolean := G_CONFIG_VGA;
 
         MinVolume              : integer := 0;  -- -60dB
-        DefaultVolume          : integer := 10; -- -30dB
+        DefaultVolumeSpeaker   : integer := 12; -- -24dB
+        DefaultVolumeLine      : integer := 16; -- -12dB
         MaxVolume              : integer := 20; --   0dB
 
         PRJ_ROOT               : string  := "../../../..";
@@ -134,7 +135,7 @@ entity bbc_micro_tang20k is
         i2s_bclk        : out   std_logic;
         i2s_lrclk       : out   std_logic;
         i2s_din         : out   std_logic;
-        pa_en           : out   std_logic;
+        pa_en           : in    std_logic;
 
         -- 1-bit DAC Audio
         audiol          : out   std_logic;
@@ -326,7 +327,8 @@ architecture rtl of bbc_micro_tang20k is
     signal audio_src       : std_logic := '1'; -- 0 = Legacy, 1 = Mixer
     signal audio_l         : std_logic_vector(19 downto 0);
     signal audio_r         : std_logic_vector(19 downto 0);
-    signal volume          : unsigned(4 downto 0) := to_unsigned(DefaultVolume, 5);
+    signal volume          : unsigned(4 downto 0) := to_unsigned(0, 5);
+    signal default_volume  : unsigned(4 downto 0) := to_unsigned(0, 5);
     signal audio_l_legacy  : std_logic_vector(15 downto 0);
     signal audio_r_legacy  : std_logic_vector(15 downto 0);
     signal sid_audio       : signed(17 downto 0);
@@ -774,7 +776,7 @@ begin
 
             -- Config (3) is volume default
             if config(3) = '1' then
-                volume <= to_unsigned(DefaultVolume, 5);
+                volume <= default_volume;
             end if;
 
             if IncludeSoftVolume and ext_1mhz_pgfc_n = '0' and ext_1mhz_r_nw = '0' and ext_1mhz_addr = x"54" then
@@ -856,6 +858,14 @@ begin
                 copro_ext     <= not jumper(2); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
                 hdmi_aspect   <= jumper(4 downto 3);
                 hdmi_audio_en <= jumper(4) or jumper(3); -- both jumpers fitted (00) triggers DVI mode
+                -- Determine line vs speaker by reading the pa_en jumper
+                if pa_en = '0' then
+                    default_volume <= to_unsigned(DefaultVolumeLine, 5);
+                    volume         <= to_unsigned(DefaultVolumeLine, 5);
+                else
+                    default_volume <= to_unsigned(DefaultVolumeSpeaker, 5);
+                    volume         <= to_unsigned(DefaultVolumeSpeaker, 5);
+                end if;
             end if;
 
         end if;
@@ -1190,8 +1200,7 @@ begin
                 audio_r    => audio_l,   -- Swapped, see comment above
                 i2s_lrclk  => i2s_lrclk,
                 i2s_bclk   => i2s_bclk,
-                i2s_din    => i2s_din,
-                pa_en      => pa_en
+                i2s_din    => i2s_din
                 );
         i2s_mclk <= audio_clk;
     end generate;
@@ -1201,7 +1210,6 @@ begin
         i2s_lrclk  <= 'Z';
         i2s_bclk   <= 'Z';
         i2s_din    <= 'Z';
-        pa_en      <= '0';
     end generate;
 
     --------------------------------------------------------

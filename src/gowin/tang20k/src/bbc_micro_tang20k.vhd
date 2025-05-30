@@ -892,7 +892,7 @@ begin
                 VOLUME_WIDTH      => 10,
                 OUTPUT_RATE       => 1000,           -- 48KHz
                 OUTPUT_WIDTH      => 20,             -- 20 bits
-                OUTPUT_SHIFT      => 14,
+                OUTPUT_SHIFT      => 15,
                 FILTER_NTAPS      => 3840,
                 FILTER_L          => (6, 24, 128, 128),
                 FILTER_M          => 125,

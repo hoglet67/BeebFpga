@@ -1331,7 +1331,7 @@ begin
                 audio_data => sid_ao -- 18-bit unsigned
                 );
         -- Standard 18-bit signed audio
-        sid_audio_int  <= signed(sid_ao xor ("10" & x"0000"));
+        sid_audio_int  <= signed(unsigned(sid_ao) - to_unsigned(128*1024, 18));
         sid_strobe_int <= mhz1_clken;
     end generate;
 
@@ -1581,7 +1581,8 @@ begin
             );
 
     -- Standard 18-bit signed audio
-    psg_audio_int <= signed(psg_ao_pcm & "0000");
+    -- Attenuate by 1 bits (-6db) to match SID level
+    psg_audio_int <= signed(psg_ao_pcm(13) & psg_ao_pcm & "000");
 
     -- External ports
     psg_audio <= psg_audio_int;

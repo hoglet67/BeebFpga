@@ -1195,7 +1195,7 @@ begin
                 )
             port map (
                 clock      => spdif_clk,
-                reset_n    => powerup_reset_n,
+                reset_n    => '1',       -- Avoid a nasty click on powerup_reset_n
                 audio_l    => audio_r,   -- Swapped, see comment above
                 audio_r    => audio_l,   -- Swapped, see comment above
                 i2s_lrclk  => i2s_lrclk,

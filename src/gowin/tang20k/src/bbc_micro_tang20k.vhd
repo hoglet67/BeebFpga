@@ -655,7 +655,7 @@ begin
             GSREN => "false"
         )
         port map (
-            RESETN => '1',
+            RESETN => not btn2,
             HCLKIN => clock_135,
             CLKOUT => clock_27,         -- 27MHz HDMI Pixel Clock
             CALIB  => '1'

@@ -575,7 +575,10 @@ signal vga2_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga2_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal vga2_hs          :   std_logic;
 signal vga2_vs          :   std_logic;
-
+signal retimer_ctrl     :   std_logic_vector(7 downto 0);
+signal retimer_stat0    :   std_logic_vector(7 downto 0);
+signal retimer_stat1    :   std_logic_vector(7 downto 0);
+signal retimer_stat2    :   std_logic_vector(7 downto 0);
 signal vga_mode         :   std_logic; -- Runs the SAA5050 at 24Mhz
 signal vga0_mode        :   std_logic; -- Use the Mist Scan Doubler
 signal vga1_mode        :   std_logic; -- Use the RGB2VGA Scan Doubler
@@ -761,7 +764,7 @@ signal vidproc_enable   :   std_logic;      -- 0xFE20-FE2F
 signal romsel_enable    :   std_logic;      -- 0xFE30-FE3F
 signal sys_via_enable   :   std_logic;      -- 0xFE40-FE5F
 signal user_via_enable  :   std_logic;      -- 0xFE60-FE7F, or FE80-FE9F
---signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
+signal adlc_enable      :   std_logic;      -- 0xFEA0-FEBF (Econet)
 signal spisd_enable     :   std_logic;      -- 0xFEDC (Master) / 0xFE1C (Model B)
 signal int_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
 signal ext_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
@@ -1990,6 +1993,9 @@ begin
                     elsif split_rom_page_enable = '1' then
                         split_rom_page <= cpu_do;
                     end if;
+                    if adlc_enable = '1' and cpu_a(4 downto 0) = "00000" then
+                        retimer_ctrl <= cpu_do;
+                    end if;
                 end if;
             end if;
         end if;
@@ -2022,7 +2028,7 @@ begin
         romsel_enable <= '0';
         sys_via_enable <= '0';
         user_via_enable <= '0';
- --     adlc_enable <= '0';
+        adlc_enable <= '0';
         spisd_enable <= '0';
         split_rom_slot_enable <= '0';
         split_rom_page_enable <= '0';
@@ -2091,7 +2097,8 @@ begin
                 when "011" =>
                     -- 0xFE60
                     user_via_enable <= '1';
---              when "101" => adlc_enable <= '1';       -- 0xFEA0
+                when "101" =>
+                    adlc_enable <= '1';       -- 0xFEA0
                 when "110" =>
                     -- 0xFEC0
                     if m128_mode = '1' then
@@ -2154,6 +2161,10 @@ begin
         "00000010"     when acia_enable = '1' else
         sys_via_do_r   when sys_via_enable = '1' else
         user_via_do_r  when user_via_enable = '1' else
+        retimer_ctrl   when adlc_enable = '1' and cpu_a(4 downto 0) = "00000" else
+        retimer_stat0  when adlc_enable = '1' and cpu_a(4 downto 0) = "00001" else
+        retimer_stat1  when adlc_enable = '1' and cpu_a(4 downto 0) = "00010" else
+        retimer_stat2  when adlc_enable = '1' and cpu_a(4 downto 0) = "00011" else
         spisd_do       when spisd_enable = '1' else
         split_rom_slot when split_rom_slot_enable = '1' else
         split_rom_page when split_rom_page_enable = '1' else
@@ -2572,6 +2583,10 @@ begin
         WIDTH => RGB_WIDTH
     )
     port map (
+        control   => retimer_ctrl,
+        status0   => retimer_stat0,
+        status1   => retimer_stat1,
+        status2   => retimer_stat2,
         clk_in    => clock_48,
         clken_in  => ttxt_clken,
         clk_out   => clock_27,

@@ -189,11 +189,11 @@ begin
                 -- Sample once per microsecond, away from the edge
                 if sample_counter = sample_pos then
                     hs_out1 <= hs_in;
-                    hs_out2 <= hs_out1;
                     vs_out1 <= vs_in;
-                    vs_out2 <= vs_out1;
                 end if;
 
+                hs_out2 <= hs_out1;
+                vs_out2 <= vs_out1;
                 if hs_out2 = '0' and hs_out1 = '1' then
                     -- trailing edge of hsync, offset as calculated above
                     addr_out <= std_logic_vector(to_unsigned(OUTPUT_OFFSET, 10));

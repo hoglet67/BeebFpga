@@ -111,11 +111,19 @@ architecture rtl of retimer is
     signal addr_out    : std_logic_vector(9 downto 0);
     signal hs_in1      : std_logic := '0';
     signal bank        : std_logic := '0';
+    signal hs_tmp1     : std_logic := '0';
+    signal hs_tmp2     : std_logic := '0';
     signal hs_out1     : std_logic := '0';
     signal hs_out2     : std_logic := '0';
     signal vs_out1     : std_logic := '0';
     signal vs_out2     : std_logic := '0';
     signal rgb_out     : std_logic_vector (WIDTH * 3 - 1 downto 0) := (others => '0');
+
+    -- A counter that wraps once per microsecond
+    signal sample_counter : unsigned(4 downto 0);
+
+    -- A safe position to sample hs_in, well away from where is changes
+    signal sample_pos :unsigned(4 downto 0);
 
 begin
 
@@ -142,13 +150,50 @@ begin
 
     -- Output process
     process(clk_out)
+        variable offset : unsigned(4 downto 0);
     begin
         if rising_edge(clk_out) then
             if clken_out = '1' then
-                hs_out1 <= hs_in;
-                hs_out2 <= hs_out1;
-                vs_out1 <= vs_in;
-                vs_out2 <= vs_out1;
+
+                -- 27MHz counter that wraps every micro second
+                if sample_counter = 26 then
+                    sample_counter <= (others => '0');
+                else
+                    sample_counter <= sample_counter + 1;
+                end if;
+
+                hs_tmp1 <= hs_in; -- asynchronous
+                hs_tmp2 <= hs_tmp1;
+
+                -- Trailing edge of hsync
+                if hs_tmp2 = '0' and hs_tmp1 = '1' then
+                    -- Calculate the distance to the nearest edge
+                    if sample_counter > sample_pos then
+                        offset := sample_counter - sample_pos;
+                    else
+                        offset := sample_pos - sample_counter;
+                    end if;
+                    if offset > 13  then
+                        offset := to_unsigned(26, 5) - offset;
+                    end if;
+                    -- If we are less than six ticks away, then reset the sample position
+                    if offset < 6 then
+                        if sample_counter >= (27-12) then
+                            sample_pos <= sample_counter - (27-12);
+                        else
+                            sample_pos <= sample_counter + 12;
+                        end if;
+                    end if;
+                end if;
+
+                -- Sample once per microsecond, away from the edge
+                if sample_counter = sample_pos then
+                    hs_out1 <= hs_in;
+                    hs_out2 <= hs_out1;
+                    vs_out1 <= vs_in;
+                    vs_out2 <= vs_out1;
+                end if;
+
                 if hs_out2 = '0' and hs_out1 = '1' then
                     -- trailing edge of hsync, offset as calculated above
                     addr_out <= std_logic_vector(to_unsigned(OUTPUT_OFFSET, 10));

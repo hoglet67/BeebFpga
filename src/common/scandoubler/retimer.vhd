@@ -10,6 +10,11 @@ entity retimer is
     );
     port (
 
+        -- cpu test interface
+        control   : in  std_logic_vector(7 downto 0) := (others => '0');
+        status0   : out std_logic_vector(7 downto 0);
+        status1   : out std_logic_vector(7 downto 0);
+
         -- input video interface
         --
         -- This will be running at 24MHz with 32us lines (h_total of 768)
@@ -171,21 +176,26 @@ begin
 
                 -- Trailing edge of hsync
                 if hs_tmp2 = '0' and hs_tmp1 = '1' then
-                    -- Calculate the distance to the nearest edge
-                    if sample_counter > sample_pos then
-                        offset := sample_counter - sample_pos;
+                    status1 <= "000" & std_logic_vector(sample_counter);
+                    if control(7) = '1' then
+                        sample_pos <= unsigned(control(4 downto 0));
                     else
-                        offset := sample_pos - sample_counter;
-                    end if;
-                    if offset > 13  then
-                        offset := to_unsigned(26, 5) - offset;
-                    end if;
-                    -- If we are less than six ticks away, then reset the sample position
-                    if offset < 6 then
-                        if sample_counter >= (27-12) then
-                            sample_pos <= sample_counter - (27-12);
+                        -- Calculate the distance to the nearest edge
+                        if sample_counter > sample_pos then
+                            offset := sample_counter - sample_pos;
                         else
-                            sample_pos <= sample_counter + 12;
+                            offset := sample_pos - sample_counter;
+                        end if;
+                        if offset > 13  then
+                            offset := to_unsigned(26, 5) - offset;
+                        end if;
+                        -- If we are less than six ticks away, then reset the sample position
+                        if offset < 6 then
+                            if sample_counter >= (27-12) then
+                                sample_pos <= sample_counter - (27-12);
+                            else
+                                sample_pos <= sample_counter + 12;
+                            end if;
                         end if;
                     end if;
                 end if;
@@ -221,6 +231,7 @@ begin
         end if;
     end process;
 
+    status0 <= control(7) & "00" & std_logic_vector(sample_pos);
 
     -- pass vsync through synchronised version of vs and hs
     vs_out <= vs_out2;

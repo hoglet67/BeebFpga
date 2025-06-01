@@ -416,9 +416,6 @@ architecture rtl of bbc_micro_tang20k is
     signal monitor_leds    :   std_logic_vector(5 downto 0);
 
     -- HDMI PLL synchronization
-    signal hsync_ref       : std_logic;
-    signal hsync_del       : std_logic_vector(4 downto 0) := (others => '0');
-    signal clkdiv_reset_n  : std_logic := '0';
     signal pll1_lock       : std_logic;
     signal pll2_lock       : std_logic;
 
@@ -565,7 +562,7 @@ begin
             tmds_r          => tmds_r,
             tmds_g          => tmds_g,
             tmds_b          => tmds_b,
-            hsync_ref       => hsync_ref,
+            hsync_ref       => open,
             trace_data      => trace_data,
             trace_r_nw      => trace_r_nw,
             trace_sync      => trace_sync,
@@ -645,7 +642,7 @@ begin
             GSREN => "false"
         )
         port map (
-            RESETN => clkdiv_reset_n,
+            RESETN => '1',
             HCLKIN => clock_405,
             CLKOUT => clock_81,
             CALIB  => '1'
@@ -658,7 +655,7 @@ begin
             GSREN => "false"
         )
         port map (
-            RESETN => clkdiv_reset_n,
+            RESETN => '1',
             HCLKIN => clock_135,
             CLKOUT => clock_27,         -- 27MHz HDMI Pixel Clock
             CALIB  => '1'
@@ -682,23 +679,11 @@ begin
             GSREN => "false"
         )
         port map (
-            RESETN => clkdiv_reset_n,
+            RESETN => '1',
             HCLKIN => audio_clk,        -- 24.576MHz audio clock
             CLKOUT => spdif_clk,        --  6.144MHz spdif clock
             CALIB  => '1'
         );
-
-    process(clock_135)
-    begin
-        if rising_edge(clock_135) then
-            -- Synchronise the core hsync signal and delay it a bit
-            hsync_del <= hsync_ref & hsync_del(hsync_del'left downto 1);
-            -- Release clkdiv reset shortly after the first falling edge of hsync_ref
-            if pll1_lock = '1' and pll2_lock = '1' and hsync_del(1) = '0' and hsync_del(0) = '1' then
-                clkdiv_reset_n <= '1';
-            end if;
-        end if;
-    end process;
 
     --------------------------------------------------------
     -- Button 1: Power Up Reset

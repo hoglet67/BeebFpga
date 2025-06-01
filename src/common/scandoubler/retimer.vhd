@@ -183,7 +183,7 @@ begin
                 if hs_tmp2 = '0' and hs_tmp1 = '1' then
                     current_pos <= sample_counter;
                     -- The next edge should be time at 26, 0 or 1; outside of this resync
-                    if sample_counter > 1 and sample_counter < (27 - 1) then
+                    if control(6) = '1' or (sample_counter > 1 and sample_counter < (27 - 1)) then
                         sample_counter <= to_unsigned(1, sample_counter'length);
                         resync_pos <= sample_counter;
                         resync_count <= resync_count + 1;

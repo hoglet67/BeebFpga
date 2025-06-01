@@ -418,6 +418,7 @@ architecture rtl of bbc_micro_tang20k is
     -- HDMI PLL synchronization
     signal pll1_lock       : std_logic;
     signal pll2_lock       : std_logic;
+    signal hsync_ref       : std_logic;
 
     -- 1MHz Bus
     signal ext_1mhz_clk    : std_logic; -- the system clock
@@ -562,7 +563,7 @@ begin
             tmds_r          => tmds_r,
             tmds_g          => tmds_g,
             tmds_b          => tmds_b,
-            hsync_ref       => open,
+            hsync_ref       => hsync_ref,
             trace_data      => trace_data,
             trace_r_nw      => trace_r_nw,
             trace_sync      => trace_sync,
@@ -999,27 +1000,30 @@ begin
     dac_l_in <= (not audio_l(19)) & audio_l(18 downto 10);
     dac_r_in <= (not audio_r(19)) & audio_r(18 downto 10);
 
-    dac_l : entity work.pwm_sddac
-        generic map (
-            msbi_g => 9
-        )
-        port map (
-            clk_i => clock_48,
-            reset => '0',
-            dac_i => dac_l_in,
-            dac_o => audiol
-        );
+    -- dac_l : entity work.pwm_sddac
+    --     generic map (
+    --         msbi_g => 9
+    --     )
+    --     port map (
+    --         clk_i => clock_48,
+    --         reset => '0',
+    --         dac_i => dac_l_in,
+    --         dac_o => audiol
+    --     );
 
-    dac_r : entity work.pwm_sddac
-        generic map (
-            msbi_g => 9
-        )
-        port map (
-            clk_i => clock_48,
-            reset => '0',
-            dac_i => dac_r_in,
-            dac_o => audior
-        );
+    -- dac_r : entity work.pwm_sddac
+    --     generic map (
+    --         msbi_g => 9
+    --     )
+    --     port map (
+    --         clk_i => clock_48,
+    --         reset => '0',
+    --         dac_i => dac_r_in,
+    --         dac_o => audior
+    --     );
+
+    audiol <= hsync_ref;
+    audior <= not clock_27;
 
     --------------------------------------------------------
     -- HDMI Output

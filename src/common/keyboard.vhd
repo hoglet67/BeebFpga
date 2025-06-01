@@ -408,7 +408,7 @@ begin
             keys( 9)(0) <= DIP_SWITCH(0);
 
             -- Test if a key was pressed
-            if keyb_valid = '1' and state = enabled then
+            if keyb_valid = '1' and (state = enabled or state = update_leds or state = update_leds_data or state = update_led_ack) then
 
                 dbg_valid_tgl <= not dbg_valid_tgl;
 
@@ -419,7 +419,8 @@ begin
                 elsif keyb_data = X"f0" then
                     -- Releasex code follows
                     releasex <= '1';
-                else
+                elsif keyb_data /= X"fa" then
+                    -- Ignore ack codes sent during LED update sequence
                     -- Cancel extended/releasex flags for next time
                     releasex <= '0';
                     extended <= '0';

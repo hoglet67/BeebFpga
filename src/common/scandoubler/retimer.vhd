@@ -14,6 +14,7 @@ entity retimer is
         control   : in  std_logic_vector(7 downto 0) := (others => '0');
         status0   : out std_logic_vector(7 downto 0);
         status1   : out std_logic_vector(7 downto 0);
+        status2   : out std_logic_vector(7 downto 0);
 
         -- input video interface
         --
@@ -111,7 +112,7 @@ architecture rtl of retimer is
     -- hs_in introduces some variable latecy, so compensate by
     -- shifting the screen left by about 2 characters.
 
-    constant OUTPUT_OFFSET        : integer := 1024 - 32;
+    constant OUTPUT_OFFSET        : integer := 1024 - 36;
 
     type ram_type is array (2047 downto 0) of std_logic_vector (WIDTH * 3 - 1 downto 0);
 
@@ -128,11 +129,15 @@ architecture rtl of retimer is
     signal vs_out2     : std_logic := '0';
     signal rgb_out     : std_logic_vector (WIDTH * 3 - 1 downto 0) := (others => '0');
 
-    -- A counter that wraps once per microsecond
+    -- A counter to track the hsync_in edge position
     signal sample_counter : unsigned(4 downto 0);
 
-    -- A safe position to sample hs_in, well away from where is changes
-    signal sample_pos :unsigned(4 downto 0);
+    -- Metrics for monitoring performance. These are optional, and
+    -- will only be included if the status output are connected in
+    -- the parent module.
+    signal current_pos  : unsigned(4 downto 0) := (others => '0');
+    signal resync_pos   : unsigned(4 downto 0) := (others => '0');
+    signal resync_count : unsigned(7 downto 0) := (others => '0');
 
 begin
 
@@ -159,10 +164,12 @@ begin
 
     -- Output process
     process(clk_out)
-        variable offset : unsigned(4 downto 0);
     begin
         if rising_edge(clk_out) then
             if clken_out = '1' then
+
+                hs_tmp1 <= hs_in; -- asynchronous
+                hs_tmp2 <= hs_tmp1;
 
                 -- 27MHz counter that wraps every micro second
                 if sample_counter = 26 then
@@ -171,37 +178,27 @@ begin
                     sample_counter <= sample_counter + 1;
                 end if;
 
-                hs_tmp1 <= hs_in; -- asynchronous
-                hs_tmp2 <= hs_tmp1;
-
-                -- Trailing edge of hsync
+                -- Synchronise the counter to the trailing edge of hsync, with some hysteresis to avoid continuously hunting
+                -- (Note: this scheme relies on the nominal line being an integer number of microseconds long, which MODE 7 is)
                 if hs_tmp2 = '0' and hs_tmp1 = '1' then
-                    status1 <= "000" & std_logic_vector(sample_counter);
-                    if control(7) = '1' then
-                        sample_pos <= unsigned(control(4 downto 0));
-                    else
-                        -- Calculate the distance to the nearest edge
-                        if sample_counter > sample_pos then
-                            offset := sample_counter - sample_pos;
-                        else
-                            offset := sample_pos - sample_counter;
-                        end if;
-                        if offset > 13  then
-                            offset := to_unsigned(26, 5) - offset;
-                        end if;
-                        -- If we are less than six ticks away, then reset the sample position
-                        if offset < 6 then
-                            if sample_counter >= (27-12) then
-                                sample_pos <= sample_counter - (27-12);
-                            else
-                                sample_pos <= sample_counter + 12;
-                            end if;
-                        end if;
+                    current_pos <= sample_counter;
+                    -- The next edge should be time at 26, 0 or 1; outside of this resync
+                    if sample_counter > 1 and sample_counter < (27 - 1) then
+                        sample_counter <= to_unsigned(1, sample_counter'length);
+                        resync_pos <= sample_counter;
+                        resync_count <= resync_count + 1;
                     end if;
                 end if;
 
-                -- Sample once per microsecond, away from the edge
-                if sample_counter = sample_pos then
+                -- Software reset of metrics
+                if control(7) = '1' then
+                    current_pos  <= (others => '0');
+                    resync_pos   <= (others => '0');
+                    resync_count <= (others => '0');
+                end if;
+
+                -- Sample once per microsecond, two clock cycles after the edge to be safe
+                if sample_counter = 2 then
                     hs_out1 <= hs_in;
                     vs_out1 <= vs_in;
                 end if;
@@ -231,7 +228,9 @@ begin
         end if;
     end process;
 
-    status0 <= control(7) & "00" & std_logic_vector(sample_pos);
+    status0 <= std_logic_vector("000" & current_pos);
+    status1 <= std_logic_vector("000" & resync_pos);
+    status2 <= std_logic_vector(resync_count);
 
     -- pass vsync through synchronised version of vs and hs
     vs_out <= vs_out2;

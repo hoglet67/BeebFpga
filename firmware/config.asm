@@ -83,14 +83,15 @@
 ; The next 192 bytes are reserved for future use.
 
 
-org &C000
+org &E000
 .start
 
+include "decompress_faster_v2.asm"
+
 .splash_image
-    incbin "splash2.bin"
+    incbin "splash2.lzsa2"
 
-org &E800
-
+org &F000
 
 ; ===============================================================================
 ; Fast CRC (using the 16-bit Atom CRC)
@@ -1027,24 +1028,16 @@ ENDMACRO
 
 .copy_splash
 {
-    LDY #<splash_image
-    STY src
-    LDY #<screen_base
-    STY dst
+    LDA #<splash_image
+    STA LZSA_SRC_LO
     LDA #>splash_image
-    STA src+1
+    STA LZSA_SRC_HI
+    LDA #<screen_base
+    STA LZSA_DST_LO
     LDA #>screen_base
-    STA dst+1
+    STA LZSA_DST_HI
 
-.loop
-    LDA (src),Y
-    STA (dst),Y
-    INY
-    BNE loop
-    INC src+1
-    INC dst+1
-    BPL loop
-    RTS
+    JMP lzsa2_unpack
 }
 
 .validate_config

@@ -23,7 +23,7 @@ entity CoPro6502 is
         cpu_clken    : in    std_logic;
 
         -- External RAM
-        ram_addr     : out  std_logic_vector(15 downto 0);
+        ram_addr     : out  std_logic_vector(16 downto 0); -- Bit 16=1 indicates ROM
         ram_data_in  : out  std_logic_vector(7 downto 0);
         ram_data_out : in   std_logic_vector(7 downto 0);
         ram_wr       : out  std_logic;
@@ -57,7 +57,6 @@ architecture BEHAVIORAL of CoPro6502 is
 
     signal ram_cs_b        : std_logic;
     signal rom_cs_b        : std_logic;
-    signal rom_data_out    : std_logic_vector (7 downto 0);
 
 -------------------------------------------------
 -- cpu signals
@@ -80,12 +79,6 @@ begin
 ---------------------------------------------------------------------
 -- instantiated components
 ---------------------------------------------------------------------
-
-    inst_tuberom : entity work.tuberom_65c102 port map (
-        CLK             => clk_cpu,
-        ADDR            => cpu_addr(10 downto 0),
-        DATA            => rom_data_out
-    );
 
     inst_r65c02: entity work.r65c02 port map(
         reset    => RSTn_sync,
@@ -134,12 +127,11 @@ begin
 
     ram_data_in <= cpu_dout;
 
-    ram_addr <= cpu_addr(15 downto 0);
+    ram_addr <= ram_cs_b & cpu_addr(15 downto 0);
 
     cpu_din <=
-        p_data_out   when p_cs_b      = '0' else
-        rom_data_out when rom_cs_b    = '0' else
-        ram_data_out when ram_cs_b    = '0' else
+        p_data_out   when p_cs_b = '0' else
+        ram_data_out when rom_cs_b = '0'or ram_cs_b = '0' else
         x"f1";
 
 --------------------------------------------------------

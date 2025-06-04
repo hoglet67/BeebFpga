@@ -354,8 +354,8 @@ component CoPro6502 is
         clk_cpu      : in    std_logic;
         cpu_clken    : in    std_logic;
 
-        -- External RAM
-        ram_addr     : out  std_logic_vector(15 downto 0);
+        -- External RAM/ROM
+        ram_addr     : out  std_logic_vector(16 downto 0); -- Bit 16=1 indicate Tube ROM access
         ram_data_in  : out  std_logic_vector(7 downto 0);
         ram_data_out : in   std_logic_vector(7 downto 0);
         ram_wr       : out  std_logic;
@@ -745,7 +745,7 @@ signal tube_do          :   std_logic_vector(7 downto 0);
 signal tube_clken       :   std_logic;
 signal tube_clken1      :   std_logic := '0';
 signal tube_ram_wr      :   std_logic;
-signal tube_ram_addr    :   std_logic_vector(15 downto 0);
+signal tube_ram_addr    :   std_logic_vector(16 downto 0); -- Bit 16=1 indicate Tube ROM access
 signal tube_ram_data_in :   std_logic_vector(7 downto 0);
 signal ext_tube_clk     :   std_logic;
 
@@ -2288,7 +2288,7 @@ begin
     -- 001 00xx xxxx xxxx xxxx = MOS 3.20 (OS 1.20)
     -- 001 01xx xxxx xxxx xxxx = unused
     -- 001 10xx xxxx xxxx xxxx = unused
-    -- 001 11xx xxxx xxxx xxxx = unused
+    -- 001 11xx xxxx xxxx xxxx = 6502 Tube ROM
     -- 010 00xx xxxx xxxx xxxx = ROM Slot 8 (8000-SPLIT) [ SPLIT now programmable ]
     -- 010 01xx xxxx xxxx xxxx = ROM Slot 9
     -- 010 10xx xxxx xxxx xxxx = ROM Slot A
@@ -2354,7 +2354,13 @@ begin
                 ext_nWE_long <= not (tube_ram_wr);
                 ext_nOE <= tube_ram_wr;
                 ext_nCS <= '0';
-                ext_A   <= "100" & tube_ram_addr;
+                if tube_ram_addr(16) = '1' then
+                    -- ROM
+                    ext_A   <= "00111000" & tube_ram_addr(10 downto 0);
+                else
+                    -- RAM
+                    ext_A   <= "100" & tube_ram_addr(15 downto 0);
+                end if;
             else
                 ext_nCS <= '0';
                 -- Fetch data from previous CPU cycle

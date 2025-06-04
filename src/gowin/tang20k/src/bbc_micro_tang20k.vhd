@@ -1115,7 +1115,7 @@ begin
             SIM => SIM,
             IncludeMonitor => IncludeMonitor,
             IncludeBootStrap => IncludeBootStrap,
-            IncludeMinimalBeeb => true,
+            IncludeMinimalBeeb => false,
             IncludeMinimalMaster => false,
             PRJ_ROOT => PRJ_ROOT,
             MOS_NAME => MOS_NAME

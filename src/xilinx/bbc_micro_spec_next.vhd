@@ -53,15 +53,17 @@ use UNISIM.Vcomponents.all;
 -- Generic top-level entity for Spectrum Next board
 entity bbc_micro_spec_next is
     generic (
-        IncludeAMXMouse    : boolean := true;
-        IncludeSPISD       : boolean := true;
-        IncludeSID         : boolean := true;
-        IncludeMusic5000   : boolean := true;
-        IncludeICEDebugger : boolean := true;
-        IncludeCoPro6502   : boolean := true;
-        IncludeCoProExt    : boolean := true;
-        IncludeVideoNuLA   : boolean := true;
-        IncludeMaster      : boolean := true
+        IncludeAMXMouse        : boolean := true;
+        IncludeSPISD           : boolean := true;
+        IncludeSID             : boolean := true;
+        IncludeMusic5000       : boolean := true;
+        IncludeMusic5000Filter : boolean := true;
+        IncludeMixerResampler  : boolean := false;
+        IncludeICEDebugger     : boolean := true;
+        IncludeCoPro6502       : boolean := true;
+        IncludeCoProExt        : boolean := true;
+        IncludeVideoNuLA       : boolean := true;
+        IncludeMaster          : boolean := true
     );
     port (
         accel_io              : inout std_logic_vector(27 downto 0);
@@ -265,20 +267,22 @@ begin
 
     bbc_micro : entity work.bbc_micro_core
     generic map (
-        IncludeAMXMouse    => IncludeAMXMouse,
-        IncludeSPISD       => IncludeSPISD,
-        IncludeSID         => IncludeSID,
-        IncludeMusic5000   => IncludeMusic5000,
-        IncludeICEDebugger => IncludeICEDebugger,
-        IncludeCoPro6502   => IncludeCoPro6502,
-        IncludeCoProSPI    => false,
-        IncludeCoProExt    => IncludeCoProExt,
-        IncludeVideoNuLA   => IncludeVideoNuLA,
-        IncludeHDMI        => true,
-        UseOrigKeyboard    => true,
-        UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
-        UseAlanDCore       => IncludeMaster,      -- select the 65C02 for the Master
-        OverrideCMOS       => false
+        IncludeAMXMouse        => IncludeAMXMouse,
+        IncludeSPISD           => IncludeSPISD,
+        IncludeSID             => IncludeSID,
+        IncludeMusic5000       => IncludeMusic5000,
+        IncludeMusic5000Filter => IncludeMusic5000Filter,
+        IncludeMixerResampler  => IncludeMixerResampler,
+        IncludeICEDebugger     => IncludeICEDebugger,
+        IncludeCoPro6502       => IncludeCoPro6502,
+        IncludeCoProSPI        => false,
+        IncludeCoProExt        => IncludeCoProExt,
+        IncludeVideoNuLA       => IncludeVideoNuLA,
+        IncludeHDMI            => true,
+        UseOrigKeyboard        => true,
+        UseT65Core             => not IncludeMaster,  -- select the 6502 for the Beeb
+        UseAlanDCore           => IncludeMaster,      -- select the 65C02 for the Master
+        OverrideCMOS           => false
         )
     port map (
         clock_27       => clock_27,

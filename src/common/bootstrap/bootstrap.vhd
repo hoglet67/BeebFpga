@@ -35,16 +35,16 @@ entity bootstrap is
         user_address    : in std_logic_vector(23 downto 0);
 
         -- length user data in flash
-        user_length    : std_logic_vector(23 downto 0) := x"040000";
+        user_length     : in std_logic_vector(23 downto 0) := x"040000";
 
         -- map of where in the SRAM to write each successive ROM chunk
         user_rom_map    : in std_logic_vector(63 downto 0) := x"FEDCBA9876543210";
 
         -- interface from design
-        RAM_A_stb       : in   std_logic;
+        RAM_A_stb       : in   std_logic := '0';
         RAM_nOE         : in   std_logic;
         RAM_nWE         : in   std_logic;
-        RAM_nWE_long    : in   std_logic;
+        RAM_nWE_long    : in   std_logic := '1';
         RAM_nCS         : in   std_logic;
         RAM_A           : in   std_logic_vector (18 downto 0);
         RAM_Din         : in   std_logic_vector (7 downto 0);

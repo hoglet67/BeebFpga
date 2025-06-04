@@ -160,6 +160,10 @@ architecture rtl of bbc_micro_duo is
     signal RAM_nWE         : std_logic;
     signal RAM_nOE         : std_logic;
     signal RAM_nCS         : std_logic;
+    signal SRAM_A_int      : std_logic_vector(18 downto 0);
+    signal SRAM_Din        : std_logic_vector(7 downto 0);
+    signal SRAM_Dout       : std_logic_vector(7 downto 0);
+    signal SRAM_nWE_int    : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0);
     signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_mode       : std_logic;
@@ -502,14 +506,12 @@ begin
                         user_rom_map_full;
 
         inst_bootstrap: entity work.bootstrap
-            generic map (
-                user_length     => calc_user_length(IncludeMinimal)
-                )
             port map(
                 clock           => clock_48,
                 powerup_reset_n => powerup_reset_n,
                 bootstrap_busy  => bootstrap_busy,
                 user_address    => user_address,
+                user_length     => calc_user_length(IncludeMinimal),
                 user_rom_map    => user_rom_map,
                 RAM_nOE         => RAM_nOE,
                 RAM_nWE         => RAM_nWE,
@@ -518,15 +520,22 @@ begin
                 RAM_Din         => RAM_Din,
                 RAM_Dout        => RAM_Dout,
                 SRAM_nOE        => SRAM_nOE,
-                SRAM_nWE        => SRAM_nWE,
+                SRAM_nWE        => SRAM_nWE_int,
                 SRAM_nCS        => SRAM_nCS,
-                SRAM_A          => SRAM_A,
-                SRAM_D          => SRAM_D,
+                SRAM_A          => SRAM_A_int,
+                SRAM_D_in       => SRAM_Din,
+                SRAM_D_out      => SRAM_Dout,
                 FLASH_CS        => FLASH_CS,
                 FLASH_SI        => FLASH_SI,
                 FLASH_CK        => FLASH_CK,
                 FLASH_SO        => FLASH_SO
                 );
+
+        -- Tristate buffers
+        SRAM_Din <= SRAM_D;
+        SRAM_D   <= SRAM_Dout when SRAM_nWE_int = '0' else (others => 'Z');
+        SRAM_A   <= "00" & SRAM_A_int;
+        SRAM_nWE <= SRAM_nWE_int;
 
     end generate;
 

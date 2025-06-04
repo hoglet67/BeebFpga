@@ -58,7 +58,7 @@ entity bbc_micro_spec_next is
         IncludeSID             : boolean := true;
         IncludeMusic5000       : boolean := true;
         IncludeMusic5000Filter : boolean := true;
-        IncludeMixerResampler  : boolean := false;
+        IncludeMixerResampler  : boolean := true;
         IncludeICEDebugger     : boolean := true;
         IncludeCoPro6502       : boolean := true;
         IncludeCoProExt        : boolean := true;
@@ -799,11 +799,11 @@ begin
     --    8000-BFFF slots 8-F => SRAM Pages 08-0F
     --
     -- In normal mode the ROM mapping is:
-    --    C000-FFFF           => SRAM Page 04 (the OS ROM)
+    --    E000-FFFF           => SRAM Page 04 (the OS ROM)
     --    8000-BFFF slots 4-7 => SRAM Pages 14-17
     --
     -- In config mode the ROM mapping is changed as follows:
-    --    C000-FFFF           => local config rom (see RAM_Dout below)
+    --    E000-FFFF           => local config rom (see RAM_Dout below)
     --    8000-BFFF slots 4-7 => SRAM Pages 04-07
     --
     -- SRAM Page 04 holds the OS ROM
@@ -817,7 +817,7 @@ begin
 
     ram_data_io             <= RAM_Din & RAM_Din when RAM_nWE = '0' else (others => 'Z');
 
-    RAM_Dout                <= config_data when config_mode = '1' and RAM_A(18 downto 14) = "00100" else
+    RAM_Dout                <= config_data when config_mode = '1' and RAM_A(18 downto 13) = "001001" else
                                ram_data_io(7 downto 0) when RAM_A(0) = '0'                          else
                                ram_data_io(15 downto 8);
 
@@ -826,10 +826,15 @@ begin
     flash_sclk_o            <= '1';
 
     -- Embedded Config ROM replaces the MOS in config mode
-    config_rom_inst : entity work.config_rom port map (
-        clk  => clock_48,
-        addr => RAM_A(13 downto 0),
-        data => config_data
+    config_rom_inst : entity work.config_rom
+        generic map (
+            WIDTH => 8,
+            SIZE => 8192
+            )
+        port map (
+            clk  => clock_48,
+            addr => RAM_A(12 downto 0),
+            data => config_data
         );
 
 --------------------------------------------------------

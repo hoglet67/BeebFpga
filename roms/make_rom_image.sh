@@ -23,7 +23,7 @@ cat generic/blank.rom          >> $IMAGE
 cat bbcb/os12.rom              >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
-cat generic/blank.rom          >> $IMAGE
+cat tube/tube120.rom           >> $IMAGE
 
 # Note: Bank 8 is special, in that B600-BFFF is mapped to RAM (for SWMMFS)
 cat bbcb/${MMFS}/M/SWMMFS.rom  >> $IMAGE
@@ -47,7 +47,7 @@ cat generic/blank.rom          >> $IMAGE
 cat m128/mos.rom               >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
 cat generic/blank.rom          >> $IMAGE
-cat generic/blank.rom          >> $IMAGE
+cat tube/tube120.rom           >> $IMAGE
 
 cat m128/dfs.rom               >> $IMAGE # Retain this for SRAM Utils
 cat m128/${MMFS}/M/MAMMFS.rom  >> $IMAGE # MMFS in a higher slot

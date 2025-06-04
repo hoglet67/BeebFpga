@@ -109,7 +109,7 @@ crc02 = bf0c
 crc03 = 0000
 crc04 = 5cbf
 crc06 = 0000
-crc07 = 0000
+crc07 = f2f3
 EOF
 echo "crc08 = $2" >> $1
 cat >> $1 <<EOF
@@ -157,7 +157,7 @@ crc02 = bf0c
 crc03 = 81db
 crc04 = 9402
 crc06 = 0000
-crc07 = 0000
+crc07 = f2f3
 crc08 = c433
 EOF
 echo "crc09 = $2" >> $1
@@ -185,7 +185,7 @@ resource=blank.rom,3
 resource=os12.rom,4
 resource=blank.rom,5
 resource=blank.rom,6
-resource=blank.rom,7
+resource=tube120.rom,7
 resource=SWMMFS.rom,8
 resource=blank.rom,9
 resource=blank.rom,10
@@ -216,7 +216,7 @@ resource=owl.rom,3
 resource=mos.rom,4
 resource=blank.rom,5
 resource=blank.rom,6
-resource=blank.rom,7
+resource=tube120.rom,7
 resource=dfs.rom,8
 resource=MAMMFS.rom,9
 resource=viewsht.rom,10
@@ -277,6 +277,7 @@ for i in os12 basic2 ram_master_v6 ${MMFS}/M/SWMMFS vnula
 do
     cp roms/bbcb/$i.rom $DIR/machines/${MACH}
 done
+cp roms/tube/tube120.rom $DIR/machines/${MACH}
 
 # Add a blank rom
 dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16
@@ -312,6 +313,7 @@ for i in adfs basic4 dfs edit ${MMFS}/M/MAMMFS mos owl terminal view viewsht vnu
 do
     cp roms/m128/$i.rom $DIR/machines/${MACH}
 done
+cp roms/tube/tube120.rom $DIR/machines/${MACH}
 
 # Add a blank rom
 dd if=/dev/zero of=$DIR/machines/${MACH}/blank.rom bs=1024 count=16

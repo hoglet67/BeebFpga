@@ -54,6 +54,9 @@ use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
 
+library work;
+use work.sample_rate_converter_pkg.all;
+
 entity bbc_micro_core is
     generic (
         IncludeAMXMouse        : boolean := false;
@@ -62,6 +65,7 @@ entity bbc_micro_core is
         IncludeMusic5000       : boolean := false;
         IncludeMusic5000Filter : boolean := false; -- Music 5000 IIR Filter
         IncludeMusic5000SPDIF  : boolean := false; -- Music 5000 20-bit SPDIF Output
+        IncludeMixerResampler  : boolean := false; -- Audio Mixer / Volume / 48KHz resampler
         IncludePSGSPDIF        : boolean := false; -- PSG (SN76489) 20-bit SPDIF Output
         IncludeICEDebugger     : boolean := false;
         IncludeCoPro6502       : boolean := false; -- The three co pro options
@@ -116,23 +120,32 @@ entity bbc_micro_core is
         video_clken    : out   std_logic;
         video_mhz12    : out   std_logic;
 
-        -- Mixed Audio Out (16 bits for backwards compatibility)
+        -- Audio Source (0 = Legacy; 1 = Mixer)
+        audio_src      : in    std_logic := '1';
+
+        -- Audio Out (16 bits for backwards compatibility)
         audio_l        : out   std_logic_vector (15 downto 0);
         audio_r        : out   std_logic_vector (15 downto 0);
 
-        -- PSG Audio
+        -- HD Mixer / ResamplerAudio Out (20 bits)
+        volume         : in    unsigned(9 downto 0) := to_unsigned(512, 10);
+        hd_audio_l     : out   std_logic_vector (19 downto 0);
+        hd_audio_r     : out   std_logic_vector (19 downto 0);
+        clip_led       : out   std_logic;
+
+        -- Discrete PSG Audio
         psg_audio      : out   signed(17 downto 0);
         psg_strobe     : out   std_logic;
         psg_spdif      : out   std_logic;
 
-        -- M5K Audio
+        -- Discrete M5K Audio
         m5k_filter_en  : in    std_logic := '1';
         m5k_audio_l    : out   signed(17 downto 0);
         m5k_audio_r    : out   signed(17 downto 0);
         m5k_strobe     : out   std_logic;
         m5k_spdif      : out   std_logic;
 
-        -- SID Audio
+        -- Discrete SID Audio
         sid_audio      : out   signed(17 downto 0);
         sid_strobe     : out   std_logic;
 
@@ -252,11 +265,6 @@ entity bbc_micro_core is
         trace_sync     : out   std_logic;
         trace_rstn     : out   std_logic;
         trace_phi2     : out   std_logic;
-
-        -- HDMI Audio In (from an external mixer)
-        hdmi_audio_ext : in    std_logic := '0';
-        hdmi_audio_r   : in    std_logic_vector (15 downto 0) := (others => '0');
-        hdmi_audio_l   : in    std_logic_vector (15 downto 0) := (others => '0');
 
         -- HDMI Video
         hdmi_aspect    : in    std_logic_vector(1 downto 0) := "00";
@@ -594,8 +602,6 @@ signal hsync1           :   std_logic;
 signal vsync1           :   std_logic;
 signal hcnt             :   std_logic_vector(9 downto 0);
 signal vcnt             :   std_logic_vector(9 downto 0);
-signal hdmi_audio_tmp_l :   std_logic_vector(15 downto 0);
-signal hdmi_audio_tmp_r :   std_logic_vector(15 downto 0);
 signal hdmi_aspect_169  :   std_logic;
 signal hdmi_red         :   std_logic_vector(3 downto 0);
 signal hdmi_green       :   std_logic_vector(3 downto 0);
@@ -603,6 +609,8 @@ signal hdmi_blue        :   std_logic_vector(3 downto 0);
 signal hdmi_hsync       :   std_logic;
 signal hdmi_vsync       :   std_logic;
 signal hdmi_blank       :   std_logic;
+signal hd_audio_l_int   :   std_logic_vector (19 downto 0);
+signal hd_audio_r_int   :   std_logic_vector (19 downto 0);
 signal audio_l_int      :   std_logic_vector (15 downto 0);
 signal audio_r_int      :   std_logic_vector (15 downto 0);
 
@@ -716,6 +724,7 @@ signal ps2_mse_data_out :   std_logic;
 -- Programmable Sound generator
 signal psg_di           :   std_logic_vector(7 downto 0);
 signal psg_ao_pcm       :   unsigned(13 downto 0); -- 14 bit signed
+signal psg_strobe_raw   :   std_logic;
 signal psg_strobe_int   :   std_logic;
 signal psg_audio_int    :   signed(17 downto 0);
 
@@ -1415,10 +1424,12 @@ begin
             audio_r_tmp <= audio_r_fin;
         end generate;
 
+        m5k_strobe_int  <= mhz6_clken when unsigned(cycle(6 downto 0)) = 1 else '0';
+
         -- External ports
         m5k_audio_l_int <= signed(audio_l_tmp);
         m5k_audio_r_int <= signed(audio_r_tmp);
-        m5k_strobe  <= mhz6_clken when unsigned(cycle(6 downto 0)) = 1 else '0';
+        m5k_strobe <= m5k_strobe_int;
 
         ------------------------------------------------
         -- Music5000 SPDIF Output
@@ -1577,16 +1588,17 @@ begin
             ce_n_i => '0',
             mix_audio_o => open,
             pcm14s_o => psg_ao_pcm, -- 14 bit signed
-            strobe_o => psg_strobe_int
+            strobe_o => psg_strobe_raw
             );
 
     -- Standard 18-bit signed audio
     -- Attenuate by 1 bits (-6db) to match SID level
     psg_audio_int <= signed(psg_ao_pcm(13) & psg_ao_pcm & "000");
+    psg_strobe_int <= psg_strobe_raw and mhz4_clken;
 
     -- External ports
     psg_audio <= psg_audio_int;
-    psg_strobe <= psg_strobe_int and mhz4_clken;
+    psg_strobe <= psg_strobe_int;
 
 --------------------------------------------------------
 -- Optional PSG SPDIF
@@ -1634,7 +1646,7 @@ begin
     end generate;
 
 --------------------------------------------------------
--- Sound Mixer
+-- Legacy Sound Mixer
 --------------------------------------------------------
 
     -- All inputs to the legacy mixer are now 18-bit signed
@@ -1666,6 +1678,92 @@ begin
     -- External ports
     audio_l <= audio_l_int;
     audio_r <= audio_r_int;
+
+    --------------------------------------------------------
+    -- Mixer Resampler
+    --------------------------------------------------------
+
+    gen_mixer_resampler : if IncludeMixerResampler generate
+        constant NUM_CHANNELS  : integer := 4;
+        signal channel_in      : t_sample_array(0 to NUM_CHANNELS - 1);
+        signal channel_clken   : std_logic_vector(NUM_CHANNELS - 1 downto 0);
+        signal channel_load    : std_logic_vector(NUM_CHANNELS - 1 downto 0);
+        signal mixer_l         : signed(19 downto 0);
+        signal mixer_r         : signed(19 downto 0);
+        signal mixer_strobe    : std_logic;
+        signal clip_l          : std_logic;
+        signal clip_r          : std_logic;
+        signal clip_counter    : unsigned(13 downto 0) := (others => '0');
+    begin
+
+        -- Order: 3, 2, 1, 0
+        channel_clken <= "1111";
+        channel_load  <=  m5k_strobe_int & m5k_strobe_int & psg_strobe_int & sid_strobe_int;
+
+        -- Order: 0, 1, 2, 3
+        channel_in    <= ( sid_audio_int, psg_audio_int, m5k_audio_l_int, m5k_audio_r_int );
+
+        sample_rate_converter_inst : entity work.sample_rate_converter
+            generic map (
+                NUM_CHANNELS      => NUM_CHANNELS,
+                VOLUME_WIDTH      => 10,
+                OUTPUT_RATE       => 1000,           -- 48KHz
+                OUTPUT_WIDTH      => 20,             -- 20 bits
+                OUTPUT_SHIFT      => 15,
+                FILTER_NTAPS      => 3840,
+                FILTER_L          => (6, 24, 128, 128),
+                FILTER_M          => 125,
+                FILTER_SHIFT      => 16,
+                CHANNEL_TYPE      => (mono, mono, left_channel, right_channel),
+                BUFFER_A_WIDTH    => 10,             -- 1K Words
+                COEFF_A_WIDTH     => 11,             -- 2K Words
+                ACCUMULATOR_WIDTH => 54,
+                BUFFER_SIZE       => (704, 192, 64, 64)
+                )
+            port map (
+                clk               => clock_48,
+                reset_n           => powerup_reset_n,
+                volume            => volume,
+                channel_clken     => channel_clken,
+                channel_load      => channel_load,
+                channel_in        => channel_in,
+                mixer_strobe      => mixer_strobe,
+                clip_l            => clip_l,
+                clip_r            => clip_r,
+                mixer_l           => mixer_l,
+                mixer_r           => mixer_r
+                );
+
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                -- clip counter is 14 bits, so clip_led lights to for 0.17s
+                if mixer_strobe = '1' then
+                    if clip_l = '1' or clip_r = '1' then
+                        clip_counter <= (others => '0');
+                    elsif clip_counter(clip_counter'left) = '0' then
+                        clip_counter <= clip_counter + 1;
+                    end if;
+                end if;
+            end if;
+        end process;
+
+        -- Audio source selection (0 = Legacy; 1 = Mixer/Resampler)
+        hd_audio_l_int <= std_logic_vector(mixer_l) when audio_src = '1' else (audio_l_int & "0000");
+        hd_audio_r_int <= std_logic_vector(mixer_r) when audio_src = '1' else (audio_r_int & "0000");
+        clip_led       <= not clip_counter(clip_counter'left);
+
+    end generate;
+
+    gen_no_resampler: if not IncludeMixerResampler generate
+        hd_audio_l_int <= audio_l_int & "0000";
+        hd_audio_r_int <= audio_r_int & "0000";
+        clip_led     <= '0';
+    end generate;
+
+    -- External ports
+    hd_audio_l <= hd_audio_l_int;
+    hd_audio_r <= hd_audio_r_int;
 
 --------------------------------------------------------
 -- Reset generation
@@ -2765,16 +2863,13 @@ begin
                 I_ASPECT_169     => hdmi_aspect_169,
                 -- PCM audio
                 I_AUDIO_ENABLE   => hdmi_audio_en,
-                I_AUDIO_PCM_L    => hdmi_audio_tmp_l,
-                I_AUDIO_PCM_R    => hdmi_audio_tmp_r,
+                I_AUDIO_PCM_L    => hd_audio_l_int(19 downto 4),
+                I_AUDIO_PCM_R    => hd_audio_r_int(19 downto 4),
                 -- TMDS parallel pixel synchronous outputs (serialize LSB first)
                 O_RED            => tmds_r,
                 O_GREEN          => tmds_g,
                 O_BLUE           => tmds_b
                 );
-
-        hdmi_audio_tmp_l <= hdmi_audio_l when hdmi_audio_ext = '1' else audio_l_int;
-        hdmi_audio_tmp_r <= hdmi_audio_r when hdmi_audio_ext = '1' else audio_r_int;
 
     end generate;
 

@@ -1,10 +1,10 @@
 module config_rom (
     input             clk,
-    input [13:0]      addr,
+    input [12:0]      addr,
     output reg [7:0] data
 );
 
-    reg  [7:0] rom[0:16383];
+    reg  [7:0] rom[0:8191];
 
     always @(posedge clk)
         begin

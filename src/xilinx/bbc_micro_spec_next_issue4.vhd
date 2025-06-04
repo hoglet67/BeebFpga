@@ -762,7 +762,7 @@ begin
 
     ram_data_io             <= RAM_Din & RAM_Din when RAM_nWE = '0' else (others => 'Z');
 
-    RAM_Dout                <= config_data when config_mode = '1' and RAM_A(18 downto 14) = "00100" else
+    RAM_Dout                <= config_data when config_mode = '1' and RAM_A(18 downto 13) = "001001" else
                                ram_data_io(7 downto 0) when RAM_A(0) = '0'                          else
                                ram_data_io(15 downto 8);
 
@@ -773,7 +773,7 @@ begin
     -- Embedded Config ROM replaces the MOS in config mode
     config_rom_inst : entity work.config_rom port map (
         clk  => clock_48,
-        addr => RAM_A(13 downto 0),
+        addr => RAM_A(12 downto 0),
         data => config_data
         );
 

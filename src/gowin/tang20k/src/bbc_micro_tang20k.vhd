@@ -46,7 +46,6 @@ use ieee.numeric_std.all;
 
 library work;
 use work.board_config_pack.all;
-use work.sample_rate_converter_pkg.all;
 
 entity bbc_micro_tang20k is
     generic (
@@ -329,16 +328,7 @@ architecture rtl of bbc_micro_tang20k is
     signal audio_r         : std_logic_vector(19 downto 0);
     signal volume          : unsigned(4 downto 0) := to_unsigned(0, 5);
     signal default_volume  : unsigned(4 downto 0) := to_unsigned(0, 5);
-    signal audio_l_legacy  : std_logic_vector(15 downto 0);
-    signal audio_r_legacy  : std_logic_vector(15 downto 0);
-    signal sid_audio       : signed(17 downto 0);
-    signal sid_strobe      : std_logic;
-    signal psg_audio       : signed(17 downto 0);
-    signal psg_strobe      : std_logic;
     signal m5k_filter_en   : std_logic := '1';
-    signal m5k_audio_l     : signed(17 downto 0);
-    signal m5k_audio_r     : signed(17 downto 0);
-    signal m5k_strobe      : std_logic;
 
     -- output used to load sample into SPDIF (spdif clock domain)
     signal spdif_load      : std_logic;
@@ -454,6 +444,7 @@ begin
             IncludeMusic5000       => IncludeMusic5000,
             IncludeMusic5000Filter => IncludeMusic5000Filter,
             IncludeMusic5000SPDIF  => false,
+            IncludeMixerResampler  => IncludeMixerResampler,
             IncludeICEDebugger     => IncludeICEDebugger,
             IncludeCoPro6502       => IncludeCoPro6502,
             IncludeCoProSPI        => false,
@@ -482,19 +473,20 @@ begin
             video_blue      => i_VGA_B,
             video_hsync     => vga_hs_int,
             video_vsync     => vga_vs_int,
-            audio_l         => audio_l_legacy,
-            audio_r         => audio_r_legacy,
-            hdmi_audio_ext  => '1',
-            hdmi_audio_l    => audio_l(19 downto 4), -- TODO: increase the precision to 20 bits?
-            hdmi_audio_r    => audio_r(19 downto 4),
-            psg_audio       => psg_audio,
-            psg_strobe      => psg_strobe,
-            sid_audio       => sid_audio,
-            sid_strobe      => sid_strobe,
+            audio_l         => open,               -- 16 bit legacy audio
+            audio_r         => open,
+            audio_src       => audio_src,
+            volume          => to_unsigned(VOLUME_FN(to_integer(volume)), 10),
+            hd_audio_l      => audio_l,            -- 20 bit HD audio
+            hd_audio_r      => audio_r,
+            psg_audio       => open,
+            psg_strobe      => open,
+            sid_audio       => open,
+            sid_strobe      => open,
             m5k_filter_en   => m5k_filter_en,
-            m5k_audio_l     => m5k_audio_l,
-            m5k_audio_r     => m5k_audio_r,
-            m5k_strobe      => m5k_strobe,
+            m5k_audio_l     => open,
+            m5k_audio_r     => open,
+            m5k_strobe      => open,
             m5k_spdif       => open,
             ext_nOE         => ext_nOE,
             ext_nWE         => ext_nWE,
@@ -856,89 +848,6 @@ begin
         end if;
     end process;
 
-    --------------------------------------------------------
-    -- Audio Mixer
-    --------------------------------------------------------
-
-    gen_mixer_resampler : if IncludeMixerResampler generate
-        constant NUM_CHANNELS  : integer := 4;
-        signal channel_in      : t_sample_array(0 to NUM_CHANNELS - 1);
-        signal channel_clken   : std_logic_vector(NUM_CHANNELS - 1 downto 0);
-        signal channel_load    : std_logic_vector(NUM_CHANNELS - 1 downto 0);
-        signal mixer_l         : signed(19 downto 0);
-        signal mixer_r         : signed(19 downto 0);
-        signal mixer_strobe    : std_logic;
-        signal clip_l          : std_logic;
-        signal clip_r          : std_logic;
-        signal clip_counter    : unsigned(13 downto 0) := (others => '0');
---        signal mhz6_clken      : std_logic;
-    begin
-
-        -- Order: 3, 2, 1, 0
-        channel_clken <= "1111";
-        channel_load  <=  m5k_strobe & m5k_strobe & psg_strobe & sid_strobe;
-
-        -- Order: 0, 1, 2, 3
-        channel_in    <= ( sid_audio, psg_audio, m5k_audio_l, m5k_audio_r );
-
-        sample_rate_converter_inst : entity work.sample_rate_converter
-            generic map (
-                NUM_CHANNELS      => NUM_CHANNELS,
-                VOLUME_WIDTH      => 10,
-                OUTPUT_RATE       => 1000,           -- 48KHz
-                OUTPUT_WIDTH      => 20,             -- 20 bits
-                OUTPUT_SHIFT      => 15,
-                FILTER_NTAPS      => 3840,
-                FILTER_L          => (6, 24, 128, 128),
-                FILTER_M          => 125,
-                FILTER_SHIFT      => 16,
-                CHANNEL_TYPE      => (mono, mono, left_channel, right_channel),
-                BUFFER_A_WIDTH    => 10,             -- 1K Words
-                COEFF_A_WIDTH     => 11,             -- 2K Words
-                ACCUMULATOR_WIDTH => 54,
-                BUFFER_SIZE       => (704, 192, 64, 64)
-                )
-            port map (
-                clk               => clock_48,
-                reset_n           => powerup_reset_n,
-                volume            => to_unsigned(VOLUME_FN(to_integer(volume)), 10),
-                channel_clken     => channel_clken,
-                channel_load      => channel_load,
-                channel_in        => channel_in,
-                mixer_strobe      => mixer_strobe,
-                clip_l            => clip_l,
-                clip_r            => clip_r,
-                mixer_l           => mixer_l,
-                mixer_r           => mixer_r
-                );
-
-        process(clock_48)
-        begin
-            if rising_edge(clock_48) then
-                -- clip counter is 14 bits, so clip_led lights to for 0.17s
-                if mixer_strobe = '1' then
-                    if clip_l = '1' or clip_r = '1' then
-                        clip_counter <= (others => '0');
-                    elsif clip_counter(clip_counter'left) = '0' then
-                        clip_counter <= clip_counter + 1;
-                    end if;
-                end if;
-            end if;
-        end process;
-
-        clip_led     <= not clip_counter(clip_counter'left);
-        audio_l      <= std_logic_vector(mixer_l) when audio_src = '1' else audio_l_legacy & "0000"; -- audio_l/r now 20 bits
-        audio_r      <= std_logic_vector(mixer_r) when audio_src = '1' else audio_r_legacy & "0000";
-
-    end generate;
-
-    gen_no_resampler: if not IncludeMixerResampler generate
-
-        clip_led     <= '0';
-        audio_l      <= audio_l_legacy & "0000"; -- audio_l/r now 20 bits
-        audio_r      <= audio_r_legacy & "0000";
-
-    end generate;
 
     --------------------------------------------------------
     -- SPDIF

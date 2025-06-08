@@ -47,6 +47,10 @@ use ieee.numeric_std.all;
 library work;
 use work.board_config_pack.all;
 
+-- This is generated dynamically using tclPre
+library work;
+use work.version_config_pack.all;
+
 entity bbc_micro_tang20k is
     generic (
         IncludeMaster          : boolean := true; -- if both included, the CPU is the AlanD 65C02
@@ -1387,6 +1391,10 @@ begin
                    ws2812_g                   when IncludeSoftLEDs   and ext_1mhz_addr = x"52" else
                    ws2812_b                   when IncludeSoftLEDs   and ext_1mhz_addr = x"53" else
              "000" & std_logic_vector(volume) when IncludeSoftVolume and ext_1mhz_addr = x"54" else
+               G_CONFIG_VERSION( 7 downto  0) when                       ext_1mhz_addr = x"5c" else
+               G_CONFIG_VERSION(15 downto  8) when                       ext_1mhz_addr = x"5d" else
+               G_CONFIG_VERSION(23 downto 16) when                       ext_1mhz_addr = x"5e" else
+               G_CONFIG_VERSION(31 downto 24) when                       ext_1mhz_addr = x"5f" else
                    x"FF";
 
     ws2812_din <= ws2812_data when IncludeSoftLEDs else '0';

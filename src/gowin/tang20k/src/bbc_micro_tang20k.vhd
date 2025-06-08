@@ -310,40 +310,73 @@ architecture rtl of bbc_micro_tang20k is
     end function;
 
     --------------------------------------------------------
-    -- Version string
+    -- Version ROM
     --------------------------------------------------------
 
-    type version_rom_type is array(0 to 15) of std_logic_vector (7 downto 0);
+    type version_rom_type is array(0 to 31) of unsigned(7 downto 0);
 
     function init_version_rom return version_rom_type is
         variable tmp : version_rom_type;
-        variable nibble : std_logic_vector(3 downto 0);
+        variable nibble : unsigned(3 downto 0);
+        variable i : integer;
     begin
-        tmp(0) := x"47"; -- G
-        tmp(1) := x"49"; -- I
-        tmp(2) := x"54"; -- T
-        tmp(3) := x"20"; -- <space>
+        -- Git version
         for i in 0 to 7 loop
-            nibble := G_CONFIG_VERSION(i * 4 + 3 downto i * 4);
+            nibble := unsigned(G_CONFIG_VERSION(i * 4 + 3 downto i * 4));
             if nibble < 10 then
-                tmp(11 - i) := x"30" + nibble;
+                tmp(7 - i) := to_unsigned(character'pos('0'), 8) + nibble;
             else
-                tmp(11 - i) := x"41" + nibble - 10;
+                tmp(7 - i) := to_unsigned(character'pos('A'), 8) + nibble - 10;
             end if;
         end loop;
+        -- Git dirty flag
+        i := 8;
         if G_CONFIG_DIRTY then
-            tmp(12) := x"3F"; -- ?
-            tmp(13) := x"0D"; -- <cr>
-        else
-            tmp(12) := x"0D"; -- <cr>
-            tmp(13) := x"00";
+            tmp(i) := to_unsigned(character'pos('?'), 8);
+            i := i + 1;
         end if;
-        tmp(14) := x"00";
-        tmp(15) := x"00";
+        tmp(i) := to_unsigned(character'pos(' '), 8);
+        -- VGA vs PiTube
+        if G_CONFIG_VGA then
+            tmp(i+1) := to_unsigned(character'pos('V'), 8);
+            tmp(i+2) := to_unsigned(character'pos('G'), 8);
+            tmp(i+3) := to_unsigned(character'pos('A'), 8);
+            i := i + 4;
+        else
+            tmp(i+1) := to_unsigned(character'pos('P'), 8);
+            tmp(i+2) := to_unsigned(character'pos('i'), 8);
+            tmp(i+3) := to_unsigned(character'pos('T'), 8);
+            tmp(i+4) := to_unsigned(character'pos('u'), 8);
+            tmp(i+5) := to_unsigned(character'pos('b'), 8);
+            tmp(i+6) := to_unsigned(character'pos('e'), 8);
+            i := i + 7;
+        end if;
+        tmp(i) := to_unsigned(character'pos(' '), 8);
+        -- NoDebugger vs Debugger
+        if not G_CONFIG_DEBUGGER then
+            tmp(i+1) := to_unsigned(character'pos('N'), 8);
+            tmp(i+2) := to_unsigned(character'pos('o'), 8);
+            i := i + 2;
+        end if;
+        tmp(i+1) := to_unsigned(character'pos('D'), 8);
+        tmp(i+2) := to_unsigned(character'pos('e'), 8);
+        tmp(i+3) := to_unsigned(character'pos('b'), 8);
+        tmp(i+4) := to_unsigned(character'pos('u'), 8);
+        tmp(i+5) := to_unsigned(character'pos('g'), 8);
+        tmp(i+6) := to_unsigned(character'pos('g'), 8);
+        tmp(i+7) := to_unsigned(character'pos('e'), 8);
+        tmp(i+8) := to_unsigned(character'pos('r'), 8);
+        tmp(i+9) := x"0D";
+        i := i + 10;
+        while (i < 32) loop
+            tmp(i) := x"00";
+            i := i + 1;
+        end loop;
         return tmp;
     end function;
 
     signal version_rom : version_rom_type := init_version_rom;
+    signal version_rom_byte : std_logic_vector(7 downto 0);
 
     --------------------------------------------------------
     -- Signals
@@ -1423,13 +1456,23 @@ begin
            monitor_leds                       when IncludeMonitor                                   else
            normal_leds;
 
+    process(clock_48)
+    begin
+        if rising_edge(clock_48) then
+            if ext_1mhz_addr < 32 then
+                version_rom_byte <= std_logic_vector(version_rom(conv_integer(ext_1mhz_addr(4 downto 0))));
+            else
+                version_rom_byte <= x"00";
+            end if;
+        end if;
+    end process;
 
     ext_1mhz_do <= soft_leds                  when IncludeSoftLEDs   and ext_1mhz_addr = x"50" and ext_1mhz_pgfc_n = '0' else
                    ws2812_r                   when IncludeSoftLEDs   and ext_1mhz_addr = x"51" and ext_1mhz_pgfc_n = '0' else
                    ws2812_g                   when IncludeSoftLEDs   and ext_1mhz_addr = x"52" and ext_1mhz_pgfc_n = '0' else
                    ws2812_b                   when IncludeSoftLEDs   and ext_1mhz_addr = x"53" and ext_1mhz_pgfc_n = '0' else
              "000" & std_logic_vector(volume) when IncludeSoftVolume and ext_1mhz_addr = x"54" and ext_1mhz_pgfc_n = '0' else
-               version_rom(conv_integer(ext_1mhz_addr(3 downto 0))) when ext_1mhz_addr < 16    and ext_1mhz_pgfd_n = '0' else
+                   version_rom_byte           when                                                 ext_1mhz_pgfd_n = '0' else
                    x"FF";
 
     ws2812_din <= ws2812_data when IncludeSoftLEDs else '0';

@@ -739,6 +739,7 @@ signal m5k_audio_l_int  :   signed(17 downto 0);
 signal m5k_audio_r_int  :   signed(17 downto 0);
 signal m5k_strobe_int   :   std_logic;
 signal m5k_do           :   std_logic_vector(7 downto 0);
+signal m5k_do_oel       :   std_logic;
 
 -- Optional Tube
 signal tube_do          :   std_logic_vector(7 downto 0);
@@ -1392,6 +1393,7 @@ begin
                 a        => cpu_a(7 downto 0),
                 din      => cpu_do,
                 dout     => m5k_do,
+                dout_oel => m5k_do_oel,
                 audio_l  => audio_l_fin,
                 audio_r  => audio_r_fin,
                 cycle    => cycle
@@ -1466,6 +1468,7 @@ begin
         m5k_audio_r_int <= to_signed(0, m5k_audio_r_int'length);
         m5k_strobe  <= '0';
         m5k_spdif   <= '0';
+        m5k_do_oel  <= '1';
     end generate;
 
     m5k_audio_l <= m5k_audio_l_int;
@@ -2257,7 +2260,7 @@ begin
         split_rom_page when split_rom_page_enable = '1' else
         -- Optional peripherals
         sid_do         when sid_enable = '1' and IncludeSid else
-        m5k_do         when io_jim = '1' and IncludeMusic5000 else
+        m5k_do         when io_jim = '1' and IncludeMusic5000 and m5k_do_oel = '0' else
         tube_do        when int_tube_enable = '1' and (IncludeCoPro6502 or IncludeCoProSPI) else
         ext_tube_do    when ext_tube_enable = '1' and IncludeCoProExt else
         -- Master 128 additions

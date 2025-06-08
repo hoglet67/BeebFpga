@@ -310,6 +310,42 @@ architecture rtl of bbc_micro_tang20k is
     end function;
 
     --------------------------------------------------------
+    -- Version string
+    --------------------------------------------------------
+
+    type version_rom_type is array(0 to 15) of std_logic_vector (7 downto 0);
+
+    function init_version_rom return version_rom_type is
+        variable tmp : version_rom_type;
+        variable nibble : std_logic_vector(3 downto 0);
+    begin
+        tmp(0) := x"47"; -- G
+        tmp(1) := x"49"; -- I
+        tmp(2) := x"54"; -- T
+        tmp(3) := x"20"; -- <space>
+        for i in 0 to 7 loop
+            nibble := G_CONFIG_VERSION(i * 4 + 3 downto i * 4);
+            if nibble < 10 then
+                tmp(11 - i) := x"30" + nibble;
+            else
+                tmp(11 - i) := x"41" + nibble - 10;
+            end if;
+        end loop;
+        if G_CONFIG_DIRTY then
+            tmp(12) := x"3F"; -- ?
+            tmp(13) := x"0D"; -- <cr>
+        else
+            tmp(12) := x"0D"; -- <cr>
+            tmp(13) := x"00";
+        end if;
+        tmp(14) := x"00";
+        tmp(15) := x"00";
+        return tmp;
+    end function;
+
+    signal version_rom : version_rom_type := init_version_rom;
+
+    --------------------------------------------------------
     -- Signals
     --------------------------------------------------------
 
@@ -418,6 +454,7 @@ architecture rtl of bbc_micro_tang20k is
     signal ext_1mhz_clken  : std_logic; -- a 1MHz strobe, valid for one system clock cycle
     signal ext_1mhz_nrst   : std_logic;
     signal ext_1mhz_pgfc_n : std_logic;
+    signal ext_1mhz_pgfd_n : std_logic;
     signal ext_1mhz_r_nw   : std_logic;
     signal ext_1mhz_addr   : std_logic_vector(7 downto 0);
     signal ext_1mhz_di     : std_logic_vector(7 downto 0);
@@ -545,7 +582,7 @@ begin
             ext_1mhz_clken  => ext_1mhz_clken, -- a 1MHz strobe, valid for one system clock cycle
             ext_1mhz_nrst   => ext_1mhz_nrst,
             ext_1mhz_pgfc_n => ext_1mhz_pgfc_n,
-            ext_1mhz_pgfd_n => open,
+            ext_1mhz_pgfd_n => ext_1mhz_pgfd_n,
             ext_1mhz_r_nw   => ext_1mhz_r_nw,
             ext_1mhz_addr   => ext_1mhz_addr,
             ext_1mhz_di     => ext_1mhz_di,
@@ -1386,15 +1423,13 @@ begin
            monitor_leds                       when IncludeMonitor                                   else
            normal_leds;
 
-    ext_1mhz_do <= soft_leds                  when IncludeSoftLEDs   and ext_1mhz_addr = x"50" else
-                   ws2812_r                   when IncludeSoftLEDs   and ext_1mhz_addr = x"51" else
-                   ws2812_g                   when IncludeSoftLEDs   and ext_1mhz_addr = x"52" else
-                   ws2812_b                   when IncludeSoftLEDs   and ext_1mhz_addr = x"53" else
-             "000" & std_logic_vector(volume) when IncludeSoftVolume and ext_1mhz_addr = x"54" else
-               G_CONFIG_VERSION( 7 downto  0) when                       ext_1mhz_addr = x"5c" else
-               G_CONFIG_VERSION(15 downto  8) when                       ext_1mhz_addr = x"5d" else
-               G_CONFIG_VERSION(23 downto 16) when                       ext_1mhz_addr = x"5e" else
-               G_CONFIG_VERSION(31 downto 24) when                       ext_1mhz_addr = x"5f" else
+
+    ext_1mhz_do <= soft_leds                  when IncludeSoftLEDs   and ext_1mhz_addr = x"50" and ext_1mhz_pgfc_n = '0' else
+                   ws2812_r                   when IncludeSoftLEDs   and ext_1mhz_addr = x"51" and ext_1mhz_pgfc_n = '0' else
+                   ws2812_g                   when IncludeSoftLEDs   and ext_1mhz_addr = x"52" and ext_1mhz_pgfc_n = '0' else
+                   ws2812_b                   when IncludeSoftLEDs   and ext_1mhz_addr = x"53" and ext_1mhz_pgfc_n = '0' else
+             "000" & std_logic_vector(volume) when IncludeSoftVolume and ext_1mhz_addr = x"54" and ext_1mhz_pgfc_n = '0' else
+               version_rom(conv_integer(ext_1mhz_addr(3 downto 0))) when ext_1mhz_addr < 16    and ext_1mhz_pgfd_n = '0' else
                    x"FF";
 
     ws2812_din <= ws2812_data when IncludeSoftLEDs else '0';

@@ -1,3 +1,16 @@
+proc comp_file {file1 file2} {
+    # optimization: check file size first
+    set equal 0
+    if {[file size $file1] == [file size $file2]} {
+        set fh1 [open $file1 r]
+        set fh2 [open $file2 r]
+        set equal [string equal [read $fh1] [read $fh2]]
+        close $fh1
+        close $fh2
+    }
+    return $equal
+}
+
 try {
     set version [exec git rev-parse --short=8 HEAD]
 } trap CHILDSTATUS {} {
@@ -33,10 +46,8 @@ puts $fd "end version_config_pack;"
 
 close $fd
 
-try {
-    exec cmp $name.tmp $name.vhd
-} trap CHILDSTATUS {} {
+if {![file exists $name.vhd] || ![comp_file $name.tmp $name.vhd]} {
     file copy -force $name.tmp $name.vhd
-} finally {
-    file delete $name.tmp
 }
+
+file delete $name.tmp

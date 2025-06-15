@@ -122,6 +122,7 @@ begin
     cpu: process(clk)
     begin
         if rising_edge(clk) then
+            reg_write <= '0';
             case state is
                 when STATE_I2C_START =>
                     i2c_started <= '1';
@@ -245,7 +246,7 @@ begin
 
                             when OPCODE_I2C_READ =>
                                 reg_addr       <= inst_data(4 downto 0);
-                                i2c_data       <= x"FF" & "1";  -- keep the SDA pulled up while clocking in data & ACK
+                                i2c_data       <= x"FF" & "0";  -- keep the SDA pulled up while clocking in data & ACK
                                 bitcount       <= unsigned(clk_divide);
                                 i2c_bits_left  <= "1000";
                                 i2c_doing_read <= '1';

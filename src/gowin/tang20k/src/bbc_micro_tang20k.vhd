@@ -74,7 +74,7 @@ entity bbc_micro_tang20k is
         IncludeI2SAudio        : boolean := true;
         IncludeSPDIFAudio      : boolean := true;
         IncludeVGADAC          : boolean := G_CONFIG_VGA;
-        IncludeAnalogJS        : boolean := true;
+        IncludeAnalogJS        : boolean := false;
 
         MinVolume              : integer := 0;  -- -60dB
         DefaultVolumeSpeaker   : integer := 12; -- -24dB
@@ -1591,6 +1591,13 @@ begin
         audior    <= i2c_sda_o when i2c_sda_t = '0' else 'Z';
         i2c_sda_i <= audior;
 
+    end generate;
+
+    not_analog_js : if not IncludeAnalogJS generate
+        adc_ch0 <= (others => '0');
+        adc_ch1 <= (others => '0');
+        adc_ch2 <= (others => '0');
+        adc_ch3 <= (others => '0');
     end generate;
 
 --------------------------------------------------------

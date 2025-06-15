@@ -1,0 +1,96 @@
+;============================================================
+; Reading from the ADS1115
+;------------------------------------------------------------
+
+;
+; Note: clock rate is 400KHz (2.5us)
+
+;
+;;       15 = OS        (1 = start conversion)
+;; 14 .. 12 = MUX       (100 = Ch0 ... 111 = Ch3)
+;; 11 ..  9 = PGA       (010 = FS +/- 2.048V)
+;;        8 = MODE      (0 = Cont, 1 = One Shot)
+;;  7 ..  5 = DR        (111 = 860SPS)
+;;        4 = COMP_MODE (0 = Traditional comparator, 1 = Windowed comparator)
+;;        3 = COMP_POL  (0 = Active low, 1 = Active high)
+;;        2 = COMP_LAT  (0 = Not latching ALERT, 1 = Latching ALERT)
+;;     1..0 = COMP_QUE  (11 = ALERT after 4 conversions)
+
+loop:
+
+;; Channel 0
+
+        WRITE 0x90 ; Device address + write
+        WRITE 0x01 ; Select config register
+        WRITE 0xC5 ; Config MSB (Start conversion Ch0)
+        WRITE 0xE3 ; Config LSB
+        STOP       ; End tx
+
+        DELAY 1024 ; wait ~2.5ms for conversion
+
+        WRITE 0x90 ; Device address + write
+        WRITE 0x00 ; Select conversion register
+        STOP
+        WRITE 0x91 ; Device address + read
+        READ  4
+        READ  0
+        STOP
+
+;; Channel 1
+
+        WRITE 0x90 ; Device address + write
+        WRITE 0x01 ; Select config register
+        WRITE 0xD5 ; Config MSB (Start conversion Ch1)
+        WRITE 0xE3 ; Config LSB
+        STOP       ; End tx
+
+        DELAY 1024 ; wait ~2.5ms for conversion
+
+        WRITE 0x90 ; Device address + write
+        WRITE 0x00 ; Select conversion register
+        STOP
+        WRITE 0x91 ; Device address + read
+        READ  4
+        READ  1
+        STOP
+
+;; Channel 2
+
+        WRITE 0x90 ; Device address + write
+        WRITE 0x01 ; Select config register
+        WRITE 0xE5 ; Config MSB (Start conversion Ch2)
+        WRITE 0xE3 ; Config LSB
+        STOP       ; End tx
+
+        DELAY 1024 ; wait ~2.5ms for conversion
+
+        WRITE 0x90 ; Device address + write
+        WRITE 0x00 ; Select conversion register
+        STOP
+        WRITE 0x91 ; Device address + read
+        READ  4
+        READ  2
+        STOP
+
+;; Channel 3
+
+        WRITE 0x90 ; Device address + write
+        WRITE 0x01 ; Select config register
+        WRITE 0xF5 ; Config MSB (Start conversion Ch3)
+        WRITE 0xE3 ; Config LSB
+        STOP       ; End tx
+
+        DELAY 1024 ; wait ~2.5ms for conversion
+
+        WRITE 0x90 ; Device address + write
+        WRITE 0x00 ; Select conversion register
+        STOP
+        WRITE 0x91 ; Device address + read
+        READ  4
+        READ  3
+        STOP
+
+        SET   0    ; Indicate that new, consistent data is available
+        CLEAR 0
+
+        JUMP loop

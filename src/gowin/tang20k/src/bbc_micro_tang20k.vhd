@@ -74,6 +74,7 @@ entity bbc_micro_tang20k is
         IncludeI2SAudio        : boolean := true;
         IncludeSPDIFAudio      : boolean := true;
         IncludeVGADAC          : boolean := G_CONFIG_VGA;
+        IncludeAnalogJS        : boolean := true;
 
         MinVolume              : integer := 0;  -- -60dB
         DefaultVolumeSpeaker   : integer := 12; -- -24dB
@@ -141,8 +142,8 @@ entity bbc_micro_tang20k is
         pa_en           : in    std_logic;
 
         -- 1-bit DAC Audio
-        audiol          : out   std_logic;
-        audior          : out   std_logic;
+        audiol          : inout std_logic; -- inout at this can also be configures as I2C_SCL (IncludeAnalogJS)
+        audior          : inout std_logic; -- inout at this can also be configures as I2C_SDA (IncludeAnalogJS)
 
         -- SPDIF Audio
         audio_spdif     : out   std_logic;
@@ -411,6 +412,10 @@ architecture rtl of bbc_micro_tang20k is
 
     signal joystick1       : std_logic_vector(4 downto 0) := (others => '1');
     signal joystick2       : std_logic_vector(4 downto 0) := (others => '1');
+    signal adc_ch0         : std_logic_vector(11 downto 0) := (others => '0');
+    signal adc_ch1         : std_logic_vector(11 downto 0) := (others => '0');
+    signal adc_ch2         : std_logic_vector(11 downto 0) := (others => '0');
+    signal adc_ch3         : std_logic_vector(11 downto 0) := (others => '0');
     signal jumper          : std_logic_vector(5 downto 0) := (others => '0');
     signal last_phi2       : std_logic := '0';
     signal sr_counter      : unsigned(3 downto 0) := (others => '0');
@@ -526,6 +531,7 @@ begin
             IncludeVideoNuLA       => IncludeVideoNuLA,
             IncludeTrace           => IncludeTrace,
             IncludeHDMI            => IncludeHDMI,
+            IncludeAnalogJS        => IncludeAnalogJS,
             UseOrigKeyboard        => false,
             UseT65Core             => not IncludeMaster,
             UseAlanDCore           => IncludeMaster
@@ -591,6 +597,12 @@ begin
             vid_mode        => vid_mode,
             joystick1       => joystick1,
             joystick2       => joystick2,
+            adc_ch0         => adc_ch0,
+            adc_ch1         => adc_ch1,
+            adc_ch2         => adc_ch2,
+            adc_ch3         => adc_ch3,
+            fire1_n         => joystick1(4),
+            fire2_n         => joystick2(4),
             avr_reset       => not hard_reset_n,
             avr_RxD         => uart_rx,
             avr_TxD         => uart_tx,
@@ -978,31 +990,34 @@ begin
     -- Audio DACs
     --------------------------------------------------------
 
-    -- Convert from signed to unsigned
-    dac_l_in <= (not audio_l(19)) & audio_l(18 downto 10);
-    dac_r_in <= (not audio_r(19)) & audio_r(18 downto 10);
+    pwm : if not IncludeAnalogJS generate
 
-    dac_l : entity work.pwm_sddac
-        generic map (
-            msbi_g => 9
-        )
-        port map (
-            clk_i => clock_48,
-            reset => '0',
-            dac_i => dac_l_in,
-            dac_o => audiol
-        );
+        -- Convert from signed to unsigned
+        dac_l_in <= (not audio_l(19)) & audio_l(18 downto 10);
+        dac_r_in <= (not audio_r(19)) & audio_r(18 downto 10);
 
-    dac_r : entity work.pwm_sddac
-        generic map (
-            msbi_g => 9
-        )
-        port map (
-            clk_i => clock_48,
-            reset => '0',
-            dac_i => dac_r_in,
-            dac_o => audior
-        );
+        dac_l : entity work.pwm_sddac
+            generic map (
+                msbi_g => 9
+                )
+            port map (
+                clk_i => clock_48,
+                reset => '0',
+                dac_i => dac_l_in,
+                dac_o => audiol
+                );
+
+        dac_r : entity work.pwm_sddac
+            generic map (
+                msbi_g => 9
+                )
+            port map (
+                clk_i => clock_48,
+                reset => '0',
+                dac_i => dac_r_in,
+                dac_o => audior
+                );
+    end generate;
 
     --------------------------------------------------------
     -- HDMI Output
@@ -1375,9 +1390,8 @@ begin
                 OB => vga_b_n
                 );
 
-        vga_hs <= vga_hs;
-
-        vga_vs <= vga_vs;
+        vga_hs <= vga_hs_int;
+        vga_vs <= vga_vs_int;
 
     end generate;
 
@@ -1441,6 +1455,143 @@ begin
             last_phi2 <= ext_tube_phi2;
         end if;
     end process;
+
+--------------------------------------------------------
+-- Analog Joystick via I2C
+--------------------------------------------------------
+
+    analog_js : if IncludeAnalogJS generate
+        signal inst_address : std_logic_vector(9 downto 0);
+        signal inst_data    : std_logic_vector(8 downto 0);
+        signal reg_addr     : std_logic_vector(4 downto 0);
+        signal reg_data     : std_logic_vector(7 downto 0);
+        signal msb          : std_logic_vector(6 downto 0);
+        signal reg_write    : std_logic;
+        signal i2c_scl      : std_logic;
+        signal i2c_sda_i    : std_logic;
+        signal i2c_sda_o    : std_logic;
+        signal i2c_sda_t    : std_logic;
+    begin
+
+        -- I3C2 source and assembler to generate this program is in ../tools
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                case inst_address is
+                    when "0000000000" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
+                    when "0000000001" => inst_data <= "100000001"; -- WRITE 0x01 ; Select config register
+                    when "0000000010" => inst_data <= "111000101"; -- WRITE 0xC5 ; Config MSB (Start conversion Ch0)
+                    when "0000000011" => inst_data <= "111100011"; -- WRITE 0xE3 ; Config LSB
+                    when "0000000100" => inst_data <= "011111111"; -- STOP       ; End tx
+                    when "0000000101" => inst_data <= "011101010"; -- DELAY 1024 ; wait ~2.5ms for conversion
+                    when "0000000110" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
+                    when "0000000111" => inst_data <= "100000000"; -- WRITE 0x00 ; Select conversion register
+                    when "0000001000" => inst_data <= "011111111"; -- STOP
+                    when "0000001001" => inst_data <= "110010001"; -- WRITE 0x91 ; Device address + read
+                    when "0000001010" => inst_data <= "011000100"; -- READ  4
+                    when "0000001011" => inst_data <= "011000000"; -- READ  0
+                    when "0000001100" => inst_data <= "011111111"; -- STOP
+                    when "0000001101" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
+                    when "0000001110" => inst_data <= "100000001"; -- WRITE 0x01 ; Select config register
+                    when "0000001111" => inst_data <= "111010101"; -- WRITE 0xD5 ; Config MSB (Start conversion Ch1)
+                    when "0000010000" => inst_data <= "111100011"; -- WRITE 0xE3 ; Config LSB
+                    when "0000010001" => inst_data <= "011111111"; -- STOP       ; End tx
+                    when "0000010010" => inst_data <= "011101010"; -- DELAY 1024 ; wait ~2.5ms for conversion
+                    when "0000010011" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
+                    when "0000010100" => inst_data <= "100000000"; -- WRITE 0x00 ; Select conversion register
+                    when "0000010101" => inst_data <= "011111111"; -- STOP
+                    when "0000010110" => inst_data <= "110010001"; -- WRITE 0x91 ; Device address + read
+                    when "0000010111" => inst_data <= "011000100"; -- READ  4
+                    when "0000011000" => inst_data <= "011000001"; -- READ  1
+                    when "0000011001" => inst_data <= "011111111"; -- STOP
+                    when "0000011010" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
+                    when "0000011011" => inst_data <= "100000001"; -- WRITE 0x01 ; Select config register
+                    when "0000011100" => inst_data <= "111100101"; -- WRITE 0xE5 ; Config MSB (Start conversion Ch2)
+                    when "0000011101" => inst_data <= "111100011"; -- WRITE 0xE3 ; Config LSB
+                    when "0000011110" => inst_data <= "011111111"; -- STOP       ; End tx
+                    when "0000011111" => inst_data <= "011101010"; -- DELAY 1024 ; wait ~2.5ms for conversion
+                    when "0000100000" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
+                    when "0000100001" => inst_data <= "100000000"; -- WRITE 0x00 ; Select conversion register
+                    when "0000100010" => inst_data <= "011111111"; -- STOP
+                    when "0000100011" => inst_data <= "110010001"; -- WRITE 0x91 ; Device address + read
+                    when "0000100100" => inst_data <= "011000100"; -- READ  4
+                    when "0000100101" => inst_data <= "011000010"; -- READ  2
+                    when "0000100110" => inst_data <= "011111111"; -- STOP
+                    when "0000100111" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
+                    when "0000101000" => inst_data <= "100000001"; -- WRITE 0x01 ; Select config register
+                    when "0000101001" => inst_data <= "111110101"; -- WRITE 0xF5 ; Config MSB (Start conversion Ch3)
+                    when "0000101010" => inst_data <= "111100011"; -- WRITE 0xE3 ; Config LSB
+                    when "0000101011" => inst_data <= "011111111"; -- STOP       ; End tx
+                    when "0000101100" => inst_data <= "011101010"; -- DELAY 1024 ; wait ~2.5ms for conversion
+                    when "0000101101" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
+                    when "0000101110" => inst_data <= "100000000"; -- WRITE 0x00 ; Select conversion register
+                    when "0000101111" => inst_data <= "011111111"; -- STOP
+                    when "0000110000" => inst_data <= "110010001"; -- WRITE 0x91 ; Device address + read
+                    when "0000110001" => inst_data <= "011000100"; -- READ  4
+                    when "0000110010" => inst_data <= "011000011"; -- READ  3
+                    when "0000110011" => inst_data <= "011111111"; -- STOP
+                    when "0000110100" => inst_data <= "010110000"; -- SET   0    ; Indicate that new, consistent data is available
+                    when "0000110101" => inst_data <= "010100000"; -- CLEAR 0
+                    when "0000110110" => inst_data <= "000000000"; -- JUMP loop
+                    when others => inst_data <= (others =>'0');
+                end case;
+            end if;
+        end process;
+
+        inst_i3c2 : entity work.i3c2
+            generic map (
+                clk_divide   => x"78" -- 0x78 = 120 to give 400KHz
+                )
+            port map (
+                clk          => clock_48,
+                inst_address => inst_address,
+                inst_data    => inst_data,
+                i2c_scl      => i2c_scl,
+                i2c_sda_i    => i2c_sda_i,
+                i2c_sda_o    => i2c_sda_o,
+                i2c_sda_t    => i2c_sda_t,
+                inputs       => (others => '0'),
+                outputs      => open,
+                reg_addr     => reg_addr,
+                reg_data     => reg_data,
+                reg_write    => reg_write,
+                debug_scl    => open,
+                debug_sda    => open,
+                error        => open
+                );
+
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                if reg_write = '1' then
+                    case reg_addr is
+                        when "00000" =>
+                            adc_ch0 <= msb & reg_data(7 downto 3);
+                        when "00001" =>
+                            adc_ch1 <= msb & reg_data(7 downto 3);
+                        when "00010" =>
+                            adc_ch2 <= msb & reg_data(7 downto 3);
+                        when "00011" =>
+                            adc_ch3 <= msb & reg_data(7 downto 3);
+                        when "00100" =>
+                            if reg_data(7) = '0' then
+                                msb <= reg_data(6 downto 0);
+                            else
+                                -- should not see negative values, but clamp at zero anyway
+                                msb <= (others => '0');
+                            end if;
+                        when others =>
+                            null;
+                    end case;
+                end if;
+            end if;
+        end process;
+
+        audiol    <= i2c_scl;
+        audior    <= i2c_sda_o when i2c_sda_t = '0' else 'Z';
+        i2c_sda_i <= audior;
+
+    end generate;
 
 --------------------------------------------------------
 -- Outputs/signals whose function depends on the Includes

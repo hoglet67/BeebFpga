@@ -74,6 +74,7 @@ entity bbc_micro_core is
         IncludeVideoNuLA       : boolean := false;
         IncludeHDMI            : boolean := false;
         IncludeTrace           : boolean := false;
+        IncludeAnalogJS        : boolean := false;
         UseOrigKeyboard        : boolean := false;
         UseT65Core             : boolean := false;
         UseAlanDCore           : boolean := true;
@@ -201,14 +202,22 @@ entity bbc_micro_core is
         vid_mode       : in    std_logic_vector(3 downto 0);
 
 
-        -- Main Joystick and Secondary Joystick
+        -- Digital Joysticks
         -- Bit 0 - Up (active low)
         -- Bit 1 - Down (active low)
         -- Bit 2 - Left (active low)
         -- Bit 3 - Right (active low)
         -- Bit 4 - Fire (active low)
-        joystick1      : in    std_logic_vector(4 downto 0);
-        joystick2      : in    std_logic_vector(4 downto 0);
+        joystick1      : in    std_logic_vector(4 downto 0) := (others => '1');
+        joystick2      : in    std_logic_vector(4 downto 0) := (others => '1');
+
+        -- Analog Joysticks
+        adc_ch0        : in    std_logic_vector(11 downto 0) := (others => '0');
+        adc_ch1        : in    std_logic_vector(11 downto 0) := (others => '0');
+        adc_ch2        : in    std_logic_vector(11 downto 0) := (others => '0');
+        adc_ch3        : in    std_logic_vector(11 downto 0) := (others => '0');
+        fire1_n        : in    std_logic := '1';
+        fire2_n        : in    std_logic := '1';
 
         -- ICE T65 Deubgger 57600 baud serial
         avr_reset      : in    std_logic;   -- active high
@@ -779,10 +788,12 @@ signal ext_tube_enable  :   std_logic;      -- 0xFEE0-FEFF
 signal adc_enable       :   std_logic;      -- 0xFEC0-FEDF
 signal adc_eoc_n        :   std_logic;
 signal adc_do           :   std_logic_vector(7 downto 0);
-signal adc_ch0          :   std_logic_vector(11 downto 0);
-signal adc_ch1          :   std_logic_vector(11 downto 0);
-signal adc_ch2          :   std_logic_vector(11 downto 0);
-signal adc_ch3          :   std_logic_vector(11 downto 0);
+signal adc_ch0_int      :   std_logic_vector(11 downto 0);
+signal adc_ch1_int      :   std_logic_vector(11 downto 0);
+signal adc_ch2_int      :   std_logic_vector(11 downto 0);
+signal adc_ch3_int      :   std_logic_vector(11 downto 0);
+signal fire1_n_int      :   std_logic;
+signal fire2_n_int      :   std_logic;
 
 -- ROM select latch
 signal romsel           :   std_logic_vector(7 downto 0);
@@ -1288,32 +1299,41 @@ begin
         di         => cpu_do,
         do         => adc_do,
         eoc_n      => adc_eoc_n,
-        ch0        => adc_ch0,
-        ch1        => adc_ch1,
-        ch2        => adc_ch2,
-        ch3        => adc_ch3
+        ch0        => adc_ch0_int,
+        ch1        => adc_ch1_int,
+        ch2        => adc_ch2_int,
+        ch3        => adc_ch3_int
     );
 
-    -- Master Joystick Left/Right (low value = right)
-    adc_ch0 <= "111111111111" when joystick1(2) = '0' else -- left
-               "000000000000" when joystick1(3) = '0' else -- right
-               "100000000000";
+    analog_js : if IncludeAnalogJS generate
+        adc_ch0_int <= adc_ch0;
+        adc_ch1_int <= adc_ch1;
+        adc_ch2_int <= adc_ch2;
+        adc_ch3_int <= adc_ch3;
+        fire1_n_int <= fire1_n;
+        fire2_n_int <= fire2_n;
+    end generate;
 
-    -- Master Joystick Up/Down (low value = down)
-    adc_ch1 <= "111111111111" when joystick1(0) = '0' else -- up
-               "000000000000" when joystick1(1) = '0' else -- down
-               "100000000000";
-
-    -- Secondary Joystick Left/Right (low value = right)
-    adc_ch2 <= "111111111111" when joystick2(2) = '0' else -- left
-               "000000000000" when joystick2(3) = '0' else -- right
-               "100000000000";
-
-    -- Secondary Joystick Up/Down (low value = down)
-    adc_ch3 <= "111111111111" when joystick2(0) = '0' else -- up
-               "000000000000" when joystick2(1) = '0' else -- down
-               "100000000000";
-
+    digital_js : if not IncludeAnalogJS generate
+        -- Master Joystick Left/Right (low value = right)
+        adc_ch0_int <= "111111111111" when joystick1(2) = '0' else -- left
+                       "000000000000" when joystick1(3) = '0' else -- right
+                       "100000000000";
+        -- Master Joystick Up/Down (low value = down)
+        adc_ch1_int <= "111111111111" when joystick1(0) = '0' else -- up
+                       "000000000000" when joystick1(1) = '0' else -- down
+                       "100000000000";
+        -- Secondary Joystick Left/Right (low value = right)
+        adc_ch2_int <= "111111111111" when joystick2(2) = '0' else -- left
+                       "000000000000" when joystick2(3) = '0' else -- right
+                       "100000000000";
+        -- Secondary Joystick Up/Down (low value = down)
+        adc_ch3_int <= "111111111111" when joystick2(0) = '0' else -- up
+                       "000000000000" when joystick2(1) = '0' else -- down
+                       "100000000000";
+        fire1_n_int <= joystick1(4);
+        fire2_n_int <= joystick2(4);
+    end generate;
 
 --------------------------------------------------------
 -- Optional SID
@@ -2504,8 +2524,8 @@ begin
 
     -- ADC
     sys_via_cb1_in <= adc_eoc_n;
-    sys_via_pb_in(5) <= joystick2(4);
-    sys_via_pb_in(4) <= joystick1(4);
+    sys_via_pb_in(5) <= fire2_n;
+    sys_via_pb_in(4) <= fire1_n;
 
     -- CRTC
     sys_via_ca1_in <= crtc_vsync;

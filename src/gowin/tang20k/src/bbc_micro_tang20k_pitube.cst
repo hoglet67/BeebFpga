@@ -14,6 +14,10 @@ IO_PORT "btn1" PULL_MODE=DOWN;
 IO_LOC  "btn2" 87;
 IO_PORT "btn2" PULL_MODE=DOWN;
 
+// Reconfig_n
+IO_LOC  "reconfig_n" 9;
+IO_PORT "reconfig_n" IO_TYPE=LVCMOS33;
+
 // Keyboard
 IO_LOC  "ps2_clk" 73;
 IO_PORT "ps2_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;

@@ -53,8 +53,8 @@ use work.version_config_pack.all;
 
 entity bbc_micro_tang20k is
     generic (
-        IncludeMaster          : boolean := true; -- if both included, the CPU is the AlanD 65C02
-        IncludeBeeb            : boolean := true; -- and Config(7) can toggle between the ROM images
+        IncludeMaster          : boolean := G_CONFIG_MASTER; -- if both included, the CPU is the AlanD 65C02
+        IncludeBeeb            : boolean := G_CONFIG_BEEB;   -- and Config(7) can toggle between the ROM images
         IncludeAMXMouse        : boolean := true;
         IncludeSPISD           : boolean := true;
         IncludeSID             : boolean := true;
@@ -92,7 +92,8 @@ entity bbc_micro_tang20k is
         audio_clk       : in    std_logic;     -- 24.576MHz audio clock from the SI5351 CLK1 (pin 11)
 
         btn1            : in    std_logic;     -- Powerup reset
-        btn2            : in    std_logic;     -- Toggle HDMI / DVI modes
+        btn2            : in    std_logic;     -- Config modifier
+        reconfig_n      : out   std_logic;
         led             : out   std_logic_vector (5 downto 0);
         ws2812_din      : out   std_logic;
         key_conf        : in    std_logic;
@@ -792,6 +793,27 @@ begin
     end process;
 
     --------------------------------------------------------
+    -- Multiboot Reconfig
+    --------------------------------------------------------
+
+    reconf : if G_CORE_ID >= 0 generate
+        signal reconfig_n_r         : std_logic := '1';
+        signal powerup_reset_n_last : std_logic := '1';
+    begin
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                -- wait until the end of the power up reset period to ensure the jumpers are stable
+                if powerup_reset_n_last = '0' and powerup_reset_n = '1' and unsigned(jumper(1 downto 0)) /= to_unsigned(G_CORE_ID, 2) then
+                    reconfig_n_r <= '0';
+                end if;
+                powerup_reset_n_last <= powerup_reset_n;
+            end if;
+        end process;
+        reconfig_n <= '0' when reconfig_n_r = '0' else 'Z';
+    end generate;
+
+    --------------------------------------------------------
     -- Button 2: Config modifier
     --------------------------------------------------------
     config_key <= key_conf or btn2;
@@ -906,21 +928,23 @@ begin
                     m128_mode     <= not m128_mode;
                     trigger_reset <= '1';
                 end if;
-            elsif IncludeMaster then
-                m128_mode <= '1';
-            elsif IncludeBeeb then
-                m128_mode <= '0';
             end if;
 
             -- Config(9) will control the serial port when this is implemented
 
             -- Config reset happens just once when the core is first configured
             if config_reset_n = '0' then
-                m128_mode     <= not jumper(0); -- 0 (on) = Master;          1 (off) = Beeb;
-                copro_mode    <= not jumper(1); -- 0 (on) = Co Pro Enabled;  1 (off) = Co Pro disabled
-                copro_ext     <= not jumper(2); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
-                hdmi_aspect   <= jumper(4 downto 3);
-                hdmi_audio_en <= jumper(4) or jumper(3); -- both jumpers fitted (00) triggers DVI mode
+                if IncludeMaster and IncludeBeeb then
+                    m128_mode <= not jumper(0); -- 0 (on) = Master; 1 (off) = Beeb;
+                elsif IncludeMaster then
+                    m128_mode <= '1';
+                else
+                    m128_mode <= '0';
+                end if;
+                copro_mode    <= not jumper(2); -- 0 (on) = Co Pro Enabled;  1 (off) = Co Pro disabled
+                copro_ext     <= not jumper(3); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
+                hdmi_aspect   <= jumper(5 downto 4);
+                hdmi_audio_en <= jumper(5) or jumper(4); -- both jumpers fitted (00) triggers DVI mode
                 -- Determine line vs speaker by reading the pa_en jumper
                 if pa_en = '0' then
                     default_volume <= to_unsigned(DefaultVolumeLine, 5);

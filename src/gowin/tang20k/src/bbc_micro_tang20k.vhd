@@ -307,7 +307,7 @@ architecture rtl of bbc_micro_tang20k is
         if SIM then
             return 10;
         else
-            return 24; --DB: > 10ms for SPI to start up?
+            return 19; --DB: > 10ms for SPI to start up?
         end if;
     end function;
 
@@ -499,7 +499,11 @@ architecture rtl of bbc_micro_tang20k is
     signal ext_1mhz_di     : std_logic_vector(7 downto 0);
     signal ext_1mhz_do     : std_logic_vector(7 downto 0);
 
+    -- Multiboot
+    signal reconfig        : std_logic;
+
     -- LEDs
+    signal multiboot_leds  : std_logic_vector(5 downto 0);
     signal normal_leds     : std_logic_vector(5 downto 0);
     signal soft_leds       : std_logic_vector(7 downto 0) := (others => '0');
     signal ws2812_r        : std_logic_vector(7 downto 0) := (others => '0');
@@ -796,27 +800,28 @@ begin
     -- Multiboot Reconfig
     --------------------------------------------------------
 
-    reconf : if G_CORE_ID >= 0 generate
-        signal reconfig_n_r         : std_logic := '1';
-        signal powerup_reset_n_last : std_logic := '1';
-    begin
-        process(clock_48)
-        begin
-            if rising_edge(clock_48) then
-                -- wait until the end of the power up reset period to ensure the jumpers are stable
-                if powerup_reset_n_last = '0' and powerup_reset_n = '1' and unsigned(jumper(1 downto 0)) /= to_unsigned(G_CORE_ID, 2) then
-                    reconfig_n_r <= '0';
-                end if;
-                powerup_reset_n_last <= powerup_reset_n;
-            end if;
-        end process;
-        reconfig_n <= '0' when reconfig_n_r = '0' else 'Z';
-    end generate;
+    inst_multiboot : entity work.multiboot
+        generic map (
+            CORE_ID => G_CORE_ID
+            )
+        port map (
+            clock           => clock_48,
+            powerup_reset_n => powerup_reset_n,
+            btn1            => btn1,
+            btn2            => btn2,
+            btn3            => key_conf,
+            jumper          => jumper,
+            led             => multiboot_leds,
+            reconfig        => reconfig
+            );
+
+    reconfig_n <= '0' when reconfig = '1' else 'Z';
 
     --------------------------------------------------------
     -- Button 2: Config modifier
     --------------------------------------------------------
-    config_key <= key_conf or btn2;
+
+    config_key <= btn2;
 
     --------------------------------------------------------
     -- Config keys F1..F10
@@ -1633,6 +1638,7 @@ begin
     normal_leds <= (caps_led & shift_led & m5k_filter_en & clip_led & audio_src & hdmi_audio_en) xor "111111";
 
     led <= ext_tube_ctrl                      when IncludeCoProExt                                  else
+           multiboot_leds                     when G_CORE_ID >= 0 and powerup_reset_n = '0'         else
            soft_leds(5 downto 0) xor "111111" when IncludeSoftLEDs and soft_leds(7 downto 6) = "10" else
            test(5 downto 0)      xor "111111" when IncludeSoftLEDs and soft_leds(7 downto 6) = "11" else
            monitor_leds                       when IncludeMonitor                                   else

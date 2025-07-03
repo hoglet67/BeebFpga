@@ -140,7 +140,7 @@ entity bbc_micro_tang20k is
         i2s_bclk        : out   std_logic;
         i2s_lrclk       : out   std_logic;
         i2s_din         : out   std_logic;
-        pa_en           : in    std_logic;
+        pa_en           : inout std_logic;
 
         -- 1-bit DAC Audio
         audiol          : inout std_logic; -- inout at this can also be configures as I2C_SCL (IncludeAnalogJS)
@@ -501,6 +501,7 @@ architecture rtl of bbc_micro_tang20k is
 
     -- Multiboot
     signal reconfig        : std_logic;
+    signal pa_en_dout      : std_logic;
 
     -- LEDs
     signal multiboot_leds  : std_logic_vector(5 downto 0);
@@ -812,9 +813,11 @@ begin
             btn3            => key_conf,
             jumper          => jumper,
             led             => multiboot_leds,
+            pa_en_dout      => pa_en_dout,
             reconfig        => reconfig
             );
 
+    pa_en      <= '0' when pa_en_dout = '0' else 'Z';
     reconfig_n <= '0' when reconfig = '1' else 'Z';
 
     --------------------------------------------------------

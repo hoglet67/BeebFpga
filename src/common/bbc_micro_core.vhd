@@ -1717,6 +1717,7 @@ begin
         signal clip_l          : std_logic;
         signal clip_r          : std_logic;
         signal clip_counter    : unsigned(13 downto 0) := (others => '0');
+        signal src_reset_n     : std_logic := '0';
     begin
 
         -- Order: 3, 2, 1, 0
@@ -1725,6 +1726,28 @@ begin
 
         -- Order: 0, 1, 2, 3
         channel_in    <= ( sid_audio_int, psg_audio_int, m5k_audio_l_int, m5k_audio_r_int );
+
+        -- Generate reset pulse for a single cycle at the start of the
+        -- power up reset period to mitigate a "pop" when the core
+        -- starts up. This pop is hard to eliminate completely because
+        -- the FPGA output float high during re-configuration. Thus,
+        -- the PWM level end up at about 2V DC.  So there will
+        -- ineviably be a discontinuity when the configuration
+        -- completes. We were making this worse previously by holding
+        -- the sample_rate_convertor in reset for the whole of the
+        -- power up reset period.
+        process(clock_48)
+            variable powerup_reset_n_last : std_logic := '1';
+        begin
+            if rising_edge(clock_48) then
+                if powerup_reset_n_last = '1' and powerup_reset_n = '0' then
+                    src_reset_n <= '0';
+                else
+                    src_reset_n <= '1';
+                end if;
+                powerup_reset_n_last := powerup_reset_n;
+            end if;
+        end process;
 
         sample_rate_converter_inst : entity work.sample_rate_converter
             generic map (
@@ -1745,7 +1768,7 @@ begin
                 )
             port map (
                 clk               => clock_48,
-                reset_n           => powerup_reset_n,
+                reset_n           => src_reset_n,
                 volume            => volume,
                 channel_clken     => channel_clken,
                 channel_load      => channel_load,

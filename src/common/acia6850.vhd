@@ -352,7 +352,7 @@ begin
 ---------------------------------------------------------------
 -- ACIA Reset may be hardware or software
 ---------------------------------------------------------------
-  acia_reset : process( clk, rst, ac_rst, dcd_n )
+  acia_reset : process( clk, ac_rst, dcd_n )
   begin
     --
     -- ACIA reset Synchronous
@@ -373,7 +373,7 @@ begin
 -- Generate Read / Write strobes.
 -----------------------------------------------------------------------------
 
-  acia_read_write : process(clk, rst)
+  acia_read_write : process( clk )
   begin
     if falling_edge(clk) then
       status_read   <= '0';
@@ -429,7 +429,7 @@ begin
   -- ACIA Rx data ready status
   -----------------------------------------------------------------------------
 
-  acia_rx_data_ready : process( clk, rx_rst, RxBdEdgeFall, status_rxr_set )
+  acia_rx_data_ready : process( clk )
   begin
     if falling_edge( clk ) then
       if rx_rst = '1' then
@@ -449,7 +449,7 @@ begin
   -- ACIA Tx data ready status
   -----------------------------------------------------------------------------
 
-  acia_tx_data_ready : process( clk, tx_rst, TxBdEdgeRise, status_txr_set )
+  acia_tx_data_ready : process( clk )
   begin
     if falling_edge( clk ) then
       if tx_rst = '1' then
@@ -529,7 +529,7 @@ begin
 -- Set Data Output Multiplexer
 --------------------------------------------------------------
 
-  acia_data_mux : process(addr, rx_data_reg, status_reg)
+  acia_data_mux : process( addr, rx_data_reg, status_reg )
   begin
     if addr = '1' then
       data_out <= rx_data_reg;               -- read receiver register
@@ -541,7 +541,7 @@ begin
 ---------------------------------------------------------------
 -- Data Carrier Detect Edge rising edge detect
 ---------------------------------------------------------------
-  acia_dcd_edge : process( clk, ac_rst )
+  acia_dcd_edge : process( clk )
   begin
     if falling_edge(clk) then
       if ac_rst = '1' then
@@ -562,7 +562,7 @@ begin
 -- To clear the interrupt, first read the status register
 --      then read the data receive register
 
-  acia_dcd_int : process( clk, ac_rst )
+  acia_dcd_int : process( clk )
   begin
     if falling_edge(clk) then
       if ac_rst = '1' then
@@ -601,7 +601,7 @@ begin
   ---------------------------------------------------------------------
   -- A rising edge will produce a one CPU clock cycle pulse
   --
-  acia_rx_clock_edge : process( clk, rx_rst )
+  acia_rx_clock_edge : process( clk )
   begin
     if falling_edge(clk) then
       if rx_rst = '1' then
@@ -627,7 +627,7 @@ begin
   -- RxDatEdge is generated to reset the Baud Clock divide
   -- so that it is synchronized to the edge of the data
   -- 2021-01-30 JEK Double clock RxD
-  acia_rx_data_edge : process( clk, rx_rst, RxD, RxDDel )
+  acia_rx_data_edge : process( clk )
   begin
     if falling_edge(clk) then
       if (rx_rst = '1') then
@@ -648,7 +648,7 @@ begin
   -- Hold the Rx Clock divider in reset when the receiver is disabled
   -- Advance the count only on a rising Rx clock edge
   --
-  acia_rx_clock_divide : process( clk, rx_rst, RxDEdge, RxCEdge )
+  acia_rx_clock_divide : process( clk )
   begin
     if falling_edge(clk) then
       if (rx_rst = '1') or (RxDEdge = '1') then
@@ -670,7 +670,7 @@ begin
 -- ACIA RX Baud select
 -----------------------------------------------------------------------------
 -- 2021-01-30 JEK change RxC to RxCDel(0)
-  acia_rx_baud_control : process(clk, control_reg, RxC, RxClkCnt )
+  acia_rx_baud_control : process( clk )
   begin
     ---------------------------------------------------------------------
     -- Receive Baud Clock Selector
@@ -701,7 +701,7 @@ begin
   ---------------------------------------------------------------------
   -- A Rising Baud Clock edge will produce a single CPU clock pulse
   --
-  acia_rx_baud_edge : process( clk, rx_rst, RxBdClk, RxBdDel )
+  acia_rx_baud_edge : process( clk )
   begin
     if falling_edge(clk) then
       if rx_rst = '1' then
@@ -732,7 +732,7 @@ begin
   -- Registers activated on rising bit clock edge
   -- State transitions on falling bit clock edge
   --
-  acia_rx_receive : process( rx_current_state, control_reg, rx_bit_count, RxDDel, RxDat, rx_parity, RxRdy )
+  acia_rx_receive : process( rx_current_state, control_reg, rx_bit_count, RxDat, rx_parity, RxRdy )
   begin
           rx_data_ctrl   <= data_reg_idle;
           rx_shift_ctrl  <= shift_reg_idle;
@@ -831,7 +831,7 @@ begin
   --
   -- State machine transitions on the falling edge of the Rx Baud clock
   --
-  acia_rx_state : process(clk, rst )
+  acia_rx_state : process( clk )
   begin
     if falling_edge( clk ) then
       if rx_rst = '1' then
@@ -851,7 +851,7 @@ begin
   -----------------------------------------------------------------------------
   -- 2021-01-30 JEK change RxD to RxDDel(0)
   --
-  acia_rx_shift_reg : process( clk, rx_rst, RxBdEdgeRise, rx_shift_reg, RxDDel, rx_parity )
+  acia_rx_shift_reg : process( clk )
   begin
     if falling_edge( clk ) then
       if rx_rst = '1' then
@@ -885,7 +885,7 @@ begin
   -- ACIA Rx Data Register
   -----------------------------------------------------------------------------
 
-  acia_rx_data_reg : process( clk, rx_rst, rx_shift_reg )
+  acia_rx_data_reg : process( clk )
   begin
     if falling_edge( clk ) then
       if rx_rst = '1' then
@@ -907,7 +907,7 @@ begin
   -- ACIA TX control
   -----------------------------------------------------------------------------
 
-  acia_tx_control : process(control_reg, TxDat )
+  acia_tx_control : process( control_reg, TxDat )
   begin
     case control_reg(TX1BIT downto TX0BIT) is
       when "00" =>                      -- Disable TX Interrupts, Assert RTS
@@ -932,7 +932,7 @@ begin
   -- A rising edge will produce a one clock cycle pulse
   ---------------------------------------------------------------------
   -- 2021-01-30 JEK add one more bit to TxCDel. Double sample TxC
-  acia_tx_clock_edge : process( Clk, tx_rst )
+  acia_tx_clock_edge : process( clk )
   begin
     if falling_edge(clk) then
       if tx_rst = '1' then
@@ -951,7 +951,7 @@ begin
   -- Advance the count only on an input clock pulse
   ---------------------------------------------------------------------
 
-  acia_tx_clock_divide : process( clk, tx_rst )
+  acia_tx_clock_divide : process( clk )
   begin
     if falling_edge(clk) then
       if tx_rst = '1' then
@@ -967,7 +967,7 @@ begin
 -- ACIA TX Baud select
 -----------------------------------------------------------------------------
 -- 2021-01-30 JEK change TxC to TxCDel(0)
-  acia_tx_baud_select : process(clk, control_reg, TxDat, TxCDel, TxClkCnt )
+  acia_tx_baud_select : process( clk )
   begin
 
     ---------------------------------------------------------------------
@@ -999,7 +999,7 @@ begin
   ---------------------------------------------------------------------
   -- A Falling edge will produce a single pulse on TxBdEdgeFall
   --
-  acia_tx_baud_edge : process( clk, tx_rst )
+  acia_tx_baud_edge : process( clk )
   begin
     if falling_edge(clk) then
       if tx_rst = '1' then
@@ -1094,7 +1094,7 @@ begin
   --
   -- State machine transitions on the rising edge of the Tx Baud clock
   --
-  acia_tx_state : process(clk, tx_rst )
+  acia_tx_state : process( clk )
   begin
      if falling_edge( clk ) then
       if tx_rst = '1' then
@@ -1111,7 +1111,7 @@ begin
   -- ACIA tx Shift Register
   -----------------------------------------------------------------------------
 
-  acia_tx_shift_reg : process( clk, TxBdEdgeFall, tx_shift_ctrl, tx_data_reg, tx_shift_reg, tx_parity )
+  acia_tx_shift_reg : process( clk )
   begin
     if falling_edge( clk ) then
       if tx_rst = '1' then

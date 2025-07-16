@@ -75,6 +75,7 @@ entity bbc_micro_core is
         IncludeHDMI            : boolean := false;
         IncludeTrace           : boolean := false;
         IncludeAnalogJS        : boolean := false;
+        IncludeSerial          : boolean := false;
         UseOrigKeyboard        : boolean := false;
         UseT65Core             : boolean := false;
         UseAlanDCore           : boolean := true;
@@ -223,6 +224,16 @@ entity bbc_micro_core is
         avr_reset      : in    std_logic;   -- active high
         avr_RxD        : in    std_logic;
         avr_TxD        : out   std_logic;
+
+        -- Serial Port
+        serial_RxD     : in    std_logic := '1'; -- TTL Levels - idle line state = 1
+        serial_CTS     : in    std_logic := '0'; -- TTL Levels - clear to send = 0
+        serial_TxD     : out   std_logic;
+        serial_RTS     : out   std_logic;
+
+        -- Casette Port
+        cas_in         : in    std_logic := '1';
+        cas_out        : out   std_logic_vector(1 downto 0);
 
         -- Current CPU address, e.g. to drive a hex display
         cpu_addr       : out   std_logic_vector(15 downto 0);
@@ -461,6 +472,76 @@ component spdif_serializer is
         load         : in  std_logic;
         channelA     : out std_logic;
         spdifOut     : out std_logic
+    );
+end component;
+
+component serialula is
+    generic (
+        -- Board revision 1 or 2, affects the CasOut logic
+        BOARD_REV      : integer := 1;
+
+        -- If both are true, the mode is determined by the jumper at run time
+        MODEL_VLSI     : boolean := true;
+        MODEL_FERRANTI : boolean := false
+    );
+    port (
+        -- Fast clock (16/13 MHz)
+        clk      : in  std_logic;
+        clken    : in  std_logic := '1';
+
+        -- Mode Jumper (used to enable VLSI_SERPROC mode)
+        jp1      : in  std_logic := '0';  -- off/1=Ferranti on/0=VLSI
+
+        -- Interface to 6502
+        E        : in  std_logic;
+        Data     : in  std_logic_vector(7 downto 0);
+        nCS      : in  std_logic;
+
+        -- Interface to Cassette Port
+        CasMotor : out std_logic;
+        CasIn    : in  std_logic;
+        CasOut   : out std_logic_vector(1 downto 0);
+
+        -- Interface to ACIA
+        TxC      : out std_logic;
+        TxD      : in  std_logic;
+        RxC      : out std_logic;
+        RxD      : out std_logic;
+        DCD      : out std_logic;
+        RTSI     : in  std_logic;
+        CTSO     : out std_logic;
+
+        -- Interface to RS423 Port
+        Din      : in  std_logic;
+        Dout     : out std_logic;
+        CTSI     : in  std_logic;
+        RTSO     : out std_logic
+        );
+end component;
+
+component acia6850 is
+  port (
+    --
+    -- CPU Interface signals
+    --
+    clk      : in  std_logic;                     -- CPU Clock (falling edge active)
+    rst      : in  std_logic;                     -- Reset input (active high)
+    cs       : in  std_logic;                     -- miniUART Chip Select
+    addr     : in  std_logic;                     -- Register Select
+    rw       : in  std_logic;                     -- Read / Not Write
+    data_in  : in  std_logic_vector(7 downto 0);  -- Data Bus In
+    data_out : out std_logic_vector(7 downto 0);  -- Data Bus Out
+    irq      : out std_logic;                     -- Interrupt Request out
+    --
+    -- RS232 Interface Signals
+    --
+    RxC   : in  std_logic;              -- Receive Baud Clock
+    TxC   : in  std_logic;              -- Transmit Baud Clock
+    RxD   : in  std_logic;              -- Receive Data
+    TxD   : out std_logic;              -- Transmit Data
+    DCD_n : in  std_logic;              -- Data Carrier Detect
+    CTS_n : in  std_logic;              -- Clear To Send
+    RTS_n : out std_logic               -- Request To send
     );
 end component;
 
@@ -833,6 +914,8 @@ signal vdu_op          : std_logic;     -- last opcode was 0xC000-0xDFFF
 
 -- Serial ULA
 signal serula_casmo    : std_logic;     -- 1 for on
+signal acia_do         : std_logic_vector(7 downto 0);
+signal acia_irq        : std_logic;
 
 begin
 
@@ -2295,7 +2378,7 @@ begin
         cpu_mem_data   when ram_enable = '1' or rom_enable = '1' or mos_enable = '1' else
         crtc_do        when crtc_enable = '1' else
         adc_do         when adc_enable = '1' else
-        "00000010"     when acia_enable = '1' else
+        acia_do        when acia_enable = '1' else
         sys_via_do_r   when sys_via_enable = '1' else
         user_via_do_r  when user_via_enable = '1' else
         spisd_do       when spisd_enable = '1' else
@@ -2313,8 +2396,8 @@ begin
         ext_1mhz_do     when io_fred = '1' or io_jim = '1' else
         (others => '0'); -- un-decoded locations are pulled down by RP1
 
-    cpu_irq_n <= not ((not ext_1mhz_irq_n) or (not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
-                 not ((not ext_1mhz_irq_n) or (not sys_via_irq_n) or (not user_via_irq_n));
+    cpu_irq_n <= not (acia_irq or (not ext_1mhz_irq_n) or (not sys_via_irq_n) or (not user_via_irq_n) or acc_irr) when m128_mode = '1' else
+                 not (acia_irq or (not ext_1mhz_irq_n) or (not sys_via_irq_n) or (not user_via_irq_n));
     -- SRAM bus
 
     -- Synchronous outputs to External Memory
@@ -3007,21 +3090,138 @@ begin
 
 
 -----------------------------------------------
--- SERPROC - just the cassette motor LED
+-- MC6850 ACIA and Serial ULA
 -----------------------------------------------
-    process(clock_48,reset_n)
+
+    GenSerial : if IncludeSerial generate
+        signal acia_clk        : std_logic;
+        signal acia_reset      : std_logic;
+        signal acia_cs         : std_logic;
+        signal acia_txc        : std_logic;
+        signal acia_txd        : std_logic;
+        signal acia_rxc        : std_logic;
+        signal acia_rxd        : std_logic;
+        signal acia_dcd_n      : std_logic;
+        signal acia_rts_n      : std_logic;
+        signal acia_cts_n      : std_logic;
+        signal serproc_e       : std_logic;
+        signal serproc_clk     : std_logic;
+        signal serproc_clken   : std_logic;
+        signal serproc_ncs     : std_logic;
+        signal serproc_counter : unsigned(5 downto 0) := (others => '0');
+        signal serproc_din     : std_logic;
+        signal serproc_dout    : std_logic;
+        signal serproc_cts     : std_logic;
+        signal serproc_rts     : std_logic;
     begin
-        if reset_n = '0' then
-            serula_casmo <= '0';
-        elsif rising_edge(clock_48) then
-            if (cpu_clken = '1') then
-                -- Serial ULA register FE1x
-                if serproc_enable = '1' and cpu_r_nw = '0' then
-                    serula_casmo <= cpu_do(7);
+
+        serproc_clk <= clock_48;
+        serproc_e   <= not clock_48; -- serproc E latches on the falling edge so invert
+        serproc_ncs <= not (mhz1_clken and serproc_enable);
+
+        acia_clk    <= not clock_48; -- acia_clk latches on the falling edge so invert
+        acia_reset  <= not powerup_reset_n;
+        acia_cs     <=     (mhz1_clken and acia_enable);
+
+        -- Generate a (16/13) MHz clock enable for the Serial ULA
+        process(serproc_clk)
+        begin
+            if rising_edge(serproc_clk) then
+                if serproc_counter = to_unsigned(3 * 13 - 1,  serproc_counter'length) then
+                    serproc_clken   <= '1';
+                    serproc_counter <= (others => '0');
+                else
+                    serproc_clken   <= '0';
+                    serproc_counter <= serproc_counter + 1;
                 end if;
             end if;
-        end if;
-    end process;
+        end process;
+
+        inst_acia6850 : acia6850
+            port map (
+                -- CPU signals
+                clk      => acia_clk,
+                rst      => acia_reset,
+                cs       => acia_cs,
+                rw       => cpu_r_nw,
+                irq      => acia_irq,
+                addr     => cpu_a(0),
+                data_in  => cpu_do,
+                data_out => acia_do,
+                -- Uart Signals
+                RxC      => acia_rxc,
+                TxC      => acia_txc,
+                RxD      => acia_rxd,
+                TxD      => acia_txd,
+                DCD_n    => acia_dcd_n,
+                CTS_n    => acia_cts_n,
+                RTS_n    => acia_rts_n
+        );
+
+        inst_serialula : serialula
+            generic map (
+                BOARD_REV      => 1,
+                MODEL_VLSI     => false,
+                MODEL_FERRANTI => true
+                )
+            port map (
+                clk      => serproc_clk,
+                clken    => serproc_clken,
+                -- Interface to 6502
+                E        => serproc_e,
+                Data     => cpu_do,
+                nCS      => serproc_ncs,
+                -- Interface to Cassette Port
+                CasMotor => serula_casmo,
+                CasIn    => cas_in,
+                CasOut   => cas_out,
+                -- Interface to ACIA
+                TxC      => acia_txc,
+                TxD      => acia_txd,
+                RxC      => acia_rxc,
+                RxD      => acia_rxd,
+                DCD      => acia_dcd_n,
+                RTSI     => acia_rts_n,
+                CTSO     => acia_cts_n,
+                -- Interface to RS423 Port
+                Din      => serproc_din,
+                Dout     => serproc_dout,
+                CTSI     => serproc_cts,
+                RTSO     => serproc_rts
+                );
+
+        -- Convert from RS423 levels back to TTL levels
+        serproc_din <= not Serial_RxD;
+        serproc_cts <= not Serial_CTS;
+        Serial_TxD  <= not serproc_dout;
+        Serial_RTS  <= not serproc_rts;
+
+    end generate;
+
+
+    GenNotSerial : if not IncludeSerial generate
+
+        process(clock_48,reset_n)
+        begin
+            if reset_n = '0' then
+                serula_casmo <= '0';
+            elsif rising_edge(clock_48) then
+                if (cpu_clken = '1') then
+                    -- Serial ULA register FE1x
+                    if serproc_enable = '1' and cpu_r_nw = '0' then
+                        serula_casmo <= cpu_do(7);
+                    end if;
+                end if;
+            end if;
+        end process;
+
+        acia_do     <= "00000010";
+        acia_irq    <= '0';
+        cas_out     <= (others => '0');
+        Serial_TxD  <= '1';
+        Serial_RTS  <= '1';
+
+    end generate;
 
 
 -----------------------------------------------
@@ -3061,7 +3261,6 @@ begin
         trace_rstn <= '0';
         trace_phi2 <= '0';
     end generate;
-
 
     -- Test output
     test <= crtc_vsync & crtc_hsync & crtc_ra(0) & crtc_enable & crtc_test(3 downto 0);

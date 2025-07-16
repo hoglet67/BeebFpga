@@ -1052,6 +1052,7 @@ begin
                 if control_reg(POEBIT) = '0' then    -- 8 data bits
                   tx_next_state <= stop_state;       -- 2 stops
                 else
+                  status_txr_set <= '1';
                   tx_next_state <= idle_state;       -- 1 stop
                 end if;
               else
@@ -1071,6 +1072,7 @@ begin
             if control_reg(STPBIT) = '0' then
               tx_next_state <= stop_state;            -- 2 stops
             else
+              status_txr_set <= '1';
               tx_next_state <= idle_state;            -- 1 stop
             end if;
 

@@ -75,6 +75,7 @@ entity bbc_micro_tang20k is
         IncludeSPDIFAudio      : boolean := true;
         IncludeVGADAC          : boolean := G_CONFIG_VGA;
         IncludeAnalogJS        : boolean := false;
+        IncludeSerial          : boolean := not G_CONFIG_DEBUGGER;
 
         MinVolume              : integer := 0;  -- -60dB
         DefaultVolumeSpeaker   : integer := 12; -- -24dB
@@ -512,6 +513,12 @@ architecture rtl of bbc_micro_tang20k is
     signal ws2812_b        : std_logic_vector(7 downto 0) := (others => '0');
     signal ws2812_data     : std_logic;
 
+    -- UART
+    signal avr_rx          : std_logic;
+    signal avr_tx          : std_logic;
+    signal serial_rx       : std_logic;
+    signal serial_tx       : std_logic;
+
     -- Test
     signal test            : std_logic_vector(7 downto 0);
 
@@ -538,6 +545,7 @@ begin
             IncludeTrace           => IncludeTrace,
             IncludeHDMI            => IncludeHDMI,
             IncludeAnalogJS        => IncludeAnalogJS,
+            IncludeSerial          => IncludeSerial,
             UseOrigKeyboard        => false,
             UseT65Core             => not IncludeMaster,
             UseAlanDCore           => IncludeMaster
@@ -610,8 +618,10 @@ begin
             fire1_n         => joystick1(4),
             fire2_n         => joystick2(4),
             avr_reset       => not hard_reset_n,
-            avr_RxD         => uart_rx,
-            avr_TxD         => uart_tx,
+            avr_RxD         => avr_rx,
+            avr_TxD         => avr_tx,
+            serial_RxD      => serial_rx,
+            serial_TxD      => serial_tx,
             cpu_addr        => open,
             m128_mode       => m128_mode,
             copro_mode      => copro_mode,
@@ -1667,5 +1677,9 @@ begin
                    x"FF";
 
     ws2812_din <= ws2812_data when IncludeSoftLEDs else '0';
+
+    uart_tx   <= avr_tx  when G_CONFIG_DEBUGGER else serial_tx;
+    serial_rx <= '0'     when G_CONFIG_DEBUGGER else uart_rx;
+    avr_rx    <= uart_rx when G_CONFIG_DEBUGGER else '1';
 
 end architecture;

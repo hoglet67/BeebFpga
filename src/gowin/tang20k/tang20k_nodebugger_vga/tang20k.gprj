@@ -58,6 +58,8 @@
         <File path="../../../common/vidproc.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/bootstrap/spi_flash.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/bootstrap/bootstrap.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/serialula.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/acia6850.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/bbc_micro_tang20k_vga.cst" type="file.cst" enable="1"/>
         <File path="../src/bbc_micro_tang20k.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/library/common.vhd" type="file.vhdl" enable="1"/>

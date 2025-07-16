@@ -940,7 +940,7 @@ begin
         TxCEdge <= '0';
       else
         TxCDel(0) <= TxC;
-		  TxCDel(1) <= RxCDel(0);
+		  TxCDel(1) <= TxCDel(0);
         TxCEdge <= (not TxCDel(1)) and TxCDel(0);
       end if;
     end if;

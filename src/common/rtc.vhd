@@ -103,10 +103,12 @@ architecture rtl of rtc is
     constant ini10 : std_logic_vector(7 downto 0) := x"F7";
 
     -- bit 0 (tube) overlaid by DIP switches/config
-    constant ini15 : std_logic_vector(7 downto 0) := x"2C";
+    -- (b4..b2) = 110 = *CONFIGURE BAUD 7 = 9600
+    constant ini15 : std_logic_vector(7 downto 0) := x"38";
 
     -- bit 2 (intube/extube) and 4 (noboot/boot) overlaid by DIP switches/config
-    constant ini16 : std_logic_vector(7 downto 0) := x"82";
+    -- (b7..b5) = 101 = *CONFIGURE DATA 5 = 8n1
+    constant ini16 : std_logic_vector(7 downto 0) := x"A2";
 
     signal rtc_ram : rtc_ram_type := (
         x"30", -- RTC Seconds

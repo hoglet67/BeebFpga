@@ -75,7 +75,7 @@ entity bbc_micro_tang20k is
         IncludeSPDIFAudio      : boolean := true;
         IncludeVGADAC          : boolean := G_CONFIG_VGA;
         IncludeAnalogJS        : boolean := false;
-        IncludeSerial          : boolean := not G_CONFIG_DEBUGGER;
+        IncludeSerial          : boolean := true;
 
         MinVolume              : integer := 0;  -- -60dB
         DefaultVolumeSpeaker   : integer := 12; -- -24dB
@@ -443,6 +443,7 @@ architecture rtl of bbc_micro_tang20k is
     signal m128_mode       : std_logic := '0';
     signal copro_mode      : std_logic := '0';
     signal copro_ext       : std_logic := '0';
+    signal uart_debugger   : std_logic := '0';
 
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
@@ -948,7 +949,12 @@ begin
                 end if;
             end if;
 
-            -- Config(9) will control the serial port when this is implemented
+            -- Config(9) switches the USB uart between the Beeb Serial Port and the ICE debugger
+            if IncludeICEDebugger and IncludeSerial then
+                if Config(9) = '1' then
+                    uart_debugger <= not uart_debugger;
+                end if;
+            end if;
 
             -- Config reset happens just once when the core is first configured
             if config_reset_n = '0' then
@@ -961,8 +967,15 @@ begin
                 end if;
                 copro_mode    <= not jumper(2); -- 0 (on) = Co Pro Enabled;  1 (off) = Co Pro disabled
                 copro_ext     <= not jumper(3); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
-                hdmi_aspect   <= jumper(5 downto 4);
-                hdmi_audio_en <= jumper(5) or jumper(4); -- both jumpers fitted (00) triggers DVI mode
+                hdmi_aspect   <= "11";      -- default is now auto aspect ratio
+                hdmi_audio_en <= jumper(4); -- both jumper fitted (0) triggers DVI mode
+                if IncludeICEDebugger and IncludeSerial then
+                    uart_debugger <= jumper(5); -- 0 (on) = Serial; 1 (off) = Debugger
+                elsif IncludeICEDebugger then
+                    uart_debugger <= '1';
+                else
+                    uart_debugger <= '0';
+                end if;
                 -- Determine line vs speaker by reading the pa_en jumper
                 if pa_en = '0' then
                     default_volume <= to_unsigned(DefaultVolumeLine, 5);
@@ -1678,8 +1691,8 @@ begin
 
     ws2812_din <= ws2812_data when IncludeSoftLEDs else '0';
 
-    uart_tx   <= avr_tx  when G_CONFIG_DEBUGGER else serial_tx;
-    serial_rx <= '0'     when G_CONFIG_DEBUGGER else uart_rx;
-    avr_rx    <= uart_rx when G_CONFIG_DEBUGGER else '1';
+    uart_tx   <= avr_tx  when uart_debugger = '1' else serial_tx;
+    serial_rx <= '0'     when uart_debugger = '1' else uart_rx;
+    avr_rx    <= uart_rx when uart_debugger = '1' else '1';
 
 end architecture;

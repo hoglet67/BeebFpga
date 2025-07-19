@@ -292,6 +292,7 @@ begin
         IncludeVideoNuLA       => IncludeVideoNuLA,
         IncludeHDMI            => true,
         UseOrigKeyboard        => true,
+        IncludeSerial          => true,
         UseT65Core             => not IncludeMaster,  -- select the 6502 for the Beeb
         UseAlanDCore           => IncludeMaster,      -- select the 65C02 for the Master
         OverrideCMOS           => false
@@ -371,6 +372,16 @@ begin
         tmds_r         => tmds_r,
         tmds_g         => tmds_g,
         tmds_b         => tmds_b,
+
+        -- Serial Port
+        serial_RxD     => esp_rx_i,
+        serial_CTS     => esp_rtr_n_i,
+        serial_TxD     => esp_tx_o,
+        serial_RTS     => esp_cts_n_o,
+
+        -- Casette Port
+        cas_in         => ear_port_i,
+        cas_out        => open,  -- TODO: somehow connect to mic_port_o
 
         -- config
         config         => yellow_config_ps2
@@ -858,8 +869,6 @@ begin
     -- ESP 8266 module
     esp_gpio0_io   <= 'Z';
     esp_gpio2_io   <= 'Z';
-    esp_tx_o       <= '1';
-    esp_cts_n_o    <= '1';
 
     -- Addtional flash pins; used at IO2 and IO3 in Quad SPI Mode
     flash_hold_o   <= '1';

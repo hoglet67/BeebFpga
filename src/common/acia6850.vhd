@@ -421,7 +421,7 @@ begin
     status_reg(PERBIT) <= PErr;
     status_reg(IRQBIT) <= (RxIE and RxRdy) or
                           (RxIE and DCDInt) or
-                          (TxIE and TxRdy);
+                          (TxIE and TxRdy and (not CTS_n));
     irq <= status_reg(IRQBIT);
   end process;
 

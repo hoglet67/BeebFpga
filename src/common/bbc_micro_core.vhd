@@ -2709,8 +2709,8 @@ begin
     process(clock_48,reset_n)
     variable bit_num : integer;
     begin
-        if reset_n = '0' then
-            ic32 <= (others => '0');
+        if hard_reset_n = '0' then
+            ic32 <= (others => '1');
         elsif rising_edge(clock_48) then
             bit_num := to_integer(unsigned(sys_via_pb_out(2 downto 0)));
             ic32(bit_num) <= sys_via_pb_out(3);

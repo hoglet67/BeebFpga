@@ -109,7 +109,9 @@ entity sn76489_audio is
 generic                 -- 0 = normal I/O, 32 clocks per write
                         -- 1 = fast I/O, around 2 clocks per write
    ( FAST_IO_G          : std_logic := '0'
-
+                        -- 0 = allow multiple successive write cycles if wr_n_i held low
+                        -- 1 = wait for wr_n_i to be raised before starting a new write cycle
+   ; WAIT_IO_G          : std_logic := '0'
                         -- Minimum allowable period count (see comments further
                         -- down for more information), recommended:
                         --  6  18643.46Hz First audible count.
@@ -350,7 +352,11 @@ begin
 
       when IO_OP =>
          if io_cnt_r = 0 then
-            io_state_x  <= IO_WAIT;
+            if WAIT_IO_G = '1' then
+               io_state_x  <= IO_WAIT;
+            else
+               io_state_x  <= IO_IDLE;
+            end if;
             en_reg_wr_s <= '1';
             ready_x     <= '1';
          else

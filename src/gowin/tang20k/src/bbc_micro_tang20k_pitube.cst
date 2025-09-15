@@ -8,11 +8,11 @@ IO_PORT "audio_clk" IO_TYPE=LVCMOS33;
 
 // Button 1
 IO_LOC  "btn1" 88;
-IO_PORT "btn1" PULL_MODE=DOWN;
+IO_PORT "btn1" PULL_MODE=DOWN IO_TYPE=LVCMOS33;
 
 // Button 2
 IO_LOC  "btn2" 87;
-IO_PORT "btn2" PULL_MODE=DOWN;
+IO_PORT "btn2" PULL_MODE=DOWN IO_TYPE=LVCMOS33;
 
 // Reconfig_n
 IO_LOC  "reconfig_n" 9;

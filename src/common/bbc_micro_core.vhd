@@ -72,6 +72,8 @@ entity bbc_micro_core is
         IncludeCoProSPI        : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt        : boolean := false; -- (i.e. select just one)
         IncludeVideoNuLA       : boolean := false;
+        IncludeSRGB            : boolean := false;
+        IncludeVGA             : boolean := false;
         IncludeHDMI            : boolean := false;
         IncludeTrace           : boolean := false;
         IncludeAnalogJS        : boolean := false;
@@ -84,9 +86,7 @@ entity bbc_micro_core is
     port (
         -- Clocks
         clock_27       : in    std_logic;
-        clock_32       : in    std_logic;
         clock_48       : in    std_logic;
-        clock_96       : in    std_logic;
         clock_avr      : in    std_logic;
 
         -- Hard reset (active low)
@@ -112,12 +112,20 @@ entity bbc_micro_core is
 
         dbg_keyboard_state   : out std_logic_vector(5 downto 0);
 
-        -- Video
-        video_red      : out   std_logic_vector (3 downto 0);
-        video_green    : out   std_logic_vector (3 downto 0);
-        video_blue     : out   std_logic_vector (3 downto 0);
-        video_vsync    : out   std_logic;
-        video_hsync    : out   std_logic;
+        -- Optional SCART/RGB Video (from the basic ULA)
+        rgb_red        : out std_logic_vector(3 downto 0);
+        rgb_green      : out std_logic_vector(3 downto 0);
+        rgb_blue       : out std_logic_vector(3 downto 0);
+        rgb_csync      : out std_logic;
+
+        -- Optional VGA Video (uses HDMI pixel clock)
+        vga_red        : out std_logic_vector(3 downto 0);
+        vga_green      : out std_logic_vector(3 downto 0);
+        vga_blue       : out std_logic_vector(3 downto 0);
+        vga_vsync      : out std_logic;
+        vga_hsync      : out std_logic;
+
+        -- TODO: these were added by Dominic; review if they are still needed
         video_disen    : out   std_logic;
         video_clken    : out   std_logic;
         video_mhz12    : out   std_logic;
@@ -191,17 +199,6 @@ entity bbc_micro_core is
         -- Config outputs (from PS/2 keyboard)
         config_key     : in    std_logic := '0';
         config         : out   std_logic_vector(9 downto 0);
-
-        -- Format of Video
-        -- Bit 1,0 select the video format
-        --   00 - 15.625KHz SRGB
-        --   01 - 31.250KHz VGA using the RGB2VGA Scan Doubler
-        --   10 - 31.250KHz VGA using the Mist Scan Doubler
-        --   11 - 31.250KHz VGA using the Mist Scan Doubler (Modes 0..6) and SAA5050 VGA (Mode 7)
-        -- Bit 2 inverts hsync
-        -- Bit 3 inverts vsync
-        vid_mode       : in    std_logic_vector(3 downto 0);
-
 
         -- Digital Joysticks
         -- Bit 0 - Up (active low)
@@ -293,7 +290,6 @@ entity bbc_micro_core is
         tmds_r         : out   std_logic_vector(9 downto 0);
         tmds_g         : out   std_logic_vector(9 downto 0);
         tmds_b         : out   std_logic_vector(9 downto 0);
-        hsync_ref      : out   std_logic;
 
         -- Test outputs
         test           : out   std_logic_vector(7 downto 0)
@@ -557,19 +553,14 @@ end function;
 
 constant RGB_WIDTH : integer := calc_rgb_width(IncludeVideoNuLA);
 
+constant IncludeHD : boolean := IncludeVGA or IncludeHDMI;
+
 -------------
 -- Signals
 -------------
 
 signal reset            :   std_logic;
 signal reset_n          :   std_logic;
-
--- Clock enables for the scan doubler
-signal clken_pixel      :   std_logic;
-signal clken_vga        :   std_logic;
-
--- Counter to divide 96MHz down to 32MHz or 24MHz
-signal vga3_counter     :   unsigned(1 downto 0) := (others => '0');
 
 -- Counter to divide 48MHz down to 16MHz and 8MHz
 signal div3_counter     :   unsigned(1 downto 0) := (others => '0');
@@ -586,7 +577,7 @@ signal cpu_clken        :   std_logic; -- 2 MHz cycles in which the CPU is enabl
 
 -- IO cycles are out of phase with the CPU
 signal mhz16_clken      :   std_logic; -- 16 MHz, used by the Video ULA
-signal ttxt_clken       :   std_logic := '0'; -- 12 MHz used by SAA 5050 (24MHz in VGA mode)
+signal ttxt_clken       :   std_logic := '0'; -- 12 MHz used by SAA 5050
 signal mhz8_clken       :   std_logic; -- Used by SPDIF
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
@@ -599,9 +590,9 @@ signal tube_mem_cycle   :   std_logic;
 signal mem_write_strobe :   std_logic;
 
 -- Latches for read data at the end of the memory cycle
-signal vid_mem_data    :   std_logic_vector(7 downto 0);
-signal cpu_mem_data    :   std_logic_vector(7 downto 0);
-signal tube_mem_data   :   std_logic_vector(7 downto 0);
+signal vid_mem_data     :   std_logic_vector(7 downto 0);
+signal cpu_mem_data     :   std_logic_vector(7 downto 0);
+signal tube_mem_data    :   std_logic_vector(7 downto 0);
 
 -- CPU signals
 signal cpu_mode         :   std_logic_vector(1 downto 0);
@@ -633,6 +624,7 @@ signal crtc_vsync       :   std_logic;
 signal crtc_vsync_n     :   std_logic;
 signal crtc_hsync       :   std_logic;
 signal crtc_hsync_n     :   std_logic;
+signal crtc_field       :   std_logic;
 signal crtc_de          :   std_logic;
 signal crtc_cursor      :   std_logic;
 signal crtc_lpstb       :   std_logic;
@@ -647,58 +639,22 @@ signal display_a        :   std_logic_vector(14 downto 0);
 -- "VIDPROC" signals
 signal vidproc_invert_n :   std_logic;
 signal vidproc_disen    :   std_logic;
-signal r_in             :   std_logic;
-signal g_in             :   std_logic;
-signal b_in             :   std_logic;
 signal r_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal g_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 signal b_out            :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal r_out_even       :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal g_out_even       :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal b_out_even       :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal r_out_odd        :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal g_out_odd        :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal b_out_odd        :   std_logic_vector(RGB_WIDTH - 1 downto 0);
 
--- Scan Doubler signals (Mist)
-signal rgbi_in          :   std_logic_vector(RGB_WIDTH * 3 downto 0);
-signal vga0_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga0_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga0_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga0_hs          :   std_logic;
-signal vga0_vs          :   std_logic;
 -- Scan Doubler signals (RGB2VGA)
-signal vga1_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga1_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga1_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga1_hs          :   std_logic;
-signal vga1_vs          :   std_logic;
--- Scan Retimer (24MHz to 27MHz) signals
-signal vga2_r           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga2_g           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga2_b           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal vga2_hs          :   std_logic;
-signal vga2_vs          :   std_logic;
-
-signal vga_mode         :   std_logic; -- Runs the SAA5050 at 24Mhz
-signal vga0_mode        :   std_logic; -- Use the Mist Scan Doubler
-signal vga1_mode        :   std_logic; -- Use the RGB2VGA Scan Doubler
-signal vga2_mode        :   std_logic; -- Use the 24MHz to 27MHz Retimer
-
-signal rgbi_out         :   std_logic_vector(RGB_WIDTH * 3 downto 0);
-signal vsync_int        :   std_logic;
-signal hsync_int        :   std_logic;
-
-signal final_r          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal final_g          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-signal final_b          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
-
--- HDMI signals
-signal hsync1           :   std_logic;
-signal vsync1           :   std_logic;
-signal hcnt             :   std_logic_vector(9 downto 0);
-signal vcnt             :   std_logic_vector(9 downto 0);
-signal hdmi_aspect_169  :   std_logic;
-signal hdmi_red         :   std_logic_vector(3 downto 0);
-signal hdmi_green       :   std_logic_vector(3 downto 0);
-signal hdmi_blue        :   std_logic_vector(3 downto 0);
-signal hdmi_hsync       :   std_logic;
-signal hdmi_vsync       :   std_logic;
-signal hdmi_blank       :   std_logic;
+signal hd_red           :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal hd_green         :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal hd_blue          :   std_logic_vector(RGB_WIDTH - 1 downto 0);
+signal hd_vsync         :   std_logic;
+signal hd_hsync         :   std_logic;
 signal hd_audio_l_int   :   std_logic_vector (19 downto 0);
 signal hd_audio_r_int   :   std_logic_vector (19 downto 0);
 signal audio_l_int      :   std_logic_vector (15 downto 0);
@@ -714,7 +670,12 @@ signal ttxt_lose        :   std_logic;
 signal ttxt_r           :   std_logic;
 signal ttxt_g           :   std_logic;
 signal ttxt_b           :   std_logic;
-signal ttxt_y           :   std_logic;
+signal ttxt_r_even      :   std_logic;
+signal ttxt_g_even      :   std_logic;
+signal ttxt_b_even      :   std_logic;
+signal ttxt_r_odd       :   std_logic;
+signal ttxt_g_odd       :   std_logic;
+signal ttxt_b_odd       :   std_logic;
 signal ttxt_pixde       :   std_logic;
 signal ttxt_active      :   std_logic;
 signal ttxt_ic15_clken  :   std_logic;
@@ -1035,14 +996,18 @@ begin
             DO        => crtc_do,
             VSYNC     => crtc_vsync,
             HSYNC     => crtc_hsync,
+            FIELD     => crtc_field,
             DE        => crtc_de,
             CURSOR    => crtc_cursor,
             LPSTB     => crtc_lpstb,
-            VGA       => vga_mode,
+            VGA       => '0',
             MA        => crtc_ma,
             RA        => crtc_ra,
             test      => crtc_test
         );
+
+    crtc_hsync_n <= not crtc_hsync;
+    crtc_vsync_n <= not crtc_vsync;
 
     vidproc_nula: if IncludeVideoNuLA generate
     begin
@@ -1057,7 +1022,7 @@ begin
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
                 MHZ12           => mhz12_active,
-                VGA             => vga_mode,
+                VGA             => '0',
                 ENABLE          => vidproc_enable,
                 A               => cpu_a(1 downto 0),
                 DI_CPU          => cpu_do,
@@ -1066,16 +1031,28 @@ begin
                 DISEN           => vidproc_disen,
                 DISEN_U         => crtc_de,
                 CURSOR          => crtc_cursor,
-                R_IN            => r_in,
-                G_IN            => g_in,
-                B_IN            => b_in,
+                R_IN            => ttxt_r,
+                G_IN            => ttxt_g,
+                B_IN            => ttxt_b,
                 PIXDE_IN        => ttxt_pixde,
                 PIXCLKEN_IN     => ttxt_clken,
+                R_IN_even       => ttxt_r_even,
+                G_IN_even       => ttxt_g_even,
+                B_IN_even       => ttxt_b_even,
+                R_IN_odd        => ttxt_r_odd,
+                G_IN_odd        => ttxt_g_odd,
+                B_IN_odd        => ttxt_b_odd,
                 R               => r_out,
                 G               => g_out,
                 B               => b_out,
                 PIXCLKEN        => video_clken,
-                PIXDE           => video_disen
+                PIXDE           => video_disen,
+                R_even          => r_out_even,
+                G_even          => g_out_even,
+                B_even          => b_out_even,
+                R_odd           => r_out_odd,
+                G_odd           => g_out_odd,
+                B_odd           => b_out_odd
             );
     end generate;
 
@@ -1090,7 +1067,7 @@ begin
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
-                VGA             => vga_mode,
+                VGA             => '0',
                 ENABLE          => vidproc_enable,
                 A0              => cpu_a(0),
                 DI_CPU          => cpu_do,
@@ -1099,16 +1076,28 @@ begin
                 DISEN           => vidproc_disen,
                 DISEN_U         => crtc_de,
                 CURSOR          => crtc_cursor,
-                R_IN            => r_in,
-                G_IN            => g_in,
-                B_IN            => b_in,
+                R_IN            => ttxt_r,
+                G_IN            => ttxt_g,
+                B_IN            => ttxt_b,
                 PIXDE_IN        => ttxt_pixde,
                 PIXCLKEN_IN     => ttxt_clken,
+                R_IN_even       => ttxt_r_even,
+                G_IN_even       => ttxt_g_even,
+                B_IN_even       => ttxt_b_even,
+                R_IN_odd        => ttxt_r_odd,
+                G_IN_odd        => ttxt_g_odd,
+                B_IN_odd        => ttxt_b_odd,
                 R               => r_out,
                 G               => g_out,
                 B               => b_out,
                 PIXCLKEN        => video_clken,
-                PIXDE           => video_disen
+                PIXDE           => video_disen,
+                R_even          => r_out_even,
+                G_even          => g_out_even,
+                B_even          => b_out_even,
+                R_odd           => r_out_odd,
+                G_odd           => g_out_odd,
+                B_odd           => b_out_odd
             );
         mhz12_active <= ttxt_active;
     end generate;
@@ -1120,7 +1109,7 @@ begin
             CLOCK    => clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
             CLKEN    => ttxt_clken,
             nRESET   => hard_reset_n,
-            VGA      => vga_mode,
+            VGA      => '0',
             DI_CLOCK => clock_48, -- Data input is synchronised from the bus clock domain
             DI_CLKEN => ttxt_di_clken,
             DI       => ttxt_data,
@@ -1131,7 +1120,13 @@ begin
             R        => ttxt_r,
             G        => ttxt_g,
             B        => ttxt_b,
-            Y        => ttxt_y,
+            R_even   => ttxt_r_even,
+            G_even   => ttxt_g_even,
+            B_even   => ttxt_b_even,
+            R_odd    => ttxt_r_odd,
+            G_odd    => ttxt_g_odd,
+            B_odd    => ttxt_b_odd,
+            Y        => open,
             PIXDE    => ttxt_pixde
         );
 
@@ -1982,40 +1977,30 @@ begin
                 mhz16_clken <= '0';
             end if;
 
-            -- 1MHz/2MHz clock enable (for IC15).
+            -- 1MHz clock enable (for IC15).
             --
             -- On a real Beeb this is clocked on the falling edge of
             -- the Video ULA 1MHz clock.
-            --
-            -- In VGA mode this needs to be double-speed.
-            if div3_counter = 1 and
-                ((vga_mode = '0' and clken_counter = 0) or
-                 (vga_mode = '1' and clken_counter(2 downto 0) = 0 and not IncludeVideoNuLA) or
-                 (vga_mode = '1' and clken_counter(2 downto 0) = 0 and     IncludeVideoNuLA)) then
+            if div3_counter = 1 and clken_counter = 0 then
                 ttxt_ic15_clken <= '1';
             else
                 ttxt_ic15_clken <= '0';
             end if;
 
-            -- 1MHz/2MHz clock enable (for the SAA5050)
+            -- 1MHz clock enable (for the SAA5050)
             --
             -- On a real Beeb this is clocked on the rising edge of
             -- the Video ULA 1MHz clock.
             --
-            -- In VGA mode this needs to be double-speed.
-            --
             -- This is the best place to fine-tune the teletext character alignent with the cursor
-            if div3_counter = 1 and
-                ((vga_mode = '0' and clken_counter = 8) or
-                 (vga_mode = '1' and clken_counter(2 downto 0) = 6 and not IncludeVideoNuLA) or
-                 (vga_mode = '1' and clken_counter(2 downto 0) = 3 and     IncludeVideoNuLA)) then
+            if div3_counter = 1 and clken_counter = 8 then
                 ttxt_di_clken <= '1';
             else
                 ttxt_di_clken <= '0';
             end if;
 
             -- 12MHz clock enable (for SAA5050)
-            if (vga_mode = '0' and div8_counter(1 downto 0) = 3) or (vga_mode = '1' and div8_counter(0) = '1') then
+            if div8_counter(1 downto 0) = 3 then
                 ttxt_clken <= '1';
             else
                 ttxt_clken <= '0';
@@ -2601,9 +2586,6 @@ begin
     -- VIDPROC
     vidproc_invert_n <= '1';
     vidproc_disen <= crtc_de and not crtc_ra(3); -- DISEN is masked off by RA(3) for MODEs 3 and 6
-    r_in <= ttxt_r;
-    g_in <= ttxt_g;
-    b_in <= ttxt_b;
 
     -- SAA5050
     ttxt_glr <= crtc_hsync_n;
@@ -2706,7 +2688,7 @@ begin
     shift_led <= not ic32(7);
     motor_led <= serula_casmo;
 
-    process(clock_48,reset_n)
+    process(clock_48,hard_reset_n)
     variable bit_num : integer;
     begin
         if hard_reset_n = '0' then
@@ -2717,185 +2699,93 @@ begin
         end if;
     end process;
 
------------------------------------------------
--- Scan Doubler from the MIST project
------------------------------------------------
-
-    -- Input clock enable (for the 48MHz input clock)
-    --   mhz12_active = 0: 16MHz
-    --   mhz12_active = 1: 12MHz
-    clken_pixel <= ttxt_clken when mhz12_active = '1' else mhz16_clken;
-
-    -- Output clock enable (for the 96MHz output clock)
-    -- mhz12_active = 0: divide by 3 -> 32MHz
-    -- mhz12_active = 1: divide by 4 -> 24MHz
-    process(clock_96)
-    begin
-        if rising_edge(clock_96) then
-            if (mhz12_active = '0' and vga3_counter = 2) or (mhz12_active = '1' and vga3_counter = 3) then
-                vga3_counter <= (others => '0');
-                clken_vga <= '1';
-            else
-                vga3_counter <= vga3_counter + 1;
-                clken_vga <= '0';
-            end if;
-        end if;
-    end process;
-
-    inst_mist_scandoubler: entity work.mist_scandoubler
-    generic map (
-        -- WIDTH is width of individual rgb in/out ports
-        WIDTH => RGB_WIDTH
-    )
-    port map (
-        clk => clock_96,
-        clk_en => clken_vga,
-        clk_16 => clock_48,
-        clk_16_en => clken_pixel,
-        hs_in => crtc_hsync_n,
-        vs_in => crtc_vsync_n,
-        r_in => r_out,
-        g_in => g_out,
-        b_in => b_out,
-        hs_out => vga0_hs,
-        vs_out => vga0_vs,
-        r_out => vga0_r,
-        g_out => vga0_g,
-        b_out => vga0_b,
-        is15k => open
-    );
-    crtc_hsync_n <= not crtc_hsync;
-    crtc_vsync_n <= not crtc_vsync;
 
 -----------------------------------------------
 -- Scan Doubler from RGB2VGA project
 -----------------------------------------------
 
-    rgbi_in <= r_out & g_out & b_out & '0';
-
-    inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler
-    generic map (
-        -- WIDTH is width of combined rgbi in/out ports
-        WIDTH => RGB_WIDTH * 3 + 1
-    )
-    port map (
-        clock => clock_48,
-        clken => clken_pixel,
-        clk25 => clock_27,
-        mode => mhz12_active,
-        rgbi_in => rgbi_in,
-        hSync_in => crtc_hsync,
-        vSync_in => crtc_vsync,
-        rgbi_out => rgbi_out,
-        hSync_out => vga1_hs,
-        vSync_out => vga1_vs
-    );
-
-    vga1_r  <= rgbi_out(RGB_WIDTH * 3 downto RGB_WIDTH * 2 + 1);
-    vga1_g  <= rgbi_out(RGB_WIDTH * 2 downto RGB_WIDTH * 1 + 1);
-    vga1_b  <= rgbi_out(RGB_WIDTH * 1 downto RGB_WIDTH * 0 + 1);
-
------------------------------------------------
--- 24MHz to 27MHz Scan Retimer (by DMB)
------------------------------------------------
-
-    inst_retimer: entity work.retimer
-    generic map (
-        -- WIDTH is width of individual rgb in/out ports
-        WIDTH => RGB_WIDTH
-    )
-    port map (
-        clk_in    => clock_48,
-        clken_in  => ttxt_clken,
-        clk_out   => clock_27,
-        clken_out => '1',
-        hs_in     => crtc_hsync_n,
-        vs_in     => crtc_vsync_n,
-        r_in      => r_out,
-        g_in      => g_out,
-        b_in      => b_out,
-        hs_out    => vga2_hs,
-        vs_out    => vga2_vs,
-        r_out     => vga2_r,
-        g_out     => vga2_g,
-        b_out     => vga2_b
-    );
-
-
------------------------------------------------
--- RGBHV Multiplexor
------------------------------------------------
-
-    -- Video Mode:  -------------------Scan Doubling Approach-----------------------
-    --              Mode 0-6@16MHz      Mode 0-6@12Mhz      Mode7
-    -- 00 (SRGB)    direct    (16MHz)   Direct    (12MHz)   Direct             (12MHz)
-    -- 01 (HDMI)    RGB2VGASD (27MHz)   RGB2VGASD (27MHz)   SAA5050VGA/retimer (27MHz)
-    -- 10 (VGA)     MistSD    (32MHz)   MistSD    (24MHz)   Mist SD            (24MHz)
-    -- 11 (VGA)     MistSD    (32Mhz)   MistSD    (24MHz)   SAA5050VGA         (24MHz)
-
-    -- The SAA5050 24MHz VGA mode is enabled
-    vga_mode <= '1' when (vid_mode(0) = '1' and ttxt_active = '1') else '0';
-
-    -- The video output is taken from the Mist Scan Doubler
-    vga0_mode <= '1' when (vid_mode(1 downto 0) = "11" and ttxt_active = '0') or vid_mode(1 downto 0) = "10" else '0';
-
-    -- The video output is taken from the RGB2VGA Scan Doubler
-    vga1_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt_active = '0' else '0';
-
-    -- The video output is taken from the Retimer
-    vga2_mode <= '1' when vid_mode(1 downto 0) = "01" and ttxt_active = '1' else '0';
-
-    -- CRTC drives video out (CSYNC on HSYNC output, VSYNC high)
-    hsync_int   <= vga0_hs when vga0_mode = '1' else
-                   vga1_hs when vga1_mode = '1' else
-                   vga2_hs when vga2_mode = '1' else
-              crtc_hsync_n when  vga_mode = '1' else
-                   crtc_hsync;
-
-    vsync_int   <= vga0_vs when vga0_mode = '1' else
-                   vga1_vs when vga1_mode = '1' else
-                   vga2_vs when vga2_mode = '1' else
-                   crtc_vsync;
-
-    video_hsync <= hsync_int xor vid_mode(2);
-
-    video_vsync <= vsync_int xor vid_mode(3);
-
-    final_r <= vga0_r when vga0_mode = '1' else
-               vga1_r when vga1_mode = '1' else
-               vga2_r when vga2_mode = '1' else
-               r_out;
-
-    final_g <= vga0_g when vga0_mode = '1' else
-               vga1_g when vga1_mode = '1' else
-               vga2_g when vga2_mode = '1' else
-               g_out;
-
-    final_b <= vga0_b when vga0_mode = '1' else
-               vga1_b when vga1_mode = '1' else
-               vga2_b when vga2_mode = '1' else
-               b_out;
-
-    map_video_nula: if IncludeVideoNuLA generate
+    HDIncluded: if IncludeHD generate
+        -- scan doubler inputs
+        signal clken_pixel   : std_logic;
+        signal tmp_even_in   : std_logic_vector(3 * RGB_WIDTH - 1 downto 0);
+        signal tmp_odd_in    : std_logic_vector(3 * RGB_WIDTH - 1 downto 0);
+        -- scan doubler outputs
+        signal tmp_rgb       : std_logic_vector(3 * RGB_WIDTH - 1 downto 0);
+        signal tmp_rgb_out   : std_logic_vector(3 * RGB_WIDTH - 1 downto 0);
+        signal tmp_hsync     : std_logic;
+        signal tmp_vsync     : std_logic;
+        signal bypass        : std_logic;
     begin
-        video_red   <= final_r;
-        video_green <= final_g;
-        video_blue  <= final_b;
-    end generate;
 
-    map_video_orig: if not IncludeVideoNuLA generate
-    begin
-        video_red   <= (others => final_r(0));
-        video_green <= (others => final_g(0));
-        video_blue  <= (others => final_b(0));
-    end generate;
+        -- Input clock enable (for the 48MHz input clock)
+        --   mhz12_active = 0: 16MHz
+        --   mhz12_active = 1: 12MHz
+        clken_pixel <= ttxt_clken when mhz12_active = '1' else mhz16_clken;
 
+        tmp_even_in <= r_out_even & g_out_even & b_out_even;
+        tmp_odd_in  <= r_out_odd  & g_out_odd  & b_out_odd;
+
+         inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler
+            generic map (
+                WIDTH        => RGB_WIDTH * 3,
+                VGA_CLK_MHZ  => 27
+                )
+            port map (
+                mode         => mhz12_active,
+                pal_clk      => clock_48,
+                pal_clken    => clken_pixel,
+                pal_rgb_even => tmp_even_in,
+                pal_rgb_odd  => tmp_odd_in,
+                pal_hsync    => crtc_hsync,
+                pal_vsync    => crtc_vsync,
+                vga_clk      => clock_27,
+                vga_clken    => '1',
+                vga_rgb      => tmp_rgb,
+                vga_hsync    => tmp_hsync,
+                vga_vsync    => tmp_vsync
+                );
+
+        bypass <= crtc_field; -- high on the odd field (second) of interlaced video
+
+        inst_linedelay : entity work.linedelay
+            generic map (
+                WIDTH => RGB_WIDTH * 3,
+                DEPTH => 864
+                )
+            port map (
+                clock  => clock_27,
+                clken  => '1',
+                bypass => bypass,
+                din    => tmp_rgb,
+                dout   => tmp_rgb_out
+                );
+
+        hd_red   <= tmp_rgb_out(RGB_WIDTH * 3 - 1 downto RGB_WIDTH * 2);
+        hd_green <= tmp_rgb_out(RGB_WIDTH * 2 - 1 downto RGB_WIDTH * 1);
+        hd_blue  <= tmp_rgb_out(RGB_WIDTH * 1 - 1 downto RGB_WIDTH * 0);
+        hd_hsync <= tmp_hsync;
+        hd_vsync <= tmp_vsync;
+
+    end generate;
 
 --------------------------------------------------------
 -- HDMI
 --------------------------------------------------------
 
-    GenHDMI: if IncludeHDMI generate
+    HDMIIncluded: if IncludeHDMI generate
+        signal hsync1           :   std_logic;
+        signal vsync1           :   std_logic;
+        signal hcnt             :   std_logic_vector(9 downto 0);
+        signal vcnt             :   std_logic_vector(9 downto 0);
+        signal hdmi_aspect_169  :   std_logic;
+        signal hdmi_red         :   std_logic_vector(3 downto 0);
+        signal hdmi_green       :   std_logic_vector(3 downto 0);
+        signal hdmi_blue        :   std_logic_vector(3 downto 0);
+        signal hdmi_hsync       :   std_logic;
+        signal hdmi_vsync       :   std_logic;
+        signal hdmi_blank       :   std_logic;
+
+    begin
 
         -- Recreate the video sync/blank signals that match standard HDTV 720x576p
         --
@@ -2919,11 +2809,11 @@ begin
             variable vsize   : integer;
         begin
             if rising_edge(clock_27) then
-                hsync1 <= hsync_int;
-                if hsync1 = '0' and hsync_int = '1' then
+                hsync1 <= hd_hsync;
+                if hsync1 = '1' and hd_hsync = '0' then
                     hcnt <= (others => '0');
-                    vsync1 <= vsync_int;
-                    if vsync1 = '0' and vsync_int = '1' then
+                    vsync1 <= hd_vsync;
+                    if vsync1 = '0' and hd_vsync = '1' then
                         vcnt <= (others => '0');
                     else
                         vcnt <= vcnt + 1;
@@ -2946,15 +2836,15 @@ begin
                 else
                     hdmi_blank <= '0';
                     if IncludeVideoNuLA then
-                        hdmi_red   <= final_r;
-                        hdmi_green <= final_g;
-                        hdmi_blue  <= final_b;
+                        hdmi_red   <= hd_red;
+                        hdmi_green <= hd_green;
+                        hdmi_blue  <= hd_blue;
                     else
-                        hdmi_red   <= final_r(0) & "000";
-                        hdmi_green <= final_g(0) & "000";
-                        hdmi_blue  <= final_b(0) & "000";
+                        hdmi_red   <= (others => hd_red(0));
+                        hdmi_green <= (others => hd_green(0));
+                        hdmi_blue  <= (others => hd_blue(0));
                     end if;
-                    if vid_debug = '1' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = voffset or vcnt = voffset + vsize - 1) then
+                    if vid_debug = '0' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = voffset or vcnt = voffset + vsize - 1) then
                         hdmi_green <= (others => '1');
                     end if;
                 end if;
@@ -3008,13 +2898,64 @@ begin
 
     end generate;
 
-    GenNotHDMI: if not IncludeHDMI generate
+    HDMINotIncluded: if not IncludeHDMI generate
         tmds_r <= (others => '0');
         tmds_g <= (others => '0');
         tmds_b <= (others => '0');
     end generate;
 
-    hsync_ref <= crtc_hsync;
+--------------------------------------------------------
+-- VGA Video output
+--------------------------------------------------------
+
+    VGAIncludedNuLA : if IncludeVGA and IncludeVideoNuLA generate
+        vga_red   <= hd_red;
+        vga_green <= hd_green;
+        vga_blue  <= hd_blue;
+        vga_vsync <= hd_vsync;
+        vga_hsync <= hd_hsync;
+    end generate;
+
+    VGAIncludedNoNuLA : if IncludeVGA and not IncludeVideoNuLA generate
+        vga_red   <= (others => hd_red(0));
+        vga_green <= (others => hd_green(0));
+        vga_blue  <= (others => hd_blue(0));
+        vga_vsync <= hd_vsync;
+        vga_hsync <= hd_hsync;
+    end generate;
+
+    VGANotIncluded : if not IncludeVGA generate
+        vga_red   <= (others => '0');
+        vga_green <= (others => '0');
+        vga_blue  <= (others => '0');
+        vga_hsync <= '0';
+        vga_vsync <= '0';
+    end generate;
+
+--------------------------------------------------------
+-- SCART/RGB Video output
+--------------------------------------------------------
+
+    SRGBIncludedNuLA : if IncludeSRGB and IncludeVideoNuLA generate
+        rgb_red   <= r_out;
+        rgb_green <= g_out;
+        rgb_blue  <= b_out;
+        rgb_csync <= crtc_hsync_n and crtc_vsync_n;
+    end generate;
+
+    SRGBIncludedNoNuLA : if IncludeSRGB and not IncludeVideoNuLA generate
+        rgb_red   <= (others => r_out(0));
+        rgb_green <= (others => g_out(0));
+        rgb_blue  <= (others => b_out(0));
+        rgb_csync <= crtc_hsync_n and crtc_vsync_n;
+    end generate;
+
+    SRGBNotIncluded : if not IncludeSRGB generate
+        rgb_red   <= (others => '0');
+        rgb_green <= (others => '0');
+        rgb_blue  <= (others => '0');
+        rgb_csync <= '0';
+    end generate;
 
 -----------------------------------------------
 -- Master 128 additions

@@ -94,14 +94,28 @@ entity vidproc_orig is
         PIXDE_IN    :   in  std_logic;
         PIXCLKEN_IN :   in  std_logic;
 
+        -- Seperate teletext odd/even lines for scan doubler
+        R_IN_even   :   in  std_logic;
+        G_IN_even   :   in  std_logic;
+        B_IN_even   :   in  std_logic;
+        R_IN_odd    :   in  std_logic;
+        G_IN_odd    :   in  std_logic;
+        B_IN_odd    :   in  std_logic;
+
         -- Video out
         R           :   out std_logic_vector(0 downto 0);
         G           :   out std_logic_vector(0 downto 0);
         B           :   out std_logic_vector(0 downto 0);
-
         PIXCLKEN    :   out std_logic;
-        PIXDE       :   out std_logic
+        PIXDE       :   out std_logic;
 
+        -- Video out to scan doubler
+        R_even      :   out std_logic_vector(0 downto 0);
+        G_even      :   out std_logic_vector(0 downto 0);
+        B_even      :   out std_logic_vector(0 downto 0);
+        R_odd       :   out std_logic_vector(0 downto 0);
+        G_odd       :   out std_logic_vector(0 downto 0);
+        B_odd       :   out std_logic_vector(0 downto 0)
         );
 end entity;
 
@@ -122,7 +136,7 @@ architecture rtl of vidproc_orig is
     signal shiftreg         :   std_logic_vector(7 downto 0);
 -- Delayed display enable
     signal delayed_disen    :   std_logic;
-    signal delayed_disen_u  :   std_logic;   
+    signal delayed_disen_u  :   std_logic;
     signal delayed_disen_u2 :   std_logic;   -- extra pixel for shift register
     signal delayed_disen_u3 :   std_logic;   -- extra char cell for teletext
     signal delayed_disen_u4 :   std_logic;   -- another extra char cell for teletext
@@ -338,6 +352,14 @@ begin
     B(0) <= BB when r0_teletext = '0' else B_IN xor cursor_invert2;
     PIXDE <= delayed_disen_u2 when r0_teletext = '0' else PIXDE_IN;
     PIXCLKEN <= clken_pixel when r0_teletext = '0' else PIXCLKEN_IN;
+
+    R_even(0) <= RR when r0_teletext = '0' else R_IN_even xor cursor_invert2;
+    G_even(0) <= GG when r0_teletext = '0' else G_IN_even xor cursor_invert2;
+    B_even(0) <= BB when r0_teletext = '0' else B_IN_even xor cursor_invert2;
+
+    R_odd(0) <= RR when r0_teletext = '0' else R_IN_odd xor cursor_invert2;
+    G_odd(0) <= GG when r0_teletext = '0' else G_IN_odd xor cursor_invert2;
+    B_odd(0) <= BB when r0_teletext = '0' else B_IN_odd xor cursor_invert2;
 
     -- Indicate mode 7 teletext is selected
     TTXT <= r0_teletext;

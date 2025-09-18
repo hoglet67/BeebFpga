@@ -65,6 +65,9 @@ port (
     CURSOR    : out std_logic;
     LPSTB     : in  std_logic;
 
+    FIELD     : out std_logic;
+
+    -- Soon to be depricated
     VGA       : in  std_logic; -- Output Mode 7 as 624 line non-interlaced
 
     -- Memory interface
@@ -704,6 +707,7 @@ begin
 
     MA <= std_logic_vector(ma_i);
 
+    FIELD <= odd_field when interlaced_video = '1' else '0';
 
     -- ===========================================================================
     --

@@ -134,13 +134,28 @@ entity vidproc is
         PIXDE_IN    :   in  std_logic;
         PIXCLKEN_IN :   in  std_logic;
 
+        -- Seperate teletext odd/even lines for scan doubler
+        R_IN_even   :   in  std_logic;
+        G_IN_even   :   in  std_logic;
+        B_IN_even   :   in  std_logic;
+        R_IN_odd    :   in  std_logic;
+        G_IN_odd    :   in  std_logic;
+        B_IN_odd    :   in  std_logic;
+
         -- Video out
         R           :   out std_logic_vector(3 downto 0);
         G           :   out std_logic_vector(3 downto 0);
         B           :   out std_logic_vector(3 downto 0);
-
         PIXCLKEN    :   out std_logic;
-        PIXDE       :   out std_logic                       -- a per-pixel display enable not masked by nula scroll offsets, same delays as pixel data
+        PIXDE       :   out std_logic;                      -- a per-pixel display enable not masked by nula scroll offsets, same delays as pixel data
+
+        -- Video out to scan doubler
+        R_even      :   out std_logic_vector(3 downto 0);
+        G_even      :   out std_logic_vector(3 downto 0);
+        B_even      :   out std_logic_vector(3 downto 0);
+        R_odd       :   out std_logic_vector(3 downto 0);
+        G_odd       :   out std_logic_vector(3 downto 0);
+        B_odd       :   out std_logic_vector(3 downto 0)
         );
 end entity;
 
@@ -581,7 +596,7 @@ begin
             cursor_counter <= (others => '0');
         elsif rising_edge(PIXCLK) then
             if clken_load = '1' then
-                -- Display enable signal delayed by one character 
+                -- Display enable signal delayed by one character
                 if nula_left_blanking_size = "0000" then
                     disen1 <= disen0;
                 else
@@ -667,7 +682,7 @@ begin
                 green_val := (dot_val(3) and do_flash) xor not dot_val(1);
                 blue_val := (dot_val(3) and do_flash) xor not dot_val(2);
 
-                -- DOB: 2024-11-20 - experimentation suggests that top bit of ULA palette is 
+                -- DOB: 2024-11-20 - experimentation suggests that top bit of ULA palette is
                 -- is ignored in NULA look in modes other than where cols=20 and f=2Mhz or
                 -- cols=10 and f=1Mhz
                 if r0_pixel_rate = "01" and r0_crtc_2mhz = '1' then -- 20 cols fast = 16 colours
@@ -694,7 +709,7 @@ begin
 
     -- Infer a large mux to select the appropriate hor scroll delay tap
     phys_col_delay_out <= phys_col_delay_reg(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
-    
+
     phys_col_final <= phys_col_delay_out            when r0_teletext = '0' else
                       '0' & B_IN   & G_IN   & R_IN  when VGA         = '0' else
                       '0' & ttxt_B & ttxt_G & ttxt_R;
@@ -748,6 +763,17 @@ begin
     R <= nula_RGB(11 downto 8);
     G <= nula_RGB(7 downto 4);
     B <= nula_RGB(3 downto 0);
+
+    -- TODO: this is a placeholder so something is visible
+    --       we still need to somehow have the nula process the seperate odd/even pixels
+
+    R_even <= nula_RGB(11 downto 8) when r0_teletext = '0' else (others => R_IN_even xor cursor_invert);
+    G_even <= nula_RGB( 7 downto 4) when r0_teletext = '0' else (others => G_IN_even xor cursor_invert);
+    B_even <= nula_RGB( 3 downto 0) when r0_teletext = '0' else (others => B_IN_even xor cursor_invert);
+
+    R_odd  <= nula_RGB(11 downto 8) when r0_teletext = '0' else (others => R_IN_odd xor cursor_invert);
+    G_odd  <= nula_RGB( 7 downto 4) when r0_teletext = '0' else (others => G_IN_odd xor cursor_invert);
+    B_odd  <= nula_RGB( 3 downto 0) when r0_teletext = '0' else (others => B_IN_odd xor cursor_invert);
 
     -- Indicate mode 7 teletext is selected
     TTXT <= r0_teletext;

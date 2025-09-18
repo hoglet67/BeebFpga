@@ -31,8 +31,9 @@
         <File path="../../../common/music5000/spdif_serializer.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/rtc.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/saa5050.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../common/scandoubler/mist_scandoubler.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../../common/scandoubler/retimer.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/saa5050_rom.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/saa5050_rom_uninitialized.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/scandoubler/linedelay.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/scandoubler/rgb2vga_dpram.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/scandoubler/rgb2vga_scandoubler.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/SID/sid_6581.vhd" type="file.vhdl" enable="1"/>
@@ -66,7 +67,6 @@
         <File path="../src/mem_tang_20k.vhd" type="file.vhdl" enable="1"/>
         <File path="../../src/music5000_ram_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="../../src/R65Cx2.vhd" type="file.vhdl" enable="1"/>
-        <File path="../../src/saa5050_rom_dual_port.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/sdramctl.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/WatchEvents.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/fifo_sc_hs/WatchEventsCore.vhd" type="file.vhdl" enable="1"/>

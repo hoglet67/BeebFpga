@@ -53,6 +53,9 @@ use work.version_config_pack.all;
 
 entity bbc_micro_tang20k is
     generic (
+        IncludeHDMI            : boolean := true;
+        IncludeSRGB            : boolean := G_CONFIG_VGA;
+        IncludeVGA             : boolean := G_CONFIG_VGA;
         IncludeMaster          : boolean := G_CONFIG_MASTER; -- if both included, the CPU is the AlanD 65C02
         IncludeBeeb            : boolean := G_CONFIG_BEEB;   -- and Config(7) can toggle between the ROM images
         IncludeAMXMouse        : boolean := true;
@@ -64,7 +67,6 @@ entity bbc_micro_tang20k is
         IncludeICEDebugger     : boolean := G_CONFIG_DEBUGGER;
         IncludeVideoNuLA       : boolean := true;
         IncludeTrace           : boolean := true;
-        IncludeHDMI            : boolean := true;
         IncludeBootStrap       : boolean := true;
         IncludeMonitor         : boolean := false; -- So we see the normal status LEDs
         IncludeCoPro6502       : boolean := true;
@@ -439,24 +441,31 @@ architecture rtl of bbc_micro_tang20k is
     signal ext_nOE         : std_logic;
 
     signal keyb_dip        : std_logic_vector(7 downto 0);
-    signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_mode       : std_logic := '0';
     signal copro_mode      : std_logic := '0';
     signal copro_ext       : std_logic := '0';
     signal uart_debugger   : std_logic := '0';
+    signal vga_mode        : std_logic := '0';
 
     signal caps_led        : std_logic;
     signal shift_led       : std_logic;
     signal clip_led        : std_logic;
 
-    signal i_VGA_R         : std_logic_vector(3 downto 0);
-    signal i_VGA_G         : std_logic_vector(3 downto 0);
-    signal i_VGA_B         : std_logic_vector(3 downto 0);
-    signal vga_r_int       : std_logic;
-    signal vga_g_int       : std_logic;
-    signal vga_b_int       : std_logic;
-    signal vga_hs_int      : std_logic;
-    signal vga_vs_int      : std_logic;
+    -- Analog video
+    signal rgb_red         : std_logic_vector(3 downto 0);
+    signal rgb_green       : std_logic_vector(3 downto 0);
+    signal rgb_blue        : std_logic_vector(3 downto 0);
+    signal rgb_csync       : std_logic;
+    signal vga_red         : std_logic_vector(3 downto 0);
+    signal vga_green       : std_logic_vector(3 downto 0);
+    signal vga_blue        : std_logic_vector(3 downto 0);
+    signal vga_hsync       : std_logic;
+    signal vga_vsync       : std_logic;
+    signal dac_red         : std_logic_vector(3 downto 0);
+    signal dac_green       : std_logic_vector(3 downto 0);
+    signal dac_blue        : std_logic_vector(3 downto 0);
+    signal dac_hsync       : std_logic;
+    signal dac_vsync       : std_logic;
 
     -- HDMI
     signal hdmi_aspect     : std_logic_vector(1 downto 0) := "11";
@@ -544,6 +553,8 @@ begin
             IncludeCoProExt        => true, -- we need phi2 all the time
             IncludeVideoNuLA       => IncludeVideoNuLA,
             IncludeTrace           => IncludeTrace,
+            IncludeSRGB            => IncludeSRGB,
+            IncludeVGA             => IncludeVGA,
             IncludeHDMI            => IncludeHDMI,
             IncludeAnalogJS        => IncludeAnalogJS,
             IncludeSerial          => IncludeSerial,
@@ -553,9 +564,7 @@ begin
         )
         port map (
             clock_27        => clock_27,
-            clock_32        => '0',                 -- Unused now in the core
             clock_48        => clock_48,
-            clock_96        => clock_96,
             clock_avr       => clock_24,
             hard_reset_n    => hard_reset_n,
             powerup_reset_n => powerup_reset_n,
@@ -563,11 +572,20 @@ begin
             ps2_kbd_data    => ps2_data,
             ps2_mse_clk     => ps2_mouse_clk,
             ps2_mse_data    => ps2_mouse_data,
-            video_red       => i_VGA_R,
-            video_green     => i_VGA_G,
-            video_blue      => i_VGA_B,
-            video_hsync     => vga_hs_int,
-            video_vsync     => vga_vs_int,
+
+            -- SRGB Video
+            rgb_red         => rgb_red,
+            rgb_green       => rgb_green,
+            rgb_blue        => rgb_blue,
+            rgb_csync       => rgb_csync,
+
+            -- VGA Video
+            vga_red         => vga_red,
+            vga_green       => vga_green,
+            vga_blue        => vga_blue,
+            vga_hsync       => vga_hsync,
+            vga_vsync       => vga_vsync,
+
             audio_l         => open,               -- 16 bit legacy audio
             audio_r         => open,
             audio_src       => audio_src,
@@ -609,7 +627,6 @@ begin
             ext_keyb_pa7    => '0',
             config_key      => config_key,
             config          => config,
-            vid_mode        => vid_mode,
             joystick1       => joystick1,
             joystick2       => joystick2,
             adc_ch0         => adc_ch0,
@@ -657,7 +674,6 @@ begin
             tmds_r          => tmds_r,
             tmds_g          => tmds_g,
             tmds_b          => tmds_b,
-            hsync_ref       => open,
             trace_data      => trace_data,
             trace_r_nw      => trace_r_nw,
             trace_sync      => trace_sync,
@@ -666,7 +682,6 @@ begin
             test            => test
         );
 
-    vid_mode       <= "0001" when IncludeHDMI else "0000";
     keyb_dip       <= "00000000";
     vid_debug      <= '0';
 
@@ -953,6 +968,13 @@ begin
             if IncludeICEDebugger and IncludeSerial then
                 if Config(9) = '1' then
                     uart_debugger <= not uart_debugger;
+                end if;
+            end if;
+
+            -- Config(0) switches between VGA Mode and sRGB mode
+            if IncludeVGA and IncludeSRGB then
+                if Config(0) = '1' then
+                    vga_mode <= not vga_mode;
                 end if;
             end if;
 
@@ -1353,13 +1375,37 @@ begin
             end if;
         end process;
     end generate;
+
 --------------------------------------------------------
--- VGA outputs
+-- VGA / SRGB output
 --------------------------------------------------------
 
     -- Note: It's a build error if both IncludeVGADAC and IncludeCoProExt are both set
 
+    -- Mux to select between SRGB and VGA if both are included
+
+    dac_red   <= vga_red   when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 rgb_red   when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 (others => '0');
+    dac_green <= vga_green when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 rgb_green when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 (others => '0');
+    dac_blue  <= vga_blue  when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 rgb_blue  when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 (others => '0');
+    dac_hsync <= vga_hsync when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 rgb_csync when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 '0';
+    dac_vsync <= vga_vsync when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 '1'       when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 '0';
+
+    -- Note: It's a build error if both IncludeVGADAC and IncludeCoProExt are both set
+
     vga_1bit_dac : if IncludeVGADAC generate
+        signal vga_r_int       : std_logic;
+        signal vga_g_int       : std_logic;
+        signal vga_b_int       : std_logic;
     begin
 
         e_vidr:entity work.dac1_oser
@@ -1368,7 +1414,7 @@ begin
                 clk_sample_i        => clock_27,
                 clk_dac_px_i        => clock_81,
                 clk_dac_i           => clock_405,
-                sample_i            => unsigned(i_VGA_r),
+                sample_i            => unsigned(dac_red),
                 bitstream_o         => vga_r_int
                 );
         e_vidg:entity work.dac1_oser
@@ -1377,7 +1423,7 @@ begin
                 clk_sample_i        => clock_27,
                 clk_dac_px_i        => clock_81,
                 clk_dac_i           => clock_405,
-                sample_i            => unsigned(i_VGA_g),
+                sample_i            => unsigned(dac_green),
                 bitstream_o         => vga_g_int
                 );
         e_vidb:entity work.dac1_oser
@@ -1386,7 +1432,7 @@ begin
                 clk_sample_i        => clock_27,
                 clk_dac_px_i        => clock_81,
                 clk_dac_i           => clock_405,
-                sample_i            => unsigned(i_VGA_b),
+                sample_i            => unsigned(dac_blue),
                 bitstream_o         => vga_b_int
                 );
 
@@ -1414,8 +1460,8 @@ begin
                 OB => vga_b_n
              );
 
-        vga_hs <= vga_hs_int;
-        vga_vs <= vga_vs_int;
+        vga_hs <= dac_hsync;
+        vga_vs <= dac_vsync;
 
     end generate;
 
@@ -1426,30 +1472,29 @@ begin
 
         OBUFDS_r : ELVDS_OBUF
             port map (
-                I  => i_VGA_R(i_VGA_R'high),
+                I  => dac_red(dac_red'high),
                 O  => vga_r,
                 OB => vga_r_n
              );
 
         OBUFDS_g : ELVDS_OBUF
             port map (
-                I  => i_VGA_G(i_VGA_G'high),
+                I  => dac_green(dac_green'high),
                 O  => vga_g,
                 OB => vga_g_n
              );
 
         OBUFDS_b : ELVDS_OBUF
             port map (
-                I  => i_VGA_B(i_VGA_B'high),
+                I  => dac_blue(dac_blue'high),
                 O  => vga_b,
                 OB => vga_b_n
                 );
 
-        vga_hs <= vga_hs_int;
-        vga_vs <= vga_vs_int;
+        vga_hs <= dac_hsync;
+        vga_vs <= dac_vsync;
 
     end generate;
-
 
 --------------------------------------------------------
 -- External tube connections

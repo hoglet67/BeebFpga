@@ -173,7 +173,21 @@ architecture rtl of mem_tang_20k is
     constant DBG_DONE : std_logic_vector(5 downto 0) := "011111";
     signal   state  : std_logic_vector(5 downto 0) := DBG_00;
 
+    signal ctl_reset_i  : std_logic;
+    signal ctl_cyc_i    : std_logic;
+    signal ctl_we_i     : std_logic;
+
 begin
+
+    -- Synchronise SD Ram control inputs to 96MHz clock
+    process(CLK_96)
+    begin
+        if rising_edge(CLK_96) then
+            ctl_reset_i  <= not rst_n;
+            ctl_cyc_i    <= i_sdram_cyc;
+            ctl_we_i     <= i_sdram_we;
+        end if;
+    end process;
 
     sdram_ctl : entity work.sdramctl
     generic map (
@@ -209,10 +223,10 @@ begin
         sdram_DQM_o  => O_sdram_dqm,
 
         ctl_rfsh_i   => '0',
-        ctl_reset_i  => not rst_n,
+        ctl_reset_i  => ctl_reset_i,
         ctl_stall_o  => i_sdram_busy,
-        ctl_cyc_i    => i_sdram_cyc,
-        ctl_we_i     => i_sdram_we,
+        ctl_cyc_i    => ctl_cyc_i,
+        ctl_we_i     => ctl_we_i,
         ctl_A_i      => i_sdram_addr,
         ctl_D_wr_i   => i_sdram_din,
         ctl_D_rd_o   => i_sdram_dout,

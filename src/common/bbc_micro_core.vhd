@@ -2813,7 +2813,7 @@ begin
                 if hsync1 = '1' and hd_hsync = '0' then
                     hcnt <= (others => '0');
                     vsync1 <= hd_vsync;
-                    if vsync1 = '0' and hd_vsync = '1' then
+                    if vsync1 = '1' and hd_vsync = '0' then
                         vcnt <= (others => '0');
                     else
                         vcnt <= vcnt + 1;

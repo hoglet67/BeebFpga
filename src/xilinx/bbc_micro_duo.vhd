@@ -54,6 +54,8 @@ use unisim.vcomponents.all;
 -- Generic top-level entity for Papilio Duo board
 entity bbc_micro_duo is
     generic (
+        IncludeSRGB        : boolean := true;
+        IncludeVGA         : boolean := true;
         IncludeAMXMouse    : boolean := false;  -- Also must enable pullup on accel_io(8,9) in .ucf file
         IncludeSPISD       : boolean := true;
         IncludeSID         : boolean := false;
@@ -61,7 +63,7 @@ entity bbc_micro_duo is
         IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;
         IncludeCoProExt    : boolean := false;   -- Also helps to enable pulldown on D0/accel_io(8) in .ucf file
-        IncludeRGBtoHDMI   : boolean := true;
+        IncludeRGBtoHDMI   : boolean := false;
         IncludeVideoNuLA   : boolean := false;
         IncludeBootstrap   : boolean := true;
         IncludeMaster      : boolean := false;
@@ -132,19 +134,15 @@ architecture rtl of bbc_micro_duo is
     signal clkfb           : std_logic;
     signal clkfb_buf       : std_logic;
     signal fx_clk_27       : std_logic;
-    signal fx_clk_32       : std_logic;
 
     signal clock_27        : std_logic;
-    signal clock_32        : std_logic;
     signal clock_48        : std_logic;
-    signal clock_96        : std_logic;
     signal clock_avr       : std_logic;
 
     attribute S : string;
 --  attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
-    attribute S of clock_32  : signal is "yes";
-    attribute S of clock_96  : signal is "yes";
+    attribute S of clock_48  : signal is "yes";
 
     signal dac_l_in        : std_logic_vector(9 downto 0);
     signal dac_r_in        : std_logic_vector(9 downto 0);
@@ -165,7 +163,6 @@ architecture rtl of bbc_micro_duo is
     signal SRAM_Dout       : std_logic_vector(7 downto 0);
     signal SRAM_nWE_int    : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0);
-    signal vid_mode        : std_logic_vector(3 downto 0);
     signal m128_mode       : std_logic;
     signal copro_mode      : std_logic;
     signal caps_led        : std_logic;
@@ -179,20 +176,30 @@ architecture rtl of bbc_micro_duo is
     signal ext_tube_di     : std_logic_vector(7 downto 0);
     signal ext_tube_do     : std_logic_vector(7 downto 0);
 
-    signal ps2_mse_clk    : std_logic;
-    signal ps2_mse_clk_o  : std_logic;
-    signal ps2_mse_data   : std_logic;
-    signal ps2_mse_data_o : std_logic;
-    signal LED1           : std_logic;
-    signal LED2           : std_logic;
-    signal JOYSTICK2      : std_logic_vector(4 downto 0);
-    signal ROM_D          : std_logic_vector(7 downto 0);
+    signal ps2_mse_clk     : std_logic;
+    signal ps2_mse_clk_o   : std_logic;
+    signal ps2_mse_data    : std_logic;
+    signal ps2_mse_data_o  : std_logic;
+    signal LED1            : std_logic;
+    signal LED2            : std_logic;
+    signal JOYSTICK2       : std_logic_vector(4 downto 0);
+    signal ROM_D           : std_logic_vector(7 downto 0);
 
-    signal red_int        : std_logic_vector(3 downto 0);
-    signal green_int      : std_logic_vector(3 downto 0);
-    signal blue_int       : std_logic_vector(3 downto 0);
-    signal hsync_int      : std_logic;
-    signal vsync_int      : std_logic;
+    signal vga_mode        : std_logic;
+    signal rgb_red         : std_logic_vector(3 downto 0);
+    signal rgb_green       : std_logic_vector(3 downto 0);
+    signal rgb_blue        : std_logic_vector(3 downto 0);
+    signal rgb_csync       : std_logic;
+    signal vga_red         : std_logic_vector(3 downto 0);
+    signal vga_green       : std_logic_vector(3 downto 0);
+    signal vga_blue        : std_logic_vector(3 downto 0);
+    signal vga_hsync       : std_logic;
+    signal vga_vsync       : std_logic;
+    signal red_int         : std_logic_vector(3 downto 0);
+    signal green_int       : std_logic_vector(3 downto 0);
+    signal blue_int        : std_logic_vector(3 downto 0);
+    signal hsync_int       : std_logic;
+    signal vsync_int       : std_logic;
 
 -----------------------------------------------
 -- Bootstrap ROM Image from SPI FLASH into SRAM
@@ -247,9 +254,10 @@ begin
     copro_mode <= DIP(1);
     keyb_dip       <= "00000000";
     m128_mode      <= '1' when IncludeMaster else '0';
-    vid_mode       <= "0000" when DIP(0) = '0' else "0011";
     bbc_micro : entity work.bbc_micro_core
     generic map (
+        IncludeSRGB        => IncludeSRGB,
+        IncludeVGA         => IncludeVGA,
         IncludeAMXMouse    => IncludeAMXMouse,
         IncludeSPISD       => IncludeSPISD,
         IncludeSID         => IncludeSID,
@@ -265,9 +273,7 @@ begin
     )
     port map (
         clock_27       => clock_27,
-        clock_32       => clock_32,
         clock_48       => clock_48,
-        clock_96       => clock_96,
         clock_avr      => clock_avr,
         hard_reset_n   => hard_reset_n,
         ps2_kbd_clk    => ps2_kbd_clk,
@@ -276,11 +282,15 @@ begin
         ps2_mse_clk_o  => ps2_mse_clk_o,
         ps2_mse_data   => ps2_mse_data,
         ps2_mse_data_o => ps2_mse_data_o,
-        video_red      => red_int,
-        video_green    => green_int,
-        video_blue     => blue_int,
-        video_vsync    => vsync_int,
-        video_hsync    => hsync_int,
+        rgb_red        => rgb_red,
+        rgb_green      => rgb_green,
+        rgb_blue       => rgb_blue,
+        rgb_csync      => rgb_csync,
+        vga_red        => vga_red,
+        vga_green      => vga_green,
+        vga_blue       => vga_blue,
+        vga_vsync      => vga_vsync,
+        vga_hsync      => vga_hsync,
         audio_l        => audio_l,
         audio_r        => audio_r,
         ext_nOE        => RAM_nOE,
@@ -296,7 +306,6 @@ begin
         caps_led       => caps_led,
         shift_led      => shift_led,
         keyb_dip       => keyb_dip,
-        vid_mode       => vid_mode,
         joystick1      => JOYSTICK1,
         joystick2      => JOYSTICK2,
         avr_reset      => not hard_reset_n,
@@ -330,7 +339,26 @@ begin
         ext_keyb_rst_n => '1',
         ext_keyb_ca2   => '1',
         ext_keyb_pa7   => '1'
-    );
+        );
+
+    vga_mode <= DIP(0);
+
+    red_int   <= vga_red   when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 rgb_red   when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 (others => '0');
+    green_int <= vga_green when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 rgb_green when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 (others => '0');
+    blue_int  <= vga_blue  when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 rgb_blue  when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 (others => '0');
+    hsync_int <= vga_hsync when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 rgb_csync when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 '0';
+    vsync_int <= vga_vsync when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+                 '1'       when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+                 '0';
+
     LED1  <= caps_led;
     LED2  <= shift_led;
     red   <= red_int;
@@ -351,13 +379,13 @@ begin
             DIVCLK_DIVIDE        => 1,
             CLKFBOUT_MULT        => 15,
             CLKFBOUT_PHASE       => 0.000,
-            CLKOUT0_DIVIDE       => 5,         -- 32 * (15/5) = 96MHz
+            CLKOUT0_DIVIDE       => 5,         -- 32 * (15/5) = 96MHz -- now unused
             CLKOUT0_PHASE        => 0.000,
             CLKOUT0_DUTY_CYCLE   => 0.500,
             CLKOUT1_DIVIDE       => 10,        -- 32 * (15/10) = 48MHz
             CLKOUT1_PHASE        => 0.000,
             CLKOUT1_DUTY_CYCLE   => 0.500,
-            CLKOUT2_DIVIDE       => 15,        -- 32 * (15/15) = 32MHz
+            CLKOUT2_DIVIDE       => 15,        -- 32 * (15/15) = 32MHz -- now unused
             CLKOUT2_PHASE        => 0.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
             CLKOUT3_DIVIDE       => 20,        -- 32 * (15/20) = 24MHz
@@ -388,7 +416,7 @@ begin
     inst_clk0_buf : BUFG
         port map (
             I => clk0,
-            O => clock_96
+            O => open
             );
 
     inst_clk1_buf : BUFG
@@ -400,7 +428,7 @@ begin
     inst_clk2_buf : BUFG
         port map (
             I => clk2,
-            O => clock_32
+            O => open
             );
 
     inst_clk3_buf : BUFG
@@ -409,23 +437,22 @@ begin
             O => clock_avr
             );
 
-    -- 27MHz for the alternative scan doubler
+    -- 27MHz for the VGA video
 
     inst_DCM : DCM
         generic map (
             CLKFX_MULTIPLY    => 27,
             CLKFX_DIVIDE      => 32,
-            CLK_FEEDBACK      => "1X"
+            CLK_FEEDBACK      => "NONE"
             )
         port map (
             CLKIN             => clk_32M00,
-            CLKFB             => fx_clk_32,
+            CLKFB             => '0',
             RST               => '0',
             DSSEN             => '0',
             PSINCDEC          => '0',
             PSEN              => '0',
             PSCLK             => '0',
-            CLK2X             => fx_clk_32,
             CLKFX             => fx_clk_27
             );
 

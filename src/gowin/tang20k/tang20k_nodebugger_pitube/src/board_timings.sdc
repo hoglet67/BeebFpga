@@ -1,11 +1,12 @@
-create_clock -name sys_clk -period 37.037 -waveform {0 18.518} [get_ports {sys_clk}] -add
+// Create clock definitions for each of the external clocks
+create_clock -name   sys_clk -period 37.037 -waveform {0 18.518} [get_ports {  sys_clk}] -add
 create_clock -name audio_clk -period 40.690 -waveform {0 20.345} [get_ports {audio_clk}] -add
+create_clock -name sdram_clk -period 10.416 -waveform {0  5.208} [get_ports {sdram_clk}] -add
 
 // Create clock definitions for each of the derived clocks
-create_generated_clock -name clock_27 -source [get_ports {sys_clk}] -master_clock sys_clk -divide_by 27 -multiply_by 27 [get_nets {clock_27}]
-create_generated_clock -name clock_48 -source [get_ports {sys_clk}] -master_clock sys_clk -divide_by 27 -multiply_by 48 [get_nets {clock_48}]
-create_generated_clock -name clock_96 -source [get_ports {sys_clk}] -master_clock sys_clk -divide_by 27 -multiply_by 96 [get_nets {clock_96}]
-create_generated_clock -name spdif_clk -source [get_ports {audio_clk}] -master_clock audio_clk -divide_by 4 -multiply_by 1 [get_nets {spdif_clk}]
+create_generated_clock -name clock_27  -source [get_ports {  sys_clk}] -master_clock   sys_clk -divide_by 27 -multiply_by 27 [get_nets { clock_27}]
+create_generated_clock -name clock_48  -source [get_ports {sdram_clk}] -master_clock sdram_clk -divide_by 96 -multiply_by 48 [get_nets { clock_48}]
+create_generated_clock -name spdif_clk -source [get_ports {audio_clk}] -master_clock audio_clk -divide_by  4 -multiply_by  1 [get_nets {spdif_clk}]
 
 // Ignore any timing paths between the main and video clocks
 set_clock_groups -asynchronous -group [get_clocks {clock_48}] -group [get_clocks {clock_27}]

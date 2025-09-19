@@ -6,6 +6,9 @@ IO_PORT "sys_clk" IO_TYPE=LVCMOS33;
 IO_LOC  "audio_clk" 11; // MS5351 CLK 1 whuch must be set to 24.576MHz
 IO_PORT "audio_clk" IO_TYPE=LVCMOS33;
 
+IO_LOC  "sdram_clk" 13; // MS5351 CLK 2 whuch must be set to 96.000MHz
+IO_PORT "sdram_clk" IO_TYPE=LVCMOS33;
+
 // Button 1
 IO_LOC  "btn1" 88;
 IO_PORT "btn1" PULL_MODE=DOWN IO_TYPE=LVCMOS33;

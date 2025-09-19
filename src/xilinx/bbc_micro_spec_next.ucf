@@ -9,10 +9,6 @@ TIMESPEC TS_clk_period_27 = PERIOD "clk_period_grp_27" 37.04ns HIGH;
 NET "clock_48" TNM_NET = clk_period_grp_48;
 TIMESPEC TS_clk_period_48 = PERIOD "clk_period_grp_48" 20.83ns HIGH;
 
-# 96MHz VGA clock
-NET "clock_96" TNM_NET = clk_period_grp_96;
-TIMESPEC TS_clk_period_96 = PERIOD "clk_period_grp_96" 10.41ns HIGH;
-
 # 24MHz AVR clock
 NET "clock_avr" TNM_NET = clk_period_grp_avr;
 TIMESPEC TS_clk_period_avr = PERIOD "clk_period_grp_avr" 41.6ns HIGH;

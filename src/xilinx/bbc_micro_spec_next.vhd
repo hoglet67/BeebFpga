@@ -1,6 +1,6 @@
 -- BBC Master / BBC B for the Spectrum Next
 --
--- Copright (c) 2022 David Banks
+-- Copright (c) 2025 David Banks
 --
 -- Based on previous work by Mike Stirling
 --
@@ -40,7 +40,7 @@
 --
 -- Spectrum Next top-level
 --
--- (c) 2022 David Banks
+-- (c) 2025 David Banks
 -- (C) 2011 Mike Stirling
 
 library ieee;
@@ -53,6 +53,9 @@ use UNISIM.Vcomponents.all;
 -- Generic top-level entity for Spectrum Next board
 entity bbc_micro_spec_next is
     generic (
+        IncludeHDMI            : boolean := true;
+        IncludeSRGB            : boolean := true;
+        IncludeVGA             : boolean := true;
         IncludeAMXMouse        : boolean := true;
         IncludeSPISD           : boolean := true;
         IncludeSID             : boolean := true;
@@ -168,9 +171,7 @@ architecture rtl of bbc_micro_spec_next is
 
     signal clock_16        : std_logic; -- for ICAP (flashreboot) only
     signal clock_27        : std_logic;
-    signal clock_32        : std_logic;
     signal clock_48        : std_logic;
-    signal clock_96        : std_logic;
     signal clock_135       : std_logic;
     signal clock_135_n     : std_logic;
     signal clock_avr       : std_logic;
@@ -178,8 +179,6 @@ architecture rtl of bbc_micro_spec_next is
     attribute S : string;
 --  attribute S of clock_avr : signal is "yes";
     attribute S of clock_27  : signal is "yes";
-    attribute S of clock_32  : signal is "yes";
-    attribute S of clock_96  : signal is "yes";
 
     signal dac_l_in        : std_logic_vector(9 downto 0);
     signal dac_r_in        : std_logic_vector(9 downto 0);
@@ -196,7 +195,6 @@ architecture rtl of bbc_micro_spec_next is
     signal RAM_nOE         : std_logic;
     signal RAM_nCS         : std_logic;
     signal keyb_dip        : std_logic_vector(7 downto 0) := x"00";
-    signal vid_mode        : std_logic_vector(3 downto 0) := "0001";
     signal reconfig_ctr    : std_logic_vector(23 downto 0);
     signal reconfig        : std_logic := '0';
     signal m128_mode       : std_logic;
@@ -216,6 +214,17 @@ architecture rtl of bbc_micro_spec_next is
     signal ext_tube_di     : std_logic_vector(7 downto 0);
     signal ext_tube_do     : std_logic_vector(7 downto 0);
     signal ext_tube_enable : std_logic := '0';
+
+    signal vga_mode        : std_logic := '0';
+    signal rgb_red         : std_logic_vector(3 downto 0);
+    signal rgb_green       : std_logic_vector(3 downto 0);
+    signal rgb_blue        : std_logic_vector(3 downto 0);
+    signal rgb_csync       : std_logic;
+    signal vga_red         : std_logic_vector(3 downto 0);
+    signal vga_green       : std_logic_vector(3 downto 0);
+    signal vga_blue        : std_logic_vector(3 downto 0);
+    signal vga_hsync       : std_logic;
+    signal vga_vsync       : std_logic;
 
     signal hdmi_aspect     : std_logic_vector(1 downto 0) := "00";
     signal hdmi_audio_en   : std_logic := '1';
@@ -272,13 +281,20 @@ begin
         IncludeSID             => IncludeSID,
         IncludeMusic5000       => IncludeMusic5000,
         IncludeMusic5000Filter => IncludeMusic5000Filter,
+        IncludeMusic5000SPDIF  => false,
         IncludeMixerResampler  => IncludeMixerResampler,
+        IncludePSGSPDIF        => false,
         IncludeICEDebugger     => IncludeICEDebugger,
         IncludeCoPro6502       => IncludeCoPro6502,
         IncludeCoProSPI        => false,
         IncludeCoProExt        => IncludeCoProExt,
         IncludeVideoNuLA       => IncludeVideoNuLA,
-        IncludeHDMI            => true,
+        IncludeSRGB            => IncludeSRGB,
+        IncludeVGA             => IncludeVGA,
+        IncludeHDMI            => IncludeHDMI,
+        IncludeTrace           => false,
+        IncludeAnalogJS        => false,
+        IncludeSerial          => false,
         UseOrigKeyboard        => true,
         UseT65Core             => not IncludeMaster,  -- select the 6502 for the Beeb
         UseAlanDCore           => IncludeMaster,      -- select the 65C02 for the Master
@@ -286,9 +302,7 @@ begin
         )
     port map (
         clock_27       => clock_27,
-        clock_32       => clock_32,
         clock_48       => clock_48,
-        clock_96       => clock_96,
         clock_avr      => clock_avr,
         hard_reset_n   => hard_reset_n,
         ps2_kbd_clk    => ps2_clk_io,
@@ -296,11 +310,15 @@ begin
         ps2_mse_clk    => ps2_pin6_io,
         ps2_mse_data   => ps2_pin2_io,
         ps2_swap       => ps2_swap,
-        video_red      => red,
-        video_green    => green,
-        video_blue     => blue,
-        video_vsync    => vsync_o,
-        video_hsync    => hsync_o,
+        rgb_red        => rgb_red,
+        rgb_green      => rgb_green,
+        rgb_blue       => rgb_blue,
+        rgb_csync      => rgb_csync,
+        vga_red        => vga_red,
+        vga_green      => vga_green,
+        vga_blue       => vga_blue,
+        vga_vsync      => vga_vsync,
+        vga_hsync      => vga_hsync,
         audio_l        => audio_l,
         audio_r        => audio_r,
         ext_nOE        => RAM_nOE,
@@ -316,7 +334,6 @@ begin
         caps_led       => open,
         shift_led      => open,
         keyb_dip       => keyb_dip,
-        vid_mode       => vid_mode,
         joystick1      => joystick1,
         joystick2      => joystick2,
         avr_reset      => not hard_reset_n,
@@ -401,7 +418,26 @@ begin
         end if;
     end process;
 
-    -- VGA RGB outputs
+--------------------------------------------------------
+-- VGA/SRGB Output
+--------------------------------------------------------
+
+    red     <= vga_red   when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+               rgb_red   when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+               (others => '0');
+    green   <= vga_green when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+               rgb_green when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+               (others => '0');
+    blue    <= vga_blue  when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+               rgb_blue  when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+               (others => '0');
+    hsync_o <= vga_hsync when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+               rgb_csync when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+               '0';
+    vsync_o <= vga_vsync when IncludeVGA  and (vga_mode = '1' or not IncludeSRGB) else
+               '1'       when IncludeSRGB and (vga_mode = '0' or not IncludeVGA)  else
+               '0';
+
     rgb_r_o <= red(3 downto 1);
     rgb_g_o <= green(3 downto 1);
     rgb_b_o <= blue(3 downto 1);
@@ -428,7 +464,7 @@ begin
             );
 
 
-    -- 100MHz to 96/48/32 MHz
+    -- 100MHz to 48/24/16 MHz
 
     inst_PLL1 : PLL_BASE
         generic map (
@@ -438,13 +474,13 @@ begin
             DIVCLK_DIVIDE        => 5,
             CLKFBOUT_MULT        => 24,
             CLKFBOUT_PHASE       => 0.000,
-            CLKOUT0_DIVIDE       => 5,         -- 100 * (24/5/5) = 96MHz
+            CLKOUT0_DIVIDE       => 5,         -- 100 * (24/5/5) = 96MHz -- unused
             CLKOUT0_PHASE        => 0.000,
             CLKOUT0_DUTY_CYCLE   => 0.500,
             CLKOUT1_DIVIDE       => 10,        -- 100 * (24/5/10) = 48MHz
             CLKOUT1_PHASE        => 0.000,
             CLKOUT1_DUTY_CYCLE   => 0.500,
-            CLKOUT2_DIVIDE       => 15,        -- 100 * (24/5/15) = 32MHz
+            CLKOUT2_DIVIDE       => 15,        -- 100 * (24/5/15) = 32MHz -- unused
             CLKOUT2_PHASE        => 0.000,
             CLKOUT2_DUTY_CYCLE   => 0.500,
             CLKOUT3_DIVIDE       => 20,        -- 100 * (24/5/20) = 24MHz
@@ -479,7 +515,7 @@ begin
     inst_clk0_buf : BUFG
         port map (
             I => clk0,
-            O => clock_96
+            O => open
             );
 
     inst_clk1_buf : BUFG
@@ -491,7 +527,7 @@ begin
     inst_clk2_buf : BUFG
         port map (
             I => clk2,
-            O => clock_32
+            O => open
             );
 
     inst_clk3_buf : BUFG
@@ -623,6 +659,8 @@ begin
             end if;
             powerup_reset_n <= reset_counter(reset_counter'high);
 
+            -- TODO: Normalize with TangNano
+
             -- Configuration toggles
             -- Yellow 1 - Video: SCART sRGB: Pixel Clock 16MHz/12MHz
             -- Yellow 2 - Video:   HDMI/VGA: Pixel Clock       27MHz
@@ -636,13 +674,13 @@ begin
             -- Yellow 0 - Video debug on/off
             yellow_config <= yellow_config_membrane or yellow_config_ps2;
             if yellow_config(1) = '1' then
-                vid_mode      <= "0000";
-            elsif yellow_config(2) = '1' then
-                vid_mode      <= "0001";
-            elsif yellow_config(3) = '1' then
-                vid_mode      <= "0010";
-            elsif yellow_config(4) = '1' then
-                vid_mode      <= "0011";
+                vga_mode      <= not vga_mode;
+            -- elsif yellow_config(2) = '1' then
+            --     vid_mode      <= "0001";
+            -- elsif yellow_config(3) = '1' then
+            --     vid_mode      <= "0010";
+            -- elsif yellow_config(4) = '1' then
+            --     vid_mode      <= "0011";
             elsif yellow_config(5) = '1' then
                 hdmi_audio_en <= not hdmi_audio_en;
             elsif yellow_config(6) = '1' then
@@ -668,7 +706,7 @@ begin
             if config_mode = '1' and ('0' & RAM_A(18 downto 4)) = x"62FF" and RAM_nCS = '0' and RAM_nWE = '0' then
                 case RAM_A(3 downto 0) is
 					when x"0" =>
-                        vid_mode <= RAM_Din(3 downto 0);
+                        vga_mode <= RAM_Din(0) or RAM_Din(1);
 					when x"1" =>
                         hdmi_audio_en <= RAM_Din(0);
 					when x"2" =>

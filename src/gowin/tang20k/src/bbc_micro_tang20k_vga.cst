@@ -1,10 +1,14 @@
 // System Clock (27MHz)
 // IO_LOC  "sys_clk" 4;  // 27MHZ Crystal Oscillator
-IO_LOC  "sys_clk" 10; // MS5351 CLK 0 whuch must be set to 27MHz
-IO_PORT "sys_clk" IO_TYPE=LVCMOS33;
+
+// IO_LOC  "sys_clk" 10; // MS5351 CLK 0 whuch must be set to 27MHz
+// IO_PORT "sys_clk" IO_TYPE=LVCMOS33;
 
 IO_LOC  "audio_clk" 11; // MS5351 CLK 1 whuch must be set to 24.576MHz
 IO_PORT "audio_clk" IO_TYPE=LVCMOS33;
+
+IO_LOC  "sys_clk" 13; // MS5351 CLK 2 whuch must be set to 135MHz
+IO_PORT "sys_clk" IO_TYPE=LVCMOS33;
 
 // Button 1
 IO_LOC  "btn1" 88;

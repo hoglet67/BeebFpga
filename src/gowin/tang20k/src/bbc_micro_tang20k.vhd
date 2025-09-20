@@ -89,8 +89,7 @@ entity bbc_micro_tang20k is
         SIM                    : boolean := false
         );
     port (
-        sys_clk         : in    std_logic;     -- 27MHz clock from the oscillator (pin 4)
-                                               -- or from the SI5351 CLK0 (pin 10)
+        sys_clk         : in    std_logic;     -- 135MHz clock from SI5351 CLK2 (pin 13)
 
         audio_clk       : in    std_logic;     -- 24.576MHz audio clock from the SI5351 CLK1 (pin 11)
 
@@ -232,6 +231,21 @@ architecture rtl of bbc_micro_tang20k is
             HCLKIN: in std_logic;
             RESETN: in std_logic;
             CALIB: in std_logic
+        );
+    end component;
+
+    component DCS
+        generic (
+            DCS_MODE : string := "RISING"
+        );
+        port (
+            CLK0     : in  std_logic;
+            CLK1     : in  std_logic;
+            CLK2     : in  std_logic;
+            CLK3     : in  std_logic;
+            CLKSEL   : in  std_logic_vector(3 downto 0);
+            SELFORCE : in  std_logic;
+            CLKOUT   : out std_logic
         );
     end component;
 
@@ -393,8 +407,6 @@ architecture rtl of bbc_micro_tang20k is
     signal clock_96        : std_logic;
     signal clock_96_p      : std_logic;
     signal clock_135       : std_logic;
-    signal clock_81        : std_logic;
-    signal clock_405       : std_logic;
     signal spdif_clk       : std_logic; -- 6.144MHz SPDIF clock
     signal mem_ready       : std_logic;
 
@@ -494,10 +506,6 @@ architecture rtl of bbc_micro_tang20k is
 
     -- Mem Controller Monior LEDs
     signal monitor_leds    :   std_logic_vector(5 downto 0);
-
-    -- HDMI PLL synchronization
-    signal pll1_lock       : std_logic;
-    signal pll2_lock       : std_logic;
 
     -- 1MHz Bus
     signal ext_1mhz_clk    : std_logic; -- the system clock
@@ -689,14 +697,14 @@ begin
     -- Clock Generation
     --------------------------------------------------------
 
-    -- 48 MHz master clock from 27MHz input clock
+    -- 48 MHz master clock from 135MHz input clock
     -- plus intermediate 96MHz clock for scan doubler
 
     pll1 : rPLL
         generic map (
-            FCLKIN => "27",
+            FCLKIN => "135",
             DEVICE => "GW2AR-18C",
-            IDIV_SEL => 8,
+            IDIV_SEL => 44,
             FBDIV_SEL => 31,
             ODIV_SEL => 8,
             DYN_SDIV_SEL => 2,
@@ -708,33 +716,7 @@ begin
             CLKOUTP  => clock_96_p,     -- 96MHz clock for SDRAM, phase shifted 180 degrees
             CLKOUTD  => clock_48,       -- 48MHz main clock
             CLKOUTD3 => open,
-            LOCK     => pll1_lock,
-            RESET    => '0',
-            RESET_P  => '0',
-            CLKFB    => '0',
-            FBDSEL   => (others => '0'),
-            IDSEL    => (others => '0'),
-            ODSEL    => (others => '0'),
-            PSDA     => (others => '0'),
-            DUTYDA   => (others => '0'),
-            FDLY     => (others => '0')
-        );
-
-    pll2 : rPLL
-        generic map (
-            FCLKIN => "27",
-            DEVICE => "GW2AR-18C",
-            IDIV_SEL => 0,
-            FBDIV_SEL => 14,
-            ODIV_SEL => 2
-        )
-        port map (
-            CLKIN    => sys_clk,
-            CLKOUT   => clock_405,      -- 405MHz VGA 1-bit DAC clock
-            CLKOUTP  => open,
-            CLKOUTD  => open,
-            CLKOUTD3 => clock_135,      -- 135MHz HDMI Serial Clock (5x the HDMI Pixel Clock)
-            LOCK     => pll2_lock,
+            LOCK     => open,
             RESET    => '0',
             RESET_P  => '0',
             CLKFB    => '0',
@@ -746,18 +728,7 @@ begin
             FDLY     => (others => '0')
             );
 
-    clkdiv_dac : CLKDIV
-        generic map (
-            DIV_MODE => "5",            -- Divide by 5
-            GSREN => "false"
-        )
-        port map (
-            RESETN => '1',
-            HCLKIN => clock_405,
-            CLKOUT => clock_81,
-            CALIB  => '1'
-        );
-
+    clock_135 <= sys_clk;
 
     clkdiv5 : CLKDIV
         generic map (
@@ -987,8 +958,16 @@ begin
                 else
                     m128_mode <= '0';
                 end if;
+                -- Note: External PiTube and the VGADAC are mutually
+                -- exclusive, so jumper(3) can be overloaded
                 copro_mode    <= not jumper(2); -- 0 (on) = Co Pro Enabled;  1 (off) = Co Pro disabled
-                copro_ext     <= not jumper(3); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
+                if IncludeVGADAC then
+                    copro_ext <= '0';
+                    vga_mode  <= not jumper(3); -- 0 (on) = VGA Mode; 1 (off) = SRGB Mode
+                else
+                    copro_ext <= not jumper(3); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
+                    vga_mode  <= '0';
+                end if;
                 hdmi_aspect   <= "11";      -- default is now auto aspect ratio
                 hdmi_audio_en <= jumper(4); -- both jumper fitted (0) triggers DVI mode
                 if IncludeICEDebugger and IncludeSerial then
@@ -1406,32 +1385,114 @@ begin
         signal vga_r_int       : std_logic;
         signal vga_g_int       : std_logic;
         signal vga_b_int       : std_logic;
+
+        signal clk_sample      : std_logic;
+        signal clk_dac_px      : std_logic;
+        signal clk_dac         : std_logic;
+        signal clk_sel         : std_logic_vector(3 downto 0);
+
+        signal fbdsel          : std_logic_vector(5 downto 0);
+        signal idsel           : std_logic_vector(5 downto 0);
+        signal odsel           : std_logic_vector(5 downto 0);
+
     begin
+
+        -- Use a dynamic clock switch (DCS) clock mux to select the
+        -- appropriate sample clock with minimal latency.
+
+        clk_sel <= "00" & vga_mode & not vga_mode;
+
+        dcs1 : DCS port map (
+            CLK0     => clock_48,
+            CLK1     => clock_27,
+            CLK2     => '0',
+            CLK3     => '0',
+            CLKSEL   => clk_sel,
+            SELFORCE => '1',
+            CLKOUT   => clk_sample
+            );
+
+        -- Use a PLL to generate the fast DAC clocks and vary the dividers to
+        -- get the appropriate frequencies:
+        -- 135 / 1 * 3 = 405MHz for VGA
+        -- 135 / 3 * 8 = 360MHz for SRGB
+
+        -- IDIV/FBDIV/ODIV values for generics, e.g. from PLL calculator:
+        -- 0/2/2 = 405MHz for VGA
+        -- 2/7/2 = 360MHz for SRGB
+
+        -- But the values used in the dynamic ports are formatted differently.
+        -- IDIV/FBDIV are basically 64 - the actual divider, or 63 - the generic value
+        -- ODIV is slighly different
+        -- 63/61/63 = 405MHz for VGA
+        -- 61/56/63 = 360MHz for SRGB
+
+        idsel   <= "111111" when vga_mode = '1' else "111101";
+        fbdsel  <= "111101" when vga_mode = '1' else "111000";
+        odsel   <= "111111";
+
+        pll2 : rPLL
+            generic map (
+                FCLKIN => "135",
+                DEVICE => "GW2AR-18C",
+                DYN_IDIV_SEL => "true",
+                DYN_FBDIV_SEL => "true",
+                DYN_ODIV_SEL => "true"
+                )
+            port map (
+                CLKIN    => clock_135,
+                CLKOUT   => clk_dac,        -- 405MHz VGA 1-bit DAC clock
+                CLKOUTP  => open,
+                CLKOUTD  => open,
+                CLKOUTD3 => open,
+                LOCK     => open,
+                RESET    => '0',
+                RESET_P  => '0',
+                CLKFB    => '0',
+                IDSEL    => idsel,
+                FBDSEL   => fbdsel,
+                ODSEL    => odsel,
+                PSDA     => (others => '0'),
+                DUTYDA   => (others => '0'),
+                FDLY     => (others => '0')
+                );
+
+        clkdiv_dac : CLKDIV
+            generic map (
+                DIV_MODE => "5",
+                GSREN => "false"
+                )
+            port map (
+                RESETN => '1',
+                HCLKIN => clk_dac,
+                CLKOUT => clk_dac_px,
+                CALIB  => '1'
+                );
 
         e_vidr:entity work.dac1_oser
             port map (
                 rst_i               => not hard_reset_n,
-                clk_sample_i        => clock_27,
-                clk_dac_px_i        => clock_81,
-                clk_dac_i           => clock_405,
+                clk_sample_i        => clk_sample,
+                clk_dac_px_i        => clk_dac_px,
+                clk_dac_i           => clk_dac,
                 sample_i            => unsigned(dac_red),
                 bitstream_o         => vga_r_int
                 );
         e_vidg:entity work.dac1_oser
             port map (
                 rst_i               => not hard_reset_n,
-                clk_sample_i        => clock_27,
-                clk_dac_px_i        => clock_81,
-                clk_dac_i           => clock_405,
+                clk_sample_i        => clk_sample,
+                clk_dac_px_i        => clk_dac_px,
+                clk_dac_i           => clk_dac,
                 sample_i            => unsigned(dac_green),
                 bitstream_o         => vga_g_int
                 );
         e_vidb:entity work.dac1_oser
             port map (
                 rst_i               => not hard_reset_n,
-                clk_sample_i        => clock_27,
-                clk_dac_px_i        => clock_81,
-                clk_dac_i           => clock_405,
+                clk_sample_i        => clk_sample,
+                clk_dac_px_i        => clk_dac_px,
+                clk_dac_i           => clk_dac,
                 sample_i            => unsigned(dac_blue),
                 bitstream_o         => vga_b_int
                 );

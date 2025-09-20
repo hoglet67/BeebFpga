@@ -704,9 +704,6 @@ begin
     -- Infer a large mux to select the appropriate hor scroll delay tap
     phys_col_delay_out <= phys_col_delay_reg(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
 
-    phys_col_final <= phys_col_delay_out            when r0_teletext = '0' else
-                      '0' & B_IN   & G_IN   & R_IN;
-
     invert_final <= invert_delay_reg(to_integer(unsigned(nula_hor_scroll_offset)));
 
     process (PIXCLK)
@@ -732,18 +729,12 @@ begin
                 else
                     vr_disen_reg := disen1;
                 end if;
-                if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disenout = '0') then
-                    nula_RGB <= (others => invert_final);
-                else
-                    nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor (invert_final & invert_final & invert_final & invert_final))));
-                end if;
 
                 if r0_teletext = '0' then
                     PIXDE <= disen1_u;
                 else
                     PIXDE <= ttxt_PIXDE;
                 end if;
-
 
             end if;
         end if;
@@ -754,27 +745,49 @@ begin
     B <= nula_RGB(3 downto 0);
 
     Mode7NuLAIncluded: if IncludeMode7NuLA generate
-        signal phys_col_final_even : std_logic_vector(3 downto 0);
-        signal phys_col_final_odd  : std_logic_vector(3 downto 0);
+        signal log_col_final       : std_logic_vector(11 downto 0);
         signal nula_RGB_even       : std_logic_vector(11 downto 0);
         signal nula_RGB_odd        : std_logic_vector(11 downto 0);
+        signal clken_pixel1        : std_logic;
+        signal clken_pixel2        : std_logic;
     begin
-        phys_col_final_even <= phys_col_delay_out when r0_teletext = '0' else '0' & B_IN_even & G_IN_even & R_IN_even;
-        phys_col_final_odd  <= phys_col_delay_out when r0_teletext = '0' else '0' & B_IN_odd  & G_IN_odd  & R_IN_odd;
+        -- palette input, over successive cycles
+        phys_col_final <= phys_col_delay_out                       when r0_teletext  = '0' else
+                          '0' & B_IN_even & G_IN_even & R_IN_even  when clken_pixel1 = '1' else
+                          '0' & B_IN_odd  & G_IN_odd  & R_IN_odd   when clken_pixel2 = '1' else
+                          '0' & B_IN      & G_IN      & R_IN;
+        -- palette output
+        log_col_final <= nula_palette(to_integer(unsigned(phys_col_final xor (invert_final & invert_final & invert_final & invert_final))));
         process (PIXCLK)
-            variable vr_disen_reg:std_logic;
         begin
             if rising_edge(PIXCLK) then
+                -- perform three lookups over successive cycles Note:
+                -- this relies on the system clock (48MHz) being at
+                -- least 3x faster than the fastest pixel clock (16MHz).
+                clken_pixel1 <= clken_pixel;
+                clken_pixel2 <= clken_pixel1;
+                -- cycle 0, palette lookup for normal output
                 if clken_pixel = '1' then
-                    if (r0_teletext = '1' and phys_col_final_even = "0000") or (r0_teletext = '0' and disenout = '0') then
+                    if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disenout = '0') then
+                        nula_RGB <= (others => invert_final);
+                    else
+                        nula_RGB <= log_col_final;
+                    end if;
+                end if;
+                -- cycle 1, palette lookup for even output
+                if clken_pixel1 = '1' then
+                    if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disenout = '0') then
                         nula_RGB_even <= (others => invert_final);
                     else
-                        nula_RGB_even <= nula_palette(to_integer(unsigned(phys_col_final_even xor (invert_final & invert_final & invert_final & invert_final))));
+                        nula_RGB_even <= log_col_final;
                     end if;
-                    if (r0_teletext = '1' and phys_col_final_odd = "0000") or (r0_teletext = '0' and disenout = '0') then
+                end if;
+                -- cycle 2, palette lookup for odd output
+                if clken_pixel2 = '1' then
+                    if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disenout = '0') then
                         nula_RGB_odd <= (others => invert_final);
                     else
-                        nula_RGB_odd <= nula_palette(to_integer(unsigned(phys_col_final_odd xor (invert_final & invert_final & invert_final & invert_final))));
+                        nula_RGB_odd <= log_col_final;
                     end if;
                 end if;
             end if;
@@ -788,6 +801,19 @@ begin
     end generate;
 
     Mode7NuLANotIncluded: if not IncludeMode7NuLA generate
+        phys_col_final <= phys_col_delay_out when r0_teletext = '0' else '0' & B_IN & G_IN & R_IN;
+        process (PIXCLK)
+        begin
+            if rising_edge(PIXCLK) then
+                if clken_pixel = '1' then
+                    if (r0_teletext = '1' and phys_col_final = "0000") or (r0_teletext = '0' and disenout = '0') then
+                        nula_RGB <= (others => invert_final);
+                    else
+                        nula_RGB <= nula_palette(to_integer(unsigned(phys_col_final xor (invert_final & invert_final & invert_final & invert_final))));
+                    end if;
+                end if;
+            end if;
+        end process;
         R_even <= nula_RGB(11 downto 8) when r0_teletext = '0' else (others => R_IN_even xor cursor_invert);
         G_even <= nula_RGB( 7 downto 4) when r0_teletext = '0' else (others => G_IN_even xor cursor_invert);
         B_even <= nula_RGB( 3 downto 0) when r0_teletext = '0' else (others => B_IN_even xor cursor_invert);

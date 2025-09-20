@@ -1000,7 +1000,6 @@ begin
             DE        => crtc_de,
             CURSOR    => crtc_cursor,
             LPSTB     => crtc_lpstb,
-            VGA       => '0',
             MA        => crtc_ma,
             RA        => crtc_ra,
             test      => crtc_test
@@ -1022,7 +1021,6 @@ begin
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
                 MHZ12           => mhz12_active,
-                VGA             => '0',
                 ENABLE          => vidproc_enable,
                 A               => cpu_a(1 downto 0),
                 DI_CPU          => cpu_do,
@@ -1067,7 +1065,6 @@ begin
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
-                VGA             => '0',
                 ENABLE          => vidproc_enable,
                 A0              => cpu_a(0),
                 DI_CPU          => cpu_do,
@@ -1109,7 +1106,6 @@ begin
             CLOCK    => clock_48, -- This runs at 12 MHz, which we can't derive from the 32 MHz clock
             CLKEN    => ttxt_clken,
             nRESET   => hard_reset_n,
-            VGA      => '0',
             DI_CLOCK => clock_48, -- Data input is synchronised from the bus clock domain
             DI_CLKEN => ttxt_di_clken,
             DI       => ttxt_data,

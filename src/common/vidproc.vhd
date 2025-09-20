@@ -108,9 +108,6 @@ entity vidproc is
         -- Indicates a 12MHz pixel clock (ttxt or Nula Attr mode)
         MHZ12       :   out std_logic;
 
-        -- Indicates special VGA Mode 7 (720x576p)
-        VGA         :   in  std_logic;
-
         -- Bus interface
         ENABLE      :   in  std_logic;
         A           :   in  std_logic_vector(1 downto 0);
@@ -207,9 +204,6 @@ architecture rtl of vidproc is
     signal cursor_active    :   std_logic;
     signal cursor_counter   :   unsigned(1 downto 0);
 
-    signal ttxt_R           :   std_logic;
-    signal ttxt_G           :   std_logic;
-    signal ttxt_B           :   std_logic;
     signal ttxt_PIXDE       :   std_logic;
 
 -- Pass physical colour to VideoNuLA
@@ -397,7 +391,7 @@ begin
     -- the shift register on the next CRTC clock edge
     clken_fetch <= CLKEN and
                   (not clken_counter(0)) and (not clken_counter(1)) and (not clken_counter(2)) and
-                  ((not clken_counter(3)) or r0_crtc_2mhz or (r0_teletext and VGA));
+                  ((not clken_counter(3)) or r0_crtc_2mhz);
 
     CLKEN_CRTC  <= clken_fetch;
     CLKEN_COUNT <= clken_counter;
@@ -441,10 +435,7 @@ begin
 
             -- For 12MHz pixen_prescale counts: 0, 1, 2, 3
             -- For 16MHz pixen_prescale counts: 0, 1,    3
-            if r0_teletext = '1' and VGA = '1' and pixen_prescale = 0 then
-                -- Special case VGA mode, count at twice the rate
-                pixen_prescale <= pixen_prescale + 3;
-            elsif modeIs12MHz = '0' and pixen_prescale = 1 then
+            if modeIs12MHz = '0' and pixen_prescale = 1 then
                 pixen_prescale <= pixen_prescale + 2;
             else
                 pixen_prescale <= pixen_prescale + 1;
@@ -711,8 +702,7 @@ begin
     phys_col_delay_out <= phys_col_delay_reg(to_integer(unsigned(nula_hor_scroll_offset)) * 4 + 3 downto to_integer(unsigned(nula_hor_scroll_offset)) * 4);
 
     phys_col_final <= phys_col_delay_out            when r0_teletext = '0' else
-                      '0' & B_IN   & G_IN   & R_IN  when VGA         = '0' else
-                      '0' & ttxt_B & ttxt_G & ttxt_R;
+                      '0' & B_IN   & G_IN   & R_IN;
 
     invert_final <= invert_delay_reg(to_integer(unsigned(nula_hor_scroll_offset)));
 
@@ -723,10 +713,6 @@ begin
 
             if clken_pixel = '1' then
 
-                -- One more pixel delay was needed in for VideoNuLA in VGA mode; this was the easist place to do it.
-                ttxt_R <= R_IN;
-                ttxt_G <= G_IN;
-                ttxt_B <= B_IN;
                 ttxt_PIXDE <= PIXDE_IN;
 
                 -- Shift pixels in from right (so bits 3..0 are the most recent)

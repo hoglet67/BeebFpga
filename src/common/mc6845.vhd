@@ -67,9 +67,6 @@ port (
 
     FIELD     : out std_logic;
 
-    -- Soon to be depricated
-    VGA       : in  std_logic; -- Output Mode 7 as 624 line non-interlaced
-
     -- Memory interface
     MA        : out std_logic_vector(13 downto 0);
     RA        : out std_logic_vector(4 downto 0);
@@ -166,29 +163,23 @@ begin
     --
     -- ===========================================================================
 
-    -- TODO: Review the below two expressions, as the VGA mode criteria should really be the same
-
-    -- Normally the max scan line is r09_max_scanline_addr, with two exceptions
-    -- In VGA mode we add one so the mode 7 18 becomes 19 (giving 20 rows per character)
+    -- Normally the max scan line is r09_max_scanline_addr, with one exception
     -- In interlace sync + video mode we mask off the LSB
 
-    max_scanline <= r09_max_scanline_addr + 1               when VGA = '1'                        else
-                    r09_max_scanline_addr(4 downto 1) & '0' when r08_interlace(1 downto 0) = "11" else
+    max_scanline <= r09_max_scanline_addr(4 downto 1) & '0' when r08_interlace(1 downto 0) = "11" else
                     r09_max_scanline_addr;
 
     -- In Type 0 CRTCs, C9 is used instead of C5, and max_scanline_hit is inhibited
     max_scanline_hit <= '1' when line_counter = max_scanline and adj_in_progress = '0' else '0';
 
-    -- Normally the adjust scan line is r05_v_total_adj, with one exception
-    -- In VGA Mode we add two so the Mode7 value of 2 becomes 4 (giving 31 * 20 + 4 = 624 lines)
-    adj_scanline <= r05_v_total_adj + 2 when r08_interlace(1 downto 0) = "11" and VGA = '1'  else
-                     r05_v_total_adj;
+    -- Normally the adjust scan line is r05_v_total_adj, with no exceptions!
+    adj_scanline <= r05_v_total_adj;
 
     -- Counter hits (only ones that are used in many places)
     r00_h_total_hit <= '1' when h_counter = r00_h_total  else '0';
 
     -- Indcates a new frame will start on the next clock tick.
-    new_frame <= '1' when r00_h_total_hit = '1' and eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1' or VGA = '1') else '0';
+    new_frame <= '1' when r00_h_total_hit = '1' and eof_latched = '1' and (r08_interlace(0) = '0' or field_counter(0) = '0' or extra_scanline = '1') else '0';
 
     -- ===========================================================================
     --
@@ -406,7 +397,7 @@ begin
     end process;
 
     line_counter_next <= (others => '0') when max_scanline_hit = '1' else
-                         line_counter + 1 when adj_in_progress = '1' or not(r08_interlace(1 downto 0) = "11" and VGA = '0') else
+                         line_counter + 1 when adj_in_progress = '1' or r08_interlace(1 downto 0) /= "11" else
                          line_counter(4 downto 1) + 1 & '0';
 
     -- Vertical Row Counter
@@ -496,7 +487,7 @@ begin
     end process;
 
     -- Select between vs_odd and vs_even based on interlace state
-    vs <= vs_odd when r08_interlace(0) = '1' and VGA = '0' and odd_field = '0' else vs_even;
+    vs <= vs_odd when r08_interlace(0) = '1' and odd_field = '0' else vs_even;
     VSYNC <= vs; -- External VSYNC driven directly from internal signal
 
     -- Vertical Display Enable
@@ -692,7 +683,7 @@ begin
                 -- to the max scanline, the LSB is masked off. I had a got at implementing
                 -- this, but it got messy.
                 if r00_h_total_hit = '1' then
-                    if r08_interlace(1 downto 0) = "11" and VGA = '0' then
+                    if r08_interlace(1 downto 0) = "11" then
                         interlaced_video <= '1';
                     else
                         interlaced_video <= '0';

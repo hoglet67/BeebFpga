@@ -70,9 +70,6 @@ entity vidproc_orig is
         -- Indicates teletext
         TTXT        :   out std_logic;
 
-        -- Indicates special VGA Mode 7 (720x576p)
-        VGA         :   in  std_logic;
-
         -- Bus interface
         ENABLE      :   in  std_logic;
         A0          :   in  std_logic;
@@ -217,7 +214,7 @@ begin
     -- the shift register on the next CRTC clock edge
     clken_fetch <= CLKEN and
                   (not clken_counter(0)) and (not clken_counter(1)) and (not clken_counter(2)) and
-                  ((not clken_counter(3)) or r0_crtc_2mhz or (r0_teletext and VGA));
+                  ((not clken_counter(3)) or r0_crtc_2mhz);
 
     CLKEN_CRTC  <= clken_fetch;
     CLKEN_COUNT <= clken_counter;

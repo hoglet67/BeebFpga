@@ -79,6 +79,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity vidproc is
+    generic (
+        IncludeMode7NuLA : boolean := false
+        );
     port (
         -- CLOCK is the 48MHz master clock
         CLOCK       :   in  std_logic;
@@ -750,16 +753,48 @@ begin
     G <= nula_RGB(7 downto 4);
     B <= nula_RGB(3 downto 0);
 
-    -- TODO: this is a placeholder so something is visible
-    --       we still need to somehow have the nula process the seperate odd/even pixels
+    Mode7NuLAIncluded: if IncludeMode7NuLA generate
+        signal phys_col_final_even : std_logic_vector(3 downto 0);
+        signal phys_col_final_odd  : std_logic_vector(3 downto 0);
+        signal nula_RGB_even       : std_logic_vector(11 downto 0);
+        signal nula_RGB_odd        : std_logic_vector(11 downto 0);
+    begin
+        phys_col_final_even <= phys_col_delay_out when r0_teletext = '0' else '0' & B_IN_even & G_IN_even & R_IN_even;
+        phys_col_final_odd  <= phys_col_delay_out when r0_teletext = '0' else '0' & B_IN_odd  & G_IN_odd  & R_IN_odd;
+        process (PIXCLK)
+            variable vr_disen_reg:std_logic;
+        begin
+            if rising_edge(PIXCLK) then
+                if clken_pixel = '1' then
+                    if (r0_teletext = '1' and phys_col_final_even = "0000") or (r0_teletext = '0' and disenout = '0') then
+                        nula_RGB_even <= (others => invert_final);
+                    else
+                        nula_RGB_even <= nula_palette(to_integer(unsigned(phys_col_final_even xor (invert_final & invert_final & invert_final & invert_final))));
+                    end if;
+                    if (r0_teletext = '1' and phys_col_final_odd = "0000") or (r0_teletext = '0' and disenout = '0') then
+                        nula_RGB_odd <= (others => invert_final);
+                    else
+                        nula_RGB_odd <= nula_palette(to_integer(unsigned(phys_col_final_odd xor (invert_final & invert_final & invert_final & invert_final))));
+                    end if;
+                end if;
+            end if;
+        end process;
+        R_even <= nula_RGB_even(11 downto 8);
+        G_even <= nula_RGB_even(7 downto 4);
+        B_even <= nula_RGB_even(3 downto 0);
+        R_odd  <= nula_RGB_odd(11 downto 8);
+        G_odd  <= nula_RGB_odd(7 downto 4);
+        B_odd  <= nula_RGB_odd(3 downto 0);
+    end generate;
 
-    R_even <= nula_RGB(11 downto 8) when r0_teletext = '0' else (others => R_IN_even xor cursor_invert);
-    G_even <= nula_RGB( 7 downto 4) when r0_teletext = '0' else (others => G_IN_even xor cursor_invert);
-    B_even <= nula_RGB( 3 downto 0) when r0_teletext = '0' else (others => B_IN_even xor cursor_invert);
-
-    R_odd  <= nula_RGB(11 downto 8) when r0_teletext = '0' else (others => R_IN_odd xor cursor_invert);
-    G_odd  <= nula_RGB( 7 downto 4) when r0_teletext = '0' else (others => G_IN_odd xor cursor_invert);
-    B_odd  <= nula_RGB( 3 downto 0) when r0_teletext = '0' else (others => B_IN_odd xor cursor_invert);
+    Mode7NuLANotIncluded: if not IncludeMode7NuLA generate
+        R_even <= nula_RGB(11 downto 8) when r0_teletext = '0' else (others => R_IN_even xor cursor_invert);
+        G_even <= nula_RGB( 7 downto 4) when r0_teletext = '0' else (others => G_IN_even xor cursor_invert);
+        B_even <= nula_RGB( 3 downto 0) when r0_teletext = '0' else (others => B_IN_even xor cursor_invert);
+        R_odd  <= nula_RGB(11 downto 8) when r0_teletext = '0' else (others => R_IN_odd  xor cursor_invert);
+        G_odd  <= nula_RGB( 7 downto 4) when r0_teletext = '0' else (others => G_IN_odd  xor cursor_invert);
+        B_odd  <= nula_RGB( 3 downto 0) when r0_teletext = '0' else (others => B_IN_odd  xor cursor_invert);
+    end generate;
 
     -- Indicate mode 7 teletext is selected
     TTXT <= r0_teletext;

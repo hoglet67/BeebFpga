@@ -1011,6 +1011,9 @@ begin
     vidproc_nula: if IncludeVideoNuLA generate
     begin
         videoula : entity work.vidproc
+            generic map (
+                IncludeMode7NuLA => IncludeHD -- only needed if there is a scan doubler
+            )
             port map (
                 CLOCK           => clock_48,
                 CPUCLKEN        => cpu_clken,

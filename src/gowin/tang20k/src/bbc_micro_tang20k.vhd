@@ -94,8 +94,6 @@ entity bbc_micro_tang20k is
 
         audio_clk       : in    std_logic;     -- 24.576MHz audio clock from the SI5351 CLK1 (pin 11)
 
-        sdram_clk       : in    std_logic;     -- 96.000MHz SDRAM clock from the SI5351 CLK2 (pin 11)
-
         btn1            : in    std_logic;     -- Powerup reset
         btn2            : in    std_logic;     -- Config modifier
         reconfig_n      : out   std_logic;
@@ -234,21 +232,6 @@ architecture rtl of bbc_micro_tang20k is
             HCLKIN: in std_logic;
             RESETN: in std_logic;
             CALIB: in std_logic
-        );
-    end component;
-
-    component DCS
-        generic (
-            DCS_MODE : string := "RISING"
-        );
-        port (
-            CLK0     : in  std_logic;
-            CLK1     : in  std_logic;
-            CLK2     : in  std_logic;
-            CLK3     : in  std_logic;
-            CLKSEL   : in  std_logic_vector(3 downto 0);
-            SELFORCE : in  std_logic;
-            CLKOUT   : out std_logic
         );
     end component;
 
@@ -410,9 +393,7 @@ architecture rtl of bbc_micro_tang20k is
     signal clock_96        : std_logic;
     signal clock_96_p      : std_logic;
     signal clock_135       : std_logic;
-    signal clock_72        : std_logic;
     signal clock_81        : std_logic;
-    signal clock_360       : std_logic;
     signal clock_405       : std_logic;
     signal spdif_clk       : std_logic; -- 6.144MHz SPDIF clock
     signal mem_ready       : std_logic;
@@ -513,6 +494,10 @@ architecture rtl of bbc_micro_tang20k is
 
     -- Mem Controller Monior LEDs
     signal monitor_leds    :   std_logic_vector(5 downto 0);
+
+    -- HDMI PLL synchronization
+    signal pll1_lock       : std_logic;
+    signal pll2_lock       : std_logic;
 
     -- 1MHz Bus
     signal ext_1mhz_clk    : std_logic; -- the system clock
@@ -704,25 +689,26 @@ begin
     -- Clock Generation
     --------------------------------------------------------
 
-    clock_96   <= sdram_clk;     -- 96MHz clock for SDRAM
-    clock_96_p <= not sdram_clk; -- 96MHz clock for SDRAM, phase shifted 180 degrees
+    -- 48 MHz master clock from 27MHz input clock
+    -- plus intermediate 96MHz clock for scan doubler
 
     pll1 : rPLL
         generic map (
             FCLKIN => "27",
             DEVICE => "GW2AR-18C",
-            IDIV_SEL => 2,
-            FBDIV_SEL => 39,
-            ODIV_SEL => 2,
-            DYN_SDIV_SEL => 2
+            IDIV_SEL => 8,
+            FBDIV_SEL => 31,
+            ODIV_SEL => 8,
+            DYN_SDIV_SEL => 2,
+            PSDA_SEL => "1000"          -- 180 degree phase shift
         )
         port map (
             CLKIN    => sys_clk,
-            CLKOUT   => clock_360,  -- 360MHz VGA 1-bit DAC clock
-            CLKOUTP  => open,
-            CLKOUTD  => open,
+            CLKOUT   => clock_96,       -- 96MHz clock for SDRAM
+            CLKOUTP  => clock_96_p,     -- 96MHz clock for SDRAM, phase shifted 180 degrees
+            CLKOUTD  => clock_48,       -- 48MHz main clock
             CLKOUTD3 => open,
-            LOCK     => open,
+            LOCK     => pll1_lock,
             RESET    => '0',
             RESET_P  => '0',
             CLKFB    => '0',
@@ -732,7 +718,7 @@ begin
             PSDA     => (others => '0'),
             DUTYDA   => (others => '0'),
             FDLY     => (others => '0')
-            );
+        );
 
     pll2 : rPLL
         generic map (
@@ -748,7 +734,7 @@ begin
             CLKOUTP  => open,
             CLKOUTD  => open,
             CLKOUTD3 => clock_135,      -- 135MHz HDMI Serial Clock (5x the HDMI Pixel Clock)
-            LOCK     => open,
+            LOCK     => pll2_lock,
             RESET    => '0',
             RESET_P  => '0',
             CLKFB    => '0',
@@ -760,19 +746,20 @@ begin
             FDLY     => (others => '0')
             );
 
-    clkdiv_24 : CLKDIV
+    clkdiv_dac : CLKDIV
         generic map (
-            DIV_MODE => "4",            -- Divide by 4
+            DIV_MODE => "5",            -- Divide by 5
             GSREN => "false"
         )
         port map (
-            RESETN => powerup_reset_n,
-            HCLKIN => clock_96,
-            CLKOUT => clock_24,         -- 24MHz AVR Clock
+            RESETN => '1',
+            HCLKIN => clock_405,
+            CLKOUT => clock_81,
             CALIB  => '1'
         );
 
-    clkdiv_27 : CLKDIV
+
+    clkdiv5 : CLKDIV
         generic map (
             DIV_MODE => "5",            -- Divide by 5
             GSREN => "false"
@@ -784,40 +771,15 @@ begin
             CALIB  => '1'
         );
 
-    clkdiv_48 : CLKDIV
+    clkdiv4 : CLKDIV
         generic map (
-            DIV_MODE => "2",
+            DIV_MODE => "4",            -- Divide by 4
             GSREN => "false"
         )
         port map (
-            RESETN => '1',
+            RESETN => powerup_reset_n,
             HCLKIN => clock_96,
-            CLKOUT => clock_48,
-            CALIB  => '1'
-        );
-
-    clkdiv_72 : CLKDIV
-        generic map (
-            DIV_MODE => "5",            -- Divide by 5
-            GSREN => "false"
-        )
-        port map (
-            RESETN => '1',
-            HCLKIN => clock_360,
-            CLKOUT => clock_72,
-            CALIB  => '1'
-        );
-
-
-    clkdiv_81 : CLKDIV
-        generic map (
-            DIV_MODE => "5",            -- Divide by 5
-            GSREN => "false"
-        )
-        port map (
-            RESETN => '1',
-            HCLKIN => clock_405,
-            CLKOUT => clock_81,
+            CLKOUT => clock_24,         -- 24MHz AVR Clock
             CALIB  => '1'
         );
 
@@ -1025,16 +987,8 @@ begin
                 else
                     m128_mode <= '0';
                 end if;
-                -- Note: External PiTube and the VGADAC are mutually
-                -- exclusive, so jumper(3) can be overloaded
                 copro_mode    <= not jumper(2); -- 0 (on) = Co Pro Enabled;  1 (off) = Co Pro disabled
-                if IncludeVGADAC then
-                    copro_ext <= '0';
-                    vga_mode  <= not jumper(3); -- 0 (on) = VGA Mode; 1 (off) = SRGB Mode
-                else
-                    copro_ext <= not jumper(3); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
-                    vga_mode  <= '0';
-                end if;
+                copro_ext     <= not jumper(3); -- 0 (on) = External Co Pro; 1 (off) = Internal Co Pro
                 hdmi_aspect   <= "11";      -- default is now auto aspect ratio
                 hdmi_audio_en <= jumper(4); -- both jumper fitted (0) triggers DVI mode
                 if IncludeICEDebugger and IncludeSerial then
@@ -1452,81 +1406,32 @@ begin
         signal vga_r_int       : std_logic;
         signal vga_g_int       : std_logic;
         signal vga_b_int       : std_logic;
-
-        signal clk_sample      : std_logic;
-        signal clk_dac_px      : std_logic;
-        signal clk_dac         : std_logic;
-        signal clk_sel         : std_logic_vector(3 downto 0);
-
     begin
-        clk_sel <= "00" & vga_mode & not vga_mode;
-
---      clk_dac    <= clock_405 when vga_mode = '1' else clock_360;
-
-        dcs1 : DCS port map (
-            CLK0     => clock_360,
-            CLK1     => clock_405,
-            CLK2     => '0',
-            CLK3     => '0',
-            CLKSEL   => clk_sel,
-            SELFORCE => '1',
-            CLKOUT   => clk_dac
-            );
-
---      clk_dac_px <= clock_81  when vga_mode = '1' else clock_72;
-
-        dcs2 : DCS port map (
-            CLK0     => clock_72,
-            CLK1     => clock_81,
-            CLK2     => '0',
-            CLK3     => '0',
-            CLKSEL   => clk_sel,
-            SELFORCE => '1',
-            CLKOUT   => clk_dac_px
-            );
-
-        -- It would be nice to use three dynamic clock switches, but
-        -- this seems to crash the Gowin router with a PR0004
-        -- error. It migh be because there are only two DCS's per
-        -- quadrant, and it tried to place all three in the lower left
-        -- quadrant where the VGA outputs are pinned.
-
-        clk_sample <= clock_27  when vga_mode = '1' else clock_48;
-
-        -- dcs3 : DCS port map (
-        --     CLK0     => clock_48,
-        --     CLK1     => clock_27,
-        --     CLK2     => '0',
-        --     CLK3     => '0',
-        --     CLKSEL   => clk_sel,
-        --     SELFORCE => '1',
-        --     CLKOUT   => clk_sample
-        --     );
 
         e_vidr:entity work.dac1_oser
             port map (
                 rst_i               => not hard_reset_n,
-                clk_sample_i        => clk_sample,
-                clk_dac_px_i        => clk_dac_px,
-                clk_dac_i           => clk_dac,
+                clk_sample_i        => clock_27,
+                clk_dac_px_i        => clock_81,
+                clk_dac_i           => clock_405,
                 sample_i            => unsigned(dac_red),
                 bitstream_o         => vga_r_int
                 );
         e_vidg:entity work.dac1_oser
             port map (
                 rst_i               => not hard_reset_n,
-                clk_sample_i        => clk_sample,
-                clk_dac_px_i        => clk_dac_px,
-                clk_dac_i           => clk_dac,
+                clk_sample_i        => clock_27,
+                clk_dac_px_i        => clock_81,
+                clk_dac_i           => clock_405,
                 sample_i            => unsigned(dac_green),
                 bitstream_o         => vga_g_int
                 );
         e_vidb:entity work.dac1_oser
             port map (
                 rst_i               => not hard_reset_n,
-                clk_sample_i        => clk_sample,
-                clk_dac_px_i        => clk_dac_px,
-                clk_dac_i           => clk_dac,
+                clk_sample_i        => clock_27,
+                clk_dac_px_i        => clock_81,
+                clk_dac_i           => clock_405,
                 sample_i            => unsigned(dac_blue),
                 bitstream_o         => vga_b_int
                 );

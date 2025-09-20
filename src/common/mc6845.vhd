@@ -698,7 +698,7 @@ begin
 
     MA <= std_logic_vector(ma_i);
 
-    FIELD <= odd_field when interlaced_video = '1' else '0';
+    FIELD <= odd_field when r08_interlace(0) = '1' else '0';
 
     -- ===========================================================================
     --

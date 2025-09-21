@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 n=0
 
@@ -150,22 +150,23 @@ get_add_ssd AlienDayDre  https://bitshifters.github.io/content/alien-daydream.ss
 
 roundup_disk_num 50
 title_ssd "TRICKYSOFT"
-get_add_ssd Asteroids    http://bbcmicro.co.uk/gameimg/discs/3525/Disc156-Asteroids.ssd
-get_add_ssd AstroBlaster http://bbcmicro.co.uk/gameimg/discs/1964/Disc110-AstroblasterRx2CB.ssd
-get_add_ssd CanyonBomber http://bbcmicro.co.uk/gameimg/discs/3530/Disc158-CanyonBomber.ssd
-get_add_ssd Carnival     http://bbcmicro.co.uk/gameimg/discs/1912/Disc107-CarnivalSTD.ssd
-get_add_ssd Centipede    http://bbcmicro.co.uk/gameimg/discs/2850/Disc125-CentipedeCBSTD.ssd
-get_add_ssd Circus       http://bbcmicro.co.uk/gameimg/discs/2629/Disc116-CircusJ.ssd
-get_add_ssd Frogger      http://bbcmicro.co.uk/gameimg/discs/1934/Disc108-FroggerRSCB.ssd
-get_add_ssd MissileCmd   https://stardot.org.uk/forums/download/file.php?id=82056
-get_add_ssd Pacman       http://bbcmicro.co.uk/gameimg/discs/3523/Disc156-TrickysoftPacManCB.ssd
-get_add_ssd Phoenix      http://bbcmicro.co.uk/gameimg/discs/2719/Disc121-Phoenix.ssd
-get_add_ssd RallyX       http://bbcmicro.co.uk/gameimg/discs/3583/Disc159-TrickysoftRallyXCB.ssd
-get_add_ssd RipCord      http://bbcmicro.co.uk/gameimg/discs/2649/Disc117-RipCordJ.ssd
-get_add_ssd Scramble     http://bbcmicro.co.uk/gameimg/discs/2904/Disc128-ScrambleCB.ssd
-get_add_ssd SpaceInvader http://bbcmicro.co.uk/gameimg/discs/2571/Disc115-SpaceInvaders.ssd
-get_add_ssd Sprint1      http://bbcmicro.co.uk/gameimg/discs/3027/Disc133-Sprint1J.ssd
-get_add_ssd SuperBreakou http://bbcmicro.co.uk/gameimg/discs/3535/Disc158-SuperBreakoutJ.ssd
+get_add_ssd Asteroids    https://bbcmicro.co.uk/gameimg/discs/3525/Disc156-Asteroids.ssd
+get_add_ssd AstroBlaster https://bbcmicro.co.uk/gameimg/discs/1964/Disc110-AstroblasterRx2CB.ssd
+get_add_ssd CanyonBomber https://bbcmicro.co.uk/gameimg/discs/3530/Disc158-CanyonBomber.ssd
+get_add_ssd Carnival     https://bbcmicro.co.uk/gameimg/discs/1912/Disc107-CarnivalSTD.ssd
+get_add_ssd Centipede    https://bbcmicro.co.uk/gameimg/discs/2850/Disc125-CentipedeCBSTD.ssd
+get_add_ssd Circus       https://bbcmicro.co.uk/gameimg/discs/2629/Disc116-CircusJ.ssd
+get_add_ssd Frogger      https://bbcmicro.co.uk/gameimg/discs/1934/Disc108-FroggerRSCB.ssd
+get_add_ssd MissileCmd   https://bbcmicro.co.uk/gameimg/discs/4166/Disc165-TrickysoftMissileCommand.ssd
+#get_add_ssd Pacman       https://bbcmicro.co.uk/gameimg/discs/3523/Disc156-TrickysoftPacManCB.ssd
+get_add_ssd Pacman       https://web.archive.org/web/20241003045339/https://bbcmicro.co.uk/gameimg/discs/3523/Disc156-TrickysoftPacManCB.ssd
+get_add_ssd Phoenix      https://bbcmicro.co.uk/gameimg/discs/2719/Disc121-Phoenix.ssd
+get_add_ssd RallyX       https://bbcmicro.co.uk/gameimg/discs/3583/Disc159-TrickysoftRallyXCB.ssd
+get_add_ssd RipCord      https://bbcmicro.co.uk/gameimg/discs/2649/Disc117-RipCordJ.ssd
+get_add_ssd Scramble     https://bbcmicro.co.uk/gameimg/discs/2904/Disc128-ScrambleCB.ssd
+get_add_ssd SpaceInvader https://bbcmicro.co.uk/gameimg/discs/2571/Disc115-SpaceInvaders.ssd
+get_add_ssd Sprint1      https://bbcmicro.co.uk/gameimg/discs/3027/Disc133-Sprint1J.ssd
+get_add_ssd SuperBreakou https://bbcmicro.co.uk/gameimg/discs/3535/Disc158-SuperBreakoutJ.ssd
 
 # ##########################################################################
 # Games
@@ -174,22 +175,22 @@ get_add_ssd SuperBreakou http://bbcmicro.co.uk/gameimg/discs/3535/Disc158-SuperB
 roundup_disk_num 50
 title_ssd "GAMES"
 
-get_add_ssd Alien8       http://bbcmicro.co.uk/gameimg/discs/217/Disc013-Alien8.ssd
-get_add_ssd Boffin       http://bbcmicro.co.uk/gameimg/discs/274/Disc016-Boffin.ssd
-get_add_ssd DevilsIsland http://bbcmicro.co.uk/gameimg/discs/2631/Disc116-DevilsIslandSTD.ssd
-get_add_ssd DrWho1stAdv  http://bbcmicro.co.uk/gameimg/discs/980/Disc055-DoctorWhoTheFirstAdventure.ssd
-get_add_ssd Elite\(86\)  http://bbcmicro.co.uk/gameimg/discs/2088/Disc999-EliteMasterAndTubeEnhanced.ssd
-get_add_ssd Exile        http://bbcmicro.co.uk/gameimg/discs/709/Disc040-ExileR.ssd
-get_add_ssd FireTrack    http://bbcmicro.co.uk/gameimg/discs/2468/DiscA06-FireTrackSAM7.ssd
-get_add_ssd LunarJetman  http://bbcmicro.co.uk/gameimg/discs/406/Disc023-LunarJetmanCosmicBattlezones.ssd
-get_add_ssd PharaohCurse http://bbcmicro.co.uk/gameimg/discs/484/Disc027-PharaohsCurse.ssd
+get_add_ssd Alien8       https://bbcmicro.co.uk/gameimg/discs/217/Disc013-Alien8.ssd
+get_add_ssd Boffin       https://bbcmicro.co.uk/gameimg/discs/274/Disc016-Boffin.ssd
+get_add_ssd DevilsIsland https://bbcmicro.co.uk/gameimg/discs/2631/Disc116-DevilsIslandSTD.ssd
+get_add_ssd DrWho1stAdv  https://bbcmicro.co.uk/gameimg/discs/980/Disc055-DoctorWhoTheFirstAdventure.ssd
+get_add_ssd Elite\(86\)  https://bbcmicro.co.uk/gameimg/discs/2088/Disc999-EliteMasterAndTubeEnhanced.ssd
+get_add_ssd Exile        https://bbcmicro.co.uk/gameimg/discs/709/Disc040-ExileR.ssd
+get_add_ssd FireTrack    https://bbcmicro.co.uk/gameimg/discs/2468/DiscA06-FireTrackSAM7.ssd
+get_add_ssd LunarJetman  https://bbcmicro.co.uk/gameimg/discs/406/Disc023-LunarJetmanCosmicBattlezones.ssd
+get_add_ssd PharaohCurse https://bbcmicro.co.uk/gameimg/discs/484/Disc027-PharaohsCurse.ssd
 get_add_ssd PriceOfPersi https://bitshifters.github.io/content/pop-beeb.ssd
-get_add_ssd Revs         http://bbcmicro.co.uk/gameimg/discs/267/Disc015-Revs.ssd
-get_add_ssd SnapperV1    http://bbcmicro.co.uk/gameimg/discs/2345/DiscA01-SnapperV1.ssd
+get_add_ssd Revs         https://bbcmicro.co.uk/gameimg/discs/267/Disc015-Revs.ssd
+get_add_ssd SnapperV1    https://bbcmicro.co.uk/gameimg/discs/2345/DiscA01-SnapperV1.ssd
 get_add_ssd StuntCarRacr https://bitshifters.github.io/content/bs-scr-beeb.ssd
-get_add_dsd Time\&Magic  http://bbcmicro.co.uk/gameimg/discs/2343/Disc999-TimeAndMagikTrilogySTD.dsd
-get_add_ssd Uridium      http://bbcmicro.co.uk/gameimg/discs/557/Disc031-UridiumCB.ssd
-get_add_ssd WhiteLight   http://bbcmicro.co.uk/gameimg/discs/2712/Disc999-WhiteLight10DFS.ssd
+get_add_dsd Time\&Magic  https://bbcmicro.co.uk/gameimg/discs/2343/Disc999-TimeAndMagikTrilogySTD.dsd
+get_add_ssd Uridium      https://bbcmicro.co.uk/gameimg/discs/557/Disc031-UridiumCB.ssd
+get_add_ssd WhiteLight   https://bbcmicro.co.uk/gameimg/discs/2712/Disc999-WhiteLight10DFS.ssd
 
 # ##########################################################################
 # Chris Evan's Test Collection
@@ -225,12 +226,12 @@ then
 wget -N -P downloads "https://www.dropbox.com/s/g3i5fe5napf8rwt/VideoNuLA_pack_Feb2018.zip"
 mkdir -p ${dir}
 unzip -d ${dir} downloads/VideoNuLA_pack_Feb2018.zip
-beeb split_dsd ${dir}/cpc.dsd ${dir}/cpc0.ssd ${dir}/cpc2.ssd  
+beeb split_dsd ${dir}/cpc.dsd ${dir}/cpc0.ssd ${dir}/cpc2.ssd
 fi
 roundup_disk_num 50
 title_ssd "VIDEO NULA"
 for ssd in $(find ${dir} -name '*.ssd' | sort -f)
-do    
+do
     title=$(echo ${ssd} | cut -c34- | cut -d. -f1)
     add_ssd ${ssd} ${title}
 done
@@ -247,5 +248,3 @@ title_ssd "6502 TESTS"
 add_ssd downloads/6502_65C02_functional_tests/beeb/dormann.ssd
 add_ssd ../local/BCDTEST.ssd
 add_directory downloads/6502Timing
-
-

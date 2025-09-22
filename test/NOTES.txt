@@ -13,7 +13,7 @@ Current testing issues: 2025/09/22 04ed3f96
 - 208:mode7-disen: BeebFPGA black bar four characters to the right cf real Master
 
 Prioritised:
-1. HDMI cropping: expand capture window to 720 wide
+1. HDMI cropping: expand capture window to 720 wide [ now fixed ]
 2. HDMI aspect ratio unstable: choose aspect ratio at end of field based on some kind of "average"
 
 Papilio Duo Issues:
@@ -64,7 +64,7 @@ Test Disk Images Results (04ed3f96 - 20th September 2005):
   61: RallyX            Works
   62: RipCord           Works
   63: Scramble          Works
-  64: SpaceInvader
+  64: SpaceInvader      Works
   65: Sprint1           [ paddle only ]
   66: SuperBreakou      [ paddle only ]
 
@@ -94,9 +94,9 @@ Test Disk Images Results (04ed3f96 - 20th September 2005):
  154: mode7-75          Works
  155: mode7-bug         Works
  156: Music2            Works
- 157: raster-c          Works, BeebFPGA palette change late by two 16MHz clock cycles, HDMI cropped
- 158: rvi-working       Works, BeebFPGA blanking very slightly off, HDMI aspect ratio incorrectly flagged as 16:9
- 159: teletest_v1       BeebFPGA: 1) Works; 2) Works; 3) Works
+ 157: raster-c          Works, Palette change late by two 16MHz clock cycles, HDMI cropped
+ 158: rvi-working       Works, Blanking very slightly off, HDMI aspect ratio incorrectly flagged as 16:9
+ 159: teletest_v1       1) Works; 2) Works; 3) Works
  160: upside-doom-n-s   Works (no-skew version)
  161: upside-doom       Both: hang with black screen 50% of the time; BeebFPGA has four vertical black lines
 
@@ -109,7 +109,7 @@ Test Disk Images Results (04ed3f96 - 20th September 2005):
  205: cursor_reset      Works
  206: framework_te      Works
  207: light_pen_cb      Works
- 208: mode7-disen       BeebFPGA: black bar four characters to the right
+ 208: mode7-disen       Black bar four characters to the right cf real master
  209: r1=0              Works
  210: r1=255            Works, cropped on HDMI, total hang on control BREAK [lack of refresh corrupts ROMs]
  211: R4-1              Works

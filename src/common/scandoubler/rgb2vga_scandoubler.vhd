@@ -56,17 +56,26 @@ entity rgb2vga_scandoubler is
         WIDTH          : integer;
 
         -- PAL timimg parameters
-        -- (increasing moves display to the left)
-        PAL_OFFSET0    : integer := 184;     -- Used when mode=0 (184 = 11.5us @ 16MHz)
-        PAL_OFFSET1    : integer := 72;      -- Used when mode=1 (72  =  6.0us @ 12MHz)
-        PAL_WIDTH      : integer := 656;     -- Active line width (8 px extra at each side @ 16MHz which is just enough overscan)
+        --
+        -- The normal BBC display occupies 640px in MODE 0..6. We
+        -- capture far more than this, to accomodate games like Boffin
+        -- that overscan (it uses 92 columns / 736 pixels). This is
+        -- more than the 720x576 HDMI mode can cope with, and the
+        -- extra pixels are cropped. We actually use Boffin as a test
+        -- case for calibrating the offsets.
+        --
+        -- Increasing moves sample window to the right, which moved
+        -- displayed objects to the left)
+        PAL_OFFSET0    : integer := 154;     -- Used for MODE 0..6
+        PAL_OFFSET1    : integer := 40;      -- Used for MODE 7
+        PAL_WIDTH      : integer := 800;     -- This just needs to be larger than VGA_HORIZ_DISP
 
         -- VGA timimg parameters
         VGA_CLK_MHZ    : integer := 27;      -- VGA clock frequency in MHz
         VGA_HORIZ_RT   : integer := 64;
-        VGA_HORIZ_BP   : integer := 68 + 32;
-        VGA_HORIZ_DISP : integer := 656;
-        VGA_HORIZ_FP   : integer := 12 + 32
+        VGA_HORIZ_BP   : integer := 68;
+        VGA_HORIZ_DISP : integer := 720;     -- Output as much as can be displayed in HDMI
+        VGA_HORIZ_FP   : integer := 12
 
         -- Values for 720x576p (total 864x625) with 27MHz clock
         -- worked quite well on Belina and on LG

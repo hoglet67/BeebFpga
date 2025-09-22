@@ -2843,7 +2843,11 @@ begin
                         hdmi_green <= (others => hd_green(0));
                         hdmi_blue  <= (others => hd_blue(0));
                     end if;
-                    if vid_debug = '0' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = voffset or vcnt = voffset + vsize - 1) then
+                    -- Note, this will only be visible if there is no overscan on the monitor
+                    -- My LG 22MN43D TV overscans by quite a bit with HDMI but not with DVI
+                    -- and the Just Scan option (with gets rid of overscan) doesn't seem to
+                    -- be available with 576p, just with 720p and 1080p.
+                    if vid_debug = '1' and (hcnt = 68 or hcnt = 68 + 719 or vcnt = voffset or vcnt = voffset + vsize - 1) then
                         hdmi_green <= (others => '1');
                     end if;
                 end if;

@@ -1,4 +1,4 @@
-create_clock -name sys_clk -period 7.407 -waveform {0 3.703} [get_ports {sys_clk}] -add
+create_clock -name sys_clk -period 7.407407407 -waveform {0 3.703} [get_ports {sys_clk}] -add
 create_clock -name audio_clk -period 40.690 -waveform {0 20.345} [get_ports {audio_clk}] -add
 
 // Create clock definitions for each of the derived clocks

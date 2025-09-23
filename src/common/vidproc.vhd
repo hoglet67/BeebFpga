@@ -108,6 +108,9 @@ entity vidproc is
         -- Indicates teletext
         TTXT        :   out std_logic;
 
+        -- Indicates a 2MHz crtc clock
+        CRTC_2MHZ   :   out std_logic;
+
         -- Indicates a 12MHz pixel clock (ttxt or Nula Attr mode)
         MHZ12       :   out std_logic;
 
@@ -824,6 +827,9 @@ begin
 
     -- Indicate mode 7 teletext is selected
     TTXT <= r0_teletext;
+
+    -- Indicates a 2MHz crtc clock
+    CRTC_2MHZ <= r0_crtc_2mhz;
 
     -- Indicate a 12MHz pixel clock (ttxt or Nula Attr mode)
     MHZ12 <= modeIs12MHz;

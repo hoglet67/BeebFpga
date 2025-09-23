@@ -620,6 +620,7 @@ signal cpu_dout_us      :   unsigned (7 downto 0);
 
 -- CRTC signals
 signal crtc_clken       :   std_logic;
+signal crtc_2mhz_active :   std_logic;
 signal crtc_do          :   std_logic_vector(7 downto 0);
 signal crtc_vsync       :   std_logic;
 signal crtc_vsync_n     :   std_logic;
@@ -1024,6 +1025,7 @@ begin
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
+                CRTC_2MHZ       => crtc_2mhz_active,
                 MHZ12           => mhz12_active,
                 ENABLE          => vidproc_enable,
                 A               => cpu_a(1 downto 0),
@@ -1069,6 +1071,7 @@ begin
                 CLKEN_CRTC      => crtc_clken,
                 CLKEN_COUNT     => clken_counter,
                 TTXT            => ttxt_active,
+                CRTC_2MHZ       => crtc_2mhz_active,
                 ENABLE          => vidproc_enable,
                 A0              => cpu_a(0),
                 DI_CPU          => cpu_do,
@@ -2714,24 +2717,33 @@ begin
         signal tmp_rgb_out   : std_logic_vector(3 * RGB_WIDTH - 1 downto 0);
         signal tmp_hsync     : std_logic;
         signal tmp_vsync     : std_logic;
+        signal mode          : std_logic;
         signal bypass        : std_logic;
     begin
 
-        -- Input clock enable (for the 48MHz input clock)
-        --   mhz12_active = 0: 16MHz
-        --   mhz12_active = 1: 12MHz
-        clken_pixel <= ttxt_clken when mhz12_active = '1' else mhz16_clken;
+        -- Some CRTC torture tests (rvi-working) switch in/out of
+        -- teletext mode each line to force blanking. To do the best
+        -- we can to handle this, the scandoubler's teletext mode is
+        -- only selected when teletext is active and the crtc clock is
+        -- 1MHz. This is a bit of a hack, and might come back to bite
+        -- us if other tests try to use a 2MHz teletext mode.
+        --
+        mode <= mhz12_active and not crtc_2mhz_active;
+
+        --   mode = 0: 16MHz
+        --   mode = 1: 12MHz
+        clken_pixel <= ttxt_clken when mode = '1' else mhz16_clken;
 
         tmp_even_in <= r_out_even & g_out_even & b_out_even;
         tmp_odd_in  <= r_out_odd  & g_out_odd  & b_out_odd;
 
-         inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler
+        inst_rgb2vga_scandoubler: entity work.rgb2vga_scandoubler
             generic map (
                 WIDTH        => RGB_WIDTH * 3,
                 VGA_CLK_MHZ  => 27
                 )
             port map (
-                mode         => mhz12_active,
+                mode         => mode,
                 pal_clk      => clock_48,
                 pal_clken    => clken_pixel,
                 pal_rgb_even => tmp_even_in,

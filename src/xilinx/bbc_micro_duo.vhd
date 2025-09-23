@@ -267,6 +267,7 @@ begin
         IncludeCoProSPI    => false,
         IncludeCoProExt    => IncludeCoProExt,
         IncludeVideoNuLA   => IncludeVideoNuLA,
+        IncludeMode7NuLA   => false, -- to save space
         UseOrigKeyboard    => false,
         UseT65Core         => not IncludeMaster,  -- select the 6502 for the Beeb
         UseAlanDCore       => IncludeMaster       -- select the 65C02 for the Master

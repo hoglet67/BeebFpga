@@ -72,6 +72,7 @@ entity bbc_micro_core is
         IncludeCoProSPI        : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt        : boolean := false; -- (i.e. select just one)
         IncludeVideoNuLA       : boolean := false;
+        IncludeMode7NuLA       : boolean := true;  -- default to true, disable in Duo build
         IncludeSRGB            : boolean := false;
         IncludeVGA             : boolean := false;
         IncludeHDMI            : boolean := false;
@@ -1012,7 +1013,7 @@ begin
     begin
         videoula : entity work.vidproc
             generic map (
-                IncludeMode7NuLA => IncludeHD -- only needed if there is a scan doubler
+                IncludeMode7NuLA => IncludeMode7NuLA and IncludeHD -- only needed if there is a scan doubler
             )
             port map (
                 CLOCK           => clock_48,

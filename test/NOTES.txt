@@ -13,8 +13,8 @@ Current testing issues: 2025/09/22 04ed3f96
 - 208:mode7-disen: BeebFPGA black bar four characters to the right cf real Master
 
 Prioritised:
-1. HDMI cropping: expand capture window to 720 wide [ now fixed ]
-2. HDMI aspect ratio unstable: choose aspect ratio at end of field based on some kind of "average"
+1. HDMI cropping: expand capture window to 720 wide [done]
+2. HDMI aspect ratio unstable: choose aspect ratio at end of field based on some kind of "average" [done]
 
 Papilio Duo Issues:
 

@@ -2776,6 +2776,7 @@ begin
         signal vsync1           :   std_logic;
         signal hcnt             :   std_logic_vector(9 downto 0);
         signal vcnt             :   std_logic_vector(9 downto 0);
+        signal mode0to6used     :   std_logic;
         signal hdmi_aspect_169  :   std_logic;
         signal hdmi_red         :   std_logic_vector(3 downto 0);
         signal hdmi_green       :   std_logic_vector(3 downto 0);
@@ -2809,11 +2810,28 @@ begin
         begin
             if rising_edge(clock_27) then
                 hsync1 <= hd_hsync;
+                -- track whether mode 0 to 6 (16MHz) is seen during the frame
+                mode0to6used <= mode0to6used or (not mhz12_active);
                 if hsync1 = '1' and hd_hsync = '0' then
                     hcnt <= (others => '0');
                     vsync1 <= hd_vsync;
                     if vsync1 = '1' and hd_vsync = '0' then
+                        if hdmi_aspect = "01" then
+                            -- force 4:3
+                            hdmi_aspect_169 <= '0';
+                        elsif hdmi_aspect = "01" then
+                            -- always 16:9
+                            hdmi_aspect_169 <= '1';
+                        elsif mode0to6used = '1' then
+                            -- if mode 0..6, or a mixture of mode 0..6 and mode 7 then flag 4:3
+                            hdmi_aspect_169 <= '0';
+                        else
+                            -- if mode 7 only, then flag 16:9 so it's stretched
+                            hdmi_aspect_169 <= '1';
+                        end if;
                         vcnt <= (others => '0');
+                        -- clear the mode usage flag once per frame
+                        mode0to6used <= '0';
                     else
                         vcnt <= vcnt + 1;
                     end if;
@@ -2863,10 +2881,6 @@ begin
                 end if;
             end if;
         end process;
-
-        hdmi_aspect_169 <= '0' when hdmi_aspect = "01" else -- always 4:3
-                           '1' when hdmi_aspect = "10" else -- always 16:9
-                           mhz12_active;                    -- 4:3 in modes 0-6; 16:9 i mode 7
 
         inst_hdmi: entity work.hdmi
             generic map (

@@ -684,6 +684,9 @@ signal ttxt_ic15_clken  :   std_logic;
 signal ttxt_di_clken    :   std_logic;
 signal mhz12_active     :   std_logic;
 
+-- Common VIA signals
+signal via_cs2_l        :   std_logic;
+
 -- System VIA signals
 signal sys_via_do       :   std_logic_vector(7 downto 0);
 signal sys_via_do_oe_n  :   std_logic;
@@ -1133,6 +1136,9 @@ begin
             PIXDE    => ttxt_pixde
         );
 
+    -- Prevent double read during clock stretching
+    via_cs2_l <= cpu_cycle_mask(1) or cpu_cycle_mask(0);
+
     -- System VIA
     system_via : entity work.m6522
         port map (
@@ -1142,7 +1148,7 @@ begin
             O_DATA_OE_L => sys_via_do_oe_n,
             I_RW_L      => cpu_r_nw,
             I_CS1       => sys_via_enable,
-            I_CS2_L     => '0', -- nCS2
+            I_CS2_L     => via_cs2_l,
             O_IRQ_L     => sys_via_irq_n,
             I_CA1       => sys_via_ca1_in,
             I_CA2       => sys_via_ca2_in,
@@ -1175,7 +1181,7 @@ begin
             O_DATA_OE_L => user_via_do_oe_n,
             I_RW_L      => cpu_r_nw,
             I_CS1       => user_via_enable,
-            I_CS2_L     => '0', -- nCS2
+            I_CS2_L     => via_cs2_l,
             O_IRQ_L     => user_via_irq_n,
             I_CA1       => user_via_ca1_in,
             I_CA2       => user_via_ca2_in,
@@ -2629,11 +2635,16 @@ begin
     -- Keyboard
     sys_via_ca2_in <= keyb_int;
 
-
     -- TODO more work needed here, but this might be enough
     sys_via_pa_in <= rtc_do when m128_mode = '1' and rtc_ce = '1' and rtc_ds = '1' and rtc_r_nw = '1' else
                      -- Must loop back output pins or keyboard won't work
-                     keyb_out & sys_via_pa_out(6 downto 0);
+                     keyb_out & sys_via_pa_out(6 downto 0) when keyb_enable_n = '0' else
+                     -- Emulate PA_OUT being connected to PA_IN
+                     -- - outputs are looped back so they can be read back
+                     -- - inputs (which are undriven at this point) float high so read back as '1'
+                     -- This is needed for gfoot's 1MHZE phase test:
+                     -- https://stardot.org.uk/forums/viewtopic.php?t=31710
+                     (sys_via_pa_out and not(sys_via_pa_oe_n)) or sys_via_pa_oe_n;
 
     keyb_column <= sys_via_pa_out(3 downto 0);
     keyb_row <= sys_via_pa_out(6 downto 4);

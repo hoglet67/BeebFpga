@@ -39,6 +39,7 @@
 --
 -- Revision list
 --
+--        dmb: Fix issues with port A/B handshake mode
 --        dmb: Fix timing violations (I_P2_H used as a clock)
 --        dmb: Fix T2 interrupt corner case
 --        dmb: ier bit 7 should read back as '1'
@@ -380,7 +381,7 @@ begin
       if (cs = '1') and (I_RW_L = '1') then
          case I_RS is
             when x"0" => O_DATA <= orb; r_irb_hs <= '1';
-            when x"1" => O_DATA <= (r_ira and not r_ddra) or (r_ora and r_ddra); r_ira_hs <= '1';
+            when x"1" => O_DATA <= r_ira; r_ira_hs <= '1';
             when x"2" => O_DATA <= r_ddrb;
             when x"3" => O_DATA <= r_ddra;
             when x"4" => O_DATA <= t1c( 7 downto 0);  t1_r_reset_int <= true;
@@ -610,20 +611,12 @@ begin
             cb2_ip_reg_c <= I_CB2;
             cb2_ip_reg_d <= cb2_ip_reg_c;
 
-            if (r_acr(0) = '0') then
+            if r_acr(0) = '0' or ca1_irq = '0' then
                r_ira <= I_PA;
-            else -- enable latching
-               if ca1_int then
-                  r_ira <= I_PA;
-               end if;
             end if;
 
-            if (r_acr(1) = '0') then
+            if r_acr(1) = '0' or cb1_irq = '0' then
                r_irb <= I_PB;
-            else -- enable latching
-               if cb1_int then
-                  r_irb <= I_PB;
-               end if;
             end if;
          end if;
       end if;

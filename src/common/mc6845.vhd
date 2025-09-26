@@ -755,12 +755,12 @@ begin
         end if;
     end process;
 
-    de0 <= '1' when h_display = '1' and v_display = '1' and r08_interlace(5 downto 4) /= "11" else '0';
+    de0 <= '1' when h_display = '1' and v_display = '1' else '0';
 
-    DE <= de1 when r08_interlace(5 downto 4) = "01" else
+    DE <= de0 when r08_interlace(5 downto 4) = "00" else
+          de1 when r08_interlace(5 downto 4) = "01" else
           de2 when r08_interlace(5 downto 4) = "10" else
-          de0;
-
+          '0';
 
     CURSOR <= cursor0 when r08_interlace(7 downto 6) = "00" else
               cursor1 when r08_interlace(7 downto 6) = "01" else

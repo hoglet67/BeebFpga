@@ -25,6 +25,7 @@ architecture Behavioral of SPI_Port is
     signal SerialOut : std_logic_vector(7 downto 0);
     signal SerialIn  : std_logic_vector(7 downto 0);
     signal count  : std_logic_vector(12 downto 0);
+    signal enable_last : std_logic;
 begin
 
 --------------------------------------------------------------
@@ -45,6 +46,8 @@ begin
         elsif rising_edge(clk) then
 
             if clken = '1' then
+                enable_last <= enable;
+
                 if (state = init) then
                     if (count = 5663) then -- 88 * 64 + 31
                         state <= s0;
@@ -55,7 +58,7 @@ begin
                         count <= count + 1;
                     end if;
 
-                elsif enable = '1' and nwe = '0' and state = s0 then
+                elsif enable = '1' and enable_last = '0' and nwe = '0' and state = s0 then
 
                     SerialOut <= datain;
                     state <= s1;

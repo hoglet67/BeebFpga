@@ -2176,8 +2176,8 @@ begin
     -- The following IO regions are accessed at 1 MHz and hence will stall the
     -- CPU accordingly
     mhz1_enable <= io_fred or io_jim or
-        adc_enable or sys_via_enable or user_via_enable or
-        serproc_enable or acia_enable or crtc_enable;
+                   adc_enable or sys_via_enable or user_via_enable or
+                   (io_sheila and (not cpu_a(7)) and (not cpu_a(6)) and (not cpu_a(5))); -- serproc_enable or acia_enable or crtc_enable;
 
 
     -- FRED address demux

@@ -246,5 +246,17 @@ get_git_repo https://github.com/hoglet67/6502_65C02_functional_tests
 roundup_disk_num 50
 title_ssd "6502 TESTS"
 add_ssd downloads/6502_65C02_functional_tests/beeb/dormann.ssd
-add_ssd ../local/BCDTEST.ssd
+add_ssd ../local/bcdtest.ssd
 add_directory downloads/6502Timing
+
+# ##########################################################################
+# LOW LEVEL Tests
+# ##########################################################################
+
+roundup_disk_num 50
+title_ssd "LOW LEVEL"
+add_ssd ../local/1MHzE.ssd
+add_ssd ../local/glitch.ssd
+add_ssd ../local/protection.ssd
+add_ssd ../local/viatest_rtw.ssd
+add_ssd ../local/viatest_sb.ssd

@@ -1,10 +1,10 @@
 Current testing issues: 2025/09/22 04ed3f96
 - HDMI cropped at sides (15:Waverunner, 21:EvilInfluence, 102:Boffin, 157:raster-c, 210:r1=255)
-- HDMI aspect ratio unstable (152:Mode1+7 and 153 Mode4+7)
+- HDMI aspect ratio unstable (152:Mode1+7 and 153:Mode4+7)
 - Interestingly, 17:BeebNICCC now works, it didn't in previous testimg, faster MMFS?
 - 21:WobbleColour: Slight banding difference in bottom row
 - Tang Nano 20K SDRAM refresh starvation corrupts ROMS so hangs on Ctrl-BREAK (22:BarBeeb, 202:cursor_oddit, 210:r1=255)
-- 53:Canyon Bomber: seems to blank the NulA palette so black after reboot
+- 53:Canyon Bomber: seems to blank the NulA palette so black after reboot; this is expected
 - 103:DevilsIsland: Sync issue on HDMI
 - 153:Mode4+7 scan doubles mishandles mode transition
 - 157:raster-c: Palette change late by two 16MHz clock cycles

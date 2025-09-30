@@ -282,6 +282,7 @@ entity bbc_micro_core is
         trace_r_nw     : out   std_logic;
         trace_sync     : out   std_logic;
         trace_rstn     : out   std_logic;
+        trace_rdy      : out   std_logic;
         trace_phi2     : out   std_logic;
 
         -- HDMI Video
@@ -582,6 +583,7 @@ signal ttxt_clken       :   std_logic := '0'; -- 12 MHz used by SAA 5050
 signal mhz8_clken       :   std_logic; -- Used by SPDIF
 signal mhz6_clken       :   std_logic; -- 6 MHz used by Music 5000
 signal mhz4_clken       :   std_logic; -- Used by 6522
+signal mhz2_clken       :   std_logic; -- Used only for tracing
 signal mhz1_clken       :   std_logic; -- 1 MHz bus and associated peripherals, 6522 phase 2
 
 -- Control signals to indicate memory cycles
@@ -2059,6 +2061,13 @@ begin
                 mhz1_clken <= '0';
             end if;
 
+            -- 2MHz clock enable (used only for tracing, in sync wth cpu_clken)
+            if div3_counter = 2 and clken_counter(2 downto 0) = 3 then
+                mhz2_clken <= '1';
+            else
+                mhz2_clken <= '0';
+            end if;
+
             -- CPU clock enable (taking account of cycle stretching)
             if div3_counter = 2 and clken_counter(2 downto 0) = 3 and cpu_cycle_mask = "00" then
                 cpu_clken <= '1';
@@ -3216,7 +3225,7 @@ begin
             variable p_delay : std_logic_vector(11 downto 0);
         begin
             if rising_edge(clock_48) then
-                if cpu_clken = '1' then
+                if mhz2_clken = '1' then
                     if cpu_r_nw = '1' then
                         trace_data <= cpu_di;
                     else
@@ -3225,13 +3234,14 @@ begin
                     trace_r_nw <= cpu_r_nw;
                     trace_sync <= cpu_sync;
                     trace_rstn <= reset_n;
+                    trace_rdy  <= cpu_clken;
                 end if;
                 -- generate an 12 cycle wide fake phi2 pulse with the falling edge 12 cycles after cpu_clken
                 trace_phi2 <= p_delay(0) or p_delay(1) or p_delay(2)  or p_delay(3) or
                               p_delay(4) or p_delay(5) or p_delay(6)  or p_delay(7) or
                               p_delay(8) or p_delay(9) or p_delay(10) or p_delay(11);
                 -- delayed versions of cpu_clken
-                p_delay := cpu_clken & p_delay(11 downto 1);
+                p_delay := mhz2_clken & p_delay(11 downto 1);
             end if;
         end process;
     end generate;
@@ -3241,6 +3251,7 @@ begin
         trace_r_nw <= '0';
         trace_sync <= '0';
         trace_rstn <= '0';
+        trace_rdy  <= '0';
         trace_phi2 <= '0';
     end generate;
 

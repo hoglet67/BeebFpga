@@ -1,0 +1,82 @@
+[*]
+[*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
+[*] Mon Sep 29 19:19:54 2025
+[*]
+[dumpfile] "/disk1/home/dmb/atom/BeebFpga/test/viatest/test.vcd"
+[dumpfile_mtime] "Mon Sep 29 19:18:52 2025"
+[dumpfile_size] 1289307
+[savefile] "/disk1/home/dmb/atom/BeebFpga/test/viatest/test.gtkw"
+[timestart] 102280000000
+[size] 1853 1145
+[pos] -1 -1
+*-32.000000 118010420443 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] m6522_tb.
+[sst_width] 223
+[signals_width] 182
+[sst_expanded] 1
+[sst_vpaned_height] 343
+@22
+m6522_tb.clken_counter[3:0]
+@28
+m6522_tb.clock_48
+@22
+m6522_tb.cpu_a[3:0]
+@28
+m6522_tb.cpu_clken
+m6522_tb.cpu_cycle_mask[1:0]
+@22
+m6522_tb.cpu_d[7:0]
+@28
+m6522_tb.cpu_r_nw
+m6522_tb.cpu_sync
+@29
+m6522_tb.system_via.t1_irq
+@28
+m6522_tb.cpu_irq_n
+m6522_tb.div3_counter[1:0]
+m6522_tb.hard_reset_n
+m6522_tb.mhz16_clken
+m6522_tb.via_ca1_in
+m6522_tb.via_ca2_in
+m6522_tb.via_ca2_oe_n
+m6522_tb.via_ca2_out
+m6522_tb.via_cb1_in
+m6522_tb.via_cb1_oe_n
+m6522_tb.via_cb1_out
+m6522_tb.via_cb2_in
+m6522_tb.via_cb2_oe_n
+m6522_tb.via_cb2_out
+m6522_tb.via_cs2_l
+@22
+m6522_tb.via_do[7:0]
+@28
+m6522_tb.via_do_oe_n
+m6522_tb.via_ena_4
+m6522_tb.via_enable
+m6522_tb.via_irq_n
+m6522_tb.via_p2_h
+@22
+m6522_tb.via_pa_in[7:0]
+m6522_tb.via_pa_oe_n[7:0]
+m6522_tb.via_pa_out[7:0]
+m6522_tb.via_pb_in[7:0]
+m6522_tb.via_pb_oe_n[7:0]
+m6522_tb.via_pb_out[7:0]
+@28
+m6522_tb.system_via.t1_int_enable
+m6522_tb.system_via.t1_load_counter
+m6522_tb.system_via.t1_pb7
+m6522_tb.system_via.t1_pb7_en_c
+m6522_tb.system_via.t1_pb7_en_d
+m6522_tb.system_via.t1_r_reset_int
+m6522_tb.system_via.t1_reload_counter
+m6522_tb.system_via.t1_toggle
+m6522_tb.system_via.t1_w_reset_int
+@22
+m6522_tb.system_via.t1c[15:0]
+@28
+m6522_tb.system_via.t1c_active
+m6522_tb.system_via.t1c_done
+m6522_tb.system_via.phase[1:0]
+[pattern_trace] 1
+[pattern_trace] 0

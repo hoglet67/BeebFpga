@@ -700,15 +700,14 @@ begin
 
          t1_toggle <= '0';
          if phase = "00" then
-             t1_irq_set <= false;
-             if t1c_active and t1c_done then
-                 if t1_int_enable then -- Set interrupt only if T1L-H has been written
-                     t1_toggle <= '1';
-                     t1_irq_set <= true;
-                     if (r_acr(6) = '0') then -- Disable further interrupts if in one shot mode
-                         t1_int_enable <= false;
-                     end if;
+             if t1c_active and t1c_done and t1_int_enable then -- Set interrupt only if T1L-H has been written
+                 t1_toggle <= '1';
+                 t1_irq_set <= true;
+                 if (r_acr(6) = '0') then -- Disable further interrupts if in one shot mode
+                     t1_int_enable <= false;
                  end if;
+             else
+                 t1_irq_set <= false;
              end if;
          end if;
 

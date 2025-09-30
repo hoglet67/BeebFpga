@@ -160,6 +160,8 @@ architecture RTL of M6522 is
    signal t2_load_counter   : boolean;
    signal t2_reload_counter : boolean;
    signal t2_int_enable     : boolean := false;
+   signal t2_irq_set        : boolean := false;
+   signal t2_irq_reset      : boolean := false;
    signal t2_irq            : std_logic := '0';
    signal t2_sr_ena         : boolean;
 
@@ -757,7 +759,9 @@ begin
       if (ENA_4 = '1') then
          done := (t2c = x"0000");               -- Normal timer expires at 0000
          done_sr := (t2c(7 downto 0) = x"00");  -- Shift register expires on low byte = 00
-         t2c_done <= done and (phase = "11");
+         if (phase = "11") then
+             t2c_done <= done;
+         end if;
          if (phase = "11") then
             t2_reload_counter <= done_sr;        -- Timer 2 is only reloaded when used for the shift register
          end if;
@@ -766,6 +770,8 @@ begin
          end if;
       end if;
    end process;
+
+   t2_irq_reset <= t2_w_reset_int or t2_r_reset_int or (clear_irq(5) = '1') or t2_load_counter;
 
    p_timer2 : process
       variable ena : boolean;
@@ -802,18 +808,23 @@ begin
 
          if t2_load_counter then
             t2c_active <= true;
-         elsif t2c_done then
+         elsif t2c_done and phase = "00" then
             t2c_active <= false;
          end if;
 
-         if t2c_active and t2c_done and t2_int_enable then
-            t2_int_enable <= false;
-            t2_irq <= '1';
-         elsif t2_w_reset_int or t2_r_reset_int or (clear_irq(5) = '1') then
-            t2_irq <= '0';
+         if phase = "00" then
+             if t2c_active and t2c_done and t2_int_enable then
+                 t2_irq_set <= true;
+                 t2_int_enable <= false;
+             else
+                 t2_irq_set <= false;
+             end if;
          end if;
-         if t2_load_counter then -- irq reset on load!
-            t2_irq <= '0';
+
+         if t2_irq_set then
+             t2_irq <= '1';
+         elsif t2_irq_reset then
+             t2_irq <= '0';
          end if;
       end if;
    end process;

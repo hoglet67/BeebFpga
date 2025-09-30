@@ -141,10 +141,12 @@ architecture RTL of M6522 is
    signal t1_reload_counter : boolean;
    signal t1_int_enable     : boolean := false;
    signal t1_toggle         : std_logic;
+   signal t1_irq_set        : boolean := false;
+   signal t1_irq_reset      : boolean := false;
    signal t1_irq            : std_logic := '0';
    signal t1_pb7            : std_logic := '1';
-   signal t1_pb7_en_c         : std_logic;
-   signal t1_pb7_en_d      : std_logic;
+   signal t1_pb7_en_c       : std_logic;
+   signal t1_pb7_en_d       : std_logic;
 
    -- timer 2
    signal t2c               : std_logic_vector(15 downto 0) := (others => '1'); -- simulators may not catch up w/o init here...
@@ -659,7 +661,9 @@ begin
       wait until rising_edge(CLK);
       if (ENA_4 = '1') then
          done := (t1c = x"0000");
-         t1c_done <= done and (phase = "11");
+         if (phase = "11") then
+             t1c_done <= done;
+         end if;
          if (phase = "11") and not t1_load_counter then -- Don't set reload if T1L-H written
             t1_reload_counter <= done;
          elsif t1_load_counter then                     -- Cancel a reload when T1L-H written
@@ -670,6 +674,8 @@ begin
          end if;
       end if;
    end process;
+
+   t1_irq_reset <= t1_w_reset_int or t1_r_reset_int or (clear_irq(6) = '1') or t1_load_counter;
 
    p_timer1 : process
    begin
@@ -688,24 +694,28 @@ begin
 
          if t1_load_counter or t1_reload_counter then
             t1c_active <= true;
-         elsif t1c_done then
+         elsif t1c_done and phase = "01" then
             t1c_active <= false;
          end if;
 
          t1_toggle <= '0';
-         if t1c_active and t1c_done then
-            if t1_int_enable then -- Set interrupt only if T1L-H has been written
-               t1_toggle <= '1';
-               t1_irq <= '1';
-               if (r_acr(6) = '0') then -- Disable further interrupts if in one shot mode
-                  t1_int_enable <= false;
-               end if;
-            end if;
-         elsif t1_w_reset_int or t1_r_reset_int or (clear_irq(6) = '1') then
-            t1_irq <= '0';
+         if phase = "00" then
+             t1_irq_set <= false;
+             if t1c_active and t1c_done then
+                 if t1_int_enable then -- Set interrupt only if T1L-H has been written
+                     t1_toggle <= '1';
+                     t1_irq_set <= true;
+                     if (r_acr(6) = '0') then -- Disable further interrupts if in one shot mode
+                         t1_int_enable <= false;
+                     end if;
+                 end if;
+             end if;
          end if;
-         if t1_load_counter then -- irq reset on load!
-            t1_irq <= '0';
+
+         if t1_irq_set then
+             t1_irq <= '1';
+         elsif t1_irq_reset then
+             t1_irq <= '0';
          end if;
       end if;
    end process;

@@ -1350,8 +1350,8 @@ begin
                         end if;
                     when cycleStack3 =>
                         doReg <= PC(7 downto 0);
-                    when cycleRmw =>
-                        doReg <= di; -- Read-modify-write write old value first.
+--                    when cycleRmw =>
+--                        doReg <= di; -- Read-modify-write write old value first.
                     when others =>
                         null;
                 end case;
@@ -1378,8 +1378,8 @@ begin
                         if opcInfo(opcStackUp) = '0' then
                             theWe <= '0';
                         end if;
-                    when cycleRmw =>
-                        theWe <= '0';
+--                  when cycleRmw =>
+--                      theWe <= '0';
                     when cycleWrite =>
                         theWe <= '0';
                     when others =>

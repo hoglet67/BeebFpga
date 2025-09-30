@@ -694,7 +694,7 @@ begin
 
          if t1_load_counter or t1_reload_counter then
             t1c_active <= true;
-         elsif t1c_done and phase = "01" then
+         elsif t1c_done and phase = "00" then
             t1c_active <= false;
          end if;
 

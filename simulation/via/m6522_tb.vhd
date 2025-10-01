@@ -1,7 +1,9 @@
 library ieee;
 use ieee.std_logic_1164.all;
---use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
+
+use std.textio.all;
+use ieee.std_logic_textio.all;
 
 entity m6522_tb is
     generic (
@@ -144,79 +146,24 @@ begin
         clock_48 <= not clock_48;
     end process;
 
+    -- Main process
     p_main : process
-
-        --   procedure VIA_READ(
-      --       addr : in std_logic_vector(3 downto 0)) is
-        --   begin
-      --       cpu_a <= x"fe6" & addr;
-        --       cpu_r_nw <= '1';
-      --       via_enable <= '1';
-        --       wait until rising_edge(cpu_clken);
-      --       cpu_a <= (others => '0');
-        --       via_enable <= '0';
-      --   end procedure;
-
-      --   procedure VIA_WRITE(
-        --       addr : in std_logic_vector(3 downto 0);
-      --       data : in std_logic_vector(7 downto 0)) is
-        --   begin
-      --       cpu_d <= data;
-        --       cpu_a <= x"fe6" & addr;
-      --       cpu_r_nw <= '0';
-        --       via_enable <= '1';
-      --       wait until rising_edge(cpu_clken);
-        --       cpu_d <= x"00";
-      --       cpu_a <= (others => '0');
-        --       cpu_r_nw <= '1';
-      --       via_enable <= '0';
-        --   end procedure;
-
-        -- procedure VIA_TEST(
-      --     cycles : in integer) is
-        -- begin
-      --     -- STA &FE65
-        --     cpu_sync <= '1';
-      --     wait until rising_edge(cpu_clken);
-        --     cpu_sync <= '0';
-      --     wait until rising_edge(cpu_clken);
-        --     wait until rising_edge(cpu_clken);
-      --     cpu_irq_n <= via_irq_n;
-        --     VIA_WRITE(x"5", x"00");
-      --     -- DELAY
-        --     for i in 1 to cycles loop
-      --         cpu_irq_n <= via_irq_n;
-        --         wait until rising_edge(cpu_clken);
-      --     end loop;
-        --     -- LDA &FE64
-      --     cpu_sync <= '1';
-        --     wait until rising_edge(cpu_clken);
-      --     cpu_sync <= '0';
-        --     wait until rising_edge(cpu_clken);
-      --     wait until rising_edge(cpu_clken);
-        --     cpu_irq_n <= via_irq_n;
-      --     VIA_READ(x"4");
-        --     -- LDA ABS
-      --     cpu_sync <= '1';
-        --     wait until rising_edge(cpu_clken);
-      --     cpu_sync <= '0';
-        --     wait until rising_edge(cpu_clken);
-      --     wait until rising_edge(cpu_clken);
-        --     cpu_irq_n <= via_irq_n;
-      --     wait until rising_edge(cpu_clken);
-        -- end procedure;
-
+        variable a : integer;
+        variable result : line;
     begin
-        -- Initialize RAM
+        -- memory clear
         for i in 0 to 32767 loop
-            -- memory clear
             ram(i) := x"00";
         end loop;
 
+        -- program
         for i in 0 to 1023 loop
-            -- program
             ram(16#4400# + i) := prog(i);
         end loop;
+
+        -- hack - RTW's program relies on some junk in ZP!
+        ram(16#0004#) := x"00";
+        ram(16#0005#) := x"40";
 
         -- vectors (same as BBC)
         ram(16#FFFA#) := x"00";
@@ -272,7 +219,7 @@ begin
         ram(16#D9DA#) := x"00";
         ram(16#D9DB#) := x"44";
         ram(16#D9DC#) := x"4C";
-        ram(16#D9DD#) := x"DA";
+        ram(16#D9DD#) := x"DC";
         ram(16#D9DE#) := x"D9";
 
         hard_reset_n <= '0';
@@ -282,38 +229,47 @@ begin
         end loop;
         hard_reset_n <= '1';
 
-        -- wait until rising_edge(cpu_clken);
-        -- wait until rising_edge(cpu_clken);
-        -- wait until rising_edge(cpu_clken);
-        -- wait until rising_edge(cpu_clken);
-        -- -- VIA_WRITE(x"B", x"00");
-        -- wait until rising_edge(cpu_clken);
-        -- VIA_WRITE(x"E", x"7F");
-        -- wait until rising_edge(cpu_clken);
-        -- VIA_WRITE(x"E", x"C0");
-        -- wait until rising_edge(cpu_clken);
-        -- VIA_WRITE(x"4", x"04");
-        -- wait until rising_edge(cpu_clken);
-        -- wait until rising_edge(cpu_clken);
-        -- wait until rising_edge(cpu_clken);
-        -- wait until rising_edge(cpu_clken);
-        -- wait until rising_edge(cpu_clken);
-        -- VIA_TEST(15);
-        -- VIA_TEST(14);
-        -- VIA_TEST(13);
-        -- VIA_TEST(12);
-        -- VIA_TEST(11);
-        -- VIA_TEST(10);
-        -- VIA_TEST( 9);
-        -- VIA_TEST( 8);
-        -- VIA_TEST( 7);
-        -- VIA_TEST( 6);
-        -- VIA_TEST( 5);
-        -- VIA_TEST( 4);
-        -- VIA_TEST( 3);
-        -- VIA_TEST( 2);
+        wait for 1900 us;
+
+        writeline(output, result);
+        write(result, string'("--------------------------------------------------"));
+        writeline(output, result);
+        write(result, string'("VSTEST (by Rich Talbot-Watkins"));
+        writeline(output, result);
+        write(result, string'("--------------------------------------------------"));
+        writeline(output, result);
+        write(result, string'("Test:      IRQ Addr:              IFR:      T1C-L:"));
+        writeline(output, result);
+        for i in 0 to 28 loop
+            write(result, string'("[test "));
+            hwrite(result, std_logic_vector(to_unsigned(i + 1, 8)));
+            write(result, string'("]: "));
+            a := to_integer(unsigned(ram(16#4000# + i))) +
+                 to_integer(unsigned(ram(16#4300# + i))) * 256;
+            hwrite(result, std_logic_vector(to_unsigned(a, 16)));
+            if a > 0 then
+                write(result, string'(" ("));
+                hwrite(result, ram(a));
+                write(result, string'(" "));
+                hwrite(result, ram(a+1));
+                write(result, string'(" "));
+                hwrite(result, ram(a+2));
+                write(result, string'(")"));
+            else
+                write(result, string'("           "));
+            end if;
+            write(result, string'("        "));
+            hwrite(result, ram(16#4100# + i));
+            write(result, string'("        "));
+            hwrite(result, ram(16#4200# + i));
+            writeline(output, result);
+        end loop;
+        write(result, string'("--------------------------------------------------"));
+        writeline(output, result);
+
         wait;
     end process;
+
 
     ram_address <= to_integer(unsigned(cpu_a));
     process(clock_48)

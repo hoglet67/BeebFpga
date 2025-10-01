@@ -1,17 +1,16 @@
 [*]
 [*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
-[*] Tue Sep 30 12:41:04 2025
+[*] Tue Sep 30 14:59:02 2025
 [*]
 [dumpfile] "/disk1/home/dmb/atom/BeebFpga/simulation/via/test.vcd"
-[dumpfile_mtime] "Tue Sep 30 12:03:13 2025"
-[dumpfile_size] 7568947
+[dumpfile_mtime] "Tue Sep 30 14:57:18 2025"
+[dumpfile_size] 7462459
 [savefile] "/disk1/home/dmb/atom/BeebFpga/simulation/via/test.gtkw"
-[timestart] 1209200000000
+[timestart] 810000000
 [size] 1853 1145
 [pos] -1 -1
-*-36.000000 195800000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-31.000000 7680000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] m6522_tb.
-[treeopen] m6522_tb.core.
 [sst_width] 223
 [signals_width] 182
 [sst_expanded] 1
@@ -20,14 +19,10 @@
 m6522_tb.clken_counter[3:0]
 @28
 m6522_tb.clock_48
-@22
+@23
 m6522_tb.cpu_a[15:0]
-@29
-m6522_tb.cpu_r_nw
-@22
-m6522_tb.cpu_a_int[23:0]
 @28
-m6522_tb.cpu_abort_n
+m6522_tb.cpu_r_nw
 m6522_tb.cpu_clken
 m6522_tb.cpu_cycle_mask[1:0]
 @22
@@ -35,11 +30,6 @@ m6522_tb.cpu_di[7:0]
 m6522_tb.cpu_do[7:0]
 @28
 m6522_tb.cpu_irq_n
-m6522_tb.core.irq_n
-m6522_tb.core.irq_n_o
-m6522_tb.core.irqcycle
-m6522_tb.core.mcycle[2:0]
-m6522_tb.core.lcycle[2:0]
 @22
 m6522_tb.via.t1c[15:0]
 @28
@@ -47,10 +37,7 @@ m6522_tb.via.t1_irq
 m6522_tb.via.t1_irq_reset
 m6522_tb.via.t1_irq_set
 m6522_tb.via.phase[1:0]
-m6522_tb.cpu_mode[1:0]
 m6522_tb.cpu_nmi_n
-m6522_tb.cpu_ready
-m6522_tb.cpu_so_n
 m6522_tb.cpu_sync
 m6522_tb.div3_counter[1:0]
 m6522_tb.hard_reset_n

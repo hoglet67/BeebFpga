@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
 OPTS="--ieee=synopsys -fexplicit"
+ghdl -a ${OPTS} ../../src/gowin/src/R65Cx2.vhd
 ghdl -a ${OPTS} ../../AtomBusMon/src/T6502/T65_Pack.vhd
 ghdl -a ${OPTS} ../../AtomBusMon/src/T6502/T65_ALU.vhd
 ghdl -a ${OPTS} ../../AtomBusMon/src/T6502/T65_MCode.vhd

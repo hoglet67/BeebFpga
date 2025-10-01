@@ -4,6 +4,9 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity m6522_tb is
+    generic (
+        UseAlanDCore : boolean := false
+        );
 end entity;
 
 architecture rtl of m6522_tb is
@@ -22,15 +25,10 @@ architecture rtl of m6522_tb is
     signal cpu_clken        :   std_logic;
     signal cpu_cycle_mask   :   unsigned(1 downto 0) := (others => '0');
 
-    signal cpu_mode         :   std_logic_vector(1 downto 0);
-    signal cpu_ready        :   std_logic;
-    signal cpu_abort_n      :   std_logic;
     signal cpu_irq_n        :   std_logic;
     signal cpu_nmi_n        :   std_logic;
-    signal cpu_so_n         :   std_logic;
     signal cpu_r_nw         :   std_logic;
     signal cpu_sync         :   std_logic;
-    signal cpu_a_int        :   std_logic_vector(23 downto 0);
     signal cpu_a            :   std_logic_vector(15 downto 0);
     signal cpu_di           :   std_logic_vector(7 downto 0);
     signal cpu_do           :   std_logic_vector(7 downto 0);
@@ -210,6 +208,11 @@ begin
 
     begin
         -- Initialize RAM
+        for i in 0 to 32767 loop
+            -- memory clear
+            ram(i) := x"00";
+        end loop;
+
         for i in 0 to 1023 loop
             -- program
             ram(16#4400# + i) := prog(i);
@@ -249,8 +252,10 @@ begin
         -- D9D3 : D8       : CLD
         -- D9D4 : A2 FF    : LDX #$FF
         -- D9D6 : 9A       : TXS
-        -- D9D7 : 20 00 40 : JSR $4400
-        -- D9DA : 4C DA D9 : JMP $D9DA
+        -- D9D6 : 48       : PHA
+        -- D9D6 : 28       : PLP -- otherwise ghdl gives lots of warnings
+        -- D9D9 : 20 00 40 : JSR $4400
+        -- D9DC : 4C DA D9 : JMP $D9DA
         ram(16#D9CD#) := x"A9";
         ram(16#D9CE#) := x"40";
         ram(16#D9CF#) := x"8D";
@@ -261,18 +266,14 @@ begin
         ram(16#D9D4#) := x"A2";
         ram(16#D9D5#) := x"FF";
         ram(16#D9D6#) := x"9A";
-        ram(16#D9D7#) := x"20";
-        ram(16#D9D8#) := x"00";
-        ram(16#D9D9#) := x"44";
-        ram(16#D9DA#) := x"4C";
-        ram(16#D9DB#) := x"DA";
-        ram(16#D9DC#) := x"D9";
-
-        hard_reset_n <= '1';
-
-        for i in 1 to 10 loop
-            wait until rising_edge(cpu_clken);
-        end loop;
+        ram(16#D9D7#) := x"48";
+        ram(16#D9D8#) := x"28";
+        ram(16#D9D9#) := x"20";
+        ram(16#D9DA#) := x"00";
+        ram(16#D9DB#) := x"44";
+        ram(16#D9DC#) := x"4C";
+        ram(16#D9DD#) := x"DA";
+        ram(16#D9DE#) := x"D9";
 
         hard_reset_n <= '0';
 
@@ -320,35 +321,62 @@ begin
         if rising_edge(clock_48) then
             if cpu_r_nw = '0' then
                 ram(ram_address) := cpu_do;
+                ram_do <= cpu_do;
+            else
+                ram_do <= ram(ram_address);
             end if;
-            ram_do <= ram(ram_address);
         end if;
     end process;
 
-    core : entity work.T65
+    cmos: if UseAlanDCore generate
+        signal cpu_a_tmp : unsigned(15 downto 0);
+        signal cpu_do_tmp : unsigned(7 downto 0);
+    begin
+
+        core : entity work.r65c02
         port map (
-            Mode    => cpu_mode,
-            Res_n   => hard_reset_n,
-            Enable  => cpu_clken,
-            Clk     => clock_48,
-            Rdy     => cpu_ready,
-            Abort_n => cpu_abort_n,
-            IRQ_n   => cpu_irq_n,
-            NMI_n   => cpu_nmi_n,
-            SO_n    => cpu_so_n,
-            R_W_n   => cpu_r_nw,
-            Sync    => cpu_sync,
-            A       => cpu_a_int,
-            DI      => cpu_di,
-            DO      => cpu_do
-            );
-    cpu_a <= cpu_a_int(15 downto 0);
-    cpu_mode <= "00"; -- 6502
-    cpu_ready <= '1';
-    cpu_abort_n <= '1';
+            reset    => hard_reset_n,
+            clk      => clock_48,
+            enable   => cpu_clken,
+            nmi_n    => cpu_nmi_n,
+            irq_n    => cpu_irq_n,
+            di       => unsigned(cpu_di),
+            do       => cpu_do_tmp,
+            addr     => cpu_a_tmp,
+            nwe      => cpu_r_nw,
+            sync     => cpu_sync,
+            sync_irq => open,
+            Regs     => open
+        );
+        cpu_do <= std_logic_vector(cpu_do_tmp);
+        cpu_a  <= std_logic_vector(cpu_a_tmp);
+    end generate;
+
+    nmos: if not UseAlanDCore generate
+        signal cpu_a_tmp : std_logic_vector(23 downto 0);
+    begin
+        core : entity work.T65
+            port map (
+                Mode    => "00",
+                Res_n   => hard_reset_n,
+                Enable  => cpu_clken,
+                Clk     => clock_48,
+                Rdy     => '1',
+                Abort_n => '1',
+                IRQ_n   => cpu_irq_n,
+                NMI_n   => cpu_nmi_n,
+                SO_n    => '1',
+                R_W_n   => cpu_r_nw,
+                Sync    => cpu_sync,
+                A       => cpu_a_tmp,
+                DI      => cpu_di,
+                DO      => cpu_do
+                );
+        cpu_a <= cpu_a_tmp(15 downto 0);
+    end generate;
+
     cpu_irq_n <= via_irq_n;
     cpu_nmi_n <= '1';
-    cpu_so_n <= '1';
 
     via_enable <= '1' when cpu_a(15 downto 4) = VIA_ADDRESS else '0';
 

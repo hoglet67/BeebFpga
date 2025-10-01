@@ -234,7 +234,7 @@ begin
         writeline(output, result);
         write(result, string'("--------------------------------------------------"));
         writeline(output, result);
-        write(result, string'("VSTEST (by Rich Talbot-Watkins"));
+        write(result, string'("VIATEST (by Rich Talbot-Watkins"));
         writeline(output, result);
         write(result, string'("--------------------------------------------------"));
         writeline(output, result);

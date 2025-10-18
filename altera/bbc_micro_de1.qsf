@@ -792,6 +792,18 @@ set_global_assignment -name VERILOG_SHOW_LMF_MAPPING_MESSAGES OFF
 set_global_assignment -name VERILOG_MACRO "USE_FIFO_FOR_PH_REG1=1"
 set_global_assignment -name VERILOG_MACRO "ALTERA=1"
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to GPIO_0[34]
+set_global_assignment -name VHDL_FILE ../src/common/saa5050_rom_uninitialized.vhd
+set_global_assignment -name VHDL_FILE ../src/common/saa5050_rom.vhd
+set_global_assignment -name VERILOG_FILE ../src/common/hdmi/hdmidataencoder.v
+set_global_assignment -name VHDL_FILE ../src/common/hdmi/hdmidelay.vhd
+set_global_assignment -name VHDL_FILE ../src/common/hdmi/hdmi.vhd
+set_global_assignment -name VHDL_FILE ../src/common/hdmi/encoder.vhd
+set_global_assignment -name VHDL_FILE ../src/common/scandoubler/linedelay.vhd
+set_global_assignment -name VHDL_FILE ../src/common/spi.vhd
+set_global_assignment -name VHDL_FILE ../src/common/audioresampler/sample_rate_converter_pkg.vhd
+set_global_assignment -name VHDL_FILE ../src/common/audioresampler/sample_rate_converter.vhd
+set_global_assignment -name VHDL_FILE ../src/common/audioresampler/coeff_rom.vhd
+set_global_assignment -name VHDL_FILE ../src/common/audioresampler/buffer_ram.vhd
 set_global_assignment -name VHDL_FILE ../src/common/mouse/ps2interface.vhd
 set_global_assignment -name VHDL_FILE ../src/common/mouse/quadrature_controller.vhd
 set_global_assignment -name VHDL_FILE ../src/common/mouse/quadrature_fsm.vhd
@@ -822,14 +834,11 @@ set_global_assignment -name VHDL_FILE ../src/common/mc6845.vhd
 set_global_assignment -name VHDL_FILE ../src/common/rtc.vhd
 set_global_assignment -name VHDL_FILE ../src/common/ps2_intf.vhd
 set_global_assignment -name VHDL_FILE ../src/common/saa5050.vhd
-set_global_assignment -name VHDL_FILE ../src/common/saa5050_rom_dual_port.vhd
 set_global_assignment -name VHDL_FILE ../src/common/upd7002.vhd
 set_global_assignment -name VHDL_FILE ../src/common/vidproc.vhd
 set_global_assignment -name VHDL_FILE ../src/common/vidproc_orig.vhd
 set_global_assignment -name VHDL_FILE ../src/common/scandoubler/rgb2vga_scandoubler.vhd
 set_global_assignment -name VHDL_FILE ../src/common/scandoubler/rgb2vga_dpram.vhd
-set_global_assignment -name VHDL_FILE ../src/common/scandoubler/mist_scandoubler.vhd
-set_global_assignment -name VHDL_FILE ../src/common/scandoubler/retimer.vhd
 set_global_assignment -name VHDL_FILE ../src/common/sn76489.vhd
 set_global_assignment -name VHDL_FILE ../src/common/SID/sid_components.vhd
 set_global_assignment -name VHDL_FILE ../src/common/music5000/Ram2K.vhd

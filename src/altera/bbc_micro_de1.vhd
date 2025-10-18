@@ -52,13 +52,14 @@ use ieee.numeric_std.all;
 entity bbc_micro_de1 is
 generic (
         IncludeAMXMouse    : boolean := false;
-        IncludeSID         : boolean := true;
-        IncludeMusic5000   : boolean := true;
-        IncludeICEDebugger : boolean := false;
+        IncludeSPISD       : boolean := true;
+        IncludeSID         : boolean := false;
+        IncludeMusic5000   : boolean := false;
+        IncludeICEDebugger : boolean := true;
         IncludeCoPro6502   : boolean := true;  -- The three co pro options
         IncludeCoProSPI    : boolean := false; -- are currently mutually exclusive
         IncludeCoProExt    : boolean := false; -- (i.e. select just one)
-        IncludeVideoNuLA   : boolean := true;
+        IncludeVideoNuLA   : boolean := false;
         UseOrigKeyboard    : boolean := false;
         UseT65Core         : boolean := false;
         UseAlanDCore       : boolean := true
@@ -163,9 +164,7 @@ architecture rtl of bbc_micro_de1 is
 -- Signals
 -------------
 
-signal clock_32        : std_logic;
 signal clock_48        : std_logic;
-signal clock_96        : std_logic;
 signal audio_l         : std_logic_vector(15 downto 0);
 signal audio_r         : std_logic_vector(15 downto 0);
 signal powerup_reset_n : std_logic;
@@ -186,7 +185,6 @@ signal ext_nWE         : std_logic;
 signal ext_nOE         : std_logic;
 
 signal keyb_dip        : std_logic_vector(7 downto 0);
-signal vid_mode        : std_logic_vector(3 downto 0);
 signal m128_mode       : std_logic;
 signal m128_mode_1     : std_logic;
 signal m128_mode_2     : std_logic;
@@ -263,6 +261,7 @@ begin
 
     bbc_micro : entity work.bbc_micro_core
         generic map (
+            IncludeSPISD       => IncludeSPISD,
             IncludeAMXMouse    => IncludeAMXMouse,
             IncludeSID         => IncludeSID,
             IncludeMusic5000   => IncludeMusic5000,
@@ -271,26 +270,25 @@ begin
             IncludeCoProSPI    => IncludeCoProSPI,
             IncludeCoProExt    => IncludeCoProExt,
             IncludeVideoNuLA   => IncludeVideoNuLA,
+            IncludeVGA         => true,
             UseOrigKeyboard    => UseOrigKeyboard,
             UseT65Core         => UseT65Core,
             UseAlanDCore       => UseAlanDCore
             )
         port map (
             clock_27       => CLOCK_27_0,
-            clock_32       => clock_32,
             clock_48       => clock_48,
-            clock_96       => clock_96,
             clock_avr      => CLOCK_24_0,
             hard_reset_n   => hard_reset_n,
             ps2_kbd_clk    => PS2_CLK,
             ps2_kbd_data   => PS2_DAT,
             ps2_mse_clk    => GPIO_1(18),
             ps2_mse_data   => GPIO_1(19),
-            video_red      => VGA_R,
-            video_green    => VGA_G,
-            video_blue     => VGA_B,
-            video_vsync    => VGA_VS,
-            video_hsync    => VGA_HS,
+            vga_red        => VGA_R,
+            vga_green      => VGA_G,
+            vga_blue       => VGA_B,
+            vga_vsync      => VGA_VS,
+            vga_hsync      => VGA_HS,
             audio_l        => audio_l,
             audio_r        => audio_r,
             ext_nOE        => ext_nOE,
@@ -315,7 +313,6 @@ begin
             ext_keyb_rst_n => ext_keyb_rst_n,
             ext_keyb_ca2   => ext_keyb_ca2,
             ext_keyb_pa7   => ext_keyb_pa7,
-            vid_mode       => vid_mode,
             joystick1      => (others => '1'),
             joystick2      => (others => '1'),
             avr_reset      => not hard_reset_n,
@@ -341,7 +338,6 @@ begin
             test           => test
         );
     m128_mode      <= SW(9);
-    vid_mode       <= "00" & SW(8 downto 7);
     copro_mode <= SW(6);
     keyb_dip       <= "00" & SW(5 downto 0);
 
@@ -355,9 +351,9 @@ begin
         port map (
             areset         => pll_reset,
             inclk0         => CLOCK_27_0,   -- 27 MHz input clock
-            c0             => clock_32,     -- 32 MHz clock for bbc core (unused)
+            c0             => open,         -- 32 MHz (unused)
             c1             => clock_48,     -- 48 MHz clock for bbc core
-            c2             => clock_96,     -- 96 MHz clock for bbc core
+            c2             => open,         -- 96 MHz (unused)
             locked         => pll_locked
         );
 

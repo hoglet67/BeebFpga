@@ -426,12 +426,20 @@ architecture rtl of bbc_micro_tang20k is
     signal config          : std_logic_vector(9 downto 0);
     signal config_key      : std_logic;
 
+    -- Switched joysticks
     signal joystick1       : std_logic_vector(4 downto 0) := (others => '1');
     signal joystick2       : std_logic_vector(4 downto 0) := (others => '1');
+
+    -- Analog joysticks
     signal adc_ch0         : std_logic_vector(11 downto 0) := (others => '0');
     signal adc_ch1         : std_logic_vector(11 downto 0) := (others => '0');
     signal adc_ch2         : std_logic_vector(11 downto 0) := (others => '0');
     signal adc_ch3         : std_logic_vector(11 downto 0) := (others => '0');
+    signal fire1_n         : std_logic;
+    signal fire2_n         : std_logic;
+    signal lpstb_n         : std_logic;
+
+    -- Config jumpers
     signal jumper          : std_logic_vector(7 downto 0) := (others => '0');
 
     signal config_reset_n  : std_logic := '0';
@@ -638,8 +646,9 @@ begin
             adc_ch1         => adc_ch1,
             adc_ch2         => adc_ch2,
             adc_ch3         => adc_ch3,
-            fire1_n         => joystick1(4),
-            fire2_n         => joystick2(4),
+            fire1_n         => fire1_n,
+            fire2_n         => fire2_n,
+            lpstb_n         => lpstb_n,
             avr_reset       => not hard_reset_n,
             avr_RxD         => avr_rx,
             avr_TxD         => avr_tx,
@@ -1598,6 +1607,9 @@ begin
             js_clk    => ext_tube_phi2,
             js_data   => js_data,
             js_load_n => js_load_n,
+            fire1_n   => fire1_n,
+            fire2_n   => fire2_n,
+            lpstb_n   => lpstb_n,
             joystick1 => joystick1,
             joystick2 => joystick2,
             jumper    => jumper

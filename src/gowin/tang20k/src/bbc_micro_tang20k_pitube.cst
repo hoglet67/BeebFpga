@@ -68,9 +68,9 @@ IO_PORT "tmds_clk_p" PULL_MODE=NONE;
 
 // 1-bit PWM Audio
 IO_LOC "audiol" 42;
-IO_PORT "audiol" IO_TYPE=LVCMOS33;
+IO_PORT "audiol" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
 IO_LOC "audior" 41;
-IO_PORT "audior" IO_TYPE=LVCMOS33;
+IO_PORT "audior" IO_TYPE=LVCMOS33 PULL_MODE=DOWN;
 
 // I2S Audio
 IO_LOC "i2s_mclk" 48;

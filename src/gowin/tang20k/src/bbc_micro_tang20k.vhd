@@ -76,7 +76,7 @@ entity bbc_micro_tang20k is
         IncludeI2SAudio        : boolean := true;
         IncludeSPDIFAudio      : boolean := true;
         IncludeVGADAC          : boolean := G_CONFIG_VGA;
-        IncludeAnalogJS        : boolean := false;
+        IncludeAnalogJS        : boolean := true;
         IncludeSerial          : boolean := true;
 
         MinVolume              : integer := 0;  -- -60dB
@@ -416,6 +416,8 @@ architecture rtl of bbc_micro_tang20k is
     signal audio_src       : std_logic := '1'; -- 0 = Legacy, 1 = Mixer
     signal audio_l         : std_logic_vector(19 downto 0);
     signal audio_r         : std_logic_vector(19 downto 0);
+    signal pwm_l           : std_logic;
+    signal pwm_r           : std_logic;
     signal volume          : unsigned(4 downto 0) := to_unsigned(0, 5);
     signal default_volume  : unsigned(4 downto 0) := to_unsigned(0, 5);
     signal m5k_filter_en   : std_logic := '1';
@@ -431,6 +433,8 @@ architecture rtl of bbc_micro_tang20k is
     signal joystick2       : std_logic_vector(4 downto 0) := (others => '1');
 
     -- Analog joysticks
+    signal analog_js1      : std_logic;
+    signal analog_js2      : std_logic;
     signal adc_ch0         : std_logic_vector(11 downto 0) := (others => '0');
     signal adc_ch1         : std_logic_vector(11 downto 0) := (others => '0');
     signal adc_ch2         : std_logic_vector(11 downto 0) := (others => '0');
@@ -569,7 +573,6 @@ begin
             IncludeSRGB            => IncludeSRGB,
             IncludeVGA             => IncludeVGA,
             IncludeHDMI            => IncludeHDMI,
-            IncludeAnalogJS        => IncludeAnalogJS,
             IncludeSerial          => IncludeSerial,
             UseOrigKeyboard        => false,
             UseT65Core             => not IncludeMaster,
@@ -642,6 +645,8 @@ begin
             config          => config,
             joystick1       => joystick1,
             joystick2       => joystick2,
+            analog_js1      => analog_js1,
+            analog_js2      => analog_js2,
             adc_ch0         => adc_ch0,
             adc_ch1         => adc_ch1,
             adc_ch2         => adc_ch2,
@@ -1052,34 +1057,31 @@ begin
     -- Audio DACs
     --------------------------------------------------------
 
-    pwm : if not IncludeAnalogJS generate
+    -- Convert from signed to unsigned
+    dac_l_in <= (not audio_l(19)) & audio_l(18 downto 10);
+    dac_r_in <= (not audio_r(19)) & audio_r(18 downto 10);
 
-        -- Convert from signed to unsigned
-        dac_l_in <= (not audio_l(19)) & audio_l(18 downto 10);
-        dac_r_in <= (not audio_r(19)) & audio_r(18 downto 10);
+    dac_l : entity work.pwm_sddac
+        generic map (
+            msbi_g => 9
+            )
+        port map (
+            clk_i => clock_48,
+            reset => '0',
+            dac_i => dac_l_in,
+            dac_o => pwm_l
+            );
 
-        dac_l : entity work.pwm_sddac
-            generic map (
-                msbi_g => 9
-                )
-            port map (
-                clk_i => clock_48,
-                reset => '0',
-                dac_i => dac_l_in,
-                dac_o => audiol
-                );
-
-        dac_r : entity work.pwm_sddac
-            generic map (
-                msbi_g => 9
-                )
-            port map (
-                clk_i => clock_48,
-                reset => '0',
-                dac_i => dac_r_in,
-                dac_o => audior
-                );
-    end generate;
+    dac_r : entity work.pwm_sddac
+        generic map (
+            msbi_g => 9
+            )
+        port map (
+            clk_i => clock_48,
+            reset => '0',
+            dac_i => dac_r_in,
+            dac_o => pwm_r
+            );
 
     --------------------------------------------------------
     -- HDMI Output
@@ -1603,16 +1605,16 @@ begin
 
     sr : entity work.shift_register
         port map (
-            clock     => clock_48,
-            js_clk    => ext_tube_phi2,
-            js_data   => js_data,
-            js_load_n => js_load_n,
-            fire1_n   => fire1_n,
-            fire2_n   => fire2_n,
-            lpstb_n   => lpstb_n,
-            joystick1 => joystick1,
-            joystick2 => joystick2,
-            jumper    => jumper
+            clock         => clock_48,
+            js_clk        => ext_tube_phi2,
+            js_data       => js_data,
+            js_load_n     => js_load_n,
+            fire1_n       => fire1_n,
+            fire2_n       => fire2_n,
+            lpstb_n       => lpstb_n,
+            joystick1     => joystick1,
+            joystick2     => joystick2,
+            jumper        => jumper
         );
 
 --------------------------------------------------------
@@ -1630,6 +1632,8 @@ begin
         signal i2c_sda_i    : std_logic;
         signal i2c_sda_o    : std_logic;
         signal i2c_sda_t    : std_logic;
+        signal enable_i2c   : std_logic;
+        signal pur_last     : std_logic;
     begin
 
         -- I3C2 source and assembler to generate this program is in ../tools
@@ -1746,9 +1750,30 @@ begin
             end if;
         end process;
 
-        audiol    <= i2c_scl;
-        audior    <= i2c_sda_o when i2c_sda_t = '0' else 'Z';
-        i2c_sda_i <= audior;
+        -- detect pwm audio vs i2c based on the presence of i2c pullups at the end of power up reset
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                if pur_last = '0' and powerup_reset_n = '1' then
+                    enable_i2c <= audiol or audior;
+                end if;
+                pur_last <= powerup_reset_n;
+            end if;
+        end process;
+
+        audiol    <= 'Z'     when pur_last = '0' else
+                     i2c_scl when enable_i2c = '1' else
+                     pwm_l;
+
+        audior    <= 'Z'       when pur_last = '0' else
+                     'Z'       when enable_i2c = '1' and i2c_sda_t = '1' else
+                     i2c_sda_o when enable_i2c = '1' and i2c_sda_t = '0' else
+                     pwm_r;
+
+        i2c_sda_i <= audior when enable_i2c = '1' else '1';
+
+        analog_js1 <= enable_i2c;
+        analog_js2 <= enable_i2c;
 
     end generate;
 
@@ -1757,6 +1782,10 @@ begin
         adc_ch1 <= (others => '0');
         adc_ch2 <= (others => '0');
         adc_ch3 <= (others => '0');
+        audiol  <= pwm_l;
+        audior  <= pwm_r;
+        analog_js1 <= '0';
+        analog_js2 <= '0';
     end generate;
 
 --------------------------------------------------------

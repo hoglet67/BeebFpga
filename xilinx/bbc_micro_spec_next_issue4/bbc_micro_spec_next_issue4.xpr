@@ -4,7 +4,7 @@
 <!-- Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.                   -->
 <!-- Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.   -->
 
-<Project Product="Vivado" Version="7" Minor="63" Path="/disk1/home/dmb/atom/BeebFpga/xilinx/bbc_micro_spec_next_issue4/bbc_micro_spec_next_issue4.xpr">
+<Project Product="Vivado" Version="7" Minor="63" Path="/home/dmb/git/hoglet67/BeebFpga/xilinx/bbc_micro_spec_next_issue4/bbc_micro_spec_next_issue4.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="ac65839dc78a4e89ad201da3d63f3bd4"/>

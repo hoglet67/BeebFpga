@@ -19,7 +19,7 @@ src/xilinx/ipcore_dir/WatchEvents.asy
 src/xilinx/ipcore_dir/WatchEvents.gise
 src/xilinx/ipcore_dir/WatchEvents.ncf
 src/xilinx/ipcore_dir/WatchEvents.sym
-src/xilinx/ipcore_dir/WatchEvents.vhd
+#src/xilinx/ipcore_dir/WatchEvents.vhd
 src/xilinx/ipcore_dir/WatchEvents.vho
 src/xilinx/ipcore_dir/WatchEvents/
 src/xilinx/ipcore_dir/WatchEvents_flist.txt

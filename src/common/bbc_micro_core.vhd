@@ -217,7 +217,8 @@ entity bbc_micro_core is
         adc_ch3        : in    std_logic_vector(11 downto 0) := (others => '0');
         fire1_n        : in    std_logic := '1';
         fire2_n        : in    std_logic := '1';
-
+        lpstb_n        : in    std_logic := '1';
+        
         -- ICE T65 Deubgger 57600 baud serial
         avr_reset      : in    std_logic;   -- active high
         avr_RxD        : in    std_logic;
@@ -2639,7 +2640,7 @@ begin
 
     -- The Lightpen strobe is abused by Pharoah's Curse
     -- see https://github.com/mattgodbolt/jsbeeb/issues/135
-    crtc_lpstb <= sys_via_cb2_out when sys_via_cb2_oe_n = '0' else '1';
+    crtc_lpstb <= sys_via_cb2_out when sys_via_cb2_oe_n = '0' else lpstb_n;
 
     -- Keyboard
     sys_via_ca2_in <= keyb_int;

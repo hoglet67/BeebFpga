@@ -293,7 +293,6 @@ begin
         IncludeVGA             => IncludeVGA,
         IncludeHDMI            => IncludeHDMI,
         IncludeTrace           => false,
-        IncludeAnalogJS        => false,
         IncludeSerial          => false,
         UseOrigKeyboard        => true,
         UseT65Core             => not IncludeMaster,  -- select the 6502 for the Beeb

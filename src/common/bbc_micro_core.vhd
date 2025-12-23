@@ -77,7 +77,6 @@ entity bbc_micro_core is
         IncludeVGA             : boolean := false;
         IncludeHDMI            : boolean := false;
         IncludeTrace           : boolean := false;
-        IncludeAnalogJS        : boolean := false;
         IncludeSerial          : boolean := false;
         UseOrigKeyboard        : boolean := false;
         UseT65Core             : boolean := false;
@@ -211,6 +210,8 @@ entity bbc_micro_core is
         joystick2      : in    std_logic_vector(4 downto 0) := (others => '1');
 
         -- Analog Joysticks
+        analog_js1     : in    std_logic := '0'; -- default to switched joystick on 1
+        analog_js2     : in    std_logic := '0'; -- default to switched joystick on 2
         adc_ch0        : in    std_logic_vector(11 downto 0) := (others => '0');
         adc_ch1        : in    std_logic_vector(11 downto 0) := (others => '0');
         adc_ch2        : in    std_logic_vector(11 downto 0) := (others => '0');
@@ -218,7 +219,7 @@ entity bbc_micro_core is
         fire1_n        : in    std_logic := '1';
         fire2_n        : in    std_logic := '1';
         lpstb_n        : in    std_logic := '1';
-        
+
         -- ICE T65 Deubgger 57600 baud serial
         avr_reset      : in    std_logic;   -- active high
         avr_RxD        : in    std_logic;
@@ -1395,35 +1396,32 @@ begin
         ch3        => adc_ch3_int
     );
 
-    analog_js : if IncludeAnalogJS generate
-        adc_ch0_int <= adc_ch0;
-        adc_ch1_int <= adc_ch1;
-        adc_ch2_int <= adc_ch2;
-        adc_ch3_int <= adc_ch3;
-        fire1_n_int <= fire1_n;
-        fire2_n_int <= fire2_n;
-    end generate;
+    -- Master Joystick Left/Right (low value = right)
+    adc_ch0_int <= adc_ch0 when analog_js1 = '1'       else
+                   "111111111111" when joystick1(2) = '0' else -- left
+                   "000000000000" when joystick1(3) = '0' else -- right
+                   "100000000000";
 
-    digital_js : if not IncludeAnalogJS generate
-        -- Master Joystick Left/Right (low value = right)
-        adc_ch0_int <= "111111111111" when joystick1(2) = '0' else -- left
-                       "000000000000" when joystick1(3) = '0' else -- right
-                       "100000000000";
-        -- Master Joystick Up/Down (low value = down)
-        adc_ch1_int <= "111111111111" when joystick1(0) = '0' else -- up
-                       "000000000000" when joystick1(1) = '0' else -- down
-                       "100000000000";
-        -- Secondary Joystick Left/Right (low value = right)
-        adc_ch2_int <= "111111111111" when joystick2(2) = '0' else -- left
-                       "000000000000" when joystick2(3) = '0' else -- right
-                       "100000000000";
-        -- Secondary Joystick Up/Down (low value = down)
-        adc_ch3_int <= "111111111111" when joystick2(0) = '0' else -- up
-                       "000000000000" when joystick2(1) = '0' else -- down
-                       "100000000000";
-        fire1_n_int <= joystick1(4);
-        fire2_n_int <= joystick2(4);
-    end generate;
+    -- Master Joystick Up/Down (low value = down)
+    adc_ch1_int <= adc_ch1 when analog_js1 = '1'       else
+                   "111111111111" when joystick1(0) = '0' else -- up
+                   "000000000000" when joystick1(1) = '0' else -- down
+                   "100000000000";
+
+    -- Secondary Joystick Left/Right (low value = right)
+    adc_ch2_int <= adc_ch2 when analog_js2 = '1'       else
+                   "111111111111" when joystick2(2) = '0' else -- left
+                   "000000000000" when joystick2(3) = '0' else -- right
+                   "100000000000";
+
+    -- Secondary Joystick Up/Down (low value = down)
+    adc_ch3_int <= adc_ch3 when analog_js2 = '1'       else
+                   "111111111111" when joystick2(0) = '0' else -- up
+                   "000000000000" when joystick2(1) = '0' else -- down
+                   "100000000000";
+
+    fire1_n_int <= fire1_n when analog_js1 = '1' else joystick1(4);
+    fire2_n_int <= fire2_n when analog_js2 = '1' else joystick1(4);
 
 --------------------------------------------------------
 -- Optional SID

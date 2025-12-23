@@ -74,6 +74,7 @@
         <File path="../src/i2s_simple.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/dac1_oser.vhd" type="file.vhdl" enable="1"/>
         <File path="../src/multiboot.vhd" type="file.vhdl" enable="1"/>
+        <File path="../src/shift_register.vhd" type="file.vhdl" enable="1"/>
         <File path="src/version_config_pack.vhd" type="file.vhdl" enable="1"/>
         <File path="src/board_config_pack.vhd" type="file.vhdl" enable="1"/>
         <File path="src/board_timings.sdc" type="file.sdc" enable="1"/>

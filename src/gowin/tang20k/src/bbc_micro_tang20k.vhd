@@ -432,7 +432,7 @@ architecture rtl of bbc_micro_tang20k is
     signal adc_ch1         : std_logic_vector(11 downto 0) := (others => '0');
     signal adc_ch2         : std_logic_vector(11 downto 0) := (others => '0');
     signal adc_ch3         : std_logic_vector(11 downto 0) := (others => '0');
-    signal jumper          : std_logic_vector(5 downto 0) := (others => '0');
+    signal jumper          : std_logic_vector(7 downto 0) := (others => '0');
 
     signal config_reset_n  : std_logic := '0';
     signal powerup_reset_n : std_logic := '0';
@@ -805,7 +805,7 @@ begin
             btn1            => btn1,
             btn2            => btn2,
             btn3            => key_conf,
-            jumper          => jumper,
+            jumper          => jumper(5 downto 0),
             led             => multiboot_leds,
             pa_en_dout      => pa_en_dout,
             reconfig        => reconfig

@@ -11,7 +11,7 @@ entity shift_register is
         js_load_n       : out std_logic;
         joystick1       : out std_logic_vector(4 downto 0);
         joystick2       : out std_logic_vector(4 downto 0);
-        jumper          : out std_logic_vector(5 downto 0)
+        jumper          : out std_logic_vector(7 downto 0)
     );
 end entity;
 
@@ -34,7 +34,7 @@ begin
                 if sr_counter = "0000" then
                     joystick1 <= sr_mirror(12 downto 8);
                     joystick2 <= sr_mirror(4 downto 0);
-                    jumper    <= sr_mirror(7 downto 5) & sr_mirror(15 downto 13);
+                    jumper    <= "11" & sr_mirror(7 downto 5) & sr_mirror(15 downto 13);
                 end if;
                 sr_mirror  <= sr_mirror(14 downto 0) & js_data;
                 sr_counter <= sr_counter + 1;

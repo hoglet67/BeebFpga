@@ -16,23 +16,26 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity i3c2 is
-    Generic( clk_divide : STD_LOGIC_VECTOR (7 downto 0));
-
-    Port ( clk : in  STD_LOGIC;
-           inst_address : out  STD_LOGIC_VECTOR (9 downto 0);
-           inst_data : in  STD_LOGIC_VECTOR (8 downto 0);
-           i2c_scl : out  STD_LOGIC := '1';
-           i2c_sda_i : in  STD_LOGIC;
-           i2c_sda_o : out  STD_LOGIC := '0';
-           i2c_sda_t : out STD_LOGIC := '1';
-           inputs : in  STD_LOGIC_VECTOR (15 downto 0);
-           outputs : out  STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
-           reg_addr : out  STD_LOGIC_VECTOR (4 downto 0);
-           reg_data : out  STD_LOGIC_VECTOR (7 downto 0);
-           reg_write : out  STD_LOGIC;
-           debug_scl : out  STD_LOGIC := '1';
-           debug_sda : out  STD_LOGIC;
-           error : out STD_LOGIC);
+    generic(
+        CLK_DIVIDE   : std_logic_vector (7 downto 0)
+    );
+    port (
+        clk          : in  std_logic;
+        inst_address : out std_logic_vector (9 downto 0);
+        inst_data    : in  std_logic_vector (8 downto 0);
+        i2c_scl      : out std_logic := '1';
+        i2c_sda_i    : in  std_logic;
+        i2c_sda_o    : out std_logic := '0';
+        i2c_sda_t    : out std_logic := '1';
+        inputs       : in  std_logic_vector (15 downto 0);
+        outputs      : out std_logic_vector (15 downto 0) := (others => '0');
+        reg_addr     : out std_logic_vector (4 downto 0);
+        reg_data     : out std_logic_vector (7 downto 0);
+        reg_write    : out std_logic;
+        debug_scl    : out std_logic := '1';
+        debug_sda    : out std_logic;
+        error        : out std_logic
+    );
 end i3c2;
 
 architecture Behavioral of i3c2 is
@@ -129,7 +132,7 @@ begin
                     i2c_scl <= '1';
                     debug_scl <= '1';
 
-                    if bitcount = unsigned("0" & clk_divide(clk_divide'high downto 1)) then
+                    if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
                         i2c_sda_t <= '0';
                     end if;
 
@@ -137,7 +140,7 @@ begin
                         state    <= STATE_I2C_BITS;
                         i2c_scl  <= '0';
                         debug_scl <= '0';
-                        bitcount <= unsigned(clk_divide);
+                        bitcount <= unsigned(CLK_DIVIDE);
                     else
                         bitcount <= bitcount-1;
                     end if;
@@ -145,7 +148,7 @@ begin
 
                 when STATE_I2C_BITS => -- scl has always just lowered '0' on entry
                     -- set the data half way through clock low half of the cycle
-                    if bitcount = unsigned(clk_divide) - unsigned("00" & clk_divide(clk_divide'high downto 2)) then
+                    if bitcount = unsigned(CLK_DIVIDE) - unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
                         if i2c_data(8) = '0' then
                             i2c_sda_t <= '0';
                         else
@@ -154,7 +157,7 @@ begin
                     end if;
 
                     -- raise the clock half way through
-                    if bitcount = unsigned("0" & clk_divide(clk_divide'high downto 1)) then
+                    if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
                         i2c_scl <= '1';
                         debug_scl <= '1';
                         -- Input bits halfway  through the cycle
@@ -178,7 +181,7 @@ begin
                         else
                             i2c_bits_left  <= i2c_bits_left -1;
                         end if;
-                        bitcount <= unsigned(clk_divide);
+                        bitcount <= unsigned(CLK_DIVIDE);
                     else
                         bitcount <= bitcount-1;
                     end if;
@@ -187,16 +190,16 @@ begin
                 when STATE_I2C_STOP =>
                     -- clock stays high, and data goes high half way through a bit
                     i2c_started <= '0';
-                    if bitcount = unsigned(clk_divide) - unsigned("00" & clk_divide(clk_divide'high downto 2)) then
+                    if bitcount = unsigned(CLK_DIVIDE) - unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
                         i2c_sda_t      <= '0';
                     end if;
 
-                    if bitcount = unsigned("0" & clk_divide(clk_divide'high downto 1)) then
+                    if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
                         i2c_scl <= '1';
                         debug_scl <= '1';
                     end if;
 
-                    if bitcount = unsigned("00" & clk_divide(clk_divide'high downto 2)) then
+                    if bitcount = unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
                         i2c_sda_t      <= '1';
                     end if;
                     if bitcount = 0 then
@@ -215,7 +218,7 @@ begin
                             state <= STATE_RUN;
                         else
                             delay <= delay-1;
-                            bitcount <= unsigned(clk_divide) - 1;
+                            bitcount <= unsigned(CLK_DIVIDE) - 1;
                         end if;
                     end if;
 
@@ -235,7 +238,7 @@ begin
 
                             when OPCODE_I2C_WRITE =>
                                 i2c_data       <= inst_data(7 downto 0) & "1";
-                                bitcount       <= unsigned(clk_divide);
+                                bitcount       <= unsigned(CLK_DIVIDE);
                                 i2c_doing_read <= '0';
                                 i2c_bits_left  <= "1000";
                                 if i2c_started = '0' then
@@ -247,7 +250,7 @@ begin
                             when OPCODE_I2C_READ =>
                                 reg_addr       <= inst_data(4 downto 0);
                                 i2c_data       <= x"FF" & "0";  -- keep the SDA pulled up while clocking in data & ACK
-                                bitcount       <= unsigned(clk_divide);
+                                bitcount       <= unsigned(CLK_DIVIDE);
                                 i2c_bits_left  <= "1000";
                                 i2c_doing_read <= '1';
                                 if i2c_started = '0' then
@@ -282,7 +285,7 @@ begin
 
                             when OPCODE_DELAY =>
                                 state <= STATE_DELAY;
-                                bitcount <= unsigned(clk_divide);
+                                bitcount <= unsigned(CLK_DIVIDE);
                                 case inst_data(3 downto 0) is
                                     when "0000" => delay <= x"0001";
                                     when "0001" => delay <= x"0002";
@@ -303,7 +306,7 @@ begin
                                 end case;
 
                             when OPCODE_I2C_STOP =>
-                                bitcount <= unsigned(clk_divide);
+                                bitcount <= unsigned(CLK_DIVIDE);
                                 state    <= STATE_I2C_STOP;
 
                             when OPCODE_NOP =>

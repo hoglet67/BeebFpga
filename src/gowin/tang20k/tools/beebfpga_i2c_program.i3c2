@@ -26,7 +26,7 @@ loop:
         WRITE 0xE3 ; Config LSB
         STOP       ; End tx
 
-        DELAY 1024 ; wait ~2.5ms for conversion
+        DELAY 256  ; wait ~2.5ms for conversion
 
         WRITE 0x90 ; Device address + write
         WRITE 0x00 ; Select conversion register
@@ -44,7 +44,7 @@ loop:
         WRITE 0xE3 ; Config LSB
         STOP       ; End tx
 
-        DELAY 1024 ; wait ~2.5ms for conversion
+        DELAY 256  ; wait ~2.5ms for conversion
 
         WRITE 0x90 ; Device address + write
         WRITE 0x00 ; Select conversion register
@@ -62,7 +62,7 @@ loop:
         WRITE 0xE3 ; Config LSB
         STOP       ; End tx
 
-        DELAY 1024 ; wait ~2.5ms for conversion
+        DELAY 256  ; wait ~2.5ms for conversion
 
         WRITE 0x90 ; Device address + write
         WRITE 0x00 ; Select conversion register
@@ -80,7 +80,7 @@ loop:
         WRITE 0xE3 ; Config LSB
         STOP       ; End tx
 
-        DELAY 1024 ; wait ~2.5ms for conversion
+        DELAY 256  ; wait ~2.5ms for conversion
 
         WRITE 0x90 ; Device address + write
         WRITE 0x00 ; Select conversion register

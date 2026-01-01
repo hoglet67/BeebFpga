@@ -1622,7 +1622,7 @@ begin
 --------------------------------------------------------
 
     analog_js : if IncludeAnalogJS generate
-        constant CLK_DIVIDE : std_logic_vector(7 downto 0) := x"78";  -- 0x78 = 120 to give 400KHz
+        constant CLK_DIVIDE : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(480, 10)); -- 48MHz / 100KHz
         signal inst_address : std_logic_vector(9 downto 0);
         signal inst_data    : std_logic_vector(8 downto 0);
         signal reg_addr     : std_logic_vector(4 downto 0);

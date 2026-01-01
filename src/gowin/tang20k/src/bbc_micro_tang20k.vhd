@@ -506,6 +506,14 @@ architecture rtl of bbc_micro_tang20k is
     signal ext_tube_do     : std_logic_vector(7 downto 0);
     signal ext_tube_ctrl   : std_logic_vector(5 downto 0); -- signals that use the LED output
 
+    -- External rtc
+    signal ext_rtc_ce      : std_logic;
+    signal ext_rtc_as      : std_logic;
+    signal ext_rtc_ds      : std_logic;
+    signal ext_rtc_r_nw    : std_logic;
+    signal ext_rtc_adi     : std_logic_vector(7 downto 0);
+    signal ext_rtc_do      : std_logic_vector(7 downto 0);
+
     -- CPU tracing
     signal trace_data      :   std_logic_vector(7 downto 0);
     signal trace_r_nw      :   std_logic;
@@ -574,6 +582,7 @@ begin
             IncludeVGA             => IncludeVGA,
             IncludeHDMI            => IncludeHDMI,
             IncludeSerial          => IncludeSerial,
+            IncludeRTC             => false, -- we provide an external rtc
             UseOrigKeyboard        => false,
             UseT65Core             => not IncludeMaster,
             UseAlanDCore           => IncludeMaster
@@ -641,6 +650,12 @@ begin
             ext_keyb_rst_n  => '1',
             ext_keyb_ca2    => '0',
             ext_keyb_pa7    => '0',
+            ext_rtc_ce      => ext_rtc_ce,
+            ext_rtc_as      => ext_rtc_as,
+            ext_rtc_ds      => ext_rtc_ds,
+            ext_rtc_r_nw    => ext_rtc_r_nw,
+            ext_rtc_adi     => ext_rtc_adi,
+            ext_rtc_do      => ext_rtc_do,
             config_key      => config_key,
             config          => config,
             joystick1       => joystick1,
@@ -1635,6 +1650,14 @@ begin
         signal i2c_sda_t    : std_logic;
         signal enable_i2c   : std_logic;
         signal pur_last     : std_logic;
+
+        signal ext_rtc_as_r : std_logic;
+        signal ext_rtc_ds_r : std_logic;
+
+        signal rtc_addr     : std_logic_vector(5 downto 0);
+        type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
+        signal rtc_ram      : rtc_ram_type;
+
     begin
 
         -- I3C2 source and assembler to generate this program is in ../tools
@@ -1689,12 +1712,51 @@ begin
                                 -- should not see negative values, but clamp at zero anyway
                                 msb <= (others => '0');
                             end if;
+                        when "00101" =>
+                            -- RTC Register 2 - BCD seconds
+                            rtc_ram(0) <= reg_data;
+                        when "00110" =>
+                            -- RTC Register 3 - BCD minutes
+                            rtc_ram(2) <= reg_data;
+                        when "00111" =>
+                            -- RTC Register 4 - BCD hours
+                            rtc_ram(4) <= reg_data;
+                        when "01000" =>
+                            -- RTC Register 5 - 7:6 Year; 5:0 BCD Date
+                            rtc_ram(7) <= "00"     & reg_data(5 downto 0);
+                            rtc_ram(9) <= "001001" & reg_data(7 downto 6); -- This is hard coded!!!! it will break in 2028.
+                        when "01001" =>
+                            -- RTC Register 6 - 7:5 Weekday; 4:0 BCD Month
+                            rtc_ram(6) <= "00000"  & (reg_data(7 downto 5) + "001");
+                            rtc_ram(8) <= "000"    & reg_data(4 downto 0);
                         when others =>
                             null;
                     end case;
                 end if;
+
+                if ext_rtc_ce = '1' then
+                    ext_rtc_as_r <= ext_rtc_as;
+                    ext_rtc_ds_r <= ext_rtc_ds;
+
+                    -- Latch the RTC Address of the falling edge of rtc_as
+                    if ext_rtc_as = '0' and ext_rtc_as_r = '1' then
+                        rtc_addr <= ext_rtc_adi(5 downto 0);
+                    end if;
+
+                    -- Latch the Write Data on the falling edge of rtc_ds
+                    if ext_rtc_ds = '0' and ext_rtc_ds_r = '1' and ext_rtc_r_nw = '0' then
+                        rtc_ram(to_integer(unsigned(rtc_addr))) <= ext_rtc_adi;
+                    end if;
+
+                    -- Read Data
+                    ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)));
+                end if;
+
             end if;
         end process;
+
+
+
 
         -- detect pwm audio vs i2c based on the presence of i2c pullups at the end of power up reset
         process(clock_48)

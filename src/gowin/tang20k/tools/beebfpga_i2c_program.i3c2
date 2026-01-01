@@ -90,6 +90,23 @@ loop:
         READ  3
         STOP
 
+;; RTC Clock Read
+
+        DELAY 16   ; wait ~200us to make debugging easier
+
+        WRITE 0xA0 ; RTC Device address + write
+        WRITE 0x02 ; RTC register address 2 (seconds)
+        STOP
+        WRITE 0xA1 ; RTC Device address + read
+        READ 5     ; RTC register 2 = seconds
+        READ 6     ; RTC register 3 = minutes
+        READ 7     ; RTC register 4 = hours
+        READ 8     ; RTC registet 5 = year/date
+        READ 9     ; RTC register 6 = day/month
+        STOP
+
+        DELAY 16   ; wait ~200us to make debugging easier
+
         SET   0    ; Indicate that new, consistent data is available
         CLEAR 0
 

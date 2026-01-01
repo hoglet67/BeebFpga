@@ -2,13 +2,13 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity ads1115_program is
+entity beebfpga_i2c_program is
    Port ( clk     : in    STD_LOGIC;
           data    : out std_logic_vector(8 downto 0);
           address : in std_logic_vector(9 downto 0)
          );
-end ads1115_program;
-architecture Behavioral of ads1115_program is
+end beebfpga_i2c_program;
+architecture Behavioral of beebfpga_i2c_program is
 begin
    process(clk)
    begin

@@ -17,7 +17,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity i3c2 is
     generic(
-        CLK_DIVIDE   : std_logic_vector (7 downto 0)
+        CLK_DIVIDE   : std_logic_vector
     );
     port (
         clk          : in  std_logic;
@@ -76,7 +76,7 @@ architecture Behavioral of i3c2 is
     -- counters
     signal pcnext         : unsigned(9 downto 0) := (others => '0');
     signal delay         : unsigned(15 downto 0);
-    signal bitcount      : unsigned( 7 downto 0);
+    signal bitcount      : unsigned( CLK_DIVIDE'high downto 0);
 
     -- Input/output data
     signal i2c_data  : std_logic_vector( 8 downto 0);

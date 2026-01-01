@@ -1622,6 +1622,7 @@ begin
 --------------------------------------------------------
 
     analog_js : if IncludeAnalogJS generate
+        constant CLK_DIVIDE : std_logic_vector(7 downto 0) := x"78";  -- 0x78 = 120 to give 400KHz
         signal inst_address : std_logic_vector(9 downto 0);
         signal inst_data    : std_logic_vector(8 downto 0);
         signal reg_addr     : std_logic_vector(4 downto 0);
@@ -1637,73 +1638,18 @@ begin
     begin
 
         -- I3C2 source and assembler to generate this program is in ../tools
-        process(clock_48)
-        begin
-            if rising_edge(clock_48) then
-                case inst_address is
-                    when "0000000000" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
-                    when "0000000001" => inst_data <= "100000001"; -- WRITE 0x01 ; Select config register
-                    when "0000000010" => inst_data <= "111000101"; -- WRITE 0xC5 ; Config MSB (Start conversion Ch0)
-                    when "0000000011" => inst_data <= "111100011"; -- WRITE 0xE3 ; Config LSB
-                    when "0000000100" => inst_data <= "011111111"; -- STOP       ; End tx
-                    when "0000000101" => inst_data <= "011101010"; -- DELAY 1024 ; wait ~2.5ms for conversion
-                    when "0000000110" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
-                    when "0000000111" => inst_data <= "100000000"; -- WRITE 0x00 ; Select conversion register
-                    when "0000001000" => inst_data <= "011111111"; -- STOP
-                    when "0000001001" => inst_data <= "110010001"; -- WRITE 0x91 ; Device address + read
-                    when "0000001010" => inst_data <= "011000100"; -- READ  4
-                    when "0000001011" => inst_data <= "011000000"; -- READ  0
-                    when "0000001100" => inst_data <= "011111111"; -- STOP
-                    when "0000001101" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
-                    when "0000001110" => inst_data <= "100000001"; -- WRITE 0x01 ; Select config register
-                    when "0000001111" => inst_data <= "111010101"; -- WRITE 0xD5 ; Config MSB (Start conversion Ch1)
-                    when "0000010000" => inst_data <= "111100011"; -- WRITE 0xE3 ; Config LSB
-                    when "0000010001" => inst_data <= "011111111"; -- STOP       ; End tx
-                    when "0000010010" => inst_data <= "011101010"; -- DELAY 1024 ; wait ~2.5ms for conversion
-                    when "0000010011" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
-                    when "0000010100" => inst_data <= "100000000"; -- WRITE 0x00 ; Select conversion register
-                    when "0000010101" => inst_data <= "011111111"; -- STOP
-                    when "0000010110" => inst_data <= "110010001"; -- WRITE 0x91 ; Device address + read
-                    when "0000010111" => inst_data <= "011000100"; -- READ  4
-                    when "0000011000" => inst_data <= "011000001"; -- READ  1
-                    when "0000011001" => inst_data <= "011111111"; -- STOP
-                    when "0000011010" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
-                    when "0000011011" => inst_data <= "100000001"; -- WRITE 0x01 ; Select config register
-                    when "0000011100" => inst_data <= "111100101"; -- WRITE 0xE5 ; Config MSB (Start conversion Ch2)
-                    when "0000011101" => inst_data <= "111100011"; -- WRITE 0xE3 ; Config LSB
-                    when "0000011110" => inst_data <= "011111111"; -- STOP       ; End tx
-                    when "0000011111" => inst_data <= "011101010"; -- DELAY 1024 ; wait ~2.5ms for conversion
-                    when "0000100000" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
-                    when "0000100001" => inst_data <= "100000000"; -- WRITE 0x00 ; Select conversion register
-                    when "0000100010" => inst_data <= "011111111"; -- STOP
-                    when "0000100011" => inst_data <= "110010001"; -- WRITE 0x91 ; Device address + read
-                    when "0000100100" => inst_data <= "011000100"; -- READ  4
-                    when "0000100101" => inst_data <= "011000010"; -- READ  2
-                    when "0000100110" => inst_data <= "011111111"; -- STOP
-                    when "0000100111" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
-                    when "0000101000" => inst_data <= "100000001"; -- WRITE 0x01 ; Select config register
-                    when "0000101001" => inst_data <= "111110101"; -- WRITE 0xF5 ; Config MSB (Start conversion Ch3)
-                    when "0000101010" => inst_data <= "111100011"; -- WRITE 0xE3 ; Config LSB
-                    when "0000101011" => inst_data <= "011111111"; -- STOP       ; End tx
-                    when "0000101100" => inst_data <= "011101010"; -- DELAY 1024 ; wait ~2.5ms for conversion
-                    when "0000101101" => inst_data <= "110010000"; -- WRITE 0x90 ; Device address + write
-                    when "0000101110" => inst_data <= "100000000"; -- WRITE 0x00 ; Select conversion register
-                    when "0000101111" => inst_data <= "011111111"; -- STOP
-                    when "0000110000" => inst_data <= "110010001"; -- WRITE 0x91 ; Device address + read
-                    when "0000110001" => inst_data <= "011000100"; -- READ  4
-                    when "0000110010" => inst_data <= "011000011"; -- READ  3
-                    when "0000110011" => inst_data <= "011111111"; -- STOP
-                    when "0000110100" => inst_data <= "010110000"; -- SET   0    ; Indicate that new, consistent data is available
-                    when "0000110101" => inst_data <= "010100000"; -- CLEAR 0
-                    when "0000110110" => inst_data <= "000000000"; -- JUMP loop
-                    when others => inst_data <= (others =>'0');
-                end case;
-            end if;
-        end process;
+        inst_beebfpga_i2c_program : entity work.beebfpga_i2c_program
+            port map (
+                clk => clock_48,
+                address => inst_address,
+                data => inst_data
+            );
 
+        -- Hamsterworks I3C2 Controller
+        -- https://web.archive.org/web/20190816172702/http://hamsterworks.co.nz/mediawiki/index.php/I3C2
         inst_i3c2 : entity work.i3c2
             generic map (
-                clk_divide   => x"78" -- 0x78 = 120 to give 400KHz
+                CLK_DIVIDE   => CLK_DIVIDE
                 )
             port map (
                 clk          => clock_48,

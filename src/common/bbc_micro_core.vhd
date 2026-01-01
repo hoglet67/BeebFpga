@@ -78,6 +78,7 @@ entity bbc_micro_core is
         IncludeHDMI            : boolean := false;
         IncludeTrace           : boolean := false;
         IncludeSerial          : boolean := false;
+        IncludeRTC             : boolean := true; -- Include an internal RTC
         UseOrigKeyboard        : boolean := false;
         UseT65Core             : boolean := false;
         UseAlanDCore           : boolean := true;
@@ -195,6 +196,13 @@ entity bbc_micro_core is
         ext_keyb_ca2   : in    std_logic;
         ext_keyb_pa7   : in    std_logic;
 
+        -- External RTC
+        ext_rtc_ce     : out   std_logic;
+        ext_rtc_as     : out   std_logic;
+        ext_rtc_ds     : out   std_logic;
+        ext_rtc_r_nw   : out   std_logic;
+        ext_rtc_adi    : out   std_logic_vector(7 downto 0);
+        ext_rtc_do     : in    std_logic_vector(7 downto 0) := x"00";
 
         -- Config outputs (from PS/2 keyboard)
         config_key     : in    std_logic := '0';
@@ -3010,26 +3018,41 @@ begin
 -- Master 128 additions
 -----------------------------------------------
 
-    -- RTC/CMOS
-    inst_rtc : entity work.rtc
-        generic map (
-            OverrideCMOS => OverrideCMOS
-        )
-        port map (
-            clk          => clock_48,
-            cpu_clken    => cpu_clken,
-            hard_reset_n => hard_reset_n,
-            reset_n      => reset_n,
-            ce           => rtc_ce,
-            as           => rtc_as,
-            ds           => rtc_ds,
-            r_nw         => rtc_r_nw,
-            adi          => rtc_adi,
-            do           => rtc_do,
-            copro_mode   => copro_mode,
-            copro_ext    => copro_ext,
-            keyb_dip     => keyb_dip
-        );
+    RTCIncluded: if IncludeRTC generate
+
+        -- RTC/CMOS
+        inst_rtc : entity work.rtc
+            generic map (
+                OverrideCMOS => OverrideCMOS
+                )
+            port map (
+                clk          => clock_48,
+                cpu_clken    => cpu_clken,
+                hard_reset_n => hard_reset_n,
+                reset_n      => reset_n,
+                ce           => rtc_ce,
+                as           => rtc_as,
+                ds           => rtc_ds,
+                r_nw         => rtc_r_nw,
+                adi          => rtc_adi,
+                do           => rtc_do,
+                copro_mode   => copro_mode,
+                copro_ext    => copro_ext,
+                keyb_dip     => keyb_dip
+                );
+
+    end generate;
+
+    RTCNotIncluded: if not IncludeRTC generate
+        -- Outputs to external RTC
+        ext_rtc_ce   <= rtc_ce;
+        ext_rtc_as   <= rtc_as;
+        ext_rtc_ds   <= rtc_ds;
+        ext_rtc_r_nw <= rtc_r_nw;
+        ext_rtc_adi  <= rtc_adi;
+        -- Inputs from external RTC
+        rtc_do       <= ext_rtc_do;
+    end generate;
 
     -- RTC/CMOS is controlled from the system
     -- PB7 -> address strobe (AS) active high

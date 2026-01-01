@@ -322,9 +322,9 @@ architecture rtl of bbc_micro_tang20k is
     function RESETBITS return natural is
     begin
         if SIM then
-            return 10;
+            return 11;
         else
-            return 19; --DB: > 10ms for SPI to start up?
+            return 20; --DB: > 10ms for SPI to start up?
         end if;
     end function;
 
@@ -449,7 +449,7 @@ architecture rtl of bbc_micro_tang20k is
     signal config_reset_n  : std_logic := '0';
     signal powerup_reset_n : std_logic := '0';
     signal hard_reset_n    : std_logic;
-    signal reset_counter   : std_logic_vector(RESETBITS downto 0);
+    signal reset_counter   : unsigned(RESETBITS - 1 downto 0);
     signal trigger_reset   : std_logic := '0';
 
     signal ext_A_stb       : std_logic;
@@ -1649,16 +1649,19 @@ begin
         signal i2c_sda_o    : std_logic;
         signal i2c_sda_t    : std_logic;
         signal enable_i2c   : std_logic;
-        signal pur_last     : std_logic;
 
         signal ext_rtc_as_r : std_logic;
         signal ext_rtc_ds_r : std_logic;
+
+        signal reset_i2c    : std_logic := '0';
+        signal init_done    : std_logic;
 
         signal rtc_addr     : std_logic_vector(5 downto 0);
         type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
         signal rtc_ram      : rtc_ram_type;
 
     begin
+
 
         -- I3C2 source and assembler to generate this program is in ../tools
         inst_beebfpga_i2c_program : entity work.beebfpga_i2c_program
@@ -1676,13 +1679,14 @@ begin
                 )
             port map (
                 clk          => clock_48,
+                reset        => reset_i2c,
                 inst_address => inst_address,
                 inst_data    => inst_data,
                 i2c_scl      => i2c_scl,
                 i2c_sda_i    => i2c_sda_i,
                 i2c_sda_o    => i2c_sda_o,
                 i2c_sda_t    => i2c_sda_t,
-                inputs       => (others => '0'),
+                inputs       => (0 => init_done, others => '0'),
                 outputs      => open,
                 reg_addr     => reg_addr,
                 reg_data     => reg_data,
@@ -1729,6 +1733,17 @@ begin
                             -- RTC Register 6 - 7:5 Weekday; 4:0 BCD Month
                             rtc_ram(6) <= "00000"  & (reg_data(7 downto 5) + "001");
                             rtc_ram(8) <= "000"    & reg_data(4 downto 0);
+                        when "01010" =>
+                            -- RTC CMOS Init: Reset RTC CMOS address
+                            rtc_addr <= "001110"; -- Master CMOS starts at address 0E
+                            init_done <= '0';
+                        when "01011" =>
+                            -- RTC CMOS Init: Write next RTC/CMOS address
+                            rtc_ram(to_integer(unsigned(rtc_addr))) <= reg_data;
+                            rtc_addr <= rtc_addr + 1;
+                            if rtc_addr = 0 then
+                                init_done <= '1';
+                            end if;
                         when others =>
                             null;
                     end case;
@@ -1755,25 +1770,27 @@ begin
             end if;
         end process;
 
-
-
-
         -- detect pwm audio vs i2c based on the presence of i2c pullups at the end of power up reset
         process(clock_48)
         begin
             if rising_edge(clock_48) then
-                if pur_last = '0' and powerup_reset_n = '1' then
+                if reset_counter = 0 then
+                    reset_i2c <= '1';
+                end if;
+                if reset_counter = to_unsigned(48, RESETBITS) then
                     enable_i2c <= audiol or audior;
                 end if;
-                pur_last <= powerup_reset_n;
+                if reset_counter = to_unsigned(96, RESETBITS) then
+                    reset_i2c <= '0';
+                end if;
             end if;
         end process;
 
-        audiol    <= 'Z'     when pur_last = '0' else
+        audiol    <= 'Z'     when reset_i2c = '1' else
                      i2c_scl when enable_i2c = '1' else
                      pwm_l;
 
-        audior    <= 'Z'       when pur_last = '0' else
+        audior    <= 'Z'       when reset_i2c = '1' else
                      'Z'       when enable_i2c = '1' and i2c_sda_t = '1' else
                      i2c_sda_o when enable_i2c = '1' and i2c_sda_t = '0' else
                      pwm_r;

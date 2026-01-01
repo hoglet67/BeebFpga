@@ -16,7 +16,27 @@
 ;;        2 = COMP_LAT  (0 = Not latching ALERT, 1 = Latching ALERT)
 ;;     1..0 = COMP_QUE  (11 = ALERT after 4 conversions)
 
-loop:
+
+;; Read RAM on startup
+
+init:
+        NOP
+        NOP
+
+        WRITE 0xA0 ; RTC Device address + write
+        WRITE 0x8D ; RTC register address: start address - 1
+        STOP
+        WRITE 0xA1 ; RTC Device address + read
+        READ  10
+initloop:
+        READ  11   ; RTC ram
+        NOP
+        NOP
+        SKIPSET 0
+        JUMP  initloop
+        STOP
+
+runloop:
 
 ;; Channel 0
 
@@ -110,4 +130,4 @@ loop:
         SET   0    ; Indicate that new, consistent data is available
         CLEAR 0
 
-        JUMP loop
+        JUMP runloop

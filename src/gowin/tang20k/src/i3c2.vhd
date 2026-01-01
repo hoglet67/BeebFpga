@@ -21,6 +21,7 @@ entity i3c2 is
     );
     port (
         clk          : in  std_logic;
+        reset        : in  std_logic;
         inst_address : out std_logic_vector (9 downto 0);
         inst_data    : in  std_logic_vector (8 downto 0);
         i2c_scl      : out std_logic := '1';
@@ -125,203 +126,211 @@ begin
     cpu: process(clk)
     begin
         if rising_edge(clk) then
-            reg_write <= '0';
-            case state is
-                when STATE_I2C_START =>
-                    i2c_started <= '1';
-                    i2c_scl <= '1';
-                    debug_scl <= '1';
-
-                    if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
-                        i2c_sda_t <= '0';
-                    end if;
-
-                    if bitcount = 0 then
-                        state    <= STATE_I2C_BITS;
-                        i2c_scl  <= '0';
-                        debug_scl <= '0';
-                        bitcount <= unsigned(CLK_DIVIDE);
-                    else
-                        bitcount <= bitcount-1;
-                    end if;
-
-
-                when STATE_I2C_BITS => -- scl has always just lowered '0' on entry
-                    -- set the data half way through clock low half of the cycle
-                    if bitcount = unsigned(CLK_DIVIDE) - unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
-                        if i2c_data(8) = '0' then
-                            i2c_sda_t <= '0';
-                        else
-                            i2c_sda_t <= '1';
-                        end if;
-                    end if;
-
-                    -- raise the clock half way through
-                    if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
+            if reset = '1' then
+                state <= STATE_RUN;
+                skip <= '1';
+                i2c_scl <= '1';
+                i2c_sda_t <= '1';
+                pcnext <= (others => '0');
+            else
+                reg_write <= '0';
+                case state is
+                    when STATE_I2C_START =>
+                        i2c_started <= '1';
                         i2c_scl <= '1';
                         debug_scl <= '1';
-                        -- Input bits halfway  through the cycle
-                        i2c_data <= i2c_data(7 downto 0) & i2c_sda_i;
-                    end if;
 
-                    -- lower the clock at the end of the cycle
-                    if bitcount = 0 then
-                        i2c_scl <= '0';
-                        debug_scl <= '0';
-                        if i2c_bits_left  = "000" then
+                        if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
+                            i2c_sda_t <= '0';
+                        end if;
+
+                        if bitcount = 0 then
+                            state    <= STATE_I2C_BITS;
+                            i2c_scl  <= '0';
+                            debug_scl <= '0';
+                            bitcount <= unsigned(CLK_DIVIDE);
+                        else
+                            bitcount <= bitcount-1;
+                        end if;
+
+
+                    when STATE_I2C_BITS => -- scl has always just lowered '0' on entry
+                        -- set the data half way through clock low half of the cycle
+                        if bitcount = unsigned(CLK_DIVIDE) - unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
+                            if i2c_data(8) = '0' then
+                                i2c_sda_t <= '0';
+                            else
+                                i2c_sda_t <= '1';
+                            end if;
+                        end if;
+
+                        -- raise the clock half way through
+                        if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
+                            i2c_scl <= '1';
+                            debug_scl <= '1';
+                            -- Input bits halfway  through the cycle
+                            i2c_data <= i2c_data(7 downto 0) & i2c_sda_i;
+                        end if;
+
+                        -- lower the clock at the end of the cycle
+                        if bitcount = 0 then
                             i2c_scl <= '0';
                             debug_scl <= '0';
-                            if i2c_doing_read = '1' then
-                                reg_data  <= i2c_data(8 downto 1);
-                                reg_write <= '1';
+                            if i2c_bits_left  = "000" then
+                                i2c_scl <= '0';
+                                debug_scl <= '0';
+                                if i2c_doing_read = '1' then
+                                    reg_data  <= i2c_data(8 downto 1);
+                                    reg_write <= '1';
+                                end if;
+                                ack_flag <= NOT i2c_data(0);
+                                state    <= STATE_RUN;
+                                pcnext   <= pcnext+1;
+                            else
+                                i2c_bits_left  <= i2c_bits_left -1;
                             end if;
-                            ack_flag <= NOT i2c_data(0);
+                            bitcount <= unsigned(CLK_DIVIDE);
+                        else
+                            bitcount <= bitcount-1;
+                        end if;
+
+
+                    when STATE_I2C_STOP =>
+                        -- clock stays high, and data goes high half way through a bit
+                        i2c_started <= '0';
+                        if bitcount = unsigned(CLK_DIVIDE) - unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
+                            i2c_sda_t      <= '0';
+                        end if;
+
+                        if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
+                            i2c_scl <= '1';
+                            debug_scl <= '1';
+                        end if;
+
+                        if bitcount = unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
+                            i2c_sda_t      <= '1';
+                        end if;
+                        if bitcount = 0 then
                             state    <= STATE_RUN;
                             pcnext   <= pcnext+1;
                         else
-                            i2c_bits_left  <= i2c_bits_left -1;
+                            bitcount <= bitcount-1;
                         end if;
-                        bitcount <= unsigned(CLK_DIVIDE);
-                    else
-                        bitcount <= bitcount-1;
-                    end if;
 
-
-                when STATE_I2C_STOP =>
-                    -- clock stays high, and data goes high half way through a bit
-                    i2c_started <= '0';
-                    if bitcount = unsigned(CLK_DIVIDE) - unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
-                        i2c_sda_t      <= '0';
-                    end if;
-
-                    if bitcount = unsigned("0" & CLK_DIVIDE(CLK_DIVIDE'high downto 1)) then
-                        i2c_scl <= '1';
-                        debug_scl <= '1';
-                    end if;
-
-                    if bitcount = unsigned("00" & CLK_DIVIDE(CLK_DIVIDE'high downto 2)) then
-                        i2c_sda_t      <= '1';
-                    end if;
-                    if bitcount = 0 then
-                        state    <= STATE_RUN;
-                        pcnext   <= pcnext+1;
-                    else
-                        bitcount <= bitcount-1;
-                    end if;
-
-                when STATE_DELAY =>
-                    if bitcount /= 0 then
-                        bitcount <= bitcount -1;
-                    else
-                        if delay = 0 then
-                            pcnext       <= pcnext+1;
-                            state <= STATE_RUN;
+                    when STATE_DELAY =>
+                        if bitcount /= 0 then
+                            bitcount <= bitcount -1;
                         else
-                            delay <= delay-1;
-                            bitcount <= unsigned(CLK_DIVIDE) - 1;
-                        end if;
-                    end if;
-
-                when STATE_RUN =>
-                    reg_data     <= "XXXXXXXX";
-
-                    if skip = '1'then
-                        -- Do nothing for a cycle other than unset 'skip';
-                        skip <= '0';
-                        pcnext       <= pcnext+1;
-                    else
-                        case opcode is
-                            when OPCODE_JUMP =>
-                                -- Ignore the next instruciton while fetching the jump destination
-                                skip <= '1';
-                                pcnext <= unsigned(inst_data(6 downto 0)) & "000";
-
-                            when OPCODE_I2C_WRITE =>
-                                i2c_data       <= inst_data(7 downto 0) & "1";
-                                bitcount       <= unsigned(CLK_DIVIDE);
-                                i2c_doing_read <= '0';
-                                i2c_bits_left  <= "1000";
-                                if i2c_started = '0' then
-                                    state <= STATE_I2C_START;
-                                else
-                                    state <= STATE_I2C_BITS;
-                                end if;
-
-                            when OPCODE_I2C_READ =>
-                                reg_addr       <= inst_data(4 downto 0);
-                                i2c_data       <= x"FF" & "0";  -- keep the SDA pulled up while clocking in data & ACK
-                                bitcount       <= unsigned(CLK_DIVIDE);
-                                i2c_bits_left  <= "1000";
-                                i2c_doing_read <= '1';
-                                if i2c_started = '0' then
-                                    state <= STATE_I2C_START;
-                                else
-                                    state <= STATE_I2C_BITS;
-                                end if;
-
-                            when OPCODE_SKIPCLEAR =>
-                                skip   <= inputs(to_integer(unsigned(inst_data(3 downto 0)))) xnor inst_data(4);
-                                pcnext <= pcnext+1;
-
-                            when OPCODE_SKIPSET =>
-                                skip   <= inputs(to_integer(unsigned(inst_data(3 downto 0)))) xnor inst_data(4);
-                                pcnext <= pcnext+1;
-
-                            when OPCODE_CLEAR =>
-                                outputs(to_integer(unsigned(inst_data(3 downto 0)))) <= inst_data(4);
-                                pcnext <= pcnext+1;
-
-                            when OPCODE_SET =>
-                                outputs(to_integer(unsigned(inst_data(3 downto 0)))) <= inst_data(4);
-                                pcnext <= pcnext+1;
-
-                            when OPCODE_SKIPACK =>
-                                skip   <= ack_flag;
-                                pcnext <= pcnext+1;
-
-                            when OPCODE_SKIPNACK =>
-                                skip   <= not ack_flag;
-                                pcnext <= pcnext+1;
-
-                            when OPCODE_DELAY =>
-                                state <= STATE_DELAY;
-                                bitcount <= unsigned(CLK_DIVIDE);
-                                case inst_data(3 downto 0) is
-                                    when "0000" => delay <= x"0001";
-                                    when "0001" => delay <= x"0002";
-                                    when "0010" => delay <= x"0004";
-                                    when "0011" => delay <= x"0008";
-                                    when "0100" => delay <= x"0010";
-                                    when "0101" => delay <= x"0020";
-                                    when "0110" => delay <= x"0040";
-                                    when "0111" => delay <= x"0080";
-                                    when "1000" => delay <= x"0100";
-                                    when "1001" => delay <= x"0200";
-                                    when "1010" => delay <= x"0400";
-                                    when "1011" => delay <= x"0800";
-                                    when "1100" => delay <= x"1000";
-                                    when "1101" => delay <= x"2000";
-                                    when "1110" => delay <= x"4000";
-                                    when others => delay <= x"8000";
-                                end case;
-
-                            when OPCODE_I2C_STOP =>
-                                bitcount <= unsigned(CLK_DIVIDE);
-                                state    <= STATE_I2C_STOP;
-
-                            when OPCODE_NOP =>
+                            if delay = 0 then
                                 pcnext       <= pcnext+1;
-                            when others =>
-                                error <= '1';
-                        end case;
-                    end if;
+                                state <= STATE_RUN;
+                            else
+                                delay <= delay-1;
+                                bitcount <= unsigned(CLK_DIVIDE) - 1;
+                            end if;
+                        end if;
 
-                when others =>
-                    state  <= STATE_RUN;
-                    pcnext <= (others => '0');
-                    skip   <= '1';
+                    when STATE_RUN =>
+                        reg_data     <= "XXXXXXXX";
 
-            end case;
+                        if skip = '1'then
+                            -- Do nothing for a cycle other than unset 'skip';
+                            skip <= '0';
+                            pcnext       <= pcnext+1;
+                        else
+                            case opcode is
+                                when OPCODE_JUMP =>
+                                    -- Ignore the next instruciton while fetching the jump destination
+                                    skip <= '1';
+                                    pcnext <= unsigned(inst_data(6 downto 0)) & "000";
+
+                                when OPCODE_I2C_WRITE =>
+                                    i2c_data       <= inst_data(7 downto 0) & "1";
+                                    bitcount       <= unsigned(CLK_DIVIDE);
+                                    i2c_doing_read <= '0';
+                                    i2c_bits_left  <= "1000";
+                                    if i2c_started = '0' then
+                                        state <= STATE_I2C_START;
+                                    else
+                                        state <= STATE_I2C_BITS;
+                                    end if;
+
+                                when OPCODE_I2C_READ =>
+                                    reg_addr       <= inst_data(4 downto 0);
+                                    i2c_data       <= x"FF" & "0";  -- keep the SDA pulled up while clocking in data & ACK
+                                    bitcount       <= unsigned(CLK_DIVIDE);
+                                    i2c_bits_left  <= "1000";
+                                    i2c_doing_read <= '1';
+                                    if i2c_started = '0' then
+                                        state <= STATE_I2C_START;
+                                    else
+                                        state <= STATE_I2C_BITS;
+                                    end if;
+
+                                when OPCODE_SKIPCLEAR =>
+                                    skip   <= inputs(to_integer(unsigned(inst_data(3 downto 0)))) xnor inst_data(4);
+                                    pcnext <= pcnext+1;
+
+                                when OPCODE_SKIPSET =>
+                                    skip   <= inputs(to_integer(unsigned(inst_data(3 downto 0)))) xnor inst_data(4);
+                                    pcnext <= pcnext+1;
+
+                                when OPCODE_CLEAR =>
+                                    outputs(to_integer(unsigned(inst_data(3 downto 0)))) <= inst_data(4);
+                                    pcnext <= pcnext+1;
+
+                                when OPCODE_SET =>
+                                    outputs(to_integer(unsigned(inst_data(3 downto 0)))) <= inst_data(4);
+                                    pcnext <= pcnext+1;
+
+                                when OPCODE_SKIPACK =>
+                                    skip   <= ack_flag;
+                                    pcnext <= pcnext+1;
+
+                                when OPCODE_SKIPNACK =>
+                                    skip   <= not ack_flag;
+                                    pcnext <= pcnext+1;
+
+                                when OPCODE_DELAY =>
+                                    state <= STATE_DELAY;
+                                    bitcount <= unsigned(CLK_DIVIDE);
+                                    case inst_data(3 downto 0) is
+                                        when "0000" => delay <= x"0001";
+                                        when "0001" => delay <= x"0002";
+                                        when "0010" => delay <= x"0004";
+                                        when "0011" => delay <= x"0008";
+                                        when "0100" => delay <= x"0010";
+                                        when "0101" => delay <= x"0020";
+                                        when "0110" => delay <= x"0040";
+                                        when "0111" => delay <= x"0080";
+                                        when "1000" => delay <= x"0100";
+                                        when "1001" => delay <= x"0200";
+                                        when "1010" => delay <= x"0400";
+                                        when "1011" => delay <= x"0800";
+                                        when "1100" => delay <= x"1000";
+                                        when "1101" => delay <= x"2000";
+                                        when "1110" => delay <= x"4000";
+                                        when others => delay <= x"8000";
+                                    end case;
+
+                                when OPCODE_I2C_STOP =>
+                                    bitcount <= unsigned(CLK_DIVIDE);
+                                    state    <= STATE_I2C_STOP;
+
+                                when OPCODE_NOP =>
+                                    pcnext       <= pcnext+1;
+                                when others =>
+                                    error <= '1';
+                            end case;
+                        end if;
+
+                    when others =>
+                        state  <= STATE_RUN;
+                        pcnext <= (others => '0');
+                        skip   <= '1';
+
+                end case;
+            end if;
         end if;
     end process;
 end Behavioral;

@@ -35,9 +35,9 @@ end cmos_rtc_bridge;
 architecture Behavioral of cmos_rtc_bridge is
 
     -- Cached copy of HD146818RTC clock registers in 24-hour BCD format
-    signal rtc_secs    : std_logic_vector(5 downto 0);
-    signal rtc_mins    : std_logic_vector(5 downto 0);
-    signal rtc_hours   : std_logic_vector(4 downto 0);
+    signal rtc_secs    : std_logic_vector(6 downto 0);
+    signal rtc_mins    : std_logic_vector(6 downto 0);
+    signal rtc_hours   : std_logic_vector(5 downto 0);
     signal rtc_weekday : std_logic_vector(2 downto 0);
     signal rtc_day     : std_logic_vector(5 downto 0);
     signal rtc_month   : std_logic_vector(4 downto 0);
@@ -139,17 +139,17 @@ begin
                     when CB_SECS =>
                         -- RTC Register 2 - BCD seconds
                         if dirty(to_integer(unsigned(RTC_SECS_REG))) = '0' then
-                            rtc_secs <= reg_data(5 downto 0);
+                            rtc_secs <= reg_data(6 downto 0);
                         end if;
                     when CB_MINS =>
                         -- RTC Register 3 - BCD minutes
                         if dirty(to_integer(unsigned(RTC_MINS_REG))) = '0' then
-                            rtc_mins <= reg_data(5 downto 0);
+                            rtc_mins <= reg_data(6 downto 0);
                         end if;
                     when CB_HOURS =>
                         -- RTC Register 4 - BCD hours
                         if dirty(to_integer(unsigned(RTC_HOURS_REG))) = '0' then
-                            rtc_hours <= reg_data(4 downto 0);
+                            rtc_hours <= reg_data(5 downto 0);
                         end if;
                     when CB_YEAR_DAY =>
                         -- RTC Register 5 - 7:6 Year; 5:0 BCD Date
@@ -196,11 +196,11 @@ begin
                 if ext_rtc_ds = '0' and ext_rtc_ds_r = '1' and ext_rtc_r_nw = '0' then
                     case rtc_addr is
                         when RTC_SECS_REG =>
-                            rtc_secs <= ext_rtc_adi(5 downto 0);
+                            rtc_secs <= ext_rtc_adi(6 downto 0);
                         when RTC_MINS_REG =>
-                            rtc_mins <= ext_rtc_adi(5 downto 0);
+                            rtc_mins <= ext_rtc_adi(6 downto 0);
                         when RTC_HOURS_REG =>
-                            rtc_hours <= ext_rtc_adi(4 downto 0);
+                            rtc_hours <= ext_rtc_adi(5 downto 0);
                         when RTC_WEEKDAY_REG =>
                             rtc_weekday <= ext_rtc_adi(2 downto 0);
                         when RTC_DAY_REG =>
@@ -219,11 +219,11 @@ begin
                 -- Read Data
                 case rtc_addr is
                     when RTC_SECS_REG =>
-                        ext_rtc_do <= "00" & rtc_secs;
+                        ext_rtc_do <= "0" & rtc_secs;
                     when RTC_MINS_REG =>
-                        ext_rtc_do <= "00" & rtc_mins;
+                        ext_rtc_do <= "0" & rtc_mins;
                     when RTC_HOURS_REG =>
-                        ext_rtc_do <= "000" & rtc_hours;
+                        ext_rtc_do <= "00" & rtc_hours;
                     when RTC_WEEKDAY_REG =>
                         ext_rtc_do <= "00000" & rtc_weekday;
                     when RTC_DAY_REG =>
@@ -244,13 +244,13 @@ begin
                 case scrub_addr is
                     when RTC_SECS_REG =>
                         cmos_addr <= I2C_SECS_REG;
-                        cmos_data <= "00" & rtc_secs;
+                        cmos_data <= "0" & rtc_secs;
                     when RTC_MINS_REG =>
                         cmos_addr <= I2C_MINS_REG;
-                        cmos_data <= "00" & rtc_mins;
+                        cmos_data <= "0" & rtc_mins;
                     when RTC_HOURS_REG =>
                         cmos_addr <= I2C_HOURS_REG;
-                        cmos_data <= "000" & rtc_hours;
+                        cmos_data <= "00" & rtc_hours;
                     when RTC_YEAR_REG | RTC_DAY_REG =>
                         cmos_addr <= I2C_YEAR_DAY_REG;
                         cmos_data <= rtc_year(1 downto 0) & rtc_day;

@@ -136,15 +136,17 @@ runloop:
         READ 9     ; RTC register 6 = day/month
         STOP
 
-;;        DELAY 16   ; wait ~200us to make debugging easier
-
         SET   0    ; Indicate that new, consistent data is available
         CLEAR 0
+
+;; CMOS Writes
 
         SKIPSET 1  ; is there an external write pending
         JUMP runloop
 
-;;        DELAY 512   ; wait ~200us to make debugging easier
+;;      DELAY 512   ; wait ~200us to make debugging easier
+
+wrloop:
 
         WRITE 0xA0 ; RTC Device address + write
         WRITELOW   ; CMOS address passed in on inputs 15..8
@@ -154,6 +156,10 @@ runloop:
         SET   1    ; Indicate that write is done
         CLEAR 1
 
-;;        DELAY 512   ; wait ~200us to make debugging easier
+        NOP        ; Allow a couple of cycles for handshake delays
+        NOP        ; bedore testing for more writes
 
+        SKIPSET 1  ; is there an external write pending
         JUMP runloop
+
+        JUMP wrloop

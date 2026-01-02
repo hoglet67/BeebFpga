@@ -1666,6 +1666,8 @@ begin
         signal cmos_write_ack : std_logic;
         signal i3c2_inputs    : std_logic_vector(23 downto 0);
         signal i3c2_outputs   : std_logic_vector(15 downto 0);
+        signal dirty          : std_logic_vector(63 downto 0);
+        signal scrub_addr     : std_logic_vector(5 downto 0) := (others => '0');
 
     begin
 
@@ -1771,21 +1773,31 @@ begin
                     -- Latch the Write Data on the falling edge of rtc_ds
                     if ext_rtc_ds = '0' and ext_rtc_ds_r = '1' and ext_rtc_r_nw = '0' then
                         rtc_ram(to_integer(unsigned(rtc_addr))) <= ext_rtc_adi;
-                        cmos_write_req <= '1';
-                        cmos_addr      <= "10" & rtc_addr; -- Map CMOS writes to 0x80 onwards
-                        cmos_data      <= ext_rtc_adi;
-                    end if;
+                        -- Mark the location as dirty, so it get's written back to I2C
+                        dirty(to_integer(unsigned(rtc_addr))) <= '1';
+                   end if;
 
                     -- Read Data
                     ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)));
                 end if;
 
-                if cmos_write_ack = '1' then
-                    cmos_write_req <= '0';
+                if dirty(to_integer(unsigned(scrub_addr))) = '1' then
+                    cmos_write_req <= '1';
+                    cmos_addr <= "10" & scrub_addr;
+                    cmos_data <= rtc_ram(to_integer(unsigned(scrub_addr)));
+                    if cmos_write_ack = '1' then
+                        cmos_write_req <= '0';
+                        dirty(to_integer(unsigned(scrub_addr))) <= '0';
+                        scrub_addr <= scrub_addr + 1;
+                    end if;
+                else
+                    scrub_addr <= scrub_addr + 1;
                 end if;
 
             end if;
         end process;
+
+
 
         -- detect pwm audio vs i2c based on the presence of i2c pullups at the end of power up reset
         process(clock_48)

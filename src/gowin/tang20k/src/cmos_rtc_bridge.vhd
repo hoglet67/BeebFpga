@@ -34,7 +34,16 @@ end cmos_rtc_bridge;
 
 architecture Behavioral of cmos_rtc_bridge is
 
-    -- Cached copy of HS146818 RTC registers (64x8 RAM)
+    -- Cached copy of HD146818RTC clock registers in 24-hour BCD format
+    signal rtc_secs    : std_logic_vector(5 downto 0);
+    signal rtc_mins    : std_logic_vector(5 downto 0);
+    signal rtc_hours   : std_logic_vector(4 downto 0);
+    signal rtc_weekday : std_logic_vector(2 downto 0);
+    signal rtc_day     : std_logic_vector(5 downto 0);
+    signal rtc_month   : std_logic_vector(4 downto 0);
+    signal rtc_year    : std_logic_vector(7 downto 0);
+
+    -- Cached copy of HD146818 RTC registers (64x8 RAM)
     type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
     signal rtc_ram        : rtc_ram_type;
 
@@ -53,15 +62,6 @@ architecture Behavioral of cmos_rtc_bridge is
     -- Register for the rtc address and data
     signal ext_rtc_as_r : std_logic;
     signal ext_rtc_ds_r : std_logic;
-
-    -- Partial implementatuon of RTC clock registers in 24-hour BCD format
-    signal rtc_secs    : std_logic_vector(5 downto 0);
-    signal rtc_mins    : std_logic_vector(5 downto 0);
-    signal rtc_hours   : std_logic_vector(4 downto 0);
-    signal rtc_weekday : std_logic_vector(2 downto 0);
-    signal rtc_day     : std_logic_vector(5 downto 0);
-    signal rtc_month   : std_logic_vector(4 downto 0);
-    signal rtc_year    : std_logic_vector(7 downto 0);
 
     -- HD146818 RTC register addresses
     constant RTC_SECS_REG          : std_logic_vector(5 downto 0) := "000000";
@@ -102,7 +102,7 @@ begin
     -- 06 : RTC Day of Week       => 06 (bits 7:5)
     -- 07 : RTC Date of Month     => 05 (bits 5:0)
     -- 08 : RTC Month             => 06 (bits 4:0)
-    -- 09 : RTC Year              => 05 (bits 7:6)
+    -- 09 : RTC Year              => 05 (bits 7:6) -- TODO FIX Year 2028 bug!
     -- 0A : RTC Register A        not implemented
     -- 0B : RTC Register B        not implemented
     -- 0C : RTC Register C        not implemented
@@ -256,7 +256,7 @@ begin
                         cmos_data <= rtc_year(1 downto 0) & rtc_day;
                     when RTC_WEEKDAY_REG | RTC_MONTH_REG =>
                         cmos_addr <= I2C_WEEKDAY_MONTH_REG;
-                        cmos_data <= rtc_weekday & rtc_month;
+                        cmos_data <= (rtc_weekday - "001") & rtc_month;
                     when others =>
                         cmos_addr <= "10" & scrub_addr;
                         cmos_data <= rtc_ram(to_integer(unsigned(scrub_addr)));

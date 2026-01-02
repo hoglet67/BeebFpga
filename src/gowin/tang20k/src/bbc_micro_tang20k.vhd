@@ -1660,6 +1660,13 @@ begin
         type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
         signal rtc_ram      : rtc_ram_type;
 
+        signal cmos_write_req : std_logic := '0';
+        signal cmos_addr      : std_logic_vector(7 downto 0);
+        signal cmos_data      : std_logic_vector(7 downto 0);
+        signal cmos_write_ack : std_logic;
+        signal i3c2_inputs    : std_logic_vector(23 downto 0);
+        signal i3c2_outputs   : std_logic_vector(15 downto 0);
+
     begin
 
 
@@ -1686,8 +1693,8 @@ begin
                 i2c_sda_i    => i2c_sda_i,
                 i2c_sda_o    => i2c_sda_o,
                 i2c_sda_t    => i2c_sda_t,
-                inputs       => (0 => init_done, others => '0'),
-                outputs      => open,
+                inputs       => i3c2_inputs,
+                outputs      => i3c2_outputs,
                 reg_addr     => reg_addr,
                 reg_data     => reg_data,
                 reg_write    => reg_write,
@@ -1695,6 +1702,9 @@ begin
                 debug_sda    => open,
                 error        => open
                 );
+
+        i3c2_inputs <= cmos_data & cmos_addr & "000000" & cmos_write_req & init_done;
+        cmos_write_ack <= i3c2_outputs(1);
 
         process(clock_48)
         begin
@@ -1761,10 +1771,17 @@ begin
                     -- Latch the Write Data on the falling edge of rtc_ds
                     if ext_rtc_ds = '0' and ext_rtc_ds_r = '1' and ext_rtc_r_nw = '0' then
                         rtc_ram(to_integer(unsigned(rtc_addr))) <= ext_rtc_adi;
+                        cmos_write_req <= '1';
+                        cmos_addr      <= "10" & rtc_addr; -- Map CMOS writes to 0x80 onwards
+                        cmos_data      <= ext_rtc_adi;
                     end if;
 
                     -- Read Data
                     ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)));
+                end if;
+
+                if cmos_write_ack = '1' then
+                    cmos_write_req <= '0';
                 end if;
 
             end if;

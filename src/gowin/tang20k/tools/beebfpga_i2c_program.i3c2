@@ -3,7 +3,7 @@
 ;------------------------------------------------------------
 
 ;
-; Note: clock rate is 400KHz (2.5us)
+; Note: clock rate is 100KHz (10us)
 
 ;
 ;;       15 = OS        (1 = start conversion)
@@ -27,13 +27,16 @@ init:
         WRITE 0x8D ; RTC register address: start address - 1
         STOP
         WRITE 0xA1 ; RTC Device address + read
-        READ  10
+        MASTERACK
+        READ  10   ; Signal initialization to external logic
 initloop:
-        READ  11   ; RTC ram
+        MASTERACK
+        READ  11   ; Signal next CMOS data to external logic
         NOP
         NOP
-        SKIPSET 0
+        SKIPSET 0  ; Loop back if external logic want more data
         JUMP  initloop
+        READ  10   ; Dummy read with no ack to end transaction
         STOP
 
 runloop:
@@ -52,6 +55,7 @@ runloop:
         WRITE 0x00 ; Select conversion register
         STOP
         WRITE 0x91 ; Device address + read
+        MASTERACK
         READ  4
         READ  0
         STOP
@@ -70,6 +74,7 @@ runloop:
         WRITE 0x00 ; Select conversion register
         STOP
         WRITE 0x91 ; Device address + read
+        MASTERACK
         READ  4
         READ  1
         STOP
@@ -88,6 +93,7 @@ runloop:
         WRITE 0x00 ; Select conversion register
         STOP
         WRITE 0x91 ; Device address + read
+        MASTERACK
         READ  4
         READ  2
         STOP
@@ -106,6 +112,7 @@ runloop:
         WRITE 0x00 ; Select conversion register
         STOP
         WRITE 0x91 ; Device address + read
+        MASTERACK
         READ  4
         READ  3
         STOP
@@ -118,16 +125,35 @@ runloop:
         WRITE 0x02 ; RTC register address 2 (seconds)
         STOP
         WRITE 0xA1 ; RTC Device address + read
+        MASTERACK
         READ 5     ; RTC register 2 = seconds
+        MASTERACK
         READ 6     ; RTC register 3 = minutes
+        MASTERACK
         READ 7     ; RTC register 4 = hours
+        MASTERACK
         READ 8     ; RTC registet 5 = year/date
         READ 9     ; RTC register 6 = day/month
         STOP
 
-        DELAY 16   ; wait ~200us to make debugging easier
+;;        DELAY 16   ; wait ~200us to make debugging easier
 
         SET   0    ; Indicate that new, consistent data is available
         CLEAR 0
+
+        SKIPSET 1  ; is there an external write pending
+        JUMP runloop
+
+;;        DELAY 512   ; wait ~200us to make debugging easier
+
+        WRITE 0xA0 ; RTC Device address + write
+        WRITELOW   ; CMOS address passed in on inputs 15..8
+        WRITEHI    ; CMOS data passed in on inputs 23..16
+        STOP
+
+        SET   1    ; Indicate that write is done
+        CLEAR 1
+
+;;        DELAY 512   ; wait ~200us to make debugging easier
 
         JUMP runloop

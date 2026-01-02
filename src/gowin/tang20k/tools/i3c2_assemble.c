@@ -31,7 +31,8 @@
   -- |011110011| WRITEHI     | Write inputs 15 downto 8 to the I2C bus
   -- |011110100| USER0       | User defined
   -- |.........|             |
-  -- |011111110| USER8       | User defined
+  -- |011111100| USER8       | User defined
+  -- |011111101| MASTERACK   | ACK on next READ (default is NACK)
   -- |011111110| NOP         | Do nothing
   -- |011111111| STOP        | Send Stop on i2C bus
   -- |1nnnnnnnn| WRITE n     | Output n on I2C bus

@@ -28,7 +28,7 @@ entity i3c2 is
         i2c_sda_i    : in  std_logic;
         i2c_sda_o    : out std_logic := '0';
         i2c_sda_t    : out std_logic := '1';
-        inputs       : in  std_logic_vector (15 downto 0);
+        inputs       : in  std_logic_vector (23 downto 0);
         outputs      : out std_logic_vector (15 downto 0) := (others => '0');
         reg_addr     : out std_logic_vector (4 downto 0);
         reg_data     : out std_logic_vector (7 downto 0);
@@ -40,6 +40,10 @@ entity i3c2 is
 end i3c2;
 
 architecture Behavioral of i3c2 is
+
+    constant ACK  : std_logic := '0';
+    constant NACK : std_logic := '1';
+    signal   ackflag : std_logic := NACK;
 
     constant STATE_RUN       : std_logic_vector(3 downto 0) := "0000";
     constant STATE_DELAY     : std_logic_vector(3 downto 0) := "0001";
@@ -62,7 +66,8 @@ architecture Behavioral of i3c2 is
     constant OPCODE_I2C_WRITE : std_logic_vector( 3 downto 0) := "1011";
     constant OPCODE_WRITELOW  : std_logic_vector( 3 downto 0) := "1100";
     constant OPCODE_WRITEHI   : std_logic_vector( 3 downto 0) := "1101";
-    constant OPCODE_UNKNOWN   : std_logic_vector( 3 downto 0) := "1110";
+    constant OPCODE_MASTERACK : std_logic_vector( 3 downto 0) := "1110";
+    constant OPCODE_UNKNOWN   : std_logic_vector( 3 downto 0) := "1111";
     signal   opcode           : std_logic_vector( 3 downto 0);
 
 
@@ -95,8 +100,8 @@ begin
 -- |01110nnnn| DELAY m     | Delay m clock cycles (n = log2(m))
 -- |011110000| SKIPNACK    | Skip if NACK is set
 -- |011110001| SKIPACK     | Skip if ACK is set
--- |011110010| WRITELOW    | Write inputs 7 downto 0 to the I2C bus
--- |011110011| WRITEHI     | Write inputs 15 downto 8 to the I2C bus
+-- |011110010| WRITELOW    | Write inputs 15 downto 8 to the I2C bus
+-- |011110011| WRITEHI     | Write inputs 23 downto 16 to the I2C bus
 -- |011110100| USER0       | User defined
 -- |.........|             |
 -- |011111110| USER9       | User defined
@@ -115,9 +120,10 @@ begin
               OPCODE_WRITELOW  when inst_data(8 downto 0) = "011110010" else
               OPCODE_WRITEHI   when inst_data(8 downto 0) = "011110011" else
               -- user codes can go here
-              OPCODE_NOP        when inst_data(8 downto 0) = "011111110" else
-              OPCODE_I2C_STOP   when inst_data(8 downto 0) = "011111111" else
-              OPCODE_I2C_WRITE  when inst_data(8 downto 8) = "1"         else OPCODE_UNKNOWN;
+              OPCODE_MASTERACK when inst_data(8 downto 0) = "011111101" else
+              OPCODE_NOP       when inst_data(8 downto 0) = "011111110" else
+              OPCODE_I2C_STOP  when inst_data(8 downto 0) = "011111111" else
+              OPCODE_I2C_WRITE when inst_data(8 downto 8) = "1"         else OPCODE_UNKNOWN;
 
     inst_address <= std_logic_vector(pcnext);
 
@@ -129,6 +135,7 @@ begin
             if reset = '1' then
                 state <= STATE_RUN;
                 skip <= '1';
+                ackflag <= NACK;
                 i2c_scl <= '1';
                 i2c_sda_t <= '1';
                 pcnext <= (others => '0');
@@ -255,12 +262,35 @@ begin
                                         state <= STATE_I2C_BITS;
                                     end if;
 
+                                when OPCODE_WRITELOW =>
+                                    i2c_data       <= inputs(15 downto 8) & "1";
+                                    bitcount       <= unsigned(CLK_DIVIDE);
+                                    i2c_doing_read <= '0';
+                                    i2c_bits_left  <= "1000";
+                                    if i2c_started = '0' then
+                                        state <= STATE_I2C_START;
+                                    else
+                                        state <= STATE_I2C_BITS;
+                                    end if;
+
+                                when OPCODE_WRITEHI =>
+                                    i2c_data       <= inputs(23 downto 16) & "1";
+                                    bitcount       <= unsigned(CLK_DIVIDE);
+                                    i2c_doing_read <= '0';
+                                    i2c_bits_left  <= "1000";
+                                    if i2c_started = '0' then
+                                        state <= STATE_I2C_START;
+                                    else
+                                        state <= STATE_I2C_BITS;
+                                    end if;
+
                                 when OPCODE_I2C_READ =>
                                     reg_addr       <= inst_data(4 downto 0);
-                                    i2c_data       <= x"FF" & "0";  -- keep the SDA pulled up while clocking in data & ACK
+                                    i2c_data       <= x"FF" & ackflag;  -- keep the SDA pulled up while clocking in data & ACK
                                     bitcount       <= unsigned(CLK_DIVIDE);
                                     i2c_bits_left  <= "1000";
                                     i2c_doing_read <= '1';
+                                    ackflag        <= NACK; -- reset ack flag to default
                                     if i2c_started = '0' then
                                         state <= STATE_I2C_START;
                                     else
@@ -317,8 +347,13 @@ begin
                                     bitcount <= unsigned(CLK_DIVIDE);
                                     state    <= STATE_I2C_STOP;
 
+                                when OPCODE_MASTERACK =>
+                                    ackflag <= ACK;
+                                    pcnext <= pcnext+1;
+
                                 when OPCODE_NOP =>
-                                    pcnext       <= pcnext+1;
+                                    pcnext <= pcnext+1;
+
                                 when others =>
                                     error <= '1';
                             end case;

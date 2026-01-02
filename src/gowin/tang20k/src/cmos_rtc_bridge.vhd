@@ -194,69 +194,73 @@ begin
 
                 -- Latch the Write Data on the falling edge of rtc_ds
                 if ext_rtc_ds = '0' and ext_rtc_ds_r = '1' and ext_rtc_r_nw = '0' then
-                    if rtc_addr = RTC_SECS_REG then
-                        rtc_secs <= ext_rtc_adi(5 downto 0);
-                    elsif rtc_addr = RTC_MINS_REG then
-                        rtc_mins <= ext_rtc_adi(5 downto 0);
-                    elsif rtc_addr = RTC_HOURS_REG then
-                        rtc_hours <= ext_rtc_adi(4 downto 0);
-                    elsif rtc_addr = RTC_WEEKDAY_REG then
-                        rtc_weekday <= ext_rtc_adi(2 downto 0);
-                    elsif rtc_addr = RTC_DAY_REG then
-                        rtc_day <= ext_rtc_adi(5 downto 0);
-                    elsif rtc_addr = RTC_MONTH_REG then
-                        rtc_month <= ext_rtc_adi(4 downto 0);
-                    elsif rtc_addr = RTC_YEAR_REG then
-                        rtc_year <= ext_rtc_adi(7 downto 0);
-                    else
-                        rtc_ram(to_integer(unsigned(rtc_addr))) <= ext_rtc_adi;
-                    end if;
+                    case rtc_addr is
+                        when RTC_SECS_REG =>
+                            rtc_secs <= ext_rtc_adi(5 downto 0);
+                        when RTC_MINS_REG =>
+                            rtc_mins <= ext_rtc_adi(5 downto 0);
+                        when RTC_HOURS_REG =>
+                            rtc_hours <= ext_rtc_adi(4 downto 0);
+                        when RTC_WEEKDAY_REG =>
+                            rtc_weekday <= ext_rtc_adi(2 downto 0);
+                        when RTC_DAY_REG =>
+                            rtc_day <= ext_rtc_adi(5 downto 0);
+                        when RTC_MONTH_REG =>
+                            rtc_month <= ext_rtc_adi(4 downto 0);
+                        when RTC_YEAR_REG =>
+                            rtc_year <= ext_rtc_adi(7 downto 0);
+                        when others =>
+                            rtc_ram(to_integer(unsigned(rtc_addr))) <= ext_rtc_adi;
+                    end case;
                     -- Mark the location as dirty so it gets written back to I2C (this will also suspect async updates)
                     dirty(to_integer(unsigned(rtc_addr))) <= '1';
                 end if;
 
                 -- Read Data
-                if rtc_addr = RTC_SECS_REG then
-                    ext_rtc_do <= "00" & rtc_secs;
-                elsif rtc_addr = RTC_MINS_REG then
-                    ext_rtc_do <= "00" & rtc_mins;
-                elsif rtc_addr = RTC_HOURS_REG then
-                    ext_rtc_do <= "000" & rtc_hours;
-                elsif rtc_addr = RTC_WEEKDAY_REG then
-                    ext_rtc_do <= "00000" & rtc_weekday;
-                elsif rtc_addr = RTC_DAY_REG then
-                    ext_rtc_do <= "00" & rtc_day;
-                elsif rtc_addr = RTC_MONTH_REG then
-                    ext_rtc_do <= "000" & rtc_month;
-                elsif rtc_addr = RTC_YEAR_REG then
-                    ext_rtc_do <= rtc_year;
-                else
-                    ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)));
-                end if;
+                case rtc_addr is
+                    when RTC_SECS_REG =>
+                        ext_rtc_do <= "00" & rtc_secs;
+                    when RTC_MINS_REG =>
+                        ext_rtc_do <= "00" & rtc_mins;
+                    when RTC_HOURS_REG =>
+                        ext_rtc_do <= "000" & rtc_hours;
+                    when RTC_WEEKDAY_REG =>
+                        ext_rtc_do <= "00000" & rtc_weekday;
+                    when RTC_DAY_REG =>
+                        ext_rtc_do <= "00" & rtc_day;
+                    when RTC_MONTH_REG =>
+                        ext_rtc_do <= "000" & rtc_month;
+                    when RTC_YEAR_REG =>
+                        ext_rtc_do <= rtc_year;
+                    when others =>
+                        ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)));
+                end case;
+
             end if;
 
             -- Slowly write back dirty data to I2C RTC
             if dirty(to_integer(unsigned(scrub_addr))) = '1' then
                 cmos_write_req <= '1';
-                if scrub_addr = RTC_SECS_REG then
-                    cmos_addr <= I2C_SECS_REG;
-                    cmos_data <= "00" & rtc_secs;
-                elsif scrub_addr = RTC_MINS_REG then
-                    cmos_addr <= I2C_MINS_REG;
-                    cmos_data <= "00" & rtc_mins;
-                elsif scrub_addr = RTC_HOURS_REG then
-                    cmos_addr <= I2C_HOURS_REG;
-                    cmos_data <= "000" & rtc_hours;
-                elsif scrub_addr = RTC_YEAR_REG or scrub_addr = RTC_DAY_REG then
-                    cmos_addr <= I2C_YEAR_DAY_REG;
-                    cmos_data <= rtc_year(1 downto 0) & rtc_day;
-                elsif scrub_addr = RTC_WEEKDAY_REG or scrub_addr = RTC_MONTH_REG then
-                    cmos_addr <= I2C_WEEKDAY_MONTH_REG;
-                    cmos_data <= rtc_weekday & rtc_month;
-                else
-                    cmos_addr <= "10" & scrub_addr;
-                    cmos_data <= rtc_ram(to_integer(unsigned(scrub_addr)));
-                end if;
+                case scrub_addr is
+                    when RTC_SECS_REG =>
+                        cmos_addr <= I2C_SECS_REG;
+                        cmos_data <= "00" & rtc_secs;
+                    when RTC_MINS_REG =>
+                        cmos_addr <= I2C_MINS_REG;
+                        cmos_data <= "00" & rtc_mins;
+                    when RTC_HOURS_REG =>
+                        cmos_addr <= I2C_HOURS_REG;
+                        cmos_data <= "000" & rtc_hours;
+                    when RTC_YEAR_REG | RTC_DAY_REG =>
+                        cmos_addr <= I2C_YEAR_DAY_REG;
+                        cmos_data <= rtc_year(1 downto 0) & rtc_day;
+                    when RTC_WEEKDAY_REG | RTC_MONTH_REG =>
+                        cmos_addr <= I2C_WEEKDAY_MONTH_REG;
+                        cmos_data <= rtc_weekday & rtc_month;
+                    when others =>
+                        cmos_addr <= "10" & scrub_addr;
+                        cmos_data <= rtc_ram(to_integer(unsigned(scrub_addr)));
+                end case;
                 if cmos_write_ack = '1' then
                     cmos_write_req <= '0';
                     dirty(to_integer(unsigned(scrub_addr))) <= '0';

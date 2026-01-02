@@ -1640,37 +1640,46 @@ begin
         constant CLK_DIVIDE : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(480, 10)); -- 48MHz / 100KHz
         signal inst_address : std_logic_vector(9 downto 0);
         signal inst_data    : std_logic_vector(8 downto 0);
+        signal reg_write    : std_logic;
         signal reg_addr     : std_logic_vector(4 downto 0);
         signal reg_data     : std_logic_vector(7 downto 0);
         signal msb          : std_logic_vector(6 downto 0);
-        signal reg_write    : std_logic;
         signal i2c_scl      : std_logic;
         signal i2c_sda_i    : std_logic;
         signal i2c_sda_o    : std_logic;
         signal i2c_sda_t    : std_logic;
         signal enable_i2c   : std_logic;
 
-        signal ext_rtc_as_r : std_logic;
-        signal ext_rtc_ds_r : std_logic;
-
         signal reset_i2c    : std_logic := '0';
         signal init_done    : std_logic;
 
-        signal rtc_addr     : std_logic_vector(5 downto 0);
-        type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
-        signal rtc_ram      : rtc_ram_type;
-
-        signal cmos_write_req : std_logic := '0';
+        signal cmos_write_req : std_logic;
         signal cmos_addr      : std_logic_vector(7 downto 0);
         signal cmos_data      : std_logic_vector(7 downto 0);
         signal cmos_write_ack : std_logic;
+
         signal i3c2_inputs    : std_logic_vector(23 downto 0);
         signal i3c2_outputs   : std_logic_vector(15 downto 0);
-        signal dirty          : std_logic_vector(63 downto 0);
-        signal scrub_addr     : std_logic_vector(5 downto 0) := (others => '0');
 
     begin
 
+
+        -- I2C reset generation
+        process(clock_48)
+        begin
+            if rising_edge(clock_48) then
+                if reset_counter = 0 then
+                    reset_i2c <= '1';
+                end if;
+                --detect pwm audio vs i2c based on the presence of i2c pullups at the end of power up reset
+                if reset_counter = to_unsigned(48, RESETBITS) then
+                    enable_i2c <= audiol or audior;
+                end if;
+                if reset_counter = to_unsigned(96, RESETBITS) then
+                    reset_i2c <= '0';
+                end if;
+            end if;
+        end process;
 
         -- I3C2 source and assembler to generate this program is in ../tools
         inst_beebfpga_i2c_program : entity work.beebfpga_i2c_program
@@ -1708,6 +1717,7 @@ begin
         i3c2_inputs <= cmos_data & cmos_addr & "000000" & cmos_write_req & init_done;
         cmos_write_ack <= i3c2_outputs(1);
 
+        -- Handle ADC I2C register callbacks
         process(clock_48)
         begin
             if rising_edge(clock_48) then
@@ -1728,92 +1738,37 @@ begin
                                 -- should not see negative values, but clamp at zero anyway
                                 msb <= (others => '0');
                             end if;
-                        when "00101" =>
-                            -- RTC Register 2 - BCD seconds
-                            rtc_ram(0) <= reg_data;
-                        when "00110" =>
-                            -- RTC Register 3 - BCD minutes
-                            rtc_ram(2) <= reg_data;
-                        when "00111" =>
-                            -- RTC Register 4 - BCD hours
-                            rtc_ram(4) <= reg_data;
-                        when "01000" =>
-                            -- RTC Register 5 - 7:6 Year; 5:0 BCD Date
-                            rtc_ram(7) <= "00"     & reg_data(5 downto 0);
-                            rtc_ram(9) <= "001001" & reg_data(7 downto 6); -- This is hard coded!!!! it will break in 2028.
-                        when "01001" =>
-                            -- RTC Register 6 - 7:5 Weekday; 4:0 BCD Month
-                            rtc_ram(6) <= "00000"  & (reg_data(7 downto 5) + "001");
-                            rtc_ram(8) <= "000"    & reg_data(4 downto 0);
-                        when "01010" =>
-                            -- RTC CMOS Init: Reset RTC CMOS address
-                            rtc_addr <= "001110"; -- Master CMOS starts at address 0E
-                            init_done <= '0';
-                        when "01011" =>
-                            -- RTC CMOS Init: Write next RTC/CMOS address
-                            rtc_ram(to_integer(unsigned(rtc_addr))) <= reg_data;
-                            rtc_addr <= rtc_addr + 1;
-                            if rtc_addr = 0 then
-                                init_done <= '1';
-                            end if;
                         when others =>
                             null;
                     end case;
                 end if;
-
-                if ext_rtc_ce = '1' then
-                    ext_rtc_as_r <= ext_rtc_as;
-                    ext_rtc_ds_r <= ext_rtc_ds;
-
-                    -- Latch the RTC Address of the falling edge of rtc_as
-                    if ext_rtc_as = '0' and ext_rtc_as_r = '1' then
-                        rtc_addr <= ext_rtc_adi(5 downto 0);
-                    end if;
-
-                    -- Latch the Write Data on the falling edge of rtc_ds
-                    if ext_rtc_ds = '0' and ext_rtc_ds_r = '1' and ext_rtc_r_nw = '0' then
-                        rtc_ram(to_integer(unsigned(rtc_addr))) <= ext_rtc_adi;
-                        -- Mark the location as dirty, so it get's written back to I2C
-                        dirty(to_integer(unsigned(rtc_addr))) <= '1';
-                   end if;
-
-                    -- Read Data
-                    ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)));
-                end if;
-
-                if dirty(to_integer(unsigned(scrub_addr))) = '1' then
-                    cmos_write_req <= '1';
-                    cmos_addr <= "10" & scrub_addr;
-                    cmos_data <= rtc_ram(to_integer(unsigned(scrub_addr)));
-                    if cmos_write_ack = '1' then
-                        cmos_write_req <= '0';
-                        dirty(to_integer(unsigned(scrub_addr))) <= '0';
-                        scrub_addr <= scrub_addr + 1;
-                    end if;
-                else
-                    scrub_addr <= scrub_addr + 1;
-                end if;
-
             end if;
         end process;
 
+        inst_cmos_rtc_bridge : entity work.cmos_rtc_bridge
+            port map (
+                clock        => clock_48,
+                reset        => reset_i2c,
+                -- external RTC interface from BeebFpga Core
+                ext_rtc_ce   => ext_rtc_ce,
+                ext_rtc_as   => ext_rtc_as,
+                ext_rtc_ds   => ext_rtc_ds,
+                ext_rtc_r_nw => ext_rtc_r_nw,
+                ext_rtc_adi  => ext_rtc_adi,
+                ext_rtc_do   => ext_rtc_do,
+                -- register callbacks from I3C2 controller
+                reg_write    => reg_write,
+                reg_addr     => reg_addr,
+                reg_data     => reg_data,
+                -- interface with I3C2 program to handle ram initialization on power up reset
+                init_done    => init_done,
+                -- interface with I3C2 program to handle pending writes of dirty ram data
+                cmos_write_req => cmos_write_req,
+                cmos_addr      => cmos_addr,
+                cmos_data      => cmos_data,
+                cmos_write_ack => cmos_write_ack
+                );
 
-
-        -- detect pwm audio vs i2c based on the presence of i2c pullups at the end of power up reset
-        process(clock_48)
-        begin
-            if rising_edge(clock_48) then
-                if reset_counter = 0 then
-                    reset_i2c <= '1';
-                end if;
-                if reset_counter = to_unsigned(48, RESETBITS) then
-                    enable_i2c <= audiol or audior;
-                end if;
-                if reset_counter = to_unsigned(96, RESETBITS) then
-                    reset_i2c <= '0';
-                end if;
-            end if;
-        end process;
 
         audiol    <= 'Z'     when reset_i2c = '1' else
                      i2c_scl when enable_i2c = '1' else

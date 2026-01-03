@@ -1,30 +1,88 @@
 ;============================================================
-; Reading from the ADS1115
-;------------------------------------------------------------
+; BeebFPGA integration of the ADS1115 and PCF8583
+;============================================================
 
+
+; This program does the following:
 ;
-; Note: clock rate is 100KHz (10us)
-
+; On power up:
+;     Load the CMOS RAM data (into a RAM copy in the FPGA)
 ;
-;;       15 = OS        (1 = start conversion)
-;; 14 .. 12 = MUX       (100 = Ch0 ... 111 = Ch3)
-;; 11 ..  9 = PGA       (010 = FS +/- 2.048V)
-;;        8 = MODE      (0 = Cont, 1 = One Shot)
-;;  7 ..  5 = DR        (111 = 860SPS)
-;;        4 = COMP_MODE (0 = Traditional comparator, 1 = Windowed comparator)
-;;        3 = COMP_POL  (0 = Active low, 1 = Active high)
-;;        2 = COMP_LAT  (0 = Not latching ALERT, 1 = Latching ALERT)
-;;     1..0 = COMP_QUE  (11 = ALERT after 4 conversions)
+; while (true) {
+;     Trigger ADC conversion on channel 0
+;     Wait 2.5ms for conversion
+;     Read ADC channel 0 => external registers 4 and 0
+;
+;     Trigger ADC conversion on channel 1
+;     Wait 2.5ms for conversion
+;     Read ADC channel 1 => external registers 4 and 1
+;
+;     Trigger ADC conversion on channel 2
+;     Wait 2.5ms for conversion
+;     Read ADC channel 2 => external registers 4 and 2
+;
+;     Trigger ADC conversion on channel 3
+;     Wait 2.5ms for conversion
+;     Read ADC channel 3 => external registers 4 and 3
+;
+;     Read RTC secs      => external register 5
+;     Read RTC mins      => external register 6
+;     Read RTC hours     => external register 7
+;     Read RTC year/date => external register 8
+;     Read RTC month/day => external register 9
+;     Blip output 0 to indicate new RTC data available
+;
+;     while (pending CMOS RAM writes) {
+;         Write CMOS data
+;         Blip output 1 to indicate a write was done
+;     }
+; }
 
+; I2C clock rate is 100MHz, so DELAYs are in 10us units
 
-;; Read RAM on startup
+;============================================================
+; Notes for the ADS1115
+;============================================================
+
+; Device address is 0x50 (so 0xA0 for writes and 0xA1 for reads)
+
+; Config register is:
+;
+;       15 = OS        (1 = start conversion)
+; 14 .. 12 = MUX       (100 = Ch0 ... 111 = Ch3)
+; 11 ..  9 = PGA       (010 = FS +/- 2.048V)
+;        8 = MODE      (0 = Cont, 1 = One Shot)
+;  7 ..  5 = DR        (111 = 860SPS)
+;        4 = COMP_MODE (0 = Traditional comparator, 1 = Windowed comparator)
+;        3 = COMP_POL  (0 = Active low, 1 = Active high)
+;        2 = COMP_LAT  (0 = Not latching ALERT, 1 = Latching ALERT)
+;     1..0 = COMP_QUE  (11 = ALERT after 4 conversions)
+
+;============================================================
+; Notes for the PCF8583T RTC/CMOS RAM
+;============================================================
+
+; Device address is 0x48 (so 0x90 for writes and 0x91 for reads)
+
+; On the Master's HD146818 the RTC registers use addresses 0x00-0x0D
+; and the 50 bytes of CMOS RAM data live use addresses 0x0E-0x3F.
+
+; In the PCF8583 registers 0x0E and 0x0F are part of the RTC, and 0x10
+; and 0x11 are used by I2CBEEB. So we remap the Master CMOS data to
+; 0x8E-0xBF.
+
+;============================================================
+; Main program
+;============================================================
+
+; Load CMOS RAM on startup
 
 init:
         NOP
         NOP
 
         WRITE 0xA0 ; RTC Device address + write
-        WRITE 0x8D ; RTC register address: start address - 1
+        WRITE 0x8D ; RTC register address: CMOS RAM start address - 1
         STOP
         WRITE 0xA1 ; RTC Device address + read
         MASTERACK
@@ -34,7 +92,7 @@ initloop:
         READ  11   ; Signal next CMOS data to external logic
         NOP
         NOP
-        SKIPSET 0  ; Loop back if external logic want more data
+        SKIPSET 0  ; Loop back if external logic wants more data
         JUMP  initloop
         READ  10   ; Dummy read with no ack to end transaction
         STOP

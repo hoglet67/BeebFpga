@@ -34,7 +34,7 @@ end cmos_rtc_bridge;
 
 architecture Behavioral of cmos_rtc_bridge is
 
-    -- Cached copy of HD146818RTC clock registers in 24-hour BCD format
+    -- Cached copy of HD146818 RTC clock registers in 24-hour BCD format
     signal rtc_secs    : std_logic_vector(6 downto 0);
     signal rtc_mins    : std_logic_vector(6 downto 0);
     signal rtc_hours   : std_logic_vector(5 downto 0);
@@ -43,7 +43,7 @@ architecture Behavioral of cmos_rtc_bridge is
     signal rtc_month   : std_logic_vector(4 downto 0);
     signal rtc_year    : std_logic_vector(7 downto 0);
 
-    -- Cached copy of HD146818 RTC registers (64x8 RAM)
+    -- Cached copy of HD146818 RTC CMOS RAM registers (64x8 RAM)
     type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
     signal rtc_ram        : rtc_ram_type;
 
@@ -56,14 +56,14 @@ architecture Behavioral of cmos_rtc_bridge is
     -- Port B of the RAM is connected to the external PCF8583 RTC
     signal scrub_addr     : std_logic_vector(5 downto 0) := (others => '0');
 
-    -- Port A of the RAM is connected to the BeebFPGA core
+    -- Port C of the RAM is connected to the BeebFPGA core
     signal init_addr       : std_logic_vector(5 downto 0);
 
-    -- Register for the rtc address and data
+    -- Registers for the beeb side RTC address and data
     signal ext_rtc_as_r : std_logic;
     signal ext_rtc_ds_r : std_logic;
 
-    -- HD146818 RTC register addresses
+    -- HD146818 RTC register address constants
     constant RTC_SECS_REG          : std_logic_vector(5 downto 0) := "000000";
     constant RTC_MINS_REG          : std_logic_vector(5 downto 0) := "000010";
     constant RTC_HOURS_REG         : std_logic_vector(5 downto 0) := "000100";
@@ -73,14 +73,14 @@ architecture Behavioral of cmos_rtc_bridge is
     constant RTC_YEAR_REG          : std_logic_vector(5 downto 0) := "001001";
     constant RTC_CMOS_BASE         : std_logic_vector(5 downto 0) := "001110";  -- Master CMOS ram starts at RTC register 0E
 
-    -- I2C PCF8583 register addresses
+    -- I2C PCF8583 register address constants
     constant I2C_SECS_REG          : std_logic_vector(7 downto 0) := x"02";
     constant I2C_MINS_REG          : std_logic_vector(7 downto 0) := x"03";
     constant I2C_HOURS_REG         : std_logic_vector(7 downto 0) := x"04";
     constant I2C_YEAR_DAY_REG      : std_logic_vector(7 downto 0) := x"05";
     constant I2C_WEEKDAY_MONTH_REG : std_logic_vector(7 downto 0) := x"06";
 
-    -- I2C2 Callback identifiers
+    -- I2C2 Callback identifiers constants
     constant CB_SECS               : std_logic_vector(4 downto 0) := "00101";
     constant CB_MINS               : std_logic_vector(4 downto 0) := "00110";
     constant CB_HOURS              : std_logic_vector(4 downto 0) := "00111";
@@ -114,22 +114,28 @@ begin
 
     -- The memory model is as follows:
     --
-    -- The set of rtc_xxx regs and the rtc_ram act as a cache, holding
-    -- the latest state
+    -- The rtc_xxx regsisters and the rtc_ram RAM act as a cache,
+    -- holding the latest emulated HD146818 RTC/CMOS RAM state
     --
-    -- 6502 reads can be services immediately from this cache. 6502
-    -- writes are writted to the address in cache, and that address
-    -- flaged as dirty
+    -- 6502 reads are serviced immediately from this cache. 6502
+    -- writes are written to cache, and the address written is marked
+    -- as dirty (in the 64-bit dirty register)
     --
-    -- During power up reset the cache is initialized from the
-    -- external RTC ia I2C
+    -- During power -p reset the cache is initialized from the
+    -- external RTC via I2C
     --
-    -- Asynchronously (every ~10ms) the rtc_xxx register holding the
+    -- Asynchronously (every ~10ms) the rtc_xxx registers holding the
     -- date/time are refreshed from the external RTC. These are
-    -- discrete register to allow multiple updates at the same time.
+    -- discrete registers to allow multiple updates at the same
+    -- time. If an rtc_xxx register is marked as dirty (i.e. it was
+    -- written by the 6502), asnchronous updates to that register are
+    -- suspended until it has been written back to the external
+    -- RTC. This ensures 6502 writes are not lost.
     --
-    -- A background scrubber process tests for dirty cache addresses,
-    -- and arranged for these to be written by to the external RTC.
+    -- A background scrubber process tests for dirty cache addresses
+    -- by scanning the 64-bit dirty register. If an address is marked
+    -- as dirty, the correponsing data is read from the cache and
+    -- written back to the external RTC.
 
     process(clock)
     begin
@@ -212,7 +218,8 @@ begin
                         when others =>
                             rtc_ram(to_integer(unsigned(rtc_addr))) <= ext_rtc_adi;
                     end case;
-                    -- Mark the location as dirty so it gets written back to I2C (this will also suspect async updates)
+                    -- Mark the location as dirty so it gets written back to external RTC
+                    -- (this will also suspend async updates)
                     dirty(to_integer(unsigned(rtc_addr))) <= '1';
                 end if;
 
@@ -238,7 +245,7 @@ begin
 
             end if;
 
-            -- Slowly write back dirty data to I2C RTC
+            -- Slowly write back dirty data to external RTC
             if dirty(to_integer(unsigned(scrub_addr))) = '1' then
                 cmos_write_req <= '1';
                 case scrub_addr is

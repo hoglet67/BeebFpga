@@ -238,7 +238,7 @@ begin
                         end if;
 
                     when STATE_RUN =>
-                        reg_data     <= "XXXXXXXX";
+--                      reg_data     <= "XXXXXXXX";
 
                         if skip = '1'then
                             -- Do nothing for a cycle other than unset 'skip';

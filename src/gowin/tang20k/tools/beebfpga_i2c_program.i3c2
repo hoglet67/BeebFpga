@@ -94,12 +94,12 @@ initloop:
         NOP
         SKIPSET 0  ; Loop back if external logic wants more data
         JUMP  initloop
-        READ  10   ; Dummy read with no ack to end transaction
+        READ  4    ; Dummy read with no ack to end transaction
         STOP
 
 runloop:
 
-;; Channel 0
+; Channel 0
 
         WRITE 0x90 ; Device address + write
         WRITE 0x01 ; Select config register
@@ -118,7 +118,7 @@ runloop:
         READ  0
         STOP
 
-;; Channel 1
+; Channel 1
 
         WRITE 0x90 ; Device address + write
         WRITE 0x01 ; Select config register
@@ -137,7 +137,7 @@ runloop:
         READ  1
         STOP
 
-;; Channel 2
+; Channel 2
 
         WRITE 0x90 ; Device address + write
         WRITE 0x01 ; Select config register
@@ -156,7 +156,7 @@ runloop:
         READ  2
         STOP
 
-;; Channel 3
+; Channel 3
 
         WRITE 0x90 ; Device address + write
         WRITE 0x01 ; Select config register
@@ -175,7 +175,7 @@ runloop:
         READ  3
         STOP
 
-;; RTC Clock Read
+; RTC Clock Read
 
         DELAY 16   ; wait ~200us to make debugging easier
 
@@ -197,12 +197,12 @@ runloop:
         SET   0    ; Indicate that new, consistent data is available
         CLEAR 0
 
-;; CMOS Writes
+; RTC CMOS Writes
 
-        SKIPSET 1  ; is there an external write pending
+        SKIPSET 1  ; Is there an external write pending
         JUMP runloop
 
-;;      DELAY 512   ; wait ~200us to make debugging easier
+;       DELAY 512  ; Wait ~200us to make debugging easier
 
 wrloop:
 
@@ -214,10 +214,12 @@ wrloop:
         SET   1    ; Indicate that write is done
         CLEAR 1
 
-        NOP        ; Allow a couple of cycles for handshake delays
-        NOP        ; bedore testing for more writes
+        NOP        ; Allow a few of cycles for handshake delays
+        NOP        ; before testing for more writes
+        NOP
+        NOP
 
-        SKIPSET 1  ; is there an external write pending
+        SKIPSET 1  ; Is there an external write pending?
         JUMP runloop
 
         JUMP wrloop

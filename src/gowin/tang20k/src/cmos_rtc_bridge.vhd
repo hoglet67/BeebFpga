@@ -34,35 +34,6 @@ end cmos_rtc_bridge;
 
 architecture Behavioral of cmos_rtc_bridge is
 
-    -- Cached copy of HD146818 RTC clock registers in 24-hour BCD format
-    signal rtc_secs    : std_logic_vector(6 downto 0);
-    signal rtc_mins    : std_logic_vector(6 downto 0);
-    signal rtc_hours   : std_logic_vector(5 downto 0);
-    signal rtc_weekday : std_logic_vector(2 downto 0);
-    signal rtc_day     : std_logic_vector(5 downto 0);
-    signal rtc_month   : std_logic_vector(4 downto 0);
-    signal rtc_year    : std_logic_vector(7 downto 0);
-
-    -- Cached copy of HD146818 RTC CMOS RAM registers (64x8 RAM)
-    type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
-    signal rtc_ram        : rtc_ram_type;
-
-    -- 64x1 register array to track dirty registers that need writing back
-    signal dirty          : std_logic_vector(63 downto 0);
-
-    -- Port A of the RAM is connected to the BeebFPGA core
-    signal rtc_addr       : std_logic_vector(5 downto 0);
-
-    -- Port B of the RAM is connected to the external PCF8583 RTC
-    signal scrub_addr     : std_logic_vector(5 downto 0) := (others => '0');
-
-    -- Port C of the RAM is connected to the BeebFPGA core
-    signal init_addr       : std_logic_vector(5 downto 0);
-
-    -- Registers for the beeb side RTC address and data
-    signal ext_rtc_as_r : std_logic;
-    signal ext_rtc_ds_r : std_logic;
-
     -- HD146818 RTC register address constants
     constant RTC_SECS_REG          : std_logic_vector(5 downto 0) := "000000";
     constant RTC_MINS_REG          : std_logic_vector(5 downto 0) := "000010";
@@ -88,6 +59,53 @@ architecture Behavioral of cmos_rtc_bridge is
     constant CB_WEEKDAY_MONTH      : std_logic_vector(4 downto 0) := "01001";
     constant CB_INIT_RESET         : std_logic_vector(4 downto 0) := "01010";
     constant CB_INIT_NEXT          : std_logic_vector(4 downto 0) := "01011";
+
+    -- Cached copy of HD146818 RTC CMOS RAM registers (64x8 RAM)
+    type rtc_ram_type is array(0 to 63) of std_logic_vector(8 downto 0);
+    signal rtc_ram        : rtc_ram_type;
+
+    -- Port A of the RAM is connected to the BeebFPGA core
+    signal rtc_addr       : std_logic_vector(5 downto 0);
+
+    -- Additional registers for the beeb side RTC address and data
+    signal ext_rtc_as_r : std_logic;
+    signal ext_rtc_ds_r : std_logic;
+
+    -- Port B of the RAM is connected to the external PCF8583 RTC
+    signal portb_we                : std_logic;
+    signal portb_addr              : std_logic_vector(5 downto 0) := (others => '0');
+    signal portb_addr1             : std_logic_vector(5 downto 0) := (others => '0'); -- delayed one cycle to match dout
+    signal portb_din               : std_logic_vector(7 downto 0) := (others => '0');
+    signal portb_dout              : std_logic_vector(8 downto 0) := (others => '0');
+
+    -- Additional registers for managing the scrubbimg
+    signal scrub_addr              : std_logic_vector(5 downto 0) := (others => '0');
+    signal next_scrub_addr         : std_logic_vector(5 downto 0) := (others => '0');
+    signal last_year               : std_logic_vector(1 downto 0) := (others => '0');
+    signal last_day                : std_logic_vector(5 downto 0) := (others => '0');
+    signal last_weekday            : std_logic_vector(2 downto 0) := (others => '0');
+    signal last_month              : std_logic_vector(4 downto 0) := (others => '0');
+
+    type state_type is (
+        ST_IDLE,
+        ST_INIT1,
+        ST_INIT2,
+        ST_WRITE_HMS1,
+        ST_WRITE_HMS2,
+        ST_WRITE_YEAR1,
+        ST_WRITE_YEAR2,
+        ST_WRITE_DAY0,
+        ST_WRITE_DAY1,
+        ST_WRITE_DAY2,
+        ST_WRITE_WEEKDAY1,
+        ST_WRITE_WEEKDAY2,
+        ST_WRITE_MONTH0,
+        ST_WRITE_MONTH1,
+        ST_WRITE_MONTH2,
+        ST_WRITE_DONE
+        );
+
+    signal state : state_type;
 
 begin
 
@@ -137,58 +155,10 @@ begin
     -- as dirty, the correponsing data is read from the cache and
     -- written back to the external RTC.
 
+    -- Port A connects the cache to the BeebFPGA core
     process(clock)
     begin
         if rising_edge(clock) then
-            if reg_write = '1' then
-                case reg_addr is
-                    when CB_SECS =>
-                        -- RTC Register 2 - BCD seconds
-                        if dirty(to_integer(unsigned(RTC_SECS_REG))) = '0' then
-                            rtc_secs <= reg_data(6 downto 0);
-                        end if;
-                    when CB_MINS =>
-                        -- RTC Register 3 - BCD minutes
-                        if dirty(to_integer(unsigned(RTC_MINS_REG))) = '0' then
-                            rtc_mins <= reg_data(6 downto 0);
-                        end if;
-                    when CB_HOURS =>
-                        -- RTC Register 4 - BCD hours
-                        if dirty(to_integer(unsigned(RTC_HOURS_REG))) = '0' then
-                            rtc_hours <= reg_data(5 downto 0);
-                        end if;
-                    when CB_YEAR_DAY =>
-                        -- RTC Register 5 - 7:6 Year; 5:0 BCD Date
-                        if dirty(to_integer(unsigned(RTC_YEAR_REG))) = '0' then
-                            rtc_year <= "001001" & reg_data(7 downto 6); -- This is hard coded!!!! it will break in 2028.
-                        end if;
-                        if dirty(to_integer(unsigned(RTC_DAY_REG))) = '0' then
-                            rtc_day <= reg_data(5 downto 0);
-                        end if;
-                    when CB_WEEKDAY_MONTH =>
-                        -- RTC Register 6 - 7:5 Weekday; 4:0 BCD Month
-                        if dirty(to_integer(unsigned(RTC_WEEKDAY_REG))) = '0' then
-                            rtc_weekday <= reg_data(7 downto 5) + "001";
-                        end if;
-                        if dirty(to_integer(unsigned(RTC_MONTH_REG))) = '0' then
-                            rtc_month <= reg_data(4 downto 0);
-                        end if;
-                    when CB_INIT_RESET =>
-                        -- RTC CMOS Init: Reset RTC CMOS address
-                        init_addr <= RTC_CMOS_BASE;
-                        init_done <= '0';
-                    when CB_INIT_NEXT =>
-                        -- RTC CMOS Init: Write next RTC/CMOS address
-                        rtc_ram(to_integer(unsigned(init_addr))) <= reg_data;
-                        init_addr <= init_addr + 1;
-                        if init_addr = 0 then
-                            init_done <= '1';
-                        end if;
-                    when others =>
-                        null;
-                end case;
-            end if;
-
             if ext_rtc_ce = '1' then
                 ext_rtc_as_r <= ext_rtc_as;
                 ext_rtc_ds_r <= ext_rtc_ds;
@@ -200,83 +170,226 @@ begin
 
                 -- Latch the Write Data on the falling edge of rtc_ds
                 if ext_rtc_ds = '0' and ext_rtc_ds_r = '1' and ext_rtc_r_nw = '0' then
-                    case rtc_addr is
-                        when RTC_SECS_REG =>
-                            rtc_secs <= ext_rtc_adi(6 downto 0);
-                        when RTC_MINS_REG =>
-                            rtc_mins <= ext_rtc_adi(6 downto 0);
-                        when RTC_HOURS_REG =>
-                            rtc_hours <= ext_rtc_adi(5 downto 0);
-                        when RTC_WEEKDAY_REG =>
-                            rtc_weekday <= ext_rtc_adi(2 downto 0);
-                        when RTC_DAY_REG =>
-                            rtc_day <= ext_rtc_adi(5 downto 0);
-                        when RTC_MONTH_REG =>
-                            rtc_month <= ext_rtc_adi(4 downto 0);
-                        when RTC_YEAR_REG =>
-                            rtc_year <= ext_rtc_adi(7 downto 0);
-                        when others =>
-                            rtc_ram(to_integer(unsigned(rtc_addr))) <= ext_rtc_adi;
-                    end case;
-                    -- Mark the location as dirty so it gets written back to external RTC
-                    -- (this will also suspend async updates)
-                    dirty(to_integer(unsigned(rtc_addr))) <= '1';
+                    -- Bit 8 = 1 mark the location as dirty so it gets
+                    -- written back to external RTC (this will also
+                    -- suspend async updates)
+                    rtc_ram(to_integer(unsigned(rtc_addr))) <= "1" & ext_rtc_adi;
+                else
+                    ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)))(7 downto 0);
                 end if;
-
-                -- Read Data
-                case rtc_addr is
-                    when RTC_SECS_REG =>
-                        ext_rtc_do <= "0" & rtc_secs;
-                    when RTC_MINS_REG =>
-                        ext_rtc_do <= "0" & rtc_mins;
-                    when RTC_HOURS_REG =>
-                        ext_rtc_do <= "00" & rtc_hours;
-                    when RTC_WEEKDAY_REG =>
-                        ext_rtc_do <= "00000" & rtc_weekday;
-                    when RTC_DAY_REG =>
-                        ext_rtc_do <= "00" & rtc_day;
-                    when RTC_MONTH_REG =>
-                        ext_rtc_do <= "000" & rtc_month;
-                    when RTC_YEAR_REG =>
-                        ext_rtc_do <= rtc_year;
-                    when others =>
-                        ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)));
-                end case;
-
             end if;
+        end if;
+    end process;
 
-            -- Slowly write back dirty data to external RTC
-            if dirty(to_integer(unsigned(scrub_addr))) = '1' then
-                cmos_write_req <= '1';
-                case scrub_addr is
-                    when RTC_SECS_REG =>
-                        cmos_addr <= I2C_SECS_REG;
-                        cmos_data <= "0" & rtc_secs;
-                    when RTC_MINS_REG =>
-                        cmos_addr <= I2C_MINS_REG;
-                        cmos_data <= "0" & rtc_mins;
-                    when RTC_HOURS_REG =>
-                        cmos_addr <= I2C_HOURS_REG;
-                        cmos_data <= "00" & rtc_hours;
-                    when RTC_YEAR_REG | RTC_DAY_REG =>
-                        cmos_addr <= I2C_YEAR_DAY_REG;
-                        cmos_data <= rtc_year(1 downto 0) & rtc_day;
-                    when RTC_WEEKDAY_REG | RTC_MONTH_REG =>
-                        cmos_addr <= I2C_WEEKDAY_MONTH_REG;
-                        cmos_data <= (rtc_weekday - "001") & rtc_month;
-                    when others =>
-                        cmos_addr <= "10" & scrub_addr;
-                        cmos_data <= rtc_ram(to_integer(unsigned(scrub_addr)));
-                end case;
-                if cmos_write_ack = '1' then
-                    cmos_write_req <= '0';
-                    dirty(to_integer(unsigned(scrub_addr))) <= '0';
-                    scrub_addr <= scrub_addr + 1;
-                end if;
+    next_scrub_addr <= scrub_addr + 1;
+
+    -- Port B connect the cache to the external RTC interface, supported by the I2C3 controller
+    process(clock)
+    begin
+        if rising_edge(clock) then
+
+            -- Defaults
+            portb_we <= '0';
+            portb_din <= reg_data;
+
+            -- A delayed version to match dout
+            portb_addr1 <= portb_addr;
+
+            if reset = '1' then
+
+                state <= ST_IDLE;
+                scrub_addr <= (others => '0');
+                init_done <= '0';
+                cmos_write_req <= '0';
+                cmos_addr <= (others => '0');
+                cmos_data <= (others => '0');
+
             else
-                scrub_addr <= scrub_addr + 1;
+
+                case state is
+
+                    when ST_IDLE =>
+                        if reg_write = '1' then
+                            -- Time updates take priority
+                            case reg_addr is
+                                when CB_INIT_RESET =>
+                                    -- detect initialiation (load of cache on power up)
+                                    portb_addr <= RTC_CMOS_BASE;
+                                    state <= ST_INIT1;
+                                    init_done <= '0';
+                                when CB_SECS =>
+                                    portb_addr <= RTC_SECS_REG;
+                                    state <= ST_WRITE_HMS1;
+                                when CB_MINS =>
+                                    portb_addr <= RTC_MINS_REG;
+                                    state <= ST_WRITE_HMS1;
+                                when CB_HOURS =>
+                                    portb_addr <= RTC_HOURS_REG;
+                                    state <= ST_WRITE_HMS1;
+                                when CB_YEAR_DAY =>
+                                    portb_addr <= RTC_YEAR_REG;
+                                    state <= ST_WRITE_YEAR1;
+                                when CB_WEEKDAY_MONTH =>
+                                    portb_addr <= RTC_WEEKDAY_REG;
+                                    state <= ST_WRITE_WEEKDAY1;
+                                when others =>
+                                    null;
+                            end case;
+                        else
+                            if portb_addr1 = RTC_YEAR_REG then
+                                last_year <= portb_dout(1 downto 0);
+                            end if;
+                            if portb_addr1 = RTC_DAY_REG then
+                                last_day <= portb_dout(5 downto 0);
+                            end if;
+                            if portb_addr1 = RTC_WEEKDAY_REG then
+                                last_weekday <= portb_dout(2 downto 0);
+                            end if;
+                            if portb_addr1 = RTC_MONTH_REG then
+                                last_month <= portb_dout(4 downto 0);
+                            end if;
+                            if cmos_write_req = '0' then
+                                -- test for dirty data
+                                if portb_dout(8) = '1' then
+                                    -- immediately re-write data as clean because it will be flushed
+                                    portb_addr <= portb_addr1;
+                                    portb_din <= portb_dout(7 downto 0);
+                                    portb_we <= '1';
+                                    -- request a writeback from the I23C controller
+                                    cmos_write_req <= '1';
+                                    -- setup the CMOS address
+                                    case portb_addr1 is
+                                        when RTC_SECS_REG =>
+                                            cmos_addr <= I2C_SECS_REG;
+                                        when RTC_MINS_REG =>
+                                            cmos_addr <= I2C_MINS_REG;
+                                        when RTC_HOURS_REG =>
+                                            cmos_addr <= I2C_HOURS_REG;
+                                        when RTC_YEAR_REG | RTC_DAY_REG =>
+                                            cmos_addr <= I2C_YEAR_DAY_REG;
+                                        when RTC_WEEKDAY_REG | RTC_MONTH_REG =>
+                                            cmos_addr <= I2C_WEEKDAY_MONTH_REG;
+                                        when others =>
+                                            cmos_addr <= "10" & portb_addr1;
+                                    end case;
+                                    -- setup the CMOS data to be written
+                                    case portb_addr1 is
+                                        when RTC_YEAR_REG =>
+                                            cmos_data <= portb_dout(1 downto 0) & last_day;
+                                        when RTC_DAY_REG =>
+                                            cmos_data <= last_year & portb_dout(5 downto 0);
+                                        when RTC_WEEKDAY_REG =>
+                                            cmos_data <= (portb_dout(2 downto 0) - "001") & last_month;
+                                        when RTC_MONTH_REG =>
+                                            cmos_data <= (last_weekday - "001") & portb_dout(4 downto 0);
+                                        when others =>
+                                            cmos_data <= portb_dout(7 downto 0);
+                                    end case;
+                                else
+                                    portb_addr <= next_scrub_addr;
+                                    scrub_addr <= next_scrub_addr;
+                                end if;
+                            elsif cmos_write_ack = '1' then
+                                -- lower the write request
+                                cmos_write_req <= '0';
+                                -- rewind the scrub address
+                                portb_addr <= scrub_addr;
+                            end if;
+                        end if;
+
+                    when ST_INIT1 =>
+                        if reg_write = '1' and reg_addr = CB_INIT_NEXT then
+                            portb_we <= '1';
+                            state <= ST_INIT2;
+                        end if;
+
+                    when ST_INIT2 =>
+                        if portb_addr = "111111" then
+                            portb_addr <= scrub_addr;
+                            state <= ST_IDLE;
+                            init_done <= '1';
+                        else
+                            portb_addr <= portb_addr + 1;
+                            state <= ST_INIT1;
+                        end if;
+
+                    when ST_WRITE_HMS1 =>
+                        -- Read the dirty flag
+                        state <= ST_WRITE_HMS2;
+
+                    when ST_WRITE_HMS2 =>
+                        -- Write the register only if the dirty flag clean
+                        portb_we <= not portb_dout(8);
+                        state <= ST_WRITE_DONE;
+
+                    when ST_WRITE_YEAR1 =>
+                        -- Read the dirty flag
+                        state <= ST_WRITE_YEAR2;
+
+                    when ST_WRITE_YEAR2 =>
+                        -- Write the register only if the dirty flag clean
+                        portb_we <= not portb_dout(8);
+                        -- MS bits of year are hard coded!!!! it will break in 2028.
+                        portb_din <= "001001" & reg_data(7 downto 6);
+                        state <= ST_WRITE_DAY0;
+
+                    when ST_WRITE_DAY0 =>
+                        -- Switch to the day address
+                        portb_addr <= RTC_DAY_REG;
+                        state <= ST_WRITE_DAY1;
+
+                    when ST_WRITE_DAY1 =>
+                        -- Read the dirty flag
+                        state <= ST_WRITE_DAY2;
+
+                    when ST_WRITE_DAY2 =>
+                        -- Write the register only if the dirty flag clean
+                        portb_we <= not portb_dout(8);
+                        portb_din <= "00" & reg_data(5 downto 0);
+                        state <= ST_WRITE_DONE;
+
+                    when ST_WRITE_WEEKDAY1 =>
+                        -- Read the dirty flag
+                        state <= ST_WRITE_WEEKDAY2;
+
+                    when ST_WRITE_WEEKDAY2 =>
+                        -- Write the register only if the dirty flag clean
+                        portb_we <= not portb_dout(8);
+                        portb_din <= "00000" & (reg_data(7 downto 5) + "001");
+                        state <= ST_WRITE_MONTH0;
+
+                    when ST_WRITE_MONTH0 =>
+                        -- Switch to the day address
+                        portb_addr <= RTC_MONTH_REG;
+                        state <= ST_WRITE_MONTH1;
+
+                    when ST_WRITE_MONTH1 =>
+                        -- Read the dirty flag
+                        state <= ST_WRITE_MONTH2;
+
+                    when ST_WRITE_MONTH2 =>
+                        -- Write the register only if the dirty flag clean
+                        portb_we <= not portb_dout(8);
+                        portb_din <= "000" & reg_data(4 downto 0);
+                        state <= ST_WRITE_DONE;
+
+                    when ST_WRITE_DONE =>
+                        portb_addr <= scrub_addr;
+                        state <= ST_IDLE;
+
+                    when others =>
+                        state <= ST_IDLE;
+
+                end case;
             end if;
 
+            if portb_we = '1' then
+                -- We never write dirty data through this port
+                rtc_ram(to_integer(unsigned(portb_addr))) <= "0" & portb_din;
+            else
+                -- Read data
+                portb_dout <= rtc_ram(to_integer(unsigned(portb_addr)));
+            end if;
         end if;
     end process;
 

@@ -75,14 +75,20 @@
 ; Main program
 ;============================================================
 
-; Load CMOS RAM on startup
 
 init:
         NOP
         NOP
 
-        SET   0    ; Indicate that initializion data is coming
+; Test presence of I2C RTC
+        WRITE 0xA0 ; RTC Device address + write
+        STOP
+        SKIPACK
+        JUMP runloop
 
+; Load CMOS data from I2C RTC
+
+        SET   0    ; Indicate that initializion data is coming
         WRITE 0xA0 ; RTC Device address + write
         WRITE 0x8E ; RTC register address: CMOS RAM start address
         STOP
@@ -96,7 +102,6 @@ initloop:
         JUMP  initloop
         READ  4    ; Dummy read with no ack to end transaction
         STOP
-
         CLEAR 0
 
 runloop:
@@ -180,6 +185,12 @@ runloop:
 ; RTC Clock Read
 
         DELAY 16   ; wait ~200us to make debugging easier
+
+; Test presence of I2C RTC
+        WRITE 0xA0 ; RTC Device address + write
+        STOP
+        SKIPACK
+        JUMP runloop
 
         WRITE 0xA0 ; RTC Device address + write
         WRITE 0x02 ; RTC register address 2 (seconds)

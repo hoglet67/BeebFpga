@@ -1637,21 +1637,22 @@ begin
 --------------------------------------------------------
 
     analog_js : if IncludeAnalogJS generate
-        constant CLK_DIVIDE : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(480, 10)); -- 48MHz / 100KHz
-        signal inst_address : std_logic_vector(9 downto 0);
-        signal inst_data    : std_logic_vector(8 downto 0);
-        signal reg_write    : std_logic;
-        signal reg_addr     : std_logic_vector(4 downto 0);
-        signal reg_data     : std_logic_vector(7 downto 0);
-        signal msb          : std_logic_vector(6 downto 0);
-        signal i2c_scl      : std_logic;
-        signal i2c_sda_i    : std_logic;
-        signal i2c_sda_o    : std_logic;
-        signal i2c_sda_t    : std_logic;
-        signal enable_i2c   : std_logic;
+        constant CLK_DIVIDE   : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(480, 10)); -- 48MHz / 100KHz
+        signal inst_address   : std_logic_vector(9 downto 0);
+        signal inst_data      : std_logic_vector(8 downto 0);
+        signal reg_write      : std_logic;
+        signal reg_addr       : std_logic_vector(4 downto 0);
+        signal reg_data       : std_logic_vector(7 downto 0);
+        signal msb            : std_logic_vector(6 downto 0);
+        signal i2c_scl        : std_logic;
+        signal i2c_sda_i      : std_logic;
+        signal i2c_sda_o      : std_logic;
+        signal i2c_sda_t      : std_logic;
+        signal enable_i2c     : std_logic;
 
-        signal reset_i2c    : std_logic := '0';
-        signal init_done    : std_logic;
+        signal reset_i2c      : std_logic := '0';
+        signal cmos_init_req  : std_logic;
+        signal cmos_init_ack  : std_logic;
 
         signal cmos_write_req : std_logic;
         signal cmos_addr      : std_logic_vector(7 downto 0);
@@ -1714,8 +1715,9 @@ begin
                 error        => open
                 );
 
-        i3c2_inputs <= cmos_data & cmos_addr & "000000" & cmos_write_req & init_done;
-        cmos_write_ack <= i3c2_outputs(1);
+        i3c2_inputs <= cmos_data & cmos_addr & "000000" & cmos_write_req & cmos_init_ack;
+        cmos_init_req <= i3c2_outputs(0);
+        cmos_write_ack <= i3c2_outputs(2);
 
         -- Handle ADC I2C register callbacks
         process(clock_48)
@@ -1747,26 +1749,27 @@ begin
 
         inst_cmos_rtc_bridge : entity work.cmos_rtc_bridge
             port map (
-                clock        => clock_48,
-                reset        => reset_i2c,
+                clock          => clock_48,
+                reset          => reset_i2c,
                 -- external RTC interface from BeebFpga Core
-                ext_rtc_ce   => ext_rtc_ce,
-                ext_rtc_as   => ext_rtc_as,
-                ext_rtc_ds   => ext_rtc_ds,
-                ext_rtc_r_nw => ext_rtc_r_nw,
-                ext_rtc_adi  => ext_rtc_adi,
-                ext_rtc_do   => ext_rtc_do,
+                ext_rtc_ce     => ext_rtc_ce,
+                ext_rtc_as     => ext_rtc_as,
+                ext_rtc_ds     => ext_rtc_ds,
+                ext_rtc_r_nw   => ext_rtc_r_nw,
+                ext_rtc_adi    => ext_rtc_adi,
+                ext_rtc_do     => ext_rtc_do,
                 -- register callbacks from I3C2 controller
-                reg_write    => reg_write,
-                reg_addr     => reg_addr,
-                reg_data     => reg_data,
+                reg_write      => reg_write,
+                reg_addr       => reg_addr,
+                reg_data       => reg_data,
                 -- interface with I3C2 program to handle ram initialization on power up reset
-                init_done    => init_done,
+                cmos_init_req  => cmos_init_req,   -- I2C3 => Bridge
+                cmos_init_ack  => cmos_init_ack,   -- Bridge => I2C3
                 -- interface with I3C2 program to handle pending writes of dirty ram data
-                cmos_write_req => cmos_write_req,
+                cmos_write_req => cmos_write_req,  -- Bridge => I2C3
+                cmos_write_ack => cmos_write_ack,  -- I2C3 => Bridge
                 cmos_addr      => cmos_addr,
-                cmos_data      => cmos_data,
-                cmos_write_ack => cmos_write_ack
+                cmos_data      => cmos_data
                 );
 
 

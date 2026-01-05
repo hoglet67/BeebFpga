@@ -5,30 +5,31 @@ use ieee.numeric_std.all;
 
 entity cmos_rtc_bridge is
     port (
-        clock        : in  std_logic;
-        reset        : in  std_logic;
+        clock          : in  std_logic;
+        reset          : in  std_logic;
 
         -- external RTC interface from BeebFpga Core
-        ext_rtc_ce   : in  std_logic;
-        ext_rtc_as   : in  std_logic;
-        ext_rtc_ds   : in  std_logic;
-        ext_rtc_r_nw : in  std_logic;
-        ext_rtc_adi  : in  std_logic_vector(7 downto 0);
-        ext_rtc_do   : out std_logic_vector(7 downto 0) := x"00";
+        ext_rtc_ce     : in  std_logic;
+        ext_rtc_as     : in  std_logic;
+        ext_rtc_ds     : in  std_logic;
+        ext_rtc_r_nw   : in  std_logic;
+        ext_rtc_adi    : in  std_logic_vector(7 downto 0);
+        ext_rtc_do     : out std_logic_vector(7 downto 0) := x"00";
 
         -- register callbacks from I3C2 controller
-        reg_write    : in  std_logic;
-        reg_addr     : in  std_logic_vector(4 downto 0);
-        reg_data     : in  std_logic_vector(7 downto 0);
+        reg_write      : in  std_logic;
+        reg_addr       : in  std_logic_vector(4 downto 0);
+        reg_data       : in  std_logic_vector(7 downto 0);
 
         -- interface with I3C2 program to handle ram initialization on power up reset
-        init_done    : out std_logic;
+        cmos_init_req  : in  std_logic;
+        cmos_init_ack  : out std_logic;
 
         -- interface with I3C2 program to handle pending writes of dirty ram data
         cmos_write_req : out std_logic := '0';
+        cmos_write_ack : in  std_logic;
         cmos_addr      : out std_logic_vector(7 downto 0) := (others => '0');
-        cmos_data      : out std_logic_vector(7 downto 0) := (others => '0');
-        cmos_write_ack : in  std_logic
+        cmos_data      : out std_logic_vector(7 downto 0) := (others => '0')
     );
 end cmos_rtc_bridge;
 
@@ -57,8 +58,7 @@ architecture Behavioral of cmos_rtc_bridge is
     constant CB_HOURS              : std_logic_vector(4 downto 0) := "00111";
     constant CB_YEAR_DAY           : std_logic_vector(4 downto 0) := "01000";
     constant CB_WEEKDAY_MONTH      : std_logic_vector(4 downto 0) := "01001";
-    constant CB_INIT_RESET         : std_logic_vector(4 downto 0) := "01010";
-    constant CB_INIT_NEXT          : std_logic_vector(4 downto 0) := "01011";
+    constant CB_INIT_DATA          : std_logic_vector(4 downto 0) := "01010";
 
     -- Cached copy of HD146818 RTC CMOS RAM registers (64x8 RAM)
     type rtc_ram_type is array(0 to 63) of std_logic_vector(8 downto 0);
@@ -90,6 +90,7 @@ architecture Behavioral of cmos_rtc_bridge is
         ST_IDLE,
         ST_INIT1,
         ST_INIT2,
+        ST_INIT3,
         ST_WRITE_HMS1,
         ST_WRITE_HMS2,
         ST_WRITE_YEAR1,
@@ -199,7 +200,7 @@ begin
 
                 state <= ST_IDLE;
                 scrub_addr <= (others => '0');
-                init_done <= '0';
+                cmos_init_ack <= '0';
                 cmos_write_req <= '0';
                 cmos_addr <= (others => '0');
                 cmos_data <= (others => '0');
@@ -209,14 +210,13 @@ begin
                 case state is
 
                     when ST_IDLE =>
-                        if reg_write = '1' then
+                        -- detect initialiation (load of cache on power up)
+                        if cmos_init_req = '1' then
+                            portb_addr <= RTC_CMOS_BASE;
+                            state <= ST_INIT1;
+                        elsif reg_write = '1' then
                             -- Time updates take priority
                             case reg_addr is
-                                when CB_INIT_RESET =>
-                                    -- detect initialiation (load of cache on power up)
-                                    portb_addr <= RTC_CMOS_BASE;
-                                    state <= ST_INIT1;
-                                    init_done <= '0';
                                 when CB_SECS =>
                                     portb_addr <= RTC_SECS_REG;
                                     state <= ST_WRITE_HMS1;
@@ -298,19 +298,25 @@ begin
                         end if;
 
                     when ST_INIT1 =>
-                        if reg_write = '1' and reg_addr = CB_INIT_NEXT then
+                        if reg_write = '1' and reg_addr = CB_INIT_DATA then
                             portb_we <= '1';
                             state <= ST_INIT2;
                         end if;
 
                     when ST_INIT2 =>
                         if portb_addr = "111111" then
-                            portb_addr <= scrub_addr;
-                            state <= ST_IDLE;
-                            init_done <= '1';
+                            cmos_init_ack <= '1';
+                            state <= ST_INIT3;
                         else
                             portb_addr <= portb_addr + 1;
                             state <= ST_INIT1;
+                        end if;
+
+                    when ST_INIT3 =>
+                        cmos_init_ack <= '0';
+                        if cmos_init_req = '0' then
+                            portb_addr <= scrub_addr;
+                            state <= ST_IDLE;
                         end if;
 
                     when ST_WRITE_HMS1 =>

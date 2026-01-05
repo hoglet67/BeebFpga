@@ -81,21 +81,23 @@ init:
         NOP
         NOP
 
+        SET   0    ; Indicate that initializion data is coming
+
         WRITE 0xA0 ; RTC Device address + write
-        WRITE 0x8D ; RTC register address: CMOS RAM start address - 1
+        WRITE 0x8E ; RTC register address: CMOS RAM start address
         STOP
         WRITE 0xA1 ; RTC Device address + read
-        MASTERACK
-        READ  10   ; Signal initialization to external logic
 initloop:
         MASTERACK
-        READ  11   ; Signal next CMOS data to external logic
+        READ  10   ; Signal next CMOS data to external logic
         NOP
         NOP
         SKIPSET 0  ; Loop back if external logic wants more data
         JUMP  initloop
         READ  4    ; Dummy read with no ack to end transaction
         STOP
+
+        CLEAR 0
 
 runloop:
 
@@ -194,8 +196,8 @@ runloop:
         READ 9     ; RTC register 6 = day/month
         STOP
 
-        SET   0    ; Indicate that new, consistent data is available
-        CLEAR 0
+        SET   1    ; Indicate that new, consistent data is available
+        CLEAR 1
 
 ; RTC CMOS Writes
 
@@ -211,8 +213,8 @@ wrloop:
         WRITEHI    ; CMOS data passed in on inputs 23..16
         STOP
 
-        SET   1    ; Indicate that write is done
-        CLEAR 1
+        SET   2    ; Indicate that write is done
+        CLEAR 2
 
         NOP        ; Allow a few of cycles for handshake delays
         NOP        ; before testing for more writes

@@ -205,6 +205,7 @@ begin
         begin
             if powerup_reset_n = '0' then                         -- external reset pin
                 bs_state <= INIT;                                 -- move state machine to INIT state
+                bs_busy <= '1';
             elsif rising_edge(clock) then
                 bs_A_stb <= '0';
                 if clock_en = '1' then

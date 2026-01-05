@@ -319,8 +319,8 @@ int parse_line(int line, char *buffer)
          if( s == NULL)
             {
                s = symbolNew(buffer,i,line);
-               i++; /* Skip over the ':' */
             }
+         i++; /* Skip over the ':' */
          if(s->resolved) {
             fprintf(stderr,"Label already defined '%s'\n",s->name);
             return 0;

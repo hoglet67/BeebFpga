@@ -115,8 +115,8 @@ begin
               OPCODE_SET       when inst_data(8 downto 4) = "01011"     else
               OPCODE_I2C_READ  when inst_data(8 downto 5) = "0110"      else
               OPCODE_DELAY     when inst_data(8 downto 4) = "01110"     else
-              OPCODE_SKIPACK   when inst_data(8 downto 0) = "011110000" else
-              OPCODE_SKIPNACK  when inst_data(8 downto 0) = "011110001" else
+              OPCODE_SKIPNACK  when inst_data(8 downto 0) = "011110000" else
+              OPCODE_SKIPACK   when inst_data(8 downto 0) = "011110001" else
               OPCODE_WRITELOW  when inst_data(8 downto 0) = "011110010" else
               OPCODE_WRITEHI   when inst_data(8 downto 0) = "011110011" else
               -- user codes can go here

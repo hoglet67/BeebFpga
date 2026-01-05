@@ -1657,6 +1657,7 @@ begin
         signal i3c2_inputs    : std_logic_vector(23 downto 0);
         signal i3c2_outputs   : std_logic_vector(15 downto 0);
 
+        signal ads1115_found  : std_logic;
     begin
 
 
@@ -1710,9 +1711,10 @@ begin
                 error        => open
                 );
 
-        i3c2_inputs <= cmos_data & cmos_addr & "000000" & cmos_write_req & cmos_init_ack;
-        cmos_init_req <= i3c2_outputs(0);
+        i3c2_inputs    <= cmos_data & cmos_addr & "000000" & cmos_write_req & cmos_init_ack;
+        cmos_init_req  <= i3c2_outputs(0);
         cmos_write_ack <= i3c2_outputs(2);
+        ads1115_found  <= i3c2_outputs(3);
 
         -- Handle ADC I2C register callbacks
         process(clock_48)
@@ -1777,8 +1779,8 @@ begin
 
         i2c_sda_i <= audior when enable_i2c = '1' else '1';
 
-        analog_js1 <= enable_i2c;
-        analog_js2 <= enable_i2c;
+        analog_js1 <= enable_i2c and ads1115_found;
+        analog_js2 <= enable_i2c and ads1115_found;
 
     end generate;
 

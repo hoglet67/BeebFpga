@@ -2,6 +2,15 @@
 ; BeebFPGA integration of the ADS1115 and PCF8583
 ;============================================================
 
+; INPUTS
+; 0 = CMOS Init Ack
+; 1 = CMOS Write Req
+
+; OUTPUTS
+; 0 = CMOS Init Req
+; 1 = RTC clock data available
+; 2 = CMOS Write Ack
+; 3 = ADS1115 found
 
 ; This program does the following:
 ;
@@ -106,6 +115,17 @@ initloop:
 
 runloop:
 
+; Test presence of ADS1115
+
+        WRITE 0x90 ; Device address + write
+        STOP
+        SKIPNACK
+        SET 3      ; Set ADC present flag
+        SKIPACK
+        CLEAR 3    ; Clear ADC present flag
+        SKIPACK
+        JUMP rtcread
+
 ; Channel 0
 
         WRITE 0x90 ; Device address + write
@@ -183,6 +203,7 @@ runloop:
         STOP
 
 ; RTC Clock Read
+rtcread:
 
         DELAY 16   ; wait ~200us to make debugging easier
 

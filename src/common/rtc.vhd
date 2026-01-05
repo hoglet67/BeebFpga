@@ -18,6 +18,13 @@ entity rtc is
         r_nw         : in  std_logic;
         adi          : in  std_logic_vector(7 downto 0); -- address/data in
         do           : out std_logic_vector(7 downto 0); -- data out
+
+        -- second RAM port for external access
+        rtc_mgmt_we   : in  std_logic;
+        rtc_mgmt_addr : in  std_logic_vector(5 downto 0);
+        rtc_mgmt_din  : in  std_logic_vector(8 downto 0);
+        rtc_mgmt_dout : out std_logic_vector(8 downto 0);
+
         -- copro settings
         copro_mode   : in  std_logic;
         copro_ext    : in  std_logic;
@@ -30,9 +37,8 @@ architecture rtl of rtc is
 
     signal ds_r : std_logic;
     signal as_r : std_logic;
-    signal addr : std_logic_vector(5 downto 0);
 
-    type rtc_ram_type is array(0 to 63) of std_logic_vector(7 downto 0);
+    type rtc_ram_type is array(0 to 63) of std_logic_vector(8 downto 0);
 
 -- CMOS configuration RAM allocation
 --
@@ -110,71 +116,72 @@ architecture rtl of rtc is
     -- (b7..b5) = 101 = *CONFIGURE DATA 5 = 8n1
     constant ini16 : std_logic_vector(7 downto 0) := x"A2";
 
-    signal rtc_ram : rtc_ram_type := (
-        x"30", -- RTC Seconds
-        x"00", -- RTC Seconds Alarm
-        x"02", -- RTC Minutes
-        x"00", -- RTC Minutes Alarm
-        x"18", -- RTC Hours
-        x"00", -- RTC Hours Alarm
-        x"06", -- RTC Day of Week
-        x"07", -- RTC Date of Month
-        x"11", -- RTC Month
-        x"15", -- RTC Year
-        x"00", -- RTC Register A
-        x"00", -- RTC Register B
-        x"00", -- RTC Register C
-        x"00", -- RTC Register D
-        x"00", -- CMOS  0 - Econet station number
-        x"FE", -- CMOS  1 - Econet file server identity (lo)
-        x"00", -- CMOS  2 - Econet file server identity (hi)
-        x"EB", -- CMOS  3 - Econet print server identity (lo)
-        x"00", -- CMOS  4 - Econet print server identity (hi)
-        x"C9", -- CMOS  5 - Default Filing System / Language (default file system MMFS)
-        x"FF", -- CMOS  6 - ROM frugal bits (*INSERT/*UNPLUG)
-        x"FF", -- CMOS  7 - ROM frugal bits (*INSERT/*UNPLUG)
-        x"00", -- CMOS  8 - Edit startup settings
-        x"00", -- CMOS  9 - reserved for telecommunications applications
-        ini10, -- CMOS 10 - VDU mode and *TV settings
-        x"63", -- CMOS 11 - ADFS startup options, keyboard settings, floppy params
-        x"20", -- CMOS 12 - Keyboard auto-repeat delay
-        x"08", -- CMOS 13 - Keyboard auto-repeat rate
-        x"0A", -- CMOS 14 - Printer ignore character
-        ini15, -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
-        ini16, -- CMOS 16 - Default serial data format, auto boot option, int/ext TUBE, bell amplitude
-        x"00", -- CMOS 17 - reserved for ANFS
-        x"00", -- CMOS 18 - reserved for ANFS
-        x"00", -- CMOS 19 - reserved for ANFS
-        x"00", -- CMOS 20 - reserved for future use by Acorn
-        x"00", -- CMOS 21 - reserved for future use by Acorn
-        x"00", -- CMOS 22 - reserved for future use by Acorn
-        x"00", -- CMOS 23 - reserved for future use by Acorn
-        x"00", -- CMOS 24 - reserved for future use by Acorn
-        x"00", -- CMOS 25 - reserved for future use by Acorn
-        x"00", -- CMOS 26 - reserved for future use by Acorn
-        x"00", -- CMOS 27 - reserved for future use by Acorn
-        x"00", -- CMOS 28 - reserved for future use by Acorn
-        x"00", -- CMOS 29 - reserved for future use by Acorn
-        x"00", -- CMOS 30 - reserved for future use by third parties
-        x"00", -- CMOS 31 - reserved for future use by third parties
-        x"00", -- CMOS 32 - reserved for future use by third parties
-        x"00", -- CMOS 33 - reserved for future use by third parties
-        x"00", -- CMOS 34 - reserved for future use by third parties
-        x"00", -- CMOS 35 - reserved for future use by third parties
-        x"00", -- CMOS 36 - reserved for future use by third parties
-        x"00", -- CMOS 37 - reserved for future use by third parties
-        x"00", -- CMOS 38 - reserved for future use by third parties
-        x"00", -- CMOS 39 - reserved for future use by third parties
-        x"00", -- CMOS 40 - reserved for future use by the user
-        x"00", -- CMOS 41 - reserved for future use by the user
-        x"00", -- CMOS 42 - reserved for future use by the user
-        x"00", -- CMOS 43 - reserved for future use by the user
-        x"00", -- CMOS 44 - reserved for future use by the user
-        x"00", -- CMOS 45 - reserved for future use by the user
-        x"00", -- CMOS 46 - reserved for future use by the user
-        x"00", -- CMOS 47 - reserved for future use by the user
-        x"00", -- CMOS 48 - reserved for future use by the user
-        x"00"  -- CMOS 49 - reserved for future use by the user
+    -- initialize with dirty bit clean, so these values never get written back to an external RTC
+    shared variable rtc_ram : rtc_ram_type := (
+        '0' & x"30", -- RTC Seconds
+        '0' & x"00", -- RTC Seconds Alarm
+        '0' & x"02", -- RTC Minutes
+        '0' & x"00", -- RTC Minutes Alarm
+        '0' & x"18", -- RTC Hours
+        '0' & x"00", -- RTC Hours Alarm
+        '0' & x"06", -- RTC Day of Week
+        '0' & x"07", -- RTC Date of Month
+        '0' & x"11", -- RTC Month
+        '0' & x"15", -- RTC Year
+        '0' & x"00", -- RTC Register A
+        '0' & x"00", -- RTC Register B
+        '0' & x"00", -- RTC Register C
+        '0' & x"00", -- RTC Register D
+        '0' & x"00", -- CMOS  0 - Econet station number
+        '0' & x"FE", -- CMOS  1 - Econet file server identity (lo)
+        '0' & x"00", -- CMOS  2 - Econet file server identity (hi)
+        '0' & x"EB", -- CMOS  3 - Econet print server identity (lo)
+        '0' & x"00", -- CMOS  4 - Econet print server identity (hi)
+        '0' & x"C9", -- CMOS  5 - Default Filing System / Language (default file system MMFS)
+        '0' & x"FF", -- CMOS  6 - ROM frugal bits (*INSERT/*UNPLUG)
+        '0' & x"FF", -- CMOS  7 - ROM frugal bits (*INSERT/*UNPLUG)
+        '0' & x"00", -- CMOS  8 - Edit startup settings
+        '0' & x"00", -- CMOS  9 - reserved for telecommunications applications
+        '0' & ini10, -- CMOS 10 - VDU mode and *TV settings
+        '0' & x"63", -- CMOS 11 - ADFS startup options, keyboard settings, floppy params
+        '0' & x"20", -- CMOS 12 - Keyboard auto-repeat delay
+        '0' & x"08", -- CMOS 13 - Keyboard auto-repeat rate
+        '0' & x"0A", -- CMOS 14 - Printer ignore character
+        '0' & ini15, -- CMOS 15 - Default printer type, serial baud rate, ignore status and TUBE select
+        '0' & ini16, -- CMOS 16 - Default serial data format, auto boot option, int/ext TUBE, bell amplitude
+        '0' & x"00", -- CMOS 17 - reserved for ANFS
+        '0' & x"00", -- CMOS 18 - reserved for ANFS
+        '0' & x"00", -- CMOS 19 - reserved for ANFS
+        '0' & x"00", -- CMOS 20 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 21 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 22 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 23 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 24 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 25 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 26 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 27 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 28 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 29 - reserved for future use by Acorn
+        '0' & x"00", -- CMOS 30 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 31 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 32 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 33 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 34 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 35 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 36 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 37 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 38 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 39 - reserved for future use by third parties
+        '0' & x"00", -- CMOS 40 - reserved for future use by the user
+        '0' & x"00", -- CMOS 41 - reserved for future use by the user
+        '0' & x"00", -- CMOS 42 - reserved for future use by the user
+        '0' & x"00", -- CMOS 43 - reserved for future use by the user
+        '0' & x"00", -- CMOS 44 - reserved for future use by the user
+        '0' & x"00", -- CMOS 45 - reserved for future use by the user
+        '0' & x"00", -- CMOS 46 - reserved for future use by the user
+        '0' & x"00", -- CMOS 47 - reserved for future use by the user
+        '0' & x"00", -- CMOS 48 - reserved for future use by the user
+        '0' & x"00"  -- CMOS 49 - reserved for future use by the user
         );
 
 
@@ -184,13 +191,35 @@ architecture rtl of rtc is
 
     signal rtc_state : RTC_STATE_TYPE := INIT;
 
+    signal porta_we   : std_logic;
+    signal porta_addr : std_logic_vector(5 downto 0);
+    signal porta_din  : std_logic_vector(8 downto 0);
+    signal porta_dout : std_logic_vector(8 downto 0);
+
+    signal portb_we   : std_logic;
+    signal portb_addr : std_logic_vector(5 downto 0);
+    signal portb_din  : std_logic_vector(8 downto 0);
+    signal portb_dout : std_logic_vector(8 downto 0);
+
+    signal hard_reset_n_last : std_logic := '1';
+
 begin
 
-    process(clk,reset_n)
+    process(clk)
     begin
         if rising_edge(clk) then
 
-            if hard_reset_n = '0' then
+            hard_reset_n_last <= hard_reset_n;
+
+            porta_we <= '0';
+
+            -- It's important to initialize quickly at the start of
+            -- powerup reset, so any changes made through the mgmt
+            -- interface take priority. Otherwise setting like TUBE,
+            -- IN/EXTUBE cannot be overridden by setting in an
+            -- external CMOS RAM.
+
+            if hard_reset_n = '0' and hard_reset_n_last = '1' then
                 rtc_state <= INIT;
 
             else
@@ -200,7 +229,6 @@ begin
                     when INIT =>
                         as_r <= '0';
                         ds_r <= '0';
-                        do <= (others => '0');
                         if OverrideCMOS then
                             rtc_state <= WRITE_10;
                         else
@@ -209,17 +237,26 @@ begin
 
                     -- Copy the screen mode from the DIP switches into CMOS on power up
                     when WRITE_10 =>
-                        rtc_ram(24) <= ini10 xor ("00000" & keyb_dip(2 downto 0));
-                        rtc_state <= WRITE_15;
+                        porta_we   <= '1';
+                        porta_addr <= std_logic_vector(to_unsigned(24, 6));
+                        -- write with dirty bit clean,
+                        porta_din  <= '0' & (ini10 xor ("00000" & keyb_dip(2 downto 0)));
+                        rtc_state  <= WRITE_15;
 
                     -- Copy the Co Pro mode from the into CMOS on power up
                     when WRITE_15 =>
-                        rtc_ram(29) <= ini15 xor ("0000000" & copro_mode);
+                        porta_we   <= '1';
+                        porta_addr <= std_logic_vector(to_unsigned(29, 6));
+                        -- write with dirty bit clean,
+                        porta_din  <= '0' & (ini15 xor ("0000000" & copro_mode));
                         rtc_state <= WRITE_16;
 
                     -- Copy the noboot/boot mode from the DIP switches into CMOS on power up
                     when WRITE_16 =>
-                        rtc_ram(30) <= ini16 xor ("000" & keyb_dip(3) & "0" & copro_ext & "00");
+                        porta_we   <= '1';
+                        porta_addr <= std_logic_vector(to_unsigned(30, 6));
+                        -- write with dirty bit clean,
+                        porta_din  <= '0' & (ini16 xor ("000" & keyb_dip(3) & "0" & copro_ext & "00"));
                         rtc_state <= RUNNING;
 
                     when RUNNING =>
@@ -227,7 +264,6 @@ begin
                         if reset_n = '0' then
                             as_r <= '0';
                             ds_r <= '0';
-                            do <= (others => '0');
 
                         elsif (cpu_clken = '1') then
                             as_r <= as;
@@ -235,20 +271,51 @@ begin
 
                             -- Latch the RTC Address of the falling edge of rtc_as
                             if ce = '1' and as = '0' and as_r = '1' then
-                                addr <= adi(5 downto 0);
+                                porta_addr <= adi(5 downto 0);
                             end if;
 
-                            -- Latch the Write Data on the falling edge of rtc_ds
                             if ce = '1' and ds = '0' and ds_r = '1' and r_nw = '0' then
-                                rtc_ram(to_integer(unsigned(addr))) <= adi;
+                                porta_we  <= '1';
+                                -- Write with dirty bit set so changes persisted
+                                porta_din <= '1' & adi;
                             end if;
 
-                            -- Read Data
-                            do <= rtc_ram(to_integer(unsigned(addr)));
                         end if;
                 end case;
             end if;
         end if;
     end process;
+
+    -- Port A connect to the 6502
+    do <= porta_dout(7 downto 0);
+
+    -- Port B connects to the external RTC management interface
+    portb_we      <= rtc_mgmt_we;
+    portb_addr    <= rtc_mgmt_addr;
+    portb_din     <= rtc_mgmt_din;
+    rtc_mgmt_dout <= portb_dout;
+
+    -- Clean logic to infer a dual port RAM with common clock
+
+    process(clk)
+    begin
+        if rising_edge(clk) then
+            if porta_we = '1' then
+                rtc_ram(to_integer(unsigned(porta_addr))) := porta_din;
+            end if;
+            porta_dout <= rtc_ram(to_integer(unsigned(porta_addr)));
+        end if;
+    end process;
+
+    process(clk)
+    begin
+        if rising_edge(clk) then
+            if portb_we = '1' then
+                rtc_ram(to_integer(unsigned(portb_addr))) := portb_din;
+            end if;
+            portb_dout <= rtc_ram(to_integer(unsigned(portb_addr)));
+        end if;
+    end process;
+
 
 end architecture rtl;

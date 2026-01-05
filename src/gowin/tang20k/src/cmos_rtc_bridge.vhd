@@ -9,12 +9,10 @@ entity cmos_rtc_bridge is
         reset          : in  std_logic;
 
         -- external RTC interface from BeebFpga Core
-        ext_rtc_ce     : in  std_logic;
-        ext_rtc_as     : in  std_logic;
-        ext_rtc_ds     : in  std_logic;
-        ext_rtc_r_nw   : in  std_logic;
-        ext_rtc_adi    : in  std_logic_vector(7 downto 0);
-        ext_rtc_do     : out std_logic_vector(7 downto 0) := x"00";
+        rtc_mgmt_we     : out std_logic;
+        rtc_mgmt_addr   : out std_logic_vector(5 downto 0);
+        rtc_mgmt_din    : out std_logic_vector(8 downto 0);
+        rtc_mgmt_dout   : in  std_logic_vector(8 downto 0);
 
         -- register callbacks from I3C2 controller
         reg_write      : in  std_logic;
@@ -59,17 +57,6 @@ architecture Behavioral of cmos_rtc_bridge is
     constant CB_YEAR_DAY           : std_logic_vector(4 downto 0) := "01000";
     constant CB_WEEKDAY_MONTH      : std_logic_vector(4 downto 0) := "01001";
     constant CB_INIT_DATA          : std_logic_vector(4 downto 0) := "01010";
-
-    -- Cached copy of HD146818 RTC CMOS RAM registers (64x8 RAM)
-    type rtc_ram_type is array(0 to 63) of std_logic_vector(8 downto 0);
-    signal rtc_ram        : rtc_ram_type;
-
-    -- Port A of the RAM is connected to the BeebFPGA core
-    signal rtc_addr       : std_logic_vector(5 downto 0);
-
-    -- Additional registers for the beeb side RTC address and data
-    signal ext_rtc_as_r : std_logic;
-    signal ext_rtc_ds_r : std_logic;
 
     -- Port B of the RAM is connected to the external PCF8583 RTC
     signal portb_we                : std_logic;
@@ -155,32 +142,6 @@ begin
     -- by scanning the 64-bit dirty register. If an address is marked
     -- as dirty, the correponsing data is read from the cache and
     -- written back to the external RTC.
-
-    -- Port A connects the cache to the BeebFPGA core
-    process(clock)
-    begin
-        if rising_edge(clock) then
-            if ext_rtc_ce = '1' then
-                ext_rtc_as_r <= ext_rtc_as;
-                ext_rtc_ds_r <= ext_rtc_ds;
-
-                -- Latch the RTC Address of the falling edge of rtc_as
-                if ext_rtc_as = '0' and ext_rtc_as_r = '1' then
-                    rtc_addr <= ext_rtc_adi(5 downto 0);
-                end if;
-
-                -- Latch the Write Data on the falling edge of rtc_ds
-                if ext_rtc_ds = '0' and ext_rtc_ds_r = '1' and ext_rtc_r_nw = '0' then
-                    -- Bit 8 = 1 mark the location as dirty so it gets
-                    -- written back to external RTC (this will also
-                    -- suspend async updates)
-                    rtc_ram(to_integer(unsigned(rtc_addr))) <= "1" & ext_rtc_adi;
-                else
-                    ext_rtc_do <= rtc_ram(to_integer(unsigned(rtc_addr)))(7 downto 0);
-                end if;
-            end if;
-        end if;
-    end process;
 
     next_scrub_addr <= scrub_addr + 1;
 
@@ -388,15 +349,12 @@ begin
 
                 end case;
             end if;
-
-            if portb_we = '1' then
-                -- We never write dirty data through this port
-                rtc_ram(to_integer(unsigned(portb_addr))) <= "0" & portb_din;
-            else
-                -- Read data
-                portb_dout <= rtc_ram(to_integer(unsigned(portb_addr)));
-            end if;
         end if;
     end process;
+
+    rtc_mgmt_we <= portb_we;
+    rtc_mgmt_addr <= portb_addr;
+    rtc_mgmt_din <= '0' & portb_din;
+    portb_dout <= rtc_mgmt_dout;
 
 end architecture;

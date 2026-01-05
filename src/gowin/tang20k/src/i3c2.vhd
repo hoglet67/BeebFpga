@@ -133,6 +133,7 @@ begin
     begin
         if rising_edge(clk) then
             if reset = '1' then
+                i2c_started <= '0';
                 state <= STATE_RUN;
                 skip <= '1';
                 ackflag <= NACK;

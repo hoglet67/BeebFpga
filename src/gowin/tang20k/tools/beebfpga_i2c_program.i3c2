@@ -142,7 +142,7 @@ runloop:
         WRITE 0x91 ; Device address + read
         MASTERACK
         READ  4
-        READ  0
+        READ  3    ; channels reversed on PCB
         STOP
 
 ; Channel 1
@@ -161,7 +161,7 @@ runloop:
         WRITE 0x91 ; Device address + read
         MASTERACK
         READ  4
-        READ  1
+        READ  2    ; channels reversed on PCB
         STOP
 
 ; Channel 2
@@ -180,7 +180,7 @@ runloop:
         WRITE 0x91 ; Device address + read
         MASTERACK
         READ  4
-        READ  2
+        READ  1    ; channels reversed on PCB
         STOP
 
 ; Channel 3
@@ -199,7 +199,7 @@ runloop:
         WRITE 0x91 ; Device address + read
         MASTERACK
         READ  4
-        READ  3
+        READ  0    ; channels reversed on PCB
         STOP
 
 ; RTC Clock Read

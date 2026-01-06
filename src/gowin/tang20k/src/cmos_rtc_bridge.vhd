@@ -49,6 +49,8 @@ architecture Behavioral of cmos_rtc_bridge is
     constant I2C_HOURS_REG         : std_logic_vector(7 downto 0) := x"04";
     constant I2C_YEAR_DAY_REG      : std_logic_vector(7 downto 0) := x"05";
     constant I2C_WEEKDAY_MONTH_REG : std_logic_vector(7 downto 0) := x"06";
+    constant I2C_USER_MS_YEAR_REG  : std_logic_vector(7 downto 0) := x"10"; -- Sample format as I2CBEEB
+    constant I2C_USER_LS_YEAR_REG  : std_logic_vector(7 downto 0) := x"11"; -- Sample format as I2CBEEB
 
     -- I2C2 Callback identifiers constants
     constant CB_SECS               : std_logic_vector(4 downto 0) := "00101";
@@ -56,7 +58,8 @@ architecture Behavioral of cmos_rtc_bridge is
     constant CB_HOURS              : std_logic_vector(4 downto 0) := "00111";
     constant CB_YEAR_DAY           : std_logic_vector(4 downto 0) := "01000";
     constant CB_WEEKDAY_MONTH      : std_logic_vector(4 downto 0) := "01001";
-    constant CB_INIT_DATA          : std_logic_vector(4 downto 0) := "01010";
+    constant CB_USER_YEAR          : std_logic_vector(4 downto 0) := "01010";
+    constant CB_INIT_DATA          : std_logic_vector(4 downto 0) := "01111";
 
     -- Port B of the RAM is connected to the external PCF8583 RTC
     signal portb_we                : std_logic;
@@ -68,13 +71,18 @@ architecture Behavioral of cmos_rtc_bridge is
     -- Additional registers for managing the scrubbimg
     signal scrub_addr              : std_logic_vector(5 downto 0) := (others => '0');
     signal next_scrub_addr         : std_logic_vector(5 downto 0) := (others => '0');
-    signal last_year               : std_logic_vector(1 downto 0) := (others => '0');
+    signal last_year               : std_logic_vector(7 downto 0) := (others => '0');
     signal last_day                : std_logic_vector(5 downto 0) := (others => '0');
     signal last_weekday            : std_logic_vector(2 downto 0) := (others => '0');
     signal last_month              : std_logic_vector(4 downto 0) := (others => '0');
+    signal user_year               : std_logic_vector(7 downto 0) := (others => '0');
 
     type state_type is (
         ST_IDLE,
+        ST_USER_MS_YEAR1,
+        ST_USER_MS_YEAR2,
+        ST_USER_LS_YEAR1,
+        ST_USER_LS_YEAR2,
         ST_INIT1,
         ST_INIT2,
         ST_INIT3,
@@ -193,12 +201,14 @@ begin
                                 when CB_WEEKDAY_MONTH =>
                                     portb_addr <= RTC_WEEKDAY_REG;
                                     state <= ST_WRITE_WEEKDAY1;
+                                when CB_USER_YEAR =>
+                                    user_year <= reg_data;
                                 when others =>
                                     null;
                             end case;
                         else
                             if portb_addr1 = RTC_YEAR_REG then
-                                last_year <= portb_dout(1 downto 0);
+                                last_year <= portb_dout(7 downto 0);
                             end if;
                             if portb_addr1 = RTC_DAY_REG then
                                 last_day <= portb_dout(5 downto 0);
@@ -237,8 +247,9 @@ begin
                                     case portb_addr1 is
                                         when RTC_YEAR_REG =>
                                             cmos_data <= portb_dout(1 downto 0) & last_day;
+                                            state <= ST_USER_MS_YEAR1; -- go on to write the year into CMOS RAM as per I2CBEEB
                                         when RTC_DAY_REG =>
-                                            cmos_data <= last_year & portb_dout(5 downto 0);
+                                            cmos_data <= last_year(1 downto 0) & portb_dout(5 downto 0);
                                         when RTC_WEEKDAY_REG =>
                                             cmos_data <= (portb_dout(2 downto 0) - "001") & last_month;
                                         when RTC_MONTH_REG =>
@@ -257,6 +268,34 @@ begin
                                 portb_addr <= scrub_addr;
                             end if;
                         end if;
+
+                        when ST_USER_MS_YEAR1 =>
+                            if cmos_write_ack = '1' then
+                                cmos_write_req <= '0';
+                                state <= ST_USER_MS_YEAR2;
+                            end if;
+
+                        when ST_USER_MS_YEAR2 =>
+                            if cmos_write_ack = '0' then
+                                cmos_write_req <= '1';
+                                cmos_addr <= I2C_USER_MS_YEAR_REG;
+                                cmos_data <= last_year(7 downto 2) & "00";
+                                state <= ST_USER_LS_YEAR1;
+                            end if;
+
+                        when ST_USER_LS_YEAR1 =>
+                            if cmos_write_ack = '1' then
+                                cmos_write_req <= '0';
+                                state <= ST_USER_LS_YEAR2;
+                            end if;
+
+                        when ST_USER_LS_YEAR2 =>
+                            if cmos_write_ack = '0' then
+                                cmos_write_req <= '1';
+                                cmos_addr <= I2C_USER_LS_YEAR_REG;
+                                cmos_data <= last_year(1 downto 0) & "000000";
+                                state <= ST_IDLE;
+                            end if;
 
                     when ST_INIT1 =>
                         if reg_write = '1' and reg_addr = CB_INIT_DATA then
@@ -296,8 +335,8 @@ begin
                     when ST_WRITE_YEAR2 =>
                         -- Write the register only if the dirty flag clean
                         portb_we <= not portb_dout(8);
-                        -- MS bits of year are hard coded!!!! it will break in 2028.
-                        portb_din <= "001001" & reg_data(7 downto 6);
+                        -- MS bits of year come from a static register in CMOS RAM
+                        portb_din <= user_year(7 downto 2) & reg_data(7 downto 6);
                         state <= ST_WRITE_DAY0;
 
                     when ST_WRITE_DAY0 =>

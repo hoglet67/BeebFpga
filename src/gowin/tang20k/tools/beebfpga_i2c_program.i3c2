@@ -104,7 +104,7 @@ init:
         WRITE 0xA1 ; RTC Device address + read
 initloop:
         MASTERACK
-        READ  10   ; Signal next CMOS data to external logic
+        READ  15   ; Signal next CMOS data to external logic
         NOP
         NOP
         SKIPSET 0  ; Loop back if external logic wants more data
@@ -213,6 +213,15 @@ rtcread:
         SKIPACK
         JUMP runloop
 
+; Read static year
+        WRITE 0xA0 ; RTC Device address + write
+        WRITE 0x10 ; RTC register address 0x10 (years in CMOS)
+        STOP
+        WRITE 0xA1 ; RTC Device address + read
+        READ 10
+        STOP
+
+; Read live date/time
         WRITE 0xA0 ; RTC Device address + write
         WRITE 0x02 ; RTC register address 2 (seconds)
         STOP
@@ -227,7 +236,6 @@ rtcread:
         READ 8     ; RTC registet 5 = year/date
         READ 9     ; RTC register 6 = day/month
         STOP
-
         SET   1    ; Indicate that new, consistent data is available
         CLEAR 1
 

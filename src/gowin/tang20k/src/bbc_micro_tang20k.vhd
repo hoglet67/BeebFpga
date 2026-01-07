@@ -1779,8 +1779,9 @@ begin
 
         i2c_sda_i <= audior when enable_i2c = '1' else '1';
 
-        analog_js1 <= enable_i2c and ads1115_found;
-        analog_js2 <= enable_i2c and ads1115_found;
+        -- For testing, jumpers 6/7 "on" disables the analog joystick and enables the switched joystick
+        analog_js1 <= enable_i2c and ads1115_found and jumper(6);
+        analog_js2 <= enable_i2c and ads1115_found and jumper(7);
 
     end generate;
 

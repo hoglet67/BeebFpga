@@ -47,8 +47,8 @@ begin
                         jumper    <= "11" & sr_mirror(8 downto 6) & sr_mirror(16 downto 14);
                     else
                         -- v1.01 and later
-                        joystick1 <= (others => '1');
-                        joystick2 <= sr_mirror(5 downto 1);
+                        joystick1 <= sr_mirror(5 downto 1); -- allow the one switches joystick to be used
+                        joystick2 <= sr_mirror(5 downto 1); -- as either joystick1 or joystick2
                         fire1_n   <= sr_mirror(9);
                         fire2_n   <= sr_mirror(10);
                         lpstb_n   <= sr_mirror(11);

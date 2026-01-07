@@ -1426,7 +1426,7 @@ begin
                    "100000000000";
 
     fire1_n_int <= fire1_n when analog_js1 = '1' else joystick1(4);
-    fire2_n_int <= fire2_n when analog_js2 = '1' else joystick1(4);
+    fire2_n_int <= fire2_n when analog_js2 = '1' else joystick2(4);
 
 --------------------------------------------------------
 -- Optional SID
@@ -2634,8 +2634,8 @@ begin
 
     -- ADC
     sys_via_cb1_in <= adc_eoc_n;
-    sys_via_pb_in(5) <= fire2_n;
-    sys_via_pb_in(4) <= fire1_n;
+    sys_via_pb_in(5) <= fire2_n_int;
+    sys_via_pb_in(4) <= fire1_n_int;
 
     -- CRTC
     sys_via_ca1_in <= crtc_vsync;

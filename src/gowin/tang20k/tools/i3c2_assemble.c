@@ -542,7 +542,7 @@ int main(int argc, char *argv[])
          fprintf(stderr, "File extension must be '.i3c2'\n");
          return 3;
       }
-   basename = (char *)malloc(strlen(argv[1])-5);
+   basename = (char *)malloc(strlen(argv[1]));
    if(basename == NULL)
       {
          fprintf(stderr,"Out of memory\n");

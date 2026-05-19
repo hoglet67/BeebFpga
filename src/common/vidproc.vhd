@@ -196,6 +196,7 @@ architecture rtl of vidproc is
     signal clken_pixel      :   std_logic;
     signal clken_shift      :   std_logic;
     signal clken_load       :   std_logic;
+    signal clken_scroll     :   std_logic;
     signal clken_fetch      :   std_logic;
     signal clken_counter    :   unsigned(3 downto 0) := (others => '0');
     signal clken_zero       :   std_logic;
@@ -438,6 +439,7 @@ begin
             clken_pixel <= '0';
             clken_shift <= '0';
             clken_load  <= '0';
+            clken_scroll  <= '0';
 
             -- For 12MHz pixen_prescale counts: 0, 1, 2, 3
             -- For 16MHz pixen_prescale counts: 0, 1,    3
@@ -462,6 +464,13 @@ begin
                 -- clken_load is either 1MHz or 2MHz
                 if pixen_counter(2 downto 0) = 0 and (pixen_counter(3) = '0' or r0_crtc_2mhz = '1') then
                     clken_load <= '1';
+                end if;
+
+                -- clken_scroll is either 16MHz or 8MHz
+                if r0_crtc_2mhz = '0' or nula_speccy_attr_mode = '1' then
+                    clken_scroll <= not pixen_counter(0);
+                else
+                    clken_scroll <= '1';
                 end if;
 
                 -- clken_shift depends on the pixel rate
@@ -719,7 +728,7 @@ begin
                 ttxt_PIXDE <= PIXDE_IN;
 
                 -- Shift pixels in from right (so bits 3..0 are the most recent)
-                if r0_crtc_2mhz = '1' or clken_counter(0) = '1' then
+                if clken_scroll = '1' then
                     phys_col_delay_reg <= phys_col_delay_reg(27 downto 0) & phys_col;
                     invert_delay_reg <= invert_delay_reg(6 downto 0) & cursor_invert;
                     -- delay disen by one more pixel

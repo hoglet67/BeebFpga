@@ -64,6 +64,7 @@ entity bbc_micro_tang20k is
         IncludeMusic5000       : boolean := true;
         IncludeMusic5000Filter : boolean := true; -- Music 5000 Low Pass IIR Filter
         IncludeMixerResampler  : boolean := true;
+        IncludeSpeech          : boolean := true;
         IncludeICEDebugger     : boolean := G_CONFIG_DEBUGGER;
         IncludeVideoNuLA       : boolean := true;
         IncludeTrace           : boolean := true;
@@ -570,6 +571,7 @@ begin
             IncludeMusic5000Filter => IncludeMusic5000Filter,
             IncludeMusic5000SPDIF  => false,
             IncludeMixerResampler  => IncludeMixerResampler,
+            IncludeSpeech          => IncludeSpeech and not IncludeMaster,
             IncludeICEDebugger     => IncludeICEDebugger,
             IncludeCoPro6502       => IncludeCoPro6502,
             IncludeCoProSPI        => false,

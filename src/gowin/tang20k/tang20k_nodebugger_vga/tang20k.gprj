@@ -43,6 +43,7 @@
         <File path="../../../common/SID/sid_voice.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/sn76489.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/spi.vhd" type="file.vhdl" enable="1"/>
+        <File path="../../../common/TMS5220.vhd" type="file.vhdl" enable="1"/>
         <File path="../../../common/Tube/hp_bytequad.v" type="file.verilog" enable="1"/>
         <File path="../../../common/Tube/hp_byte.v" type="file.verilog" enable="1"/>
         <File path="../../../common/Tube/hp_flag_m.v" type="file.verilog" enable="1"/>

@@ -61,6 +61,7 @@ entity TMS5220 is
 		O_ADD1   : out std_logic;                    -- pin  2 VSM Addr
 		O_ROMCLK : out std_logic;                    -- pin  3 VSM clock
 
+		O_STRB   : out std_logic;                    -- new audio sample ready
 		O_T11    : out std_logic;                    -- pin  7 Sync
 		O_IO     : out std_logic;                    -- pin  9 Serial Data Out
 		O_PRMOUT : out std_logic;                    -- pin 10 Test use only
@@ -598,6 +599,7 @@ begin
 	begin
 		wait until rising_edge(m_CLK);
 		if (m_ENA = '1') then
+			O_STRB <= '0';
 			if (m_RST = '1') then
 				m_previous_energy <= 0;
 				m_u <= (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -640,6 +642,7 @@ begin
 						m_x( 1) <= m_x( 0) + to_integer(shift_right(to_signed(m_current_k( 0) * m_u( 0),   22), 9));
 						m_x( 0) <= m_u( 0);
 						this_sample <= m_u( 0);
+						O_STRB <= '1';
 					when others => null;
 				end case;
 			end if;

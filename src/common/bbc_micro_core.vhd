@@ -574,6 +574,7 @@ component TMS5220 is
       O_ADD1   : out std_logic;                    -- pin  2 VSM Addr
       O_ROMCLK : out std_logic;                    -- pin  3 VSM clock
 
+      O_STRB   : out std_logic;                    -- new audio sample ready
       O_T11    : out std_logic;                    -- pin  7 Sync
       O_IO     : out std_logic;                    -- pin  9 Serial Data Out
       O_PRMOUT : out std_logic;                    -- pin 10 Test use only
@@ -788,11 +789,11 @@ signal speech_read_n    :   std_logic;
 signal speech_write_n   :   std_logic;
 signal speech_rdy_n     :   std_logic;
 signal speech_int_n     :   std_logic;
-signal speech_clken     :   std_logic;
-signal speech_ctr       :   unsigned(6 downto 0);
 signal speech_di        :   std_logic_vector(7 downto 0);
 signal speech_do        :   std_logic_vector(7 downto 0);
-signal speech_audio_int :   signed(13 downto 0);
+signal speech_ao        :   signed(13 downto 0);
+signal speech_audio_int :   signed(17 downto 0);
+signal speech_strobe_int :  std_logic;
 signal vsm_cmd          :   std_logic_vector(1 downto 0);
 signal vsm_addr         :   std_logic_vector(3 downto 0);
 signal vsm_data         :   std_logic;
@@ -1808,19 +1809,48 @@ begin
 --------------------------------------------------------
 
     GenSpeech: if IncludeSpeech generate
+        signal speech_clken :   std_logic;
+        signal speech_ctr   :   unsigned(8 downto 0);
+        signal speech_ao    :   signed(13 downto 0);
+        signal speech_strb  :   std_logic;
+    begin
 
-        -- 48MHz / 75 = 640KHz
+        -- Ideal speech clock 48MHz / 75 = 640KHz; 640KHz / 80 =
+        -- 8KHz. This would give a interolation factor (L) of
+        -- 6000000/8000=750.
+        --
+        -- However, avoid changing the resampler filter, we want the
+        -- interpolation factor (L) to be a factor of 3840.
+        --
+        -- The nearest such value is 768, which gives a sample rate of
+        -- 7.8125KHz. The TMS5220 needs a clock of 80x the sample
+        -- rate, so 625KHz.
+        --
+        -- To get this from a 48MHz clock we need to divide by 76.8
+        -- using a fractional divider. 5 speech_clken ticks in 384
+        -- system clock cycles gives us this rate.
+        --
+        -- It doesn't matter that they are not quite evenly spaced.
+
         process(clock_48)
         begin
             if rising_edge(clock_48) then
                 if hard_reset_n = '0' then
                     speech_ctr <= (others => '0');
-                    speech_clken <= '0';
-                elsif speech_ctr = to_unsigned(74, 7) then
+                elsif speech_ctr = to_unsigned(383, 9) then
                     speech_ctr <= (others => '0');
-                    speech_clken <= '1';
                 else
                     speech_ctr <= speech_ctr + 1;
+                end if;
+                if hard_reset_n = '0' then
+                    speech_clken <= '0';
+                elsif speech_ctr = to_unsigned(76, 9) or
+                    speech_ctr = to_unsigned(76*2, 9) or
+                    speech_ctr = to_unsigned(76*3, 9) or
+                    speech_ctr = to_unsigned(76*4, 9) or
+                    speech_ctr = to_unsigned(76*5, 9) then
+                    speech_clken <= '1';
+                else
                     speech_clken <= '0';
                 end if;
             end if;
@@ -1849,16 +1879,32 @@ begin
                 O_ADD1   => vsm_addr(0),      -- pin  2 VSM Addr
                 O_ROMCLK => vsm_clk,          -- pin  3 VSM clock
 
+                O_STRB   => speech_strb,      -- new audio sample ready (currently unused)
                 O_T11    => open,             -- pin  7 Sync
                 O_IO     => open,             -- pin  9 Serial Data Out
                 O_PRMOUT => open,             -- pin 10 Test use only
-                O_SPKR   => speech_audio_int  -- pin  8 Audio Output
+                O_SPKR   => speech_ao         -- pin  8 Audio Output
                 );
 
         speech_di <= sys_via_pa_out;
 
         vsm_data <= '1';
 
+        -- Speech output is 14-bit signed
+        -- 13 12 11 10  9  8  7  6  5  4  3  2  1  0
+        -- S  C1 C0 D6 D5 D4 D3 D2 D1 D0  X  X  X  X
+
+        -- Clip according to the TMS5220 datasheet
+        --speech_audio_int <= "011111110000000000" when speech_ao(13) = '0' and (speech_ao(12) = '1' or speech_ao(11) = '1') else
+        --                    "100000000000000000" when speech_ao(13) = '1' and (speech_ao(12) = '0' or speech_ao(11) = '0') else
+        --                    speech_ao(13) & speech_ao(10 downto 4) & "0000000000";
+        speech_audio_int  <= speech_ao & "0000";
+        speech_strobe_int <= speech_strb and speech_clken;
+    end generate;
+
+    GenNotSpeech: if not IncludeSpeech generate
+        speech_audio_int  <= to_signed(0, speech_audio_int'length);
+        speech_strobe_int <= '0';
     end generate;
 
 --------------------------------------------------------
@@ -1868,7 +1914,6 @@ begin
     -- All inputs to the legacy mixer are now 18-bit signed
 
     process(psg_audio_int, speech_audio_int, sid_audio_int, m5k_audio_l_int, m5k_audio_r_int)
-        variable s : signed(9 downto 0);
         variable m : signed(17 downto 0);
         variable l : signed(17 downto 0);
         variable r : signed(17 downto 0);
@@ -1876,24 +1921,7 @@ begin
         -- SN76489 PSG (mono)
         m := psg_audio_int;
         if IncludeSpeech then
-            -- Speech output is 14-bit signed
-            -- 13 12 11 10  9  8  7  6  5  4  3  2  1  0
-            -- S  C1 C0 D6 D5 D4 D3 D2 D1 D0  X  X  X  X
-            --  9  8  7  6  5  4  3  2  1  0
-            s := speech_audio_int(13 downto 4); -- Discard the X bits, leaving a 10 bit value
-            -- Clip according to the TMS5220 datasheet
-            if s(9) = '0' then
-                -- Handle clipping of positive values
-                if s(8) = '1' or s(7) = '1' then
-                    s := "0001111111"; -- +127
-                end if;
-            else
-                -- Handle clipping of negative values
-                if s(8) = '0' or s(7) = '0' then
-                    s := "1110000000"; -- -127
-                end if;
-            end if;
-            m := m + (s & "00000000");
+            m := m + speech_audio_int;
         end if;
         -- optional SID (mono)
         if IncludeSID then
@@ -1927,6 +1955,7 @@ begin
         signal channel_load    : std_logic_vector(NUM_CHANNELS - 1 downto 0);
         signal mixer_l         : signed(19 downto 0);
         signal mixer_r         : signed(19 downto 0);
+        signal channel1        : signed(17 downto 0);
         signal mixer_strobe    : std_logic;
         signal clip_l          : std_logic;
         signal clip_r          : std_logic;
@@ -1934,12 +1963,24 @@ begin
         signal src_reset_n     : std_logic := '0';
     begin
 
+        -- TODO - speech should really be a 5th input to the resampler
+        -- with an L of 768, but with the current implemention
+        -- requires L * VOL to fit within 17 bits. As max VOL is 1023,
+        -- that limits max L to 128.
+        --
+        -- For now we'll just merge PSG and Speech together
+        -- first. This works acceptably because PSG sample rate is
+        -- 250KHz and Speech sample rate is 7.8125KHz, which is a
+        -- factor of 32 slower.
+        channel1 <= psg_audio_int + speech_audio_int when IncludeSpeech else
+                    psg_audio_int;
+
         -- Order: 3, 2, 1, 0
         channel_clken <= "1111";
         channel_load  <=  m5k_strobe_int & m5k_strobe_int & psg_strobe_int & sid_strobe_int;
 
         -- Order: 0, 1, 2, 3
-        channel_in    <= ( sid_audio_int, psg_audio_int, m5k_audio_l_int, m5k_audio_r_int );
+        channel_in    <= ( sid_audio_int, channel1, m5k_audio_l_int, m5k_audio_r_int);
 
         -- Generate reset pulse for a single cycle at the start of the
         -- power up reset period to mitigate a "pop" when the core

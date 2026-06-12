@@ -77,8 +77,8 @@ architecture RTL of TMS5220 is
 	type CH_ARRAY is array (0 to 51) of integer range     0 to  127; --  7 bits
 	type PI_ARRAY is array (0 to 63) of integer range     0 to  255; --  8 bits
 	type KV_ARRAY is array (0 to  9) of integer range  -512 to  511; -- 10 bits
-	type MU_ARRAY is array (0 to 10) of integer range -4096 to 4095; -- 13 bits
-	type MX_ARRAY is array (0 to  9) of integer range -4096 to 4095; -- 13 bits
+	type MU_ARRAY is array (0 to 10) of integer range -8192 to 8191; -- 14 bits
+	type MX_ARRAY is array (0 to  9) of integer range -8192 to 8191; -- 14 bits
 	type KT_ARRAY is array (0 to  9, 0 to 31) of integer range -512 to 511; -- 10 bits
 
 	constant FIFO_bits   : integer := 128; -- FIFO size in bits
@@ -608,38 +608,38 @@ begin
 				-- Parameter Count cycle B
 				case m_T is
 					when  1 =>
-						m_u(10) <= to_integer(shift_right(to_signed(m_previous_energy * m_excitation_data, 22), 3));
+						m_u(10) <= to_integer(shift_right(to_signed(m_previous_energy * m_excitation_data, 23), 3));
 					when  2 =>
-						m_u( 9) <= m_u(10) - to_integer(shift_right(to_signed(m_current_k( 9) * m_x( 9),   22), 9));
+						m_u( 9) <= m_u(10) - to_integer(shift_right(to_signed(m_current_k( 9) * m_x( 9),   23), 9));
 						m_previous_energy <= m_current_energy;
 					when  3 =>
-						m_u( 8) <= m_u( 9) - to_integer(shift_right(to_signed(m_current_k( 8) * m_x( 8),   22), 9));
+						m_u( 8) <= m_u( 9) - to_integer(shift_right(to_signed(m_current_k( 8) * m_x( 8),   23), 9));
 					when  4 =>
-						m_x( 9) <= m_x( 8) + to_integer(shift_right(to_signed(m_current_k( 8) * m_u( 8),   22), 9));
-						m_u( 7) <= m_u( 8) - to_integer(shift_right(to_signed(m_current_k( 7) * m_x( 7),   22), 9));
+						m_x( 9) <= m_x( 8) + to_integer(shift_right(to_signed(m_current_k( 8) * m_u( 8),   23), 9));
+						m_u( 7) <= m_u( 8) - to_integer(shift_right(to_signed(m_current_k( 7) * m_x( 7),   23), 9));
 					when  5 =>
-						m_x( 8) <= m_x( 7) + to_integer(shift_right(to_signed(m_current_k( 7) * m_u( 7),   22), 9));
-						m_u( 6) <= m_u( 7) - to_integer(shift_right(to_signed(m_current_k( 6) * m_x( 6),   22), 9));
+						m_x( 8) <= m_x( 7) + to_integer(shift_right(to_signed(m_current_k( 7) * m_u( 7),   23), 9));
+						m_u( 6) <= m_u( 7) - to_integer(shift_right(to_signed(m_current_k( 6) * m_x( 6),   23), 9));
 					when  6 =>
-						m_x( 7) <= m_x( 6) + to_integer(shift_right(to_signed(m_current_k( 6) * m_u( 6),   22), 9));
-						m_u( 5) <= m_u( 6) - to_integer(shift_right(to_signed(m_current_k( 5) * m_x( 5),   22), 9));
+						m_x( 7) <= m_x( 6) + to_integer(shift_right(to_signed(m_current_k( 6) * m_u( 6),   23), 9));
+						m_u( 5) <= m_u( 6) - to_integer(shift_right(to_signed(m_current_k( 5) * m_x( 5),   23), 9));
 					when  7 =>
-						m_x( 6) <= m_x( 5) + to_integer(shift_right(to_signed(m_current_k( 5) * m_u( 5),   22), 9));
-						m_u( 4) <= m_u( 5) - to_integer(shift_right(to_signed(m_current_k( 4) * m_x( 4),   22), 9));
+						m_x( 6) <= m_x( 5) + to_integer(shift_right(to_signed(m_current_k( 5) * m_u( 5),   23), 9));
+						m_u( 4) <= m_u( 5) - to_integer(shift_right(to_signed(m_current_k( 4) * m_x( 4),   23), 9));
 					when  8 =>
-						m_x( 5) <= m_x( 4) + to_integer(shift_right(to_signed(m_current_k( 4) * m_u( 4),   22), 9));
-						m_u( 3) <= m_u( 4) - to_integer(shift_right(to_signed(m_current_k( 3) * m_x( 3),   22), 9));
+						m_x( 5) <= m_x( 4) + to_integer(shift_right(to_signed(m_current_k( 4) * m_u( 4),   23), 9));
+						m_u( 3) <= m_u( 4) - to_integer(shift_right(to_signed(m_current_k( 3) * m_x( 3),   23), 9));
 					when  9 =>
-						m_x( 4) <= m_x( 3) + to_integer(shift_right(to_signed(m_current_k( 3) * m_u( 3),   22), 9));
-						m_u( 2) <= m_u( 3) - to_integer(shift_right(to_signed(m_current_k( 2) * m_x( 2),   22), 9));
+						m_x( 4) <= m_x( 3) + to_integer(shift_right(to_signed(m_current_k( 3) * m_u( 3),   23), 9));
+						m_u( 2) <= m_u( 3) - to_integer(shift_right(to_signed(m_current_k( 2) * m_x( 2),   23), 9));
 					when 10 =>
-						m_x( 3) <= m_x( 2) + to_integer(shift_right(to_signed(m_current_k( 2) * m_u( 2),   22), 9));
-						m_u( 1) <= m_u( 2) - to_integer(shift_right(to_signed(m_current_k( 1) * m_x( 1),   22), 9));
+						m_x( 3) <= m_x( 2) + to_integer(shift_right(to_signed(m_current_k( 2) * m_u( 2),   23), 9));
+						m_u( 1) <= m_u( 2) - to_integer(shift_right(to_signed(m_current_k( 1) * m_x( 1),   23), 9));
 					when 11 =>
-						m_x( 2) <= m_x( 1) + to_integer(shift_right(to_signed(m_current_k( 1) * m_u( 1),   22), 9));
-						m_u( 0) <= m_u( 1) - to_integer(shift_right(to_signed(m_current_k( 0) * m_x( 0),   22), 9));
+						m_x( 2) <= m_x( 1) + to_integer(shift_right(to_signed(m_current_k( 1) * m_u( 1),   23), 9));
+						m_u( 0) <= m_u( 1) - to_integer(shift_right(to_signed(m_current_k( 0) * m_x( 0),   23), 9));
 					when 12 =>
-						m_x( 1) <= m_x( 0) + to_integer(shift_right(to_signed(m_current_k( 0) * m_u( 0),   22), 9));
+						m_x( 1) <= m_x( 0) + to_integer(shift_right(to_signed(m_current_k( 0) * m_u( 0),   23), 9));
 						m_x( 0) <= m_u( 0);
 						this_sample <= m_u( 0);
 						O_STRB <= '1';

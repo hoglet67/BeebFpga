@@ -1895,10 +1895,10 @@ begin
         -- S  C1 C0 D6 D5 D4 D3 D2 D1 D0  X  X  X  X
 
         -- Clip according to the TMS5220 datasheet
-        --speech_audio_int <= "011111110000000000" when speech_ao(13) = '0' and (speech_ao(12) = '1' or speech_ao(11) = '1') else
-        --                    "100000000000000000" when speech_ao(13) = '1' and (speech_ao(12) = '0' or speech_ao(11) = '0') else
-        --                    speech_ao(13) & speech_ao(10 downto 4) & "0000000000";
-        speech_audio_int  <= speech_ao & "0000";
+        -- Also attenuate by 1 bits (-6db) to match PSG level
+        speech_audio_int <= "001111111111100000" when speech_ao(13) = '0' and (speech_ao(12) = '1' or speech_ao(11) = '1') else
+                            "110000000000000000" when speech_ao(13) = '1' and (speech_ao(12) = '0' or speech_ao(11) = '0') else
+                            speech_ao(11) & speech_ao(11 downto 0) & "00000";
         speech_strobe_int <= speech_strb and speech_clken;
     end generate;
 

@@ -454,7 +454,7 @@ begin
 				else
 					m_RDB_clr     <= '0';
 					m_irq_pin_clr <= '1';
-					m_DBO         <= (m_TALKD or m_SPEN) & m_buffer_low & m_buffer_empty & "00000"; -- read status
+					m_DBO         <= (m_TALKD or m_SPEN) & m_buffer_low & m_buffer_empty & "11111"; -- read status
 				end if;
 			end if;
 		end if;

@@ -192,6 +192,7 @@ architecture RTL of TMS5220 is
 		m_cycB,
 		m_inhibit,
 		m_io_ready,
+		m_io_stalled,
 		m_irq_pin,
 		m_irq_pin_clr,
 		m_new_frame_voiced,
@@ -353,14 +354,23 @@ begin
 			if (((m_RSn_last = '1') and (m_RSn = '0')) or ((m_WSn_last = '1') and (m_WSn = '0'))) then
 				m_io_ready <= '0';
 				rdyctr <= (others => '1');
+				-- DMB: Exend the cycle if there is < 8 bits free in the
+				-- fifo AND we are in speak external mode AND we are doing
+				-- a write.
+				if (m_DDIS = '1' and m_WSn = '0' and m_FIFO_ptr < 8) then
+					 m_io_stalled <= '1';
+				else
+					 m_io_stalled <= '0';
+				end if;
+			elsif (m_io_stalled = '1') then
+				m_io_ready <= '0';
+				-- DMB: Unstall the write when space becomes available
+				if m_FIFO_ptr >= 8 then
+					 m_io_stalled <= '0';
+				end if;
 			elsif (rdyctr > 0) then
 				m_io_ready <= '0';
 				rdyctr <= rdyctr - 1;
-			end if;
-			-- not ready if there is no space in the FIFO and we are in speak external mode
-			-- DMB: this affects reads as well, which it shouldn't....
-			if (m_FIFO_ptr < 8 and m_DDIS = '1') then
-				m_io_ready <= '0';
 			end if;
 		end if;
 	end process;

@@ -2917,7 +2917,7 @@ begin
         -- 1MHz. This is a bit of a hack, and might come back to bite
         -- us if other tests try to use a 2MHz teletext mode.
         --
-        mode <= mhz12_active and not crtc_2mhz_active;
+        mode <= mhz12_active and not (ttxt_active and crtc_2mhz_active);
 
         --   mode = 0: 16MHz
         --   mode = 1: 12MHz

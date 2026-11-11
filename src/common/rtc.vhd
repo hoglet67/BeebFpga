@@ -302,8 +302,9 @@ begin
         if rising_edge(clk) then
             if porta_we = '1' then
                 rtc_ram(to_integer(unsigned(porta_addr))) := porta_din;
+            else
+                porta_dout <= rtc_ram(to_integer(unsigned(porta_addr)));
             end if;
-            porta_dout <= rtc_ram(to_integer(unsigned(porta_addr)));
         end if;
     end process;
 
@@ -312,8 +313,9 @@ begin
         if rising_edge(clk) then
             if portb_we = '1' then
                 rtc_ram(to_integer(unsigned(portb_addr))) := portb_din;
+            else
+                portb_dout <= rtc_ram(to_integer(unsigned(portb_addr)));
             end if;
-            portb_dout <= rtc_ram(to_integer(unsigned(portb_addr)));
         end if;
     end process;
 
